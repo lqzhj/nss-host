@@ -1,6 +1,6 @@
 /* * Copyright (c) 2013 Qualcomm Atheros, Inc. * */
 
-/**
+/*
  * na_core.h
  *	NSS driver core header file.
  */
@@ -15,51 +15,58 @@
 #include <linux/interrupt.h>
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
+#include <linux/debugfs.h>
 
 #include "nss_hlos_if.h"
 #include "nss_api_if.h"
 
-/**
+/*
  * NSS debug macros
  */
-#if (CONFIG_NSS_DEBUG_LEVEL < 1)
+#if (NSS_DEBUG_LEVEL < 1)
 #define nss_assert(fmt, args...)
 #else
-#define nss_assert(c) if (!c) {	BUG_ON(!(c)); }
+#define nss_assert(c) if (!(c)) { BUG_ON(!(c)); }
 #endif
 
-#if (CONFIG_NSS_DEBUG_LEVEL < 2)
+#if (NSS_DEBUG_LEVEL < 2)
 #define nss_warning(fmt, args...)
 #else
 #define nss_warning(fmt, args...) printk(KERN_WARNING "nss:"fmt, ##args)
 #endif
 
-#if (CONFIG_NSS_DEBUG_LEVEL < 3)
+#if (NSS_DEBUG_LEVEL < 3)
 #define nss_info(fmt, args...)
 #else
 #define nss_info(fmt, args...) printk(KERN_INFO "nss:"fmt, ##args)
 #endif
 
-#if (CONFIG_NSS_DEBUG_LEVEL < 4)
+#if (NSS_DEBUG_LEVEL < 4)
 #define nss_trace(fmt, args...)
 #else
 #define nss_trace(fmt, args...) printk(KERN_DEBUG "nss:"fmt, ##args)
 #endif
 
-/**
+#if (NSS_PKT_STATS_ENABLED == 1)
+#define NSS_PKT_STATS_INCREMENT(nss_ctx, x) nss_pkt_stats_increment((nss_ctx), (x))
+#else
+#define NSS_PKT_STATS_INCREMENT(nss_ctx, x)
+#endif
+
+/*
  * NSS max values supported
  */
-#define NSS_MAX_CORES CONFIG_IPQ_NSS_MAX_CORES
-#define NSS_MAX_PHYSICAL_INTERFACES CONFIG_IPQ_NSS_MAX_PHYSICAL_INTERFACES
-#define NSS_MAX_VIRTUAL_INTERFACES CONFIG_IPQ_NSS_MAX_VIRTUAL_INTERFACES
+#define NSS_MAX_CORES 2
+#define NSS_MAX_PHYSICAL_INTERFACES 4
+#define NSS_MAX_VIRTUAL_INTERFACES 8
 #define NSS_MAX_NET_INTERFACES (NSS_MAX_PHYSICAL_INTERFACES + NSS_MAX_VIRTUAL_INTERFACES)
 
-/**
+/*
  * Default payload size for NSS buffers
  */
-#define NSS_NBUF_PAYLOAD_SIZE CONFIG_IPQ_NSS_EMPTY_BUFFER_SIZE
+#define NSS_NBUF_PAYLOAD_SIZE NSS_EMPTY_BUFFER_SIZE
 
-/**
+/*
  * N2H/H2N Queue IDs
  */
 #define NSS_IF_EMPTY_BUFFER_QUEUE 0
@@ -67,31 +74,31 @@
 #define NSS_IF_CMD_QUEUE 1
 
 
-/**
+/*
  * NSS Interrupt Causes
  */
 #define NSS_INTR_CAUSE_INVALID 0
 #define NSS_INTR_CAUSE_QUEUE 1
 #define NSS_INTR_CAUSE_NON_QUEUE 2
 
-/**
+/*
  * NSS Core Status
  */
 #define NSS_CORE_STATUS_SUCCESS 0
 #define NSS_CORE_STATUS_FAILURE 1
 #define NSS_CORE_STATUS_FAILURE_QUEUE 2
 
-/**
+/*
  * NSS context magic
  */
 #define NSS_CTX_MAGIC 0xDEDEDEDE
 
-/**
+/*
  * NSS maximum clients
  */
 #define NSS_MAX_CLIENTS 12
 
-/**
+/*
  * Interrupt cause processing weights
  */
 #define NSS_EMPTY_BUFFER_SOS_PROCESSING_WEIGHT 64
@@ -99,204 +106,260 @@
 #define NSS_EMPTY_BUFFER_RETURN_PROCESSING_WEIGHT 64
 #define NSS_TX_UNBLOCKED_PROCESSING_WEIGHT 1
 
-/**
+/*
  * Statistics struct
  *
  * INFO: These numbers are based on previous generation chip
  * 	These may change in future
  */
-#define NSS_IPV4_CONNECTION_ENTRIES 256
-#define NSS_IPV6_CONNECTION_ENTRIES 256
-#define NSS_L2SWITCH_CONNECTION_ENTRIES 64
 #define NSS_PPPOE_NUM_SESSION_PER_INTERFACE 8
 					/* Number of maximum simultaneous PPPoE sessions per physical interface */
 #define NSS_PPPOE_NUM_SESSION_TOTAL (NSS_MAX_PHYSICAL_INTERFACES * NSS_PPPOE_NUM_SESSION_PER_INTERFACE)
 					/* Number of total PPPoE sessions */
 
-
-struct nss_ipv4_statistics {
-	uint8_t protocol;			/* Protocol number */
-	int32_t flow_interface;			/* Flow interface number */
-	uint32_t flow_mtu;			/* MTU of flow interface */
-	uint32_t flow_ip;			/* Flow IP address */
-	uint32_t flow_ip_xlate;			/* Flow IP address after NAT translation */
-	uint32_t flow_ident;			/* Flow ident (e.g. port) */
-	uint32_t flow_ident_xlate;		/* Flow ident (e.g. port) after NAT translation */
-	uint16_t flow_pppoe_session_id;		/* Flow direction`s PPPoE session ID. */
-	uint16_t flow_pppoe_remote_mac[3];	/* Flow direction`s PPPoE Server MAC address */
-	uint64_t flow_accelerated_rx_packets;
-						/* Number of flow interface RX packets accelerated */
-	uint64_t flow_accelerated_rx_bytes;
-						/* Number of flow interface RX bytes accelerated */
-	uint64_t flow_accelerated_tx_packets;
-						/* Number of flow interface TX packets accelerated */
-	uint64_t flow_accelerated_tx_bytes;
-						/* Number of flow interface TX bytes accelerated */
-	int32_t return_interface;		/* Return interface number */
-	uint32_t return_mtu;			/* MTU of return interface */
-	uint32_t return_ip;			/* Return IP address */
-	uint32_t return_ip_xlate;		/* Return IP address after NAT translation */
-	uint32_t return_ident;			/* Return ident (e.g. port) */
-	uint32_t return_ident_xlate;		/* Return ident (e.g. port) after NAT translation */
-	uint16_t return_pppoe_session_id;	/* Return direction's PPPoE session ID. */
-	uint16_t return_pppoe_remote_mac[3];	/* Return direction's PPPoE Server MAC address */
-	uint64_t return_accelerated_rx_packets;
-						/* Number of return interface RX packets accelerated */
-	uint64_t return_accelerated_rx_bytes;
-						/* Number of return interface RX bytes accelerated */
-	uint64_t return_accelerated_tx_packets;
-						/* Number of return interface TX packets accelerated */
-	uint64_t return_accelerated_tx_bytes;
-						/* Number of return interface TX bytes accelerated */
-	uint64_t last_sync;			/* Last sync time as jiffies */
-};
-
-struct nss_ipv6_statistics {
-	uint8_t protocol;			/* Protocol number */
-	int32_t flow_interface;			/* Flow interface number */
-	uint32_t flow_mtu;			/* MTU of flow interface */
-	uint32_t flow_ip[4];			/* Flow IP address */
-	uint32_t flow_ident;			/* Flow ident (e.g. port) */
-	uint16_t flow_pppoe_session_id;		/* Flow direction`s PPPoE session ID. */
-	uint16_t flow_pppoe_remote_mac[3];	/* Flow direction`s PPPoE Server MAC address */
-	uint64_t flow_accelerated_rx_packets;
-						/* Number of flow interface RX packets accelerated */
-	uint64_t flow_accelerated_rx_bytes;
-						/* Number of flow interface RX bytes accelerated */
-	uint64_t flow_accelerated_tx_packets;
-						/* Number of flow interface TX packets accelerated */
-	uint64_t flow_accelerated_tx_bytes;
-						/* Number of flow interface TX bytes accelerated */
-	uint32_t return_ip[4];			/* Return IP address */
-	uint32_t return_ident;			/* Return ident (e.g. port) */
-	int32_t return_interface;		/* Return interface number */
-	uint32_t return_mtu;			/* MTU of return interface */
-	uint16_t return_pppoe_session_id;	/* Return direction's PPPoE session ID. */
-	uint16_t return_pppoe_remote_mac[3];	/* Return direction's PPPoE Server MAC address */
-	uint64_t return_accelerated_rx_packets;
-						/* Number of return interface RX packets accelerated */
-	uint64_t return_accelerated_rx_bytes;
-						/* Number of return interface RX bytes accelerated */
-	uint64_t return_accelerated_tx_packets;
-						/* Number of return interface TX packets accelerated */
-	uint64_t return_accelerated_tx_bytes;
-						/* Number of return interface TX bytes accelerated */
-	uint64_t last_sync;			/* Last sync time as jiffies */
-};
-
-struct nss_l2switch_statistics {
-	int32_t interface_num;		/* Linux net device structure */
-	uint32_t rx_packet_count;	/* Number of packets RX'd */
-	uint32_t rx_byte_count;		/* Number of bytes RX'd */
-	uint64_t last_sync;		/* Last sync time as jiffies */
-	uint16_t addr[3];		/* MAC Adress */
-};
-
-struct nss_gmac_statistics {
-	uint64_t rx_bytes;		/* Number of RX bytes */
-	uint64_t rx_packets;		/* Number of RX packets */
-	uint64_t rx_errors;		/* Number of RX errors */
-	uint64_t rx_receive_errors;	/* Number of RX receive errors */
-	uint64_t rx_overflow_errors;	/* Number of RX overflow errors */
-	uint64_t rx_descriptor_errors;	/* Number of RX descriptor errors */
-	uint64_t rx_watchdog_timeout_errors;
-					/* Number of RX watchdog timeout errors */
-	uint64_t rx_crc_errors;		/* Number of RX CRC errors */
-	uint64_t rx_late_collision_errors;
-					/* Number of RX late collision errors */
-	uint64_t rx_dribble_bit_errors;	/* Number of RX dribble bit errors */
-	uint64_t rx_length_errors;	/* Number of RX length errors */
-	uint64_t rx_ip_header_errors;	/* Number of RX IP header errors */
-	uint64_t rx_ip_payload_errors;	/* Number of RX IP payload errors */
-	uint64_t rx_no_buffer_errors;	/* Number of RX no-buffer errors */
-	uint64_t rx_transport_csum_bypassed;
-					/* Number of RX packets where the transport checksum was bypassed */
-	uint64_t tx_bytes;		/* Number of TX bytes */
-	uint64_t tx_packets;		/* Number of TX packets */
-	uint64_t tx_collisions;		/* Number of TX collisions */
-	uint64_t tx_errors;		/* Number of TX errors */
-	uint64_t tx_jabber_timeout_errors;
-					/* Number of TX jabber timeout errors */
-	uint64_t tx_frame_flushed_errors;
-					/* Number of TX frame flushed errors */
-	uint64_t tx_loss_of_carrier_errors;
-					/* Number of TX loss of carrier errors */
-	uint64_t tx_no_carrier_errors;	/* Number of TX no carrier errors */
-	uint64_t tx_late_collision_errors;
-					/* Number of TX late collision errors */
-	uint64_t tx_excessive_collision_errors;
-					/* Number of TX excessive collision errors */
-	uint64_t tx_excessive_deferral_errors;
-					/* Number of TX excessive deferral errors */
-	uint64_t tx_underflow_errors;	/* Number of TX underflow errors */
-	uint64_t tx_ip_header_errors;	/* Number of TX IP header errors */
-	uint64_t tx_ip_payload_errors;	/* Number of TX IP payload errors */
-	uint64_t tx_dropped;		/* Number of TX dropped packets */
-	uint64_t hw_errs[10];		/* GMAC DMA error counters */
-	uint64_t rx_missed;		/* Number of RX packets missed by the DMA */
-	uint64_t fifo_overflows;	/* Number of RX FIFO overflows signalled by the DMA */
-	uint64_t gmac_total_ticks;	/* Total clock ticks spend inside the GMAC */
-	uint32_t gmac_worst_case_ticks;	/* Worst case iteration of the GMAC in ticks */
-	uint64_t gmac_iterations;	/* Number of iterations around the GMAC */
-};
-
-struct nss_pppoe_statistics {
-	struct nss_pppoe_statistics *next;
-					/* Next statistic structure */
-	uint16_t pppoe_session_id;	/* PPPoE session ID on which statistics based */
-	uint8_t pppoe_remote_mac[ETH_ALEN];
-					/* PPPoE server MAC address */
-	uint64_t ipv4_accelerated_rx_packets;
-					/* Number of IPv4 RX packets accelerated */
-	uint64_t ipv4_accelerated_rx_bytes;
-					/* Number of IPv4 RX bytes accelerated */
-	uint64_t ipv4_accelerated_tx_packets;
-					/* Number of IPv4 TX packets accelerated */
-	uint64_t ipv4_accelerated_tx_bytes;
-					/* Number of IPv4 TX bytes accelerated */
-	uint64_t ipv6_accelerated_rx_packets;
-					/* Number of IPv6 RX packets accelerated */
-	uint64_t ipv6_accelerated_rx_bytes;
-					/* Number of IPv6 RX packets accelerated */
-	uint64_t ipv6_accelerated_tx_packets;
-					/* Number of IPv6 TX packets accelerated */
-	uint64_t ipv6_accelerated_tx_bytes;
-					/* Number of IPv6 TX bytes accelerated */
-	uint64_t exception_events[NSS_EXCEPTION_EVENT_PPPOE_LAST];
-					/* Exception events based on this PPPoE session */
-};
-
-struct nss_private {
-	struct nss_ctx_instance *nss_ctx;
-	uint32_t magic;			/* Used to confirm this private area is an NA private area */
-	uint32_t status;
-	int32_t interface_num;		/* Interface number */
-	uint64_t host_rx_packets;	/* Number of RX packets received by host OS */
-	uint64_t host_rx_bytes;		/* Number of RX bytes received by host OS */
-	uint64_t host_tx_packets;	/* Number of TX packets sent by host OS */
-	uint64_t host_tx_bytes;		/* Number of TX bytes sent by host OS */
-	uint64_t ipv4_accelerated_rx_packets;
+/*
+ * IPV4 node statistics
+ *
+ * WARNING: There is a 1:1 mapping between values below and corresponding
+ *	stats string array in nss_stats.c
+ */
+enum nss_stats_ipv4 {
+	NSS_STATS_IPV4_ACCELERATED_RX_PKTS = 0,
 					/* Accelerated IPv4 RX packets */
-	uint64_t ipv4_accelerated_rx_bytes;
+	NSS_STATS_IPV4_ACCELERATED_RX_BYTES,
 					/* Accelerated IPv4 RX bytes */
-	uint64_t ipv4_accelerated_tx_packets;
+	NSS_STATS_IPV4_ACCELERATED_TX_PKTS,
 					/* Accelerated IPv4 TX packets */
-	uint64_t ipv4_accelerated_tx_bytes;
+	NSS_STATS_IPV4_ACCELERATED_TX_BYTES,
 					/* Accelerated IPv4 TX bytes */
-	uint64_t ipv6_accelerated_rx_packets;
+	NSS_STATS_IPV4_CONNECTION_CREATE_REQUESTS,
+					/* Number of IPv4 connection create requests */
+	NSS_STATS_IPV4_CONNECTION_CREATE_COLLISIONS,
+					/* Number of IPv4 connection create requests that collided with existing entries */
+	NSS_STATS_IPV4_CONNECTION_CREATE_INVALID_INTERFACE,
+					/* Number of IPv4 connection create requests that had invalid interface */
+	NSS_STATS_IPV4_CONNECTION_DESTROY_REQUESTS,
+					/* Number of IPv4 connection destroy requests */
+	NSS_STATS_IPV4_CONNECTION_DESTROY_MISSES,
+					/* Number of IPv4 connection destroy requests that missed the cache */
+	NSS_STATS_IPV4_CONNECTION_HASH_HITS,
+					/* Number of IPv4 connection hash hits */
+	NSS_STATS_IPV4_CONNECTION_HASH_REORDERS,
+					/* Number of IPv4 connection hash reorders */
+	NSS_STATS_IPV4_CONNECTION_FLUSHES,
+					/* Number of IPv4 connection flushes */
+	NSS_STATS_IPV4_CONNECTION_EVICTIONS,
+					/* Number of IPv4 connection evictions */
+	NSS_STATS_IPV4_MAX,
+};
+
+/*
+ * IPV6 node statistics
+ *
+ * WARNING: There is a 1:1 mapping between values below and corresponding
+ *	stats string array in nss_stats.c
+ */
+enum nss_stats_ipv6 {
+	NSS_STATS_IPV6_ACCELERATED_RX_PKTS = 0,
 					/* Accelerated IPv6 RX packets */
-	uint64_t ipv6_accelerated_rx_bytes;
+	NSS_STATS_IPV6_ACCELERATED_RX_BYTES,
 					/* Accelerated IPv6 RX bytes */
-	uint64_t ipv6_accelerated_tx_packets;
+	NSS_STATS_IPV6_ACCELERATED_TX_PKTS,
 					/* Accelerated IPv6 TX packets */
-	uint64_t ipv6_accelerated_tx_bytes;
+	NSS_STATS_IPV6_ACCELERATED_TX_BYTES,
 					/* Accelerated IPv6 TX bytes */
-	uint64_t exception_events_unknown[NSS_EXCEPTION_EVENT_UNKNOWN_LAST];
-					/* Unknown protocol exception events */
-	uint64_t exception_events_ipv4[NSS_EXCEPTION_EVENT_IPV4_LAST];
-					/* IPv4 protocol exception events */
-	uint64_t exception_events_ipv6[NSS_EXCEPTION_EVENT_IPV6_LAST];
-					/* IPv6 protocol exception events */
+	NSS_STATS_IPV6_CONNECTION_CREATE_REQUESTS,
+					/* Number of IPv6 connection create requests */
+	NSS_STATS_IPV6_CONNECTION_CREATE_COLLISIONS,
+					/* Number of IPv6 connection create requests that collided with existing entries */
+	NSS_STATS_IPV6_CONNECTION_CREATE_INVALID_INTERFACE,
+					/* Number of IPv6 connection create requests that had invalid interface */
+	NSS_STATS_IPV6_CONNECTION_DESTROY_REQUESTS,
+					/* Number of IPv6 connection destroy requests */
+	NSS_STATS_IPV6_CONNECTION_DESTROY_MISSES,
+					/* Number of IPv6 connection destroy requests that missed the cache */
+	NSS_STATS_IPV6_CONNECTION_HASH_HITS,
+					/* Number of IPv6 connection hash hits */
+	NSS_STATS_IPV6_CONNECTION_HASH_REORDERS,
+					/* Number of IPv6 connection hash reorders */
+	NSS_STATS_IPV6_CONNECTION_FLUSHES,
+					/* Number of IPv6 connection flushes */
+	NSS_STATS_IPV6_CONNECTION_EVICTIONS,
+					/* Number of IPv6 connection evictions */
+	NSS_STATS_IPV6_MAX,
+};
+
+/*
+ * Pbuf node statistics
+ *
+ * WARNING: There is a 1:1 mapping between values below and corresponding
+ *	stats string array in nss_stats.c
+ */
+enum nss_stats_pbuf {
+	NSS_STATS_PBUF_ALLOC_FAILS = 0,	/* Number of pbuf allocations that have failed */
+	NSS_STATS_PBUF_PAYLOAD_ALLOC_FAILS,
+					/* Number of pbuf allocations that have failed because there were no free payloads */
+	NSS_STATS_PBUF_MAX,
+};
+
+/*
+ * N2H node statistics
+ *
+ * WARNING: There is a 1:1 mapping between values below and corresponding
+ *	stats string array in nss_stats.c
+ */
+enum nss_stats_n2h {
+	NSS_STATS_N2H_QUEUE_DROPPED = 0,
+					/* Number of packets dropped because the exception queue is too full */
+	NSS_STATS_N2H_TOTAL_TICKS,	/* Total clock ticks spend inside the N2H */
+	NSS_STATS_N2H_WORST_CASE_TICKS,	/* Worst case iteration of the exception path in ticks */
+	NSS_STATS_N2H_ITERATIONS,	/* Number of iterations around the N2H */
+	NSS_STATS_N2H_MAX,
+};
+
+/*
+ * HLOS driver statistics
+ *
+ * WARNING: There is a 1:1 mapping between values below and corresponding
+ *	stats string array in nss_stats.c
+ */
+enum nss_stats_drv {
+	NSS_STATS_DRV_NBUF_ALLOC_FAILS = 0,	/* NBUF allocation errors */
+	NSS_STATS_DRV_TX_QUEUE_FULL_0,	/* Tx queue full for Core 0*/
+	NSS_STATS_DRV_TX_QUEUE_FULL_1,	/* Tx queue full for Core 1*/
+	NSS_STATS_DRV_TX_EMPTY,		/* H2N Empty buffers */
+	NSS_STATS_DRV_TX_PACKET,	/* H2N Data packets */
+	NSS_STATS_DRV_TX_CMD_REQ,	/* H2N Control packets */
+	NSS_STATS_DRV_TX_CRYPTO_REQ,	/* H2N Crypto requests */
+	NSS_STATS_DRV_RX_EMPTY,		/* N2H Empty buffers */
+	NSS_STATS_DRV_RX_PACKET,	/* N2H Data packets */
+	NSS_STATS_DRV_RX_CMD_RESP,	/* N2H Command responses */
+	NSS_STATS_DRV_RX_STATUS,	/* N2H Status packets */
+	NSS_STATS_DRV_RX_CRYPTO_RESP,	/* N2H Crypto responses */
+	NSS_STATS_DRV_RX_VIRTUAL,	/* N2H Virtual packets */
+	NSS_STATS_DRV_MAX,
+};
+
+/*
+ * Eth bridge statistics
+ *
+ * WARNING: There is a 1:1 mapping between values below and corresponding
+ *	stats string array in nss_stats.c
+ */
+enum nss_stats_ethbr {
+	NSS_STATS_ETHBR_RX_PKT_COUNT = 0,
+					/* Number of packets RX'd */
+	NSS_STATS_ETHBR_RX_BYTE_COUNT,	/* Number of bytes RX'd */
+	NSS_STATS_ETHBR_VIRT_RX_PKT_COUNT,
+					/* Number of packets RX'd from virtual hosts */
+	NSS_STATS_ETHBR_VIRT_RX_BYTE_COUNT,
+					/* Number of bytes RX'd from virtual hosts */
+	NSS_STATS_ETHBR_PHYS_RX_PKT_COUNT,
+					/* Number of packets RX'd from physical hosts */
+	NSS_STATS_ETHBR_PHYS_RX_BYTE_COUNT,
+					/* Number of bytes RX'd from physical hosts */
+	NSS_STATS_ETHBR_CREATE_REQUESTS,
+					/* Number of l2 switch entry create requests */
+	NSS_STATS_ETHBR_CREATE_COLLISIONS,
+					/* Number of l2 switch entry create requests that collided with existing entries */
+	NSS_STATS_ETHBR_CREATE_INVALID_INTERFACE,
+					/* Number of l2 switch entry create requests that had invalid interface */
+	NSS_STATS_ETHBR_DESTROY_REQUESTS,
+					/* Number of l2 switch entry destroy requests */
+	NSS_STATS_ETHBR_DESTROY_MISSES,	/* Number of l2 switch entry destroy requests that missed the cache */
+	NSS_STATS_ETHBR_HASH_HITS,	/* Number of l2 switch entry hash hits */
+	NSS_STATS_ETHBR_HASH_REORDERS,	/* Number of l2 switch entry hash reorders */
+	NSS_STATS_ETHBR_FLUSHES,	/* Number of l2 switch entry flushes */
+	NSS_STATS_ETHBR_EVICTIONS,	/* Number of l2 switch entry evictions */
+	NSS_STATS_ETHBR_QUEUE_DROPPED,	/* Number of packets dropped because the L2 switch queue is too full */
+	NSS_STATS_ETHBR_TOTAL_TICKS,	/* Total clock ticks spend inside the L2 switch */
+	NSS_STATS_ETHBR_WORST_CASE_TICKS,
+					/* Worst case iteration of the L2 switch in ticks */
+	NSS_STATS_ETHBR_ITERATIONS,	/* Number of iterations around the L2 switch */
+	NSS_STATS_ETHBR_MAX,
+};
+
+/*
+ * PPPoE statistics
+ *
+ * WARNING: There is a 1:1 mapping between values below and corresponding
+ *	stats string array in nss_stats.c
+ */
+enum nss_stats_pppoe {
+	NSS_STATS_PPPOE_SESSION_CREATE_REQUESTS = 0,
+					/* Number of PPPoE session create requests */
+	NSS_STATS_PPPOE_SESSION_CREATE_FAILURES,
+					/* Number of PPPoE session create failures */
+	NSS_STATS_PPPOE_SESSION_DESTROY_REQUESTS,
+					/* Number of PPPoE session destroy requests */
+	NSS_STATS_PPPOE_SESSION_DESTROY_MISSES,
+					/* Number of PPPoE session destroy requests that missed the cache */
+	NSS_STATS_PPPOE_MAX,
+};
+
+/*
+ * GMAC node statistics
+ *
+ * WARNING: There is a 1:1 mapping between values below and corresponding
+ *	stats string array in nss_stats.c
+ */
+enum nss_stats_gmac {
+	NSS_STATS_GMAC_TOTAL_TICKS = 0,
+					/* Total clock ticks spend inside the GMAC */
+	NSS_STATS_GMAC_WORST_CASE_TICKS,
+					/* Worst case iteration of the GMAC in ticks */
+	NSS_STATS_GMAC_ITERATIONS,	/* Number of iterations around the GMAC */
+	NSS_STATS_GMAC_MAX,
+};
+
+/*
+ * Interface host statistics
+ *
+ * WARNING: There is a 1:1 mapping between values below and corresponding
+ *	stats string array in nss_stats.c
+ */
+enum nss_stats_if_host {
+	NSS_STATS_IF_HOST_RX_PKTS = 0,	/* Number of RX packets received by host OS */
+	NSS_STATS_IF_HOST_RX_BYTES,	/* Number of RX bytes received by host OS */
+	NSS_STATS_IF_HOST_TX_PKTS,	/* Number of TX packets sent by host OS */
+	NSS_STATS_IF_HOST_TX_BYTES,	/* Number of TX bytes sent by host OS */
+	NSS_STATS_IF_HOST_MAX,
+};
+
+/*
+ * Interface IPv4 statistics
+ *
+ * WARNING: There is a 1:1 mapping between values below and corresponding
+ *	stats string array in nss_stats.c
+ */
+enum nss_stats_if_ipv4 {
+	NSS_STATS_IF_IPV4_ACCELERATED_RX_PKTS,
+					/* Accelerated IPv4 RX packets */
+	NSS_STATS_IF_IPV4_ACCELERATED_RX_BYTES,
+					/* Accelerated IPv4 RX bytes */
+	NSS_STATS_IF_IPV4_ACCELERATED_TX_PKTS,
+					/* Accelerated IPv4 TX packets */
+	NSS_STATS_IF_IPV4_ACCELERATED_TX_BYTES,
+					/* Accelerated IPv4 TX bytes */
+	NSS_STATS_IF_IPV4_MAX,
+};
+
+/*
+ * Interface IPv6 statistics
+ *
+ * WARNING: There is a 1:1 mapping between values below and corresponding
+ *	stats string array in nss_stats.c
+ */
+enum nss_stats_if_ipv6 {
+	NSS_STATS_IF_IPV6_ACCELERATED_RX_PKTS,
+					/* Accelerated IPv6 RX packets */
+	NSS_STATS_IF_IPV6_ACCELERATED_RX_BYTES,
+					/* Accelerated IPv6 RX bytes */
+	NSS_STATS_IF_IPV6_ACCELERATED_TX_PKTS,
+					/* Accelerated IPv6 TX packets */
+	NSS_STATS_IF_IPV6_ACCELERATED_TX_BYTES,
+					/* Accelerated IPv6 TX bytes */
+	NSS_STATS_IF_IPV6_MAX,
 };
 
 /*
@@ -350,6 +413,7 @@ struct nss_ctx_instance {
 	uint32_t vmap;			/* Virt mem pointer to virtual register map */
 	uint32_t nphys;			/* Phys mem pointer to CSM register map */
 	uint32_t vphys;			/* Phys mem pointer to virtual register map */
+	uint32_t load;			/* Load address for this core */
 	enum nss_core_state state;	/* State of NSS core */
 	uint32_t c2c_start;		/* C2C start address */
 	struct int_ctx_instance int_ctx[2];
@@ -374,11 +438,22 @@ struct nss_ctx_instance {
 struct nss_top_instance {
 	uint8_t num_nss;		/* Number of NSS cores supported */
 	uint8_t num_phys_ports;		/* Number of physical ports supported */
+	uint32_t clk_src;		/* Clock source: default/alternate */
 	spinlock_t lock;		/* Big lock for NSS driver */
 	spinlock_t stats_lock;		/* Statistics lock */
+	struct dentry *top_dentry;	/* Top dentry for nss */
+	struct dentry *stats_dentry;	/* Top dentry for nss stats */
+	struct dentry *ipv4_dentry;	/* IPv4 stats dentry */
+	struct dentry *ipv6_dentry;	/* IPv6 stats dentry */
+	struct dentry *pbuf_dentry;	/* Pbuf stats dentry */
+	struct dentry *n2h_dentry;	/* N2H stats dentry */
+	struct dentry *drv_dentry;	/* HLOS driver stats dentry */
+	struct dentry *ethbr_dentry;	/* ETH_BR stats dentry */
+	struct dentry *pppoe_dentry;	/* PPPOE stats dentry */
+	struct dentry *gmac_dentry;	/* GMAC ethnode stats dentry */
+	struct dentry *if_dentry;	/* Interface pnode stats dentry */
 	struct nss_ctx_instance nss[NSS_MAX_CORES];
 					/* NSS contexts */
-
 	/*
 	 * Network processing handler core ids (CORE0/CORE1)
 	 */
@@ -389,156 +464,100 @@ struct nss_top_instance {
 	uint8_t ipsec_handler_id;
 	uint8_t wlan_handler_id;
 	uint8_t phys_if_handler_id[4];
-	nss_ipv4_sync_callback_t ipv4_sync;
-					/* IPv4 sync callback function */
-	nss_ipv6_sync_callback_t ipv6_sync;
-					/* IPv6 sync callback function */
+	nss_ipv4_callback_t ipv4_callback;
+					/* IPv4 sync/establish callback function */
+	nss_ipv6_callback_t ipv6_callback;
+					/* IPv6 sync/establish callback function */
 	nss_l2switch_sync_callback_t l2switch_sync;
 					/* L2switch sync callback function */
 	nss_connection_expire_all_callback_t conn_expire;
 					/* Connection all expire callback function */
 	nss_crypto_callback_t crypto_callback;
 					/* crypto interface callback function */
-	nss_phys_if_rx_callback_t phys_if_rx_callback[NSS_MAX_PHYSICAL_INTERFACES];
+	nss_phys_if_rx_callback_t if_rx_callback[NSS_MAX_NET_INTERFACES];
 					/* Physical interface packet callback functions */
 	nss_phys_if_event_callback_t phys_if_event_callback[NSS_MAX_PHYSICAL_INTERFACES];
 					/* Physical interface event callback functions */
 	nss_profiler_callback_t profiler_callback[NSS_MAX_CORES];
 					/* Profiler interface callback function */
 	void *crypto_ctx;		/* Crypto interface context */
-	void *phys_if_ctx[NSS_MAX_PHYSICAL_INTERFACES];
-					/* Physical interface context */
+	void *if_ctx[NSS_MAX_NET_INTERFACES];
+					/* Phys/Virt interface context */
 	void *profiler_ctx[NSS_MAX_CORES];
 					/* Profiler interface context */
-	uint64_t nbuf_alloc_err;	/* NBUF allocation errors */
-	bool napi_active;		/* Flag indicating if NAPI is currently active or not */
-	bool netdevice_notifier;	/* Flag indicating if netdevice notifier is registered */
-	uint32_t cache_dev_major;	/* Major number of char device */
-	uint64_t last_rx_jiffies;	/* Time of the last RX message from the NA in jiffies */
-	uint64_t ipv4_accelerated_rx_packets;
-					/* Accelerated IPv4 RX packets */
-	uint64_t ipv4_accelerated_rx_bytes;
-					/* Accelerated IPv4 RX bytes */
-	uint64_t ipv4_accelerated_tx_packets;
-					/* Accelerated IPv4 TX packets */
-	uint64_t ipv4_accelerated_tx_bytes;
-					/* Accelerated IPv4 TX bytes */
-	uint64_t ipv4_connection_create_requests;
-					/* Number of IPv4 connection create requests */
-	uint64_t ipv4_connection_create_collisions;
-					/* Number of IPv4 connection create requests that collided with existing entries */
-	uint64_t ipv4_connection_create_invalid_interface;
-					/* Number of IPv4 connection create requests that had invalid interface */
-	uint64_t ipv4_connection_destroy_requests;
-					/* Number of IPv4 connection destroy requests */
-	uint64_t ipv4_connection_destroy_misses;
-					/* Number of IPv4 connection destroy requests that missed the cache */
-	uint64_t ipv4_connection_hash_hits;
-					/* Number of IPv4 connection hash hits */
-	uint64_t ipv4_connection_hash_reorders;
-					/* Number of IPv4 connection hash reorders */
-	uint64_t ipv4_connection_flushes;
-					/* Number of IPv4 connection flushes */
-	uint64_t ipv4_connection_evictions;
-					/* Number of IPv4 connection evictions */
-	uint64_t ipv6_accelerated_rx_packets;
-					/* Accelerated IPv6 RX packets */
-	uint64_t ipv6_accelerated_rx_bytes;
-					/* Accelerated IPv6 RX bytes */
-	uint64_t ipv6_accelerated_tx_packets;
-					/* Accelerated IPv6 TX packets */
-	uint64_t ipv6_accelerated_tx_bytes;
-					/* Accelerated IPv6 TX bytes */
-	uint64_t ipv6_connection_create_requests;
-					/* Number of IPv6 connection create requests */
-	uint64_t ipv6_connection_create_collisions;
-					/* Number of IPv6 connection create requests that collided with existing entries */
-	uint64_t ipv6_connection_create_invalid_interface;
-					/* Number of IPv6 connection create requests that had invalid interface */
-	uint64_t ipv6_connection_destroy_requests;
-					/* Number of IPv6 connection destroy requests */
-	uint64_t ipv6_connection_destroy_misses;
-					/* Number of IPv6 connection destroy requests that missed the cache */
-	uint64_t ipv6_connection_hash_hits;
-					/* Number of IPv6 connection hash hits */
-	uint64_t ipv6_connection_hash_reorders;
-					/* Number of IPv6 connection hash reorders */
-	uint64_t ipv6_connection_flushes;
-					/* Number of IPv6 connection flushes */
-	uint64_t ipv6_connection_evictions;
-					/* Number of IPv6 connection evictions */
-	uint32_t l2switch_rx_packet_count;
-					/* Number of packets RX'd */
-	uint32_t l2switch_rx_byte_count;
-					/* Number of bytes RX'd */
-	uint32_t l2switch_virtual_rx_packet_count;
-					/* Number of packets RX'd from virtual hosts */
-	uint32_t l2switch_virtual_rx_byte_count;
-					/* Number of bytes RX'd from virtual hosts */
-	uint32_t l2switch_physical_rx_packet_count;
-					/* Number of packets RX'd from physical hosts */
-	uint32_t l2switch_physical_rx_byte_count;
-					/* Number of bytes RX'd from physical hosts */
-	uint32_t l2switch_create_requests;
-					/* Number of l2 switch entry create requests */
-	uint32_t l2switch_create_collisions;
-					/* Number of l2 switch entry create requests that collided with existing entries */
-	uint32_t l2switch_create_invalid_interface;
-					/* Number of l2 switch entry create requests that had invalid interface */
-	uint32_t l2switch_destroy_requests;
-					/* Number of l2 switch entry destroy requests */
-	uint32_t l2switch_destroy_misses;
-					/* Number of l2 switch entry destroy requests that missed the cache */
-	uint32_t l2switch_hash_hits;
-					/* Number of l2 switch entry hash hits */
-	uint32_t l2switch_hash_reorders;
-					/* Number of l2 switch entry hash reorders */
-	uint32_t l2switch_flushes;
-					/* Number of l2 switch entry flushes */
-	uint64_t l2switch_evictions;
-					/* Number of l2 switch entry evictions */
-	uint32_t pppoe_session_create_requests;
-					/* Number of PPPoE session create requests */
-	uint32_t pppoe_session_create_failures;
-					/* Number of PPPoE session create failures */
-	uint32_t pppoe_session_destroy_requests;
-					/* Number of PPPoE session destroy requests */
-	uint32_t pppoe_session_destroy_misses;
-					/* Number of PPPoE session destroy requests that missed the cache */
+	uint64_t stats_ipv4[NSS_STATS_IPV4_MAX];
+					/* IPv4 statistics */
+	uint64_t stats_ipv6[NSS_STATS_IPV6_MAX];
+					/* IPv6 statistics */
+	uint64_t stats_pbuf[NSS_STATS_PBUF_MAX];
+					/* Pbuf manager statistics */
+	uint64_t stats_n2h[NSS_STATS_N2H_MAX];
+					/* N2H statistics */
+	uint64_t stats_drv[NSS_STATS_DRV_MAX];
+					/* Hlos driver statistics */
+	uint64_t stats_ethbr[NSS_STATS_ETHBR_MAX];
+					/* Eth bridge statistics */
+	uint64_t stats_pppoe[NSS_STATS_PPPOE_MAX];
+					/* PPPoE statistics */
+	uint64_t stats_gmac[NSS_MAX_PHYSICAL_INTERFACES][NSS_STATS_GMAC_MAX];
+					/* GMAC statistics */
+	uint64_t stats_if_host[NSS_MAX_NET_INTERFACES][NSS_STATS_IF_HOST_MAX];
+					/* Host Tx/Rx statistics per interface */
+	uint64_t stats_if_ipv4[NSS_MAX_NET_INTERFACES][NSS_STATS_IF_IPV4_MAX];
+					/* IPv4 statistics per interface */
+	uint64_t stats_if_ipv6[NSS_MAX_NET_INTERFACES][NSS_STATS_IF_IPV6_MAX];
+					/* IPv6 statistics per interface */
+	uint64_t stats_if_exception_unknown[NSS_MAX_NET_INTERFACES][NSS_EXCEPTION_EVENT_UNKNOWN_MAX];
+					/* Unknown protocol exception events per interface */
+	uint64_t stats_if_exception_ipv4[NSS_MAX_NET_INTERFACES][NSS_EXCEPTION_EVENT_IPV4_MAX];
+					/* IPv4 protocol exception events per interface */
+	uint64_t stats_if_exception_ipv6[NSS_MAX_NET_INTERFACES][NSS_EXCEPTION_EVENT_IPV6_MAX];
+					/* IPv6 protocol exception events per interface */
+	uint64_t stats_if_exception_pppoe[NSS_MAX_NET_INTERFACES][NSS_EXCEPTION_EVENT_PPPOE_MAX];
+					/* PPPoE exception events per interface */
 	uint64_t pe_queue_dropped;	/* Number of packets dropped because the PE queue is too full */
 	uint64_t pe_total_ticks;	/* Total clock ticks spend inside the PE */
 	uint32_t pe_worst_case_ticks;	/* Worst case iteration of the PE in ticks */
 	uint64_t pe_iterations;		/* Number of iterations around the PE */
-	uint64_t except_queue_dropped;	/* Number of packets dropped because the exception queue is too full */
-	uint64_t except_total_ticks;	/* Total clock ticks spend inside the PE */
-	uint32_t except_worst_case_ticks;
-					/* Worst case iteration of the exception path in ticks */
-	uint64_t except_iterations;	/* Number of iterations around the PE */
-	uint32_t l2switch_queue_dropped;
-					/* Number of packets dropped because the L2 switch queue is too full */
-	uint64_t l2switch_total_ticks;	/* Total clock ticks spend inside the L2 switch */
-	uint32_t l2switch_worst_case_ticks;
-					/* Worst case iteration of the L2 switch in ticks */
-	uint64_t l2switch_iterations;	/* Number of iterations around the L2 switch */
-	uint64_t pbuf_alloc_fails;	/* Number of pbuf allocations that have failed */
-	uint64_t pbuf_payload_alloc_fails;
-					/* Number of pbuf allocations that have failed because there were no free payloads */
-	struct nss_gmac_statistics nss_gmac_statistics[NSS_MAX_PHYSICAL_INTERFACES];
-	struct nss_ipv4_statistics nss_ipv4_statistics[NSS_IPV4_CONNECTION_ENTRIES];
-	struct nss_ipv6_statistics nss_ipv6_statistics[NSS_IPV6_CONNECTION_ENTRIES];
-	struct nss_l2switch_statistics nss_l2switch_statistics[NSS_L2SWITCH_CONNECTION_ENTRIES];
-	struct nss_pppoe_statistics nss_pppoe_statistics[NSS_PPPOE_NUM_SESSION_TOTAL];
-					/* PPPoE interface statistics array */
-	struct nss_pppoe_statistics *nss_pppoe_statistics_head;
-					/* Head of PPPoE interface statistics */
+
+	/*
+	 * TODO: Review and update following fields
+	 */
+	bool napi_active;		/* Flag indicating if NAPI is currently active or not */
+	bool netdevice_notifier;	/* Flag indicating if netdevice notifier is registered */
+	uint64_t last_rx_jiffies;	/* Time of the last RX message from the NA in jiffies */
 };
 
+#if (NSS_PKT_STATS_ENABLED == 1)
+/*
+ * nss_pkt_stats_increment()
+ */
+static inline void nss_pkt_stats_increment(struct nss_ctx_instance *nss_ctx, uint64_t *stat)
+{
+	spin_lock_bh(&nss_ctx->nss_top->stats_lock);
+	*stat = *stat + 1;
+	spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
+}
+#endif
+
+/*
+ * APIs provided by nss_core.c
+ */
 extern void nss_core_handle_bh (unsigned long ctx);
 extern int32_t nss_core_send_buffer (struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 					struct sk_buff *nbuf, uint16_t qid,
 					uint8_t buffer_type, uint16_t flags);
 extern int32_t nss_core_send_crypto(struct nss_ctx_instance *nss_ctx, void *buf, uint32_t buf_paddr, uint16_t len);
+
+/*
+ * APIs provided by nss_tx_rx.c
+ */
 extern void nss_rx_handle_status_pkt(struct nss_ctx_instance *nss_ctx, struct sk_buff *nbuf);
 extern void nss_rx_handle_crypto_buf(struct nss_ctx_instance *nss_ctx, uint32_t buf, uint32_t paddr, uint32_t len);
 
+/*
+ * APIs provided by nss_stats.c
+ */
+extern void nss_stats_init(void);
+extern void nss_stats_clean(void);
 #endif /* __NSS_CORE_H */

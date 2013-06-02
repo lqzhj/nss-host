@@ -14,6 +14,34 @@
 #include <mach/msm_nss.h>
 
 /*
+ * Declare module parameters
+ */
+static int load0 = 0x40000000;
+module_param(load0, int, S_IRUSR | S_IWUSR);
+MODULE_PARM_DESC(load0, "NSS Core 0 load address");
+
+static int entry0 = 0x40000000;
+module_param(entry0, int, S_IRUSR | S_IWUSR);
+MODULE_PARM_DESC(load0, "NSS Core 0 entry address");
+
+static char *string0 = "nss0";
+module_param(string0, charp, 0);
+MODULE_PARM_DESC(string0, "NSS Core 0 identification string");
+
+static int load1 = 0x40100000;
+module_param(load1, int, S_IRUSR | S_IWUSR);
+MODULE_PARM_DESC(load0, "NSS Core 1 load address");
+
+static int entry1 = 0x40100000;
+module_param(entry1, int, S_IRUSR | S_IWUSR);
+MODULE_PARM_DESC(load0, "NSS Core 1 entry address");
+
+static char *string1 = "nss1";
+module_param(string1, charp, 0);
+MODULE_PARM_DESC(string1, "NSS Core 1 identification string");
+
+
+/*
  * Global declarations
  */
 
@@ -109,12 +137,6 @@ static int __devinit nss_probe (struct platform_device *nss_dev)
 	tasklet_init(&nss_ctx->int_ctx[0].bh, nss_core_handle_bh, (unsigned long)&nss_ctx->int_ctx[0]);
 
 	/*
-	 * Enable interrupts for NSS core
-	 */
-	nss_hal_enable_interrupt(nss_ctx->nmap, nss_ctx->int_ctx[0].irq,
-					nss_ctx->int_ctx[0].shift_factor, NSS_HAL_SUPPORTED_INTERRUPTS);
-
-	/*
 	 * Check if second interrupt is supported on this nss core
 	 */
 	if (npd->num_irq > 1) {
@@ -125,8 +147,6 @@ static int __devinit nss_probe (struct platform_device *nss_dev)
 		err = request_irq(npd->irq[1], nss_handle_irq, IRQF_DISABLED, "nss", &nss_ctx->int_ctx[1]);
 		if (err) {
 			nss_warning("%d: IRQ1 request failed for nss", nss_dev->id);
-			nss_hal_disable_interrupt(nss_ctx->nmap, nss_ctx->int_ctx[0].irq,
-					nss_ctx->int_ctx[0].shift_factor, NSS_HAL_SUPPORTED_INTERRUPTS);
 			tasklet_kill(&nss_ctx->int_ctx[0].bh);
 			free_irq(nss_ctx->int_ctx[0].irq, &nss_ctx->int_ctx[0]);
 			return err;
@@ -136,9 +156,6 @@ static int __devinit nss_probe (struct platform_device *nss_dev)
 		 * Register bottom halves for NSS0 interrupts
 		 */
 		tasklet_init(&nss_ctx->int_ctx[1].bh, nss_core_handle_bh, (unsigned long)&nss_ctx->int_ctx[1]);
-
-		nss_hal_enable_interrupt(nss_ctx->nmap, nss_ctx->int_ctx[1].irq,
-				nss_ctx->int_ctx[1].shift_factor, NSS_HAL_SUPPORTED_INTERRUPTS);
 	}
 
 	spin_lock_bh(&(nss_top->lock));
@@ -188,33 +205,37 @@ static int __devinit nss_probe (struct platform_device *nss_dev)
 
 	spin_unlock_bh(&(nss_top->lock));
 
-#ifdef CONFIG_MACH_IPQ806X_RUMI3
-	/*
-	 * Clear the whole TCM
-	 * NOTE: This is required on RUMI as TCM does not seem to
-	 * reset properly on RUMI
-	 */
-	for (i = 0; i < (16 * 1024); i++) {
-		*((uint32_t *)nss_ctx->vmap + i) = 0;
-	}
-#endif
-
 	/*
 	 * Initialize decongestion callbacks to NULL
 	 */
 	for (i = 0; i< NSS_MAX_CLIENTS; i++) {
-		nss_ctx->queue_decongestion_callback[i] = NULL;
-		nss_ctx->queue_decongestion_ctx[i] = NULL;
+		nss_ctx->queue_decongestion_callback[i] = 0;
+		nss_ctx->queue_decongestion_ctx[i] = 0;
 	}
 
 	spin_lock_init(&(nss_ctx->decongest_cb_lock));
 	nss_ctx->magic = NSS_CTX_MAGIC;
 
+	nss_info("%p: Reseting NSS core %d now", nss_ctx, nss_ctx->id);
+
 	/*
 	 * Enable clocks and bring NSS core out of reset
 	 */
-	nss_hal_core_reset(nss_dev->id, nss_ctx->nmap, npd->rst_addr);
-	nss_info("%p: All resources initialized and nss core%d have been brought out of reset", nss_ctx, nss_dev->id);
+	nss_hal_core_reset(nss_dev->id, nss_ctx->nmap, nss_ctx->load, nss_top->clk_src);
+
+	/*
+	 * Enable interrupts for NSS core
+	 */
+	nss_hal_enable_interrupt(nss_ctx->nmap, nss_ctx->int_ctx[0].irq,
+					nss_ctx->int_ctx[0].shift_factor, NSS_HAL_SUPPORTED_INTERRUPTS);
+
+	if (npd->num_irq > 1) {
+		nss_hal_enable_interrupt(nss_ctx->nmap, nss_ctx->int_ctx[1].irq,
+					nss_ctx->int_ctx[1].shift_factor, NSS_HAL_SUPPORTED_INTERRUPTS);
+	}
+
+
+	nss_info("%p: All resources initialized and nss core%d has been brought out of reset", nss_ctx, nss_dev->id);
 	return 0;
 }
 
@@ -226,6 +247,11 @@ static int __devexit nss_remove (struct platform_device *nss_dev)
 {
 	struct nss_top_instance *nss_top = &nss_top_main;
 	struct nss_ctx_instance *nss_ctx = &nss_top->nss[nss_dev->id];
+
+	/*
+	 * Clean-up debugfs
+	 */
+	nss_stats_clean();
 
 	/*
 	 * Disable interrupts and bottom halves in HLOS
@@ -275,13 +301,24 @@ static int __init nss_init(void)
 	/*
 	 * Perform clock init common to all NSS cores
 	 */
-	nss_hal_common_reset();
+	nss_hal_common_reset(&(nss_top_main.clk_src));
 
 	/*
 	 * Enable spin locks
 	 */
 	spin_lock_init(&(nss_top_main.lock));
 	spin_lock_init(&(nss_top_main.stats_lock));
+
+	/*
+	 * Enable NSS statistics
+	 */
+	nss_stats_init();
+
+	/*
+	 * Store load addresses
+	 */
+	nss_top_main.nss[0].load = (uint32_t)load0;
+	nss_top_main.nss[1].load = (uint32_t)load1;
 
 	/*
 	 * Register platform_driver

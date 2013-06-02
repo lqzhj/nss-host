@@ -25,7 +25,7 @@ static int32_t nss_send_c2c_map(struct nss_ctx_instance *nss_own, struct nss_ctx
 	nbuf =  __dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE, GFP_ATOMIC);
 	if (unlikely(!nbuf)) {
 		spin_lock_bh(&nss_own->nss_top->stats_lock);
-		nss_own->nss_top->nbuf_alloc_err++;
+		nss_own->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
 		spin_unlock_bh(&nss_own->nss_top->stats_lock);
 		nss_warning("%p: Unable to allocate memory for 'C2C tx map'", nss_own);
 		return NSS_CORE_STATUS_FAILURE;
@@ -82,6 +82,7 @@ static int32_t nss_core_handle_cause_queue(struct nss_ctx_instance *nss_ctx, uin
 	uint16_t size, mask, qid;
 	uint32_t nss_index, hlos_index;
 	struct sk_buff *nbuf;
+	struct net_device *ndev;
 	struct n2h_desc_if_instance *desc_if;
 	struct n2h_descriptor *desc;
 	struct nss_if_mem_map *if_map = (struct nss_if_mem_map *)(nss_ctx->vmap);
@@ -119,6 +120,8 @@ static int32_t nss_core_handle_cause_queue(struct nss_ctx_instance *nss_ctx, uin
 		desc = &(desc_if->desc[hlos_index]);
 
 		if (unlikely((desc->buffer_type == N2H_BUFFER_CRYPTO_RESP))) {
+			NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_RX_CRYPTO_RESP]);
+
 			/*
 			 * This is a crypto buffer hence send it to crypto driver
 			 *
@@ -129,7 +132,7 @@ static int32_t nss_core_handle_cause_queue(struct nss_ctx_instance *nss_ctx, uin
 			nss_rx_handle_crypto_buf(nss_ctx, desc->opaque, desc->buffer, desc->payload_len);
 		} else {
 			/*
-			* Obtain the nbuf
+			* Obtain nbuf
 			*/
 			nbuf = (struct sk_buff *)desc->opaque;
 
@@ -148,7 +151,45 @@ static int32_t nss_core_handle_cause_queue(struct nss_ctx_instance *nss_ctx, uin
 			dma_unmap_single(NULL, (desc->buffer + desc->payload_offs), desc->payload_len, DMA_FROM_DEVICE);
 
 			switch (desc->buffer_type) {
+			case N2H_BUFFER_PACKET_VIRTUAL:
+				NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_RX_VIRTUAL]);
+
+				/*
+				 * Checksum is already done by NSS for packets forwarded to virtual interfaces
+				 */
+				nbuf->ip_summed = CHECKSUM_NONE;
+
+				/*
+				 * Obtain net_device pointer
+				 */
+				ndev = (struct net_device *)nss_ctx->nss_top->if_ctx[desc->interface_num];
+				if (unlikely(ndev == NULL)) {
+					nss_warning("%p: Received packet for unregistered virtual interface %d",
+							nss_ctx, desc->interface_num);
+
+					/*
+					 * NOTE: The assumption is that gather support is not
+					 * implemented in fast path and hence we can not receive
+					 * fragmented packets and so we do not need to take care
+					 * of freeing a fragmented packet
+					 */
+					dev_kfree_skb_any(nbuf);
+					break;
+				}
+
+				dev_hold(ndev);
+				nbuf->dev = ndev;
+
+				/*
+				 * Send the packet to virtual interface
+				 */
+				dev_queue_xmit(nbuf);
+				dev_put(ndev);
+				break;
+
 			case N2H_BUFFER_PACKET:
+				NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_RX_PACKET]);
+
 				/*
 				 * Check if NSS was able to obtain checksum
 				 */
@@ -157,21 +198,9 @@ static int32_t nss_core_handle_cause_queue(struct nss_ctx_instance *nss_ctx, uin
 					nbuf->ip_summed = CHECKSUM_NONE;
 				}
 
-				/*
-				 * TODO: Differentiate between physical and virtual interfaces
-				 */
-
-				ctx = nss_ctx->nss_top->phys_if_ctx[desc->interface_num];
-
-				/*
-				 * We need to ensure that processor/compiler do not re-order ctx
-				 * and cb reads. Note that write to ctx and cb happens in
-				 * reverse order. The idea is that we do not want a case where
-				 * cb is valid but ctx is NULL.
-				 */
-				rmb();
-				cb = nss_ctx->nss_top->phys_if_rx_callback[desc->interface_num];
-				if (likely(cb)) {
+				ctx = nss_ctx->nss_top->if_ctx[desc->interface_num];
+				cb = nss_ctx->nss_top->if_rx_callback[desc->interface_num];
+				if (likely(cb) && likely(ctx)) {
 					cb(ctx, (void *)nbuf);
 				} else {
 					dev_kfree_skb_any(nbuf);
@@ -179,11 +208,14 @@ static int32_t nss_core_handle_cause_queue(struct nss_ctx_instance *nss_ctx, uin
 				break;
 
 			case N2H_BUFFER_STATUS:
+				NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_RX_STATUS]);
 				nss_rx_handle_status_pkt(nss_ctx, nbuf);
-
-				/* Fall Through */
+				dev_kfree_skb_any(nbuf);
+				break;
 
 			case N2H_BUFFER_EMPTY:
+				NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_RX_EMPTY]);
+
 				/*
 				 * TODO: Unmap fragments
 				 */
@@ -335,7 +367,7 @@ static int32_t nss_core_handle_cause_nonqueue (struct nss_ctx_instance *nss_ctx,
 				 * ERR:
 				 */
 				spin_lock_bh(&nss_ctx->nss_top->stats_lock);
-				nss_ctx->nss_top->nbuf_alloc_err++;
+				nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
 				spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
 				nss_warning("%p: Could not obtain empty buffer", nss_ctx);
 				break;
@@ -364,6 +396,7 @@ static int32_t nss_core_handle_cause_nonqueue (struct nss_ctx_instance *nss_ctx,
 		 * Inform NSS that new buffers are available
 		 */
 		nss_hal_send_interrupt(nss_ctx->nmap, desc_if->int_bit, NSS_REGS_H2N_INTR_STATUS_EMPTY_BUFFER_QUEUE);
+		NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_EMPTY]);
 	} else if (cause == NSS_REGS_N2H_INTR_STATUS_TX_UNBLOCKED) {
 		nss_trace("%p: Data queue unblocked", nss_ctx);
 
@@ -433,6 +466,10 @@ static uint32_t nss_core_get_prioritized_cause(uint32_t cause, uint32_t *type, i
 	return 0;
 }
 
+/*
+ * nss_core_handle_bh()
+ *      Bottom half handler for NSS
+ */
 void nss_core_handle_bh(unsigned long ctx)
 {
 	uint32_t prio_cause, int_cause;
@@ -587,7 +624,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 
 	/*
 	 * We need to work out if there's sufficent space in our transmit descriptor
-	 * ring to place all of the segments of the nbuf.
+	 * ring to place all the segments of a nbuf.
 	 */
 	hlos_index = if_map->h2n_hlos_index[qid];
 	nss_index = if_map->h2n_nss_index[qid];
@@ -690,7 +727,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		desc->buffer = (uint32_t)dma_map_single(NULL, nbuf->head, (nbuf->tail - nbuf->head), DMA_TO_DEVICE);
 		if (unlikely(dma_mapping_error(NULL, desc->buffer))) {
 			spin_unlock_bh(&nss_ctx->h2n_desc_rings[qid].lock);
-			nss_warning("%p: DMA mapping failed for virtual address = %x", nss_ctx, nbuf->head);
+			nss_warning("%p: DMA mapping failed for virtual address = %p", nss_ctx, nbuf->head);
 			return NSS_CORE_STATUS_FAILURE;
 		}
 

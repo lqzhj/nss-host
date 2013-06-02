@@ -56,7 +56,7 @@ static inline void __nss_hal_send_interrupt(uint32_t map, uint32_t irq __attribu
 	nss_write_32(map, NSS_REGS_C2C_INTR_SET_OFFSET, cause);
 }
 
-extern void __nss_hal_core_reset(uint32_t core_id, uint32_t map, uint32_t addr);
-extern void __nss_hal_common_reset(void);
+extern void __nss_hal_core_reset(uint32_t core_id, uint32_t map, uint32_t addr, uint32_t clk_src);
+extern void __nss_hal_common_reset(uint32_t *clk_src);
 
 #endif /* __NSS_HAL_PVT_H */

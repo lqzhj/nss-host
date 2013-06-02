@@ -12,7 +12,7 @@
 #include <asm/io.h>
 
 /*
- * Hardware register offsets
+ * CSM register offsets
  */
 #define NSS_REGS_CORE_ID_OFFSET			0x0000
 #define NSS_REGS_RESET_CTRL_OFFSET		0x0004
@@ -35,6 +35,11 @@
 #define NSS_REGS_CORE_IFETCH_RANGE_OFFSET	0x0048
 
 /*
+ * FPB register offsets
+ */
+#define NSS_REGS_FPB_CSR_CFG_OFFSET		0x0004
+
+/*
  * Defines for N2H interrupts
  */
 #define NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFER_QUEUE	0x0001
@@ -49,6 +54,14 @@
 #define NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE	0x0002
 #define NSS_REGS_H2N_INTR_STATUS_RESET			0x0400	/** Unused */
 #define NSS_REGS_H2N_INTR_STATUS_TX_UNBLOCKED		0x0800
+
+/*
+ * clock source for NSS cores
+ */
+enum nss_regs_clk_src_select {
+	NSS_REGS_CLK_SRC_DEFAULT,
+	NSS_REGS_CLK_SRC_ALTERNATE
+};
 
 /*
  * nss_read_32()

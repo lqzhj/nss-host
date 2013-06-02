@@ -13,17 +13,17 @@
 /*
  * nss_hal_common_reset()
  */
-static inline void nss_hal_common_reset(void)
+static inline void nss_hal_common_reset(uint32_t *clk_src)
 {
-	__nss_hal_common_reset();
+	__nss_hal_common_reset(clk_src);
 }
 
 /*
  * nss_hal_core_reset()
  */
-static inline void nss_hal_core_reset(uint32_t core_id, uint32_t map, uint32_t addr)
+static inline void nss_hal_core_reset(uint32_t core_id, uint32_t map, uint32_t addr, uint32_t clk_src)
 {
-	__nss_hal_core_reset(core_id, map, addr);
+	__nss_hal_core_reset(core_id, map, addr, clk_src);
 }
 
 /*

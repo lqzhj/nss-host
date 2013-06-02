@@ -5,6 +5,7 @@
  *	NSS HAL private APIs.
  */
 
+#include <linux/delay.h>
 #include "nss_hal_pvt.h"
 #include "nss_clocks.h"
 
@@ -18,19 +19,133 @@ static inline void clk_reg_write_32(void *addr, uint32_t val)
 }
 
 /*
+ * clk_reg_read_32()
+ *	Write clock register
+ */
+static inline uint32_t clk_reg_read_32(volatile void *addr)
+{
+	return readl(addr);
+}
+
+#if defined(NSS_ENABLE_CLK)
+
+/*
+ * nss_hal_pvt_enable_pll18()
+ *	Enable PLL18
+ */
+static uint32_t nss_hal_pvt_enable_pll18(void)
+{
+	uint32_t wait_cycles = 100;
+	volatile uint32_t value;
+	volatile uint32_t mask = (1 << 18);
+
+	/*
+	 * Start with clean slate
+	 */
+	clk_reg_write_32(PLL18_MODE, 0);
+
+	/*
+	 * Set L = 44, M = 0, N = 1
+	 * Effective VCO Frequency = 1100 MHz
+	 */
+	clk_reg_write_32(PLL18_L_VAL, 0x4000042C);
+	clk_reg_write_32(PLL18_M_VAL, 0x0);
+	clk_reg_write_32(PLL18_N_VAL, 0x1);
+
+	/*
+	 * PLL configuration (as provided by HW team)
+	 */
+	clk_reg_write_32(PLL18_CONFIG, 0x01495625);
+	clk_reg_write_32(PLL18_TEST_CTL, 0x00003080);
+
+	/*
+	 * Enable PLL18 output (sequence provided by HW team)
+	 */
+	clk_reg_write_32(PLL18_MODE, 0x2);
+	mdelay(1);
+	clk_reg_write_32(PLL18_MODE, 0x6);
+	clk_reg_write_32(PLL18_MODE, 0x7);
+
+	/*
+	 * Enable NSS Vote for PLL18.
+	 */
+	clk_reg_write_32(PLL_ENA_NSS, mask);
+	do {
+		value = clk_reg_read_32(PLL_LOCK_DET_STATUS);
+		if (value & mask) {
+			return PLL_LOCKED;
+		}
+
+		mdelay(1);
+	} while (wait_cycles-- > 0);
+
+	return PLL_NOT_LOCKED;
+}
+
+#endif
+
+/*
  * __nss_hal_common_reset
  *	Do reset/clock configuration common to all cores
- *
- * WARNING: This function is a place holder. It will be updated soon.
  */
-void __nss_hal_common_reset(void)
+void __nss_hal_common_reset(uint32_t *clk_src)
 {
+	uint32_t i;
+#if defined(NSS_ENABLE_CLK)
+	uint32_t pll18_status;
+
 	/*
-	 * Enable NSS Fabric1 clock
-	 * PLL0 (800 MHZ) and div is set to 4. (effective clk fre is 200 MHZ).
+	 * NSS FPB CLOCK
+	 */
+
+	/*
+	 * Enable clock root and Divider 0
+	 * NOTE: Default value is good so no work here
+	 */
+
+	/*
+	 * PLL0 (800 MHZ). SRC_SEL is 2 (3'b010)
+	 * src_div selected is Div-6 (4'b0101).
+	 *
+	 * Effective frequency (Divider 0) = 133 MHz
+	 */
+	clk_reg_write_32(NSSFPB_CLK_SRC0_NS, 0x2a);
+
+	/*
+	 * Enable clock branch
+	 */
+	clk_reg_write_32(NSSFPB_CLK_CTL, 0x50);
+
+	/*
+	 * NSS FABRIC0 CLOCK
+	 */
+
+	/*
+	 * Enable clock root and Divider 0
+	 * NOTE: Default value is good so no work here
+	 */
+
+	/*
+	 * PLL0 (800 MHZ) and div is set to 2.
+	 * Effective frequency = 400 MHZ.
+	 */
+	clk_reg_write_32(NSSFB0_CLK_SRC0_NS, 0x0a);
+
+	/*
+	 * NSS Fabric0 Branch and dynamic clock gating enabled.
+	 */
+	clk_reg_write_32(NSSFB0_CLK_CTL, 0x50);
+
+	/*
+	 * Enable clock root and Divider 0
+	 * NOTE: Default value is good so no work here
+	 */
+
+	/*
+	 * PLL0 (800 MHZ) and div is set to 4.
+	 * Effective frequency = 200 MHZ.
 	 */
 	clk_reg_write_32(NSSFB1_CLK_SRC0_NS, 0x1a);
-	clk_reg_write_32(NSSFB1_CLK_SRC1_NS, 0x1a);
 
 	/*
 	 * NSS Fabric1 Branch enable and fabric clock gating enabled.
@@ -38,28 +153,21 @@ void __nss_hal_common_reset(void)
 	clk_reg_write_32(NSSFB1_CLK_CTL, 0x50);
 
 	/*
-	 * Enable NSS Fabric0 clock
-	 * PLL0 (800 MHZ) and div is set to 2. (effective clk fre is 400 MHZ).
-	 */
-	clk_reg_write_32(NSSFB0_CLK_SRC0_NS, 0x0a);
-	clk_reg_write_32(NSSFB0_CLK_SRC1_NS, 0x0a);
+	 * NSS TCM CLOCK
+	*/
 
 	/*
-	 * NSS Fabric0 Branch enable and fabric clock gating enabled.
-	 */
-	clk_reg_write_32(NSSFB0_CLK_CTL, 0x50);
-
-	/*
-	 * Enable NSS TCM clock
-	 * Enable TCM clock root source.
+	 * Enable NSS TCM clock root source and select divider 0.
+	 *
+	 * NOTE: Default value is not good here
 	 */
 	clk_reg_write_32(NSSTCM_CLK_SRC_CTL, 0x2);
 
 	/*
-	 * PLL0 (800 MHZ) and div is set to 2. (effective clk fre is 400 MHZ).
+	 * PLL0 (800 MHZ) and div is set to 2.
+	 * Effective frequency = 400 MHZ
 	 */
 	clk_reg_write_32(NSSTCM_CLK_SRC0_NS, 0xa);
-	clk_reg_write_32(NSSTCM_CLK_SRC1_NS, 0xa);
 
 	/*
 	 * NSS TCM Branch enable and fabric clock gating enabled.
@@ -73,45 +181,83 @@ void __nss_hal_common_reset(void)
 	clk_reg_write_32(NSSFAB_GLOBAL_BUS_NS, 0xf);
 
 	/*
-	 * clock source is pll0_out_main (800 MHZ). SRC_SEL is 2 (3'b010)
-	 * src_div selected is Div-6 (4'b0101).
-	 */
-	clk_reg_write_32(NSSFPB_CLK_SRC0_NS, 0x2a);
-	clk_reg_write_32(NSSFPB_CLK_SRC1_NS, 0x2a);
-
-	/*
-	 * NSS FPB block granch & clock gating enabled.
-	 */
-	clk_reg_write_32(NSSFPB_CLK_CTL, 0x50);
-
-	/*
 	 * Send reset interrupt to NSS
 	 */
 	clk_reg_write_32(NSS_RESET, 0x0);
+
+	/*
+	 * Enable PLL18
+	 */
+	pll18_status = nss_hal_pvt_enable_pll18();
+	if (!pll18_status) {
+		/*
+		 * Select alternate good source (Src1/pll0)
+		 */
+		*clk_src = NSS_REGS_CLK_SRC_ALTERNATE;
+		return;
+	}
+
+	/*
+	 * Select default source (Src0/pll18)
+	 */
+	*clk_src = NSS_REGS_CLK_SRC_DEFAULT;
+#endif
+	/*
+	 * Attach debug interface to TLMM
+	 */
+	nss_write_32((uint32_t)MSM_NSS_FPB_BASE, NSS_REGS_FPB_CSR_CFG_OFFSET, 0x360);
+
+	/*
+	 * Clear TCM memory
+	 */
+	for (i = 0; i < IPQ806X_NSS_TCM_SIZE; i += 4) {
+		nss_write_32((uint32_t)MSM_NSS_TCM_BASE, i, 0);
+	}
+
+	return;
 }
 
 /*
  * __nss_hal_core_reset
- *
- * WARNING: This function is a place holder. It will be updated soon.
  */
-void __nss_hal_core_reset(uint32_t core_id, uint32_t map, uint32_t addr)
+void __nss_hal_core_reset(uint32_t core_id, uint32_t map, uint32_t addr, uint32_t clk_src)
 {
+#if defined(NSS_ENABLE_CLOCK)
 	/*
-	 * UBI coren clock branch enable.
+	 * Enable mpt clock
 	 */
-	clk_reg_write_32(UBI32_COREn_CLK_SRC_CTL(core_id), 0x02);
+	clk_reg_write_32(UBI32_MPT0_CLK_CTL, 0x10);
 
 	/*
-	 * M val is 0x01 and NOT_2D value is 0xfd.
+	 * UBI coren clock root enable
 	 */
-	clk_reg_write_32(UBI32_COREn_CLK_SRC0_MD(core_id), 0x100fd);
+	if (clk_src == NSS_REGS_CLK_SRC_DEFAULT) {
+		/* select Src0 */
+		clk_reg_write_32(UBI32_COREn_CLK_SRC_CTL(core_id), 0x02);
+	} else {
+		/* select Src1 */
+		clk_reg_write_32(UBI32_COREn_CLK_SRC_CTL(core_id), 0x03);
+	}
+
+	/*
+	 * Src0: Bypass M value configuration.
+	 */
+
+	/*
+	 * Src1: M val is 0x01 and NOT_2D value is 0xfd, 400 MHz with PLL0.
+	 */
 	clk_reg_write_32(UBI32_COREn_CLK_SRC1_MD(core_id), 0x100fd);
 
 	/*
-	 * Dual edge, pll0, NOT(N_M) = 0xfe.
+	 * Bypass, pll18
+	 * Effective frequency = 550 MHz
 	 */
-	clk_reg_write_32(UBI32_COREn_CLK_SRC0_NS(core_id), 0x00fe0142);
+	clk_reg_write_32(UBI32_COREn_CLK_SRC0_NS(core_id), 0x00000001);
+
+	/*
+	 * Dual edge, pll0, NOT(N_M) = 0xfe.
+	 * Effective frequency = 400 MHz
+	 */
 	clk_reg_write_32(UBI32_COREn_CLK_SRC1_NS(core_id), 0x00fe0142);
 
 	/*
@@ -123,16 +269,37 @@ void __nss_hal_core_reset(uint32_t core_id, uint32_t map, uint32_t addr)
 	 * UBI32 coren clock control branch.
 	 */
 	clk_reg_write_32(UBI32_COREn_CLK_CTL(core_id), 0x10);
-
+#endif
 	/*
-	 * Enable mpt clock
+	 * Remove UBI32 reset clamp
 	 */
-	clk_reg_write_32(UBI32_MPT0_CLK_CTL, 0x10);
+	clk_reg_write_32(UBI32_COREn_RESET_CLAMP(core_id), 0xB);
 
 	/*
-	 * Remove ubi32 clamp
+	 * Busy wait for few cycles
+	 */
+	mdelay(1);
+
+	/*
+	 * Remove UBI32 core clamp
+	 */
+	clk_reg_write_32(UBI32_COREn_RESET_CLAMP(core_id), 0x3);
+
+	mdelay(1);
+
+	/*
+	 * Remove UBI32 AHB reset
+	 */
+	clk_reg_write_32(UBI32_COREn_RESET_CLAMP(core_id), 0x1);
+
+	mdelay(1);
+
+	/*
+	 * Remove UBI32 AXI reset
 	 */
 	clk_reg_write_32(UBI32_COREn_RESET_CLAMP(core_id), 0x0);
+
+	mdelay(1);
 
 	/*
 	* Apply ubi32 core reset
@@ -151,6 +318,11 @@ void __nss_hal_core_reset(uint32_t core_id, uint32_t map, uint32_t addr)
 	 */
 	nss_write_32(map, NSS_REGS_CORE_INT_STAT2_TYPE_OFFSET, 0xFFFF);
 	nss_write_32(map, NSS_REGS_CORE_INT_STAT3_TYPE_OFFSET, 0x3FC000);
+
+	/*
+	 * Set IF check value
+	 */
+	 nss_write_32(map, NSS_REGS_CORE_IFETCH_RANGE_OFFSET, 0xBF004001);
 
 	/*
 	 * De-assert ubi32 core reset

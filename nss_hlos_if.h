@@ -22,6 +22,8 @@ enum nss_lro_modes {
  */
 #define NSS_IPV4_RULE_CREATE_FLAG_NO_SEQ_CHECK 0x01
 					/* Do not perform sequence number checks */
+#define NSS_IPV4_RULE_CREATE_FLAG_BRIDGE_FLOW 0x02
+					/* This is a pure bridge forwarding flow */
 
 /*
  * The NSS IPv4 rule creation structure.
@@ -70,13 +72,15 @@ struct nss_ipv4_rule_destroy {
 };
 
 /*
- * NA IPv6 rule creation flags.
+ * NSS IPv6 rule creation flags.
  */
 #define NSS_IPV6_RULE_CREATE_FLAG_NO_SEQ_CHECK 0x01
 					/* Do not perform sequence number checks */
+#define NSS_IPV6_RULE_CREATE_FLAG_BRIDGE_FLOW 0x02
+					/* This is a pure bridge forwarding flow */
 
 /*
- * The NA IPv6 rule creation structure.
+ * The NSS IPv6 rule creation structure.
  */
 struct nss_ipv6_rule_create {
 	uint8_t protocol;			/* Protocol number */
@@ -134,7 +138,7 @@ struct nss_l2switch_rule_destroy {
 };
 
 /*
- * The NA MAC address structure.
+ * The NSS MAC address structure.
  */
 struct nss_mac_address_set {
 	int32_t interface_num;		/* physical interface number */
@@ -142,7 +146,7 @@ struct nss_mac_address_set {
 };
 
 /*
- * The NA virtual interface creation structure.
+ * The NSS virtual interface creation structure.
  */
 struct nss_virtual_interface_create {
 	int32_t interface_num;		/* Virtual interface number */
@@ -151,14 +155,14 @@ struct nss_virtual_interface_create {
 };
 
 /*
- * The NA virtual interface destruction structure.
+ * The NSS virtual interface destruction structure.
  */
 struct nss_virtual_interface_destroy {
 	int32_t interface_num;		/* Virtual interface number */
 };
 
 /*
- * The NA PPPoE rule destruction structure.
+ * The NSS PPPoE rule destruction structure.
  */
 struct nss_pppoe_rule_destroy {
 	uint16_t pppoe_session_id;	/* PPPoE session ID */
@@ -223,41 +227,11 @@ struct nss_c2c_tx_map {
 /*
  * IPsec Tx rule create
  */
-struct nss_ipsec_tx_rule_create {
-	uint32_t spi;			/* SPI index */
-	uint32_t replay;		/* Replay value */
-	uint32_t src_addr;		/* Src IP address */
-	uint32_t dest_addr;		/* Dst IP address */
-	uint32_t ses_idx;		/* Session index */
-};
-
-/*
- * IPsec Tx rule destroy
- */
-struct nss_ipsec_tx_rule_destroy {
-	uint32_t src_addr;		/* Src IP address */
-	uint32_t dest_addr;		/* Dst IP address */
-	uint32_t ses_idx;		/* Session index */
-};
-
-/*
- * IPsec Rx rule create
- */
-struct nss_ipsec_rx_rule_create {
-	uint32_t spi;			/* SPI index */
-	uint32_t replay;		/* Replay value */
-	uint32_t src_addr;		/* Src IP address */
-	uint32_t dest_addr;		/* Dst IP address */
-	uint32_t ses_idx;		/* Session index */
-};
-
-/*
- * IPsec Rx rule destroy
- */
-struct nss_ipsec_rx_rule_destroy {
-	uint32_t src_addr;		/* Src IP address */
-	uint32_t dest_addr;		/* Dst IP address */
-	uint32_t ses_idx;		/* Session index */
+struct nss_ipsec_rule {
+	uint32_t interface_num;		/* Interface number */
+	uint32_t type;			/* Rule type */
+	uint32_t len;			/* Valid information length */
+	uint8_t buf[1];			/* Buffer */
 };
 
 /*
@@ -291,10 +265,7 @@ enum nss_tx_metadata_types {
 	NSS_TX_METADATA_TYPE_CRYPTO_CLOSE,
 	NSS_TX_METADATA_TYPE_MSS_SET,
 	NSS_TX_METADATA_TYPE_C2C_TX_MAP,
-	NSS_TX_METADATA_TYPE_IPSEC_TX_RULE_CREATE,
-	NSS_TX_METADATA_TYPE_IPSEC_TX_RULE_DESTROY,
-	NSS_TX_METADATA_TYPE_IPSEC_RX_RULE_CREATE,
-	NSS_TX_METADATA_TYPE_IPSEC_RX_RULE_DESTROY,
+	NSS_TX_METADATA_TYPE_IPSEC_RULE,
 	NSS_TX_METADATA_TYPE_PROFILER_TX,
 };
 
@@ -321,10 +292,7 @@ struct nss_tx_metadata_object {
 		struct nss_crypto_close crypto_close;
 		struct nss_mss_set mss_set;
 		struct nss_c2c_tx_map c2c_tx_map;
-		struct nss_ipsec_tx_rule_create ipsec_tx_rule_create;
-		struct nss_ipsec_tx_rule_destroy ipsec_tx_rule_destroy;
-		struct nss_ipsec_rx_rule_create ipsec_rx_rule_create;
-		struct nss_ipsec_rx_rule_destroy ipsec_rx_rule_destroy;
+		struct nss_ipsec_rule ipsec_rule;
 		struct nss_profiler_tx profiler_tx;
 	} sub;
 };
@@ -339,6 +307,7 @@ struct nss_port_info {
 struct nss_ipv4_rule_establish {
 	uint32_t index;				/* Slot ID for cache stats to host OS */
 	uint8_t protocol;			/* Protocol number */
+	uint8_t reserved[3];			/* Reserved to align fields */
 	int32_t flow_interface;			/* Flow interface number */
 	uint32_t flow_mtu;			/* MTU for flow interface */
 	uint32_t flow_ip;			/* Flow IP address */
@@ -354,7 +323,8 @@ struct nss_ipv4_rule_establish {
 	uint32_t return_ident;			/* Return ident (e.g. port) */
 	uint32_t return_ident_xlate;		/* Translated return ident (e.g. port) */
 	uint16_t return_pppoe_session_id;	/* Return direction's PPPoE session ID. */
-	uint16_t return_pppoe_remote_mac[3];	/* Return direction's PPPoE Server MAC address */};
+	uint16_t return_pppoe_remote_mac[3];	/* Return direction's PPPoE Server MAC address */
+};
 
 /*
  * IPv4 rule sync reasons.
@@ -371,7 +341,7 @@ struct nss_ipv4_rule_establish {
 					/* Sync is to destroy a cache entry which belongs to a particular PPPoE session */
 
 /*
- * The NA IPv4 rule sync structure.
+ * The NSS IPv4 rule sync structure.
  */
 struct nss_ipv4_rule_sync {
 	uint32_t index;			/* Slot ID for cache stats to host OS */
@@ -392,7 +362,8 @@ struct nss_ipv4_rule_sync {
 					/* Return interface's TX packet count */
 	uint32_t return_tx_byte_count;	/* Return interface's TX byte count */
 	uint32_t inc_ticks;		/* Number of ticks since the last sync */
-	uint32_t reason;		/* Reason for the sync */};
+	uint32_t reason;		/* Reason for the sync */
+};
 
 /*
  * The NSS IPv6 rule establish structure.
@@ -400,6 +371,7 @@ struct nss_ipv4_rule_sync {
 struct nss_ipv6_rule_establish {
 	uint32_t index;				/* Slot ID for cache stats to host OS */
 	uint8_t protocol;			/* Protocol number */
+	uint8_t reserved[3];			/* Reserved to align fields */
 	int32_t flow_interface;			/* Flow interface number */
 	uint32_t flow_mtu;			/* MTU for flow interface */
 	uint32_t flow_ip[4];			/* Flow IP address */
@@ -486,7 +458,7 @@ struct nss_l2switch_rule_sync {
 };
 
 /*
- * The NA per-GMAC statistics sync structure.
+ * The NSS per-GMAC statistics sync structure.
  */
 struct nss_gmac_stats_sync {
 	int32_t interface;		/* Interface number */
@@ -542,7 +514,7 @@ struct nss_gmac_stats_sync {
  */
 enum exception_events_unknown {
 	NSS_EXCEPTION_EVENT_UNKNOWN_L2_PROTOCOL,
-	NSS_EXCEPTION_EVENT_UNKNOWN_LAST
+	NSS_EXCEPTION_EVENT_UNKNOWN_MAX
 };
 
 /*
@@ -585,7 +557,7 @@ enum exception_events_ipv4 {
 	NSS_EXCEPTION_EVENT_IPV4_DATAGRAM_INCOMPLETE,
 	NSS_EXCEPTION_EVENT_IPV4_OPTIONS_INCOMPLETE,
 	NSS_EXCEPTION_EVENT_IPV4_UNKNOWN_PROTOCOL,
-	NSS_EXCEPTION_EVENT_IPV4_LAST
+	NSS_EXCEPTION_EVENT_IPV4_MAX
 };
 
 /*
@@ -619,7 +591,7 @@ enum exception_events_ipv6 {
 	NSS_EXCEPTION_EVENT_IPV6_WRONG_TARGET_MAC,
 	NSS_EXCEPTION_EVENT_IPV6_HEADER_INCOMPLETE,
 	NSS_EXCEPTION_EVENT_IPV6_UNKNOWN_PROTOCOL,
-	NSS_EXCEPTION_EVENT_IPV6_LAST
+	NSS_EXCEPTION_EVENT_IPV6_MAX
 };
 
 /*
@@ -630,7 +602,7 @@ enum exception_events_pppoe {
 	NSS_EXCEPTION_EVENT_PPPOE_WRONG_CODE,
 	NSS_EXCEPTION_EVENT_PPPOE_HEADER_INCOMPLETE,
 	NSS_EXCEPTION_EVENT_PPPOE_UNSUPPORTED_PPP_PROTOCOL,
-	NSS_EXCEPTION_EVENT_PPPOE_LAST
+	NSS_EXCEPTION_EVENT_PPPOE_MAX
 };
 
 /*
@@ -653,11 +625,11 @@ struct nss_interface_stats_sync {
 	uint32_t rx_length_errors;	/* Number of RX length errors */
 	uint32_t rx_overflow_errors;	/* Number of RX overflow errors */
 	uint32_t rx_crc_errors;		/* Number of RX CRC errors */
-	uint32_t exception_events_unknown[NSS_EXCEPTION_EVENT_UNKNOWN_LAST];
+	uint32_t exception_events_unknown[NSS_EXCEPTION_EVENT_UNKNOWN_MAX];
 					/* Number of unknown protocol exception events */
-	uint32_t exception_events_ipv4[NSS_EXCEPTION_EVENT_IPV4_LAST];
+	uint32_t exception_events_ipv4[NSS_EXCEPTION_EVENT_IPV4_MAX];
 					/* Number of IPv4 exception events */
-	uint32_t exception_events_ipv6[NSS_EXCEPTION_EVENT_IPV6_LAST];
+	uint32_t exception_events_ipv6[NSS_EXCEPTION_EVENT_IPV6_MAX];
 					/* Number of IPv6 exception events */
 };
 
@@ -749,7 +721,7 @@ struct nss_pppoe_exception_stats_sync {
 	uint16_t pppoe_session_id;	/* PPPoE session ID on which stats are based */
 	uint8_t pppoe_remote_mac[ETH_ALEN];
 					/* PPPoE server MAC address */
-	uint32_t exception_events_pppoe[NSS_EXCEPTION_EVENT_PPPOE_LAST];
+	uint32_t exception_events_pppoe[NSS_EXCEPTION_EVENT_PPPOE_MAX];
 					/* PPPoE exception events */
 };
 
@@ -806,6 +778,7 @@ struct nss_rx_metadata_object {
 #define H2N_BUFFER_PACKET	2
 #define H2N_BUFFER_CTRL		4
 #define H2N_BUFFER_CRYPTO_REQ	7
+#define H2N_BUFFER_MAX		16
 
 /*
  * H2N Bit Flag Definitions
@@ -814,7 +787,7 @@ struct nss_rx_metadata_object {
 #define H2N_BIT_FLAG_GEN_IP_TRANSPORT_CHECKSUM	0x0002
 #define H2N_BIT_FLAG_FIRST_SEGMENT		0x0004
 #define H2N_BIT_FLAG_LAST_SEGMENT		0x0008
-#define H2N_BIT_FLAG_DISCARD                    0x0080
+#define H2N_BIT_FLAG_DISCARD			0x0080
 #define H2N_BIT_FLAG_SEGMENTATION_ENABLE	0x0100
 #define H2N_BIT_FLAG_SEGMENT_TSO		0x0200
 #define H2N_BIT_FLAG_SEGMENT_UFO		0x0400
@@ -851,6 +824,8 @@ struct h2n_descriptor {
 #define N2H_BUFFER_COMMAND_RESP		5
 #define N2H_BUFFER_STATUS		6
 #define N2H_BUFFER_CRYPTO_RESP		8
+#define N2H_BUFFER_PACKET_VIRTUAL	10
+#define N2H_BUFFER_MAX			16
 
 /*
  * Command Response Types

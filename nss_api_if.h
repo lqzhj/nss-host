@@ -57,19 +57,19 @@
 /**
  * IPv4 rule sync reasons.
  */
-#define NSS_IPV4_RULE_SYNC_REASON_STATS 0
+#define NSS_IPV4_SYNC_REASON_STATS 0
 					/**< Sync is to synchronize stats */
 
-#define NSS_IPV4_RULE_SYNC_REASON_FLUSH 1
+#define NSS_IPV4_SYNC_REASON_FLUSH 1
 					/**< Sync is to flush a cache entry */
 
-#define NSS_IPV4_RULE_SYNC_REASON_EVICT 2
+#define NSS_IPV4_SYNC_REASON_EVICT 2
 					/**< Sync is to evict a cache entry */
 
-#define NSS_IPV4_RULE_SYNC_REASON_DESTROY 3
+#define NSS_IPV4_SYNC_REASON_DESTROY 3
 					/**< Sync is to destroy a cache entry (requested by host OS) */
 
-#define NSS_IPV4_RULE_SYNC_REASON_PPPOE_DESTROY 4
+#define NSS_IPV4_SYNC_REASON_PPPOE_DESTROY 4
 					/**< Sync is to destroy a cache entry which belongs to a particular PPPoE session */
 /**
  * Structure to be used while sending an IPv4 flow/connection destroy rule.
@@ -120,7 +120,10 @@ struct nss_ipv4_create {
  */
 
 /** Indicates that we should not check sequence numbers */
-#define NSS_IPV4_CREATE_FLAG_NO_SEQ_CHECK 0x1
+#define NSS_IPV4_CREATE_FLAG_NO_SEQ_CHECK 0x01
+
+/** Indicates that this is a pure bridge flow (no routing involved) */
+#define NSS_IPV4_CREATE_FLAG_BRIDGE_FLOW 0x02
 
 /**
  * Structure to be used while sending an IPv4 flow/connection destroy rule.
@@ -136,19 +139,19 @@ struct nss_ipv4_destroy {
 /**
  * IPv6 rule sync reasons.
  */
-#define NSS_IPV6_RULE_SYNC_REASON_STATS 0
+#define NSS_IPV6_SYNC_REASON_STATS 0
 					/**< Sync is to synchronize stats */
 
-#define NSS_IPV6_RULE_SYNC_REASON_FLUSH 1
+#define NSS_IPV6_SYNC_REASON_FLUSH 1
 					/**< Sync is to flush a cache entry */
 
-#define NSS_IPV6_RULE_SYNC_REASON_EVICT 2
+#define NSS_IPV6_SYNC_REASON_EVICT 2
 					/**< Sync is to evict a cache entry */
 
-#define NSS_IPV6_RULE_SYNC_REASON_DESTROY 3
+#define NSS_IPV6_SYNC_REASON_DESTROY 3
 					/**< Sync is to destroy a cache entry (requested by host OS) */
 
-#define NSS_IPV6_RULE_SYNC_REASON_PPPOE_DESTROY 4
+#define NSS_IPV6_SYNC_REASON_PPPOE_DESTROY 4
 					/**< Sync is to destroy a cache entry which belongs to a particular PPPoE session */
 
 /**
@@ -188,6 +191,8 @@ struct nss_ipv6_create {
  */
 #define NSS_IPV6_CREATE_FLAG_NO_SEQ_CHECK 0x1
 					/**< Indicates that we should not check sequence numbers */
+#define NSS_IPV6_CREATE_FLAG_BRIDGE_FLOW 0x02
+					/**< Indicates that this is a pure bridge flow (no routing involved) */
 
 /**
  * Structure to be used while sending an IPv6 flow/connection destroy rule.
@@ -233,57 +238,15 @@ struct nss_l2switch_destroy {
 };
 
 /**
- * Structure to be used while sending IPsec Tx creation rule.
- */
-struct nss_ipsec_tx_create {
-	uint32_t spi;			/**< SPI index */
-	uint32_t replay;		/**< Replay number */
-	uint32_t src_addr;		/**< Source IPv4 address */
-	uint32_t dest_addr;		/**< Destination IPv4 address */
-	uint32_t ses_idx;		/**< Session index */
-};
-
-/**
- * Structure to be used while sending IPsec Tx destruction rule.
- */
-struct nss_ipsec_tx_destroy {
-	uint32_t ses_idx;		/**< Session index */
-};
-
-/**
- * Structure to be used while sending IPsec Rx rule.
- */
-struct nss_ipsec_rx_create {
-	uint32_t spi;			/**< SPI index */
-	uint32_t replay;		/**< Replay number */
-	uint32_t src_addr;		/**< Source IPv4 address */
-	uint32_t dest_addr;		/**< Destination IPv4 address */
-	uint32_t ses_idx;		/**< Session index */
-};
-
-/**
- * Structure to be used while sending IPsec Rx destruction rule
- */
-struct nss_ipsec_rx_destroy {
-	uint32_t ses_idx;		/**< Session index */
-};
-
-/**
  * Structure to define packet stats (bytes / packets seen over a connection) and also keep alive.
  *
  * NOTE: The addresses here are NON-NAT addresses, i.e. the true endpoint addressing.
  * 'src' is the creator of the connection.
  */
 struct nss_ipv4_sync {
-	int32_t protocol;		/**< IP protocol number (IPPROTO_...) */
-	uint32_t src_addr;		/**< Non-NAT source address, i.e. the creator of the connection */
-	int32_t src_port;		/**< Non-NAT source port */
-	uint32_t src_addr_xlate;	/**< NAT translated source address, i.e. the creator of the connection */
-	int32_t src_port_xlate;		/**< NAT translated source port */
-	uint32_t dest_addr;		/**< Non-NAT destination address, i.e. the to whom the connection was created */
-	int32_t dest_port;		/**< Non-NAT destination port */
-	uint32_t dest_addr_xlate;	/**< NAT translated destination address, i.e. the to whom the connection was created */
-	int32_t dest_port_xlate;	/**< NAT translated destination port */
+	uint32_t index;			/**< Slot ID for cache stats to host OS */
+					/*TODO: use an opaque information as host and NSS
+					  may be using a different mechanism to store rules */
 	uint32_t flow_max_window;	/**< Maximum window size (TCP) */
 	uint32_t flow_end;		/**< Flow end */
 	uint32_t flow_max_end;		/**< Flow max end */
@@ -305,6 +268,62 @@ struct nss_ipv4_sync {
 };
 
 /**
+ * struct nss_ipv4_establish
+ *	Define connection established message parameters for
+ *	IPv4
+ */
+struct nss_ipv4_establish {
+	uint32_t index;			/**< Slot ID for cache stats to host OS */
+					/*TODO: use an opaque information as host and NSS
+					  may be using a different mechanism to store rules */
+	uint8_t protocol;		/**< Protocol number */
+	uint8_t reserved[3];		/**< Reserved to align bytes */
+	int32_t flow_interface;		/**< Flow interface number */
+	uint32_t flow_mtu;		/**< MTU for flow interface */
+	uint32_t flow_ip;		/**< Flow IP address */
+	uint32_t flow_ip_xlate;		/**< Translated flow IP address */
+	uint32_t flow_ident;		/**< Flow ident (e.g. port) */
+	uint32_t flow_ident_xlate;	/**< Translated flow ident (e.g. port) */
+	uint16_t flow_pppoe_session_id;	/**< Flow direction`s PPPoE session ID. */
+	uint16_t flow_pppoe_remote_mac[3];
+					/**< Flow direction`s PPPoE Server MAC address */
+	int32_t return_interface;	/**< Return interface number */
+	uint32_t return_mtu;		/**< MTU for return interface */
+	uint32_t return_ip;		/**< Return IP address */
+	uint32_t return_ip_xlate;	/**< Translated return IP address */
+	uint32_t return_ident;		/**< Return ident (e.g. port) */
+	uint32_t return_ident_xlate;	/**< Translated return ident (e.g. port) */
+	uint16_t return_pppoe_session_id;
+					/**< Return direction's PPPoE session ID. */
+	uint16_t return_pppoe_remote_mac[3];
+					/**< Return direction's PPPoE Server MAC address */
+};
+
+/**
+ * enum nss_ipv4_cb_reason
+ *	Provides reason for IPv4 callback
+ */
+enum nss_ipv4_cb_reason {
+	NSS_IPV4_CB_REASON_ESTABLISH = 0,
+					/**< Reason is rule establish */
+	NSS_IPV4_CB_REASON_SYNC,	/**< Reason is rule sync */
+};
+
+/**
+ * struct nss_ipv4_cb_params
+ *	Define message parameters for IPv4 callback
+ */
+struct nss_ipv4_cb_params {
+	enum nss_ipv4_cb_reason reason;	/**< callback reason */
+	union {
+		struct nss_ipv4_sync sync;
+					/**< sync parameters */
+		struct nss_ipv4_establish establish;
+					/**< establish parameters */
+	} params;
+};
+
+/**
  * struct nss_ipv6_sync
  *	Update packet stats (bytes / packets seen over a connection) and also keep alive.
  *
@@ -312,11 +331,7 @@ struct nss_ipv4_sync {
  * 'src' is the creator of the connection.
  */
 struct nss_ipv6_sync {
-	int32_t protocol;		/**< IP protocol number (IPPROTO_...) */
-	uint32_t src_addr[4];		/**< Non-NAT source address, i.e. the creator of the connection */
-	int32_t src_port;		/**< Non-NAT source port */
-	uint32_t dest_addr[4];		/**< Non-NAT destination address, i.e. the to whom the connection was created */
-	int32_t dest_port;		/**< Non-NAT destination port */
+	uint32_t index;			/**< Slot ID for cache stats to host OS */
 	uint32_t flow_max_window;	/**< Maximum window size (TCP) */
 	uint32_t flow_end;		/**< Flow end */
 	uint32_t flow_max_end;		/**< Flow max end */
@@ -331,6 +346,55 @@ struct nss_ipv6_sync {
 					/**< Time in Linux jiffies to be added to the current timeout to keep the connection alive */
 	uint8_t final_sync;		/**< Non-zero when the NA has ceased to accelerate the given connection */
 	uint8_t evicted;		/**< Non-zero if connection evicted */
+};
+
+/**
+ * struct nss_ipv6_establish
+ *	Define connection established message parameters for
+ *	IPv6
+ */
+struct nss_ipv6_establish {
+	uint32_t index;			/**< Slot ID for cache stats to host OS */
+	uint8_t protocol;		/**< Protocol number */
+	int32_t flow_interface;		/**< Flow interface number */
+	uint32_t flow_mtu;		/**< MTU for flow interface */
+	uint32_t flow_ip[4];		/**< Flow IP address */
+	uint32_t flow_ident;		/**< Flow ident (e.g. port) */
+	uint16_t flow_pppoe_session_id;	/**< Flow direction`s PPPoE session ID. */
+	uint16_t flow_pppoe_remote_mac[3];
+					/**< Flow direction`s PPPoE Server MAC address */
+	int32_t return_interface;	/**< Return interface number */
+	uint32_t return_mtu;		/**< MTU for return interface */
+	uint32_t return_ip[4];		/**< Return IP address */
+	uint32_t return_ident;		/**< Return ident (e.g. port) */
+	uint16_t return_pppoe_session_id;
+					/**< Return direction's PPPoE session ID. */
+	uint16_t return_pppoe_remote_mac[3];
+					/**< Return direction's PPPoE Server MAC address */
+};
+
+/**
+ * enum nss_ipv6_cb_reason
+ *	Provides reason for IPv6 callback
+ */
+enum nss_ipv6_cb_reason {
+	NSS_IPV6_CB_REASON_ESTABLISH = 0,
+					/**< Reason is rule establish */
+	NSS_IPV6_CB_REASON_SYNC,	/**< Reason is rule sync */
+};
+
+/**
+ * struct nss_ipv6_cb_params
+ *	Define message parameters for IPv6 callback
+ */
+struct nss_ipv6_cb_params {
+	enum nss_ipv6_cb_reason reason;	/**< reason */
+	union {
+		struct nss_ipv6_sync sync;
+					/**< sync parameters */
+		struct nss_ipv6_establish establish;
+					/**< establish parameters */
+	} params;
 };
 
 /**
@@ -406,6 +470,7 @@ typedef enum {
 	NSS_TX_FAILURE,		/**< Command failure other than descriptor not available */
 	NSS_TX_FAILURE_QUEUE,	/**< Command failure due to descriptor not available */
 	NSS_TX_FAILURE_NOT_READY,	/**< Command failure due to NSS state uninitialized */
+	NSS_TX_FAILURE_TOO_LARGE,	/**< Command is too large to fit in one message */
 } nss_tx_status_t;
 
 /**
@@ -520,7 +585,7 @@ extern nss_cb_unregister_status_t nss_unregister_queue_decongestion(void *nss_ct
 /**
  * Callback for IPv4 connection sync messages
  */
-typedef void (*nss_ipv4_sync_callback_t)(struct nss_ipv4_sync *unis);
+typedef void (*nss_ipv4_callback_t)(struct nss_ipv4_cb_params *nicb);
 
 /**
  * @brief Register for sending/receiving IPv4 messages
@@ -529,7 +594,7 @@ typedef void (*nss_ipv4_sync_callback_t)(struct nss_ipv4_sync *unis);
  *
  * @return void* NSS context to be provided with every message
  */
-extern void *nss_register_ipv4_mgr(nss_ipv4_sync_callback_t event_callback);
+extern void *nss_register_ipv4_mgr(nss_ipv4_callback_t event_callback);
 
 /**
  * @brief Unregister for sending/receiving IPv4 messages
@@ -563,7 +628,7 @@ extern nss_tx_status_t nss_tx_destroy_ipv4_rule(void *nss_ctx, struct nss_ipv4_d
 /**
  * Callback for IPv6 sync messages
  */
-typedef void (*nss_ipv6_sync_callback_t)(struct nss_ipv6_sync *unis);
+typedef void (*nss_ipv6_callback_t)(struct nss_ipv6_cb_params *nicb);
 
 /**
  * @brief Register for sending/receiving IPv6 messages
@@ -572,7 +637,7 @@ typedef void (*nss_ipv6_sync_callback_t)(struct nss_ipv6_sync *unis);
  *
  * @return void* NSS context to be provided with every message
  */
-extern void *nss_register_ipv6_mgr(nss_ipv6_sync_callback_t event_callback);
+extern void *nss_register_ipv6_mgr(nss_ipv6_callback_t event_callback);
 
 /**
  * @brief Unregister for sending/receiving IPv4 messages
@@ -729,6 +794,8 @@ typedef void (*nss_phys_if_rx_callback_t)(void *if_ctx, void *os_buf);
  * @param rx_callback Receive callback for packets
  * @param event_callback Receive callback for events
  * @param if_ctx Interface context provided in callback
+ *		(must be OS network device context pointer e.g.
+ *		struct net_device * in Linux)
  *
  * @return void* NSS context
  */
@@ -809,11 +876,27 @@ extern nss_tx_status_t nss_tx_phys_if_mac_addr(void *nss_ctx, uint8_t *addr, uin
 extern nss_tx_status_t nss_tx_phys_if_change_mtu(void *nss_ctx, uint32_t mtu, uint32_t if_num);
 
 /**
+ * Methods provided by NSS driver for use by Virtual interfaces
+ */
+
+/**
+ * @brief Register to send/receive Virtual interface packets
+ *
+ * @param if_num Virtual i/f number
+ * @param if_ctx Interface context provided in callback
+ *		(must be OS network device context pointer e.g.
+ *		struct net_device * in Linux)
+ *
+ * @return void* NSS context
+ */
+extern void *nss_register_virt_if(uint32_t if_num, void *if_ctx);
+
+/**
  * Methods provided by NSS driver for use by IPsec stack
  */
 
 /**
- * Callback to receive ipsec sync messages
+ * Callback to receive ipsec sync message
  */
 typedef void (*nss_ipsec_callback_t)(void *ctx, void *os_buf);
 
@@ -825,52 +908,25 @@ typedef void (*nss_ipsec_callback_t)(void *ctx, void *os_buf);
  *
  * @return void* NSS context
  */
-extern void *nss_register_ipsec_if(nss_ipsec_callback_t ipsec_callback, void *ctx);
+extern void *nss_register_ipsec_if(uint32_t if_num, nss_ipsec_callback_t ipsec_callback, void *ctx);
 
 /**
  * @brief Unregister IPsec interface with NSS
  */
-extern void nss_unregister_ipsec_if(void);
+extern void nss_unregister_ipsec_if(uint32_t if_num);
 
 /**
  * @brief Send rule creation message for IPsec Tx node
  *
  * @param nss_ctx NSS context
- * @param nitc Rule creation parameters
+ * @param interface_num interface number for Ipsec tunnel
+ * @param type IPsec rule type
+ * @param buf Rule buffer that needs to be sent to NSS
+ * @param len Length of valid data in buffer
  *
  * @return nss_tx_status_t Tx status
  */
-extern nss_tx_status_t nss_tx_create_ipsec_tx_rule(void *nss_ctx, struct nss_ipsec_tx_create *nitc);
-
-/**
- * @brief Send rule destroy message for IPsec Tx node
- *
- * @param nss_ctx NSS context
- * @param nitd Rule destroy parameters
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_destroy_ipsec_tx_rule(void *nss_ctx, struct nss_ipsec_tx_destroy *nitd);
-
-/**
- * @brief Send rule creation message for IPsec Rx node
- *
- * @param nss_ctx NSS context
- * @param nirc Rule creation parameters
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_create_ipsec_rx_rule(void *nss_ctx, struct nss_ipsec_rx_create *nirc);
-
-/**
- * @brief Send rule destroy message for IPsec Rx node
- *
- * @param nss_ctx NSS context
- * @param nird Rule destroy parameters
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_destroy_ipsec_rx_rule(void *nss_ctx, struct nss_ipsec_rx_destroy *nird);
+extern nss_tx_status_t nss_tx_ipsec_rule(void *nss_ctx, uint32_t interface_num, uint32_t type, uint8_t *buf, uint32_t len);
 
 /**
  * Methods provided by NSS driver for use by NSS Profiler
