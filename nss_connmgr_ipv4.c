@@ -1,0 +1,1652 @@
+/* * Copyright (c) 2013 Qualcomm Atheros, Inc. * */
+
+/*
+ * nss_connmgr_ipv4.c
+ *
+ * This file is the NSS connection manager for managing IPv4 connections.It
+ * forms an interface between the fast-path NSS driver and Linux
+ * connection track module for updating/syncing connection level information
+ * between the two.It is responsible for maintaing  all connection (flow) level
+ * information and statistics for all fast path connections.
+ *
+ * ------------------------REVISION HISTORY-----------------------------
+ * Qualcomm Atheros         01/Mar/2013              Created
+ */
+
+#include <linux/types.h>
+#include <linux/ip.h>
+#include <linux/tcp.h>
+#include <linux/module.h>
+#include <linux/skbuff.h>
+#include <linux/icmp.h>
+#include <linux/sysctl.h>
+#include <linux/kthread.h>
+#include <linux/fs.h>
+#include <linux/pkt_sched.h>
+#include <linux/string.h>
+#include <linux/debugfs.h>
+#include <linux/netdevice.h>
+
+#include <net/route.h>
+#include <net/ip.h>
+#include <net/tcp.h>
+#include <asm/unaligned.h>
+#include <asm/uaccess.h>	/* for put_user */
+
+#include <linux/netfilter_ipv4.h>
+#include <linux/netfilter_bridge.h>
+#include <linux/if_bridge.h>
+#include <net/netfilter/nf_conntrack.h>
+#include <net/netfilter/nf_conntrack_acct.h>
+#include <net/netfilter/nf_conntrack_helper.h>
+#include <net/netfilter/nf_conntrack_l4proto.h>
+#include <net/netfilter/nf_conntrack_l3proto.h>
+#include <net/netfilter/nf_conntrack_zones.h>
+#include <net/netfilter/nf_conntrack_core.h>
+#include <net/netfilter/ipv4/nf_conntrack_ipv4.h>
+#include <net/netfilter/ipv4/nf_defrag_ipv4.h>
+
+#include <net/arp.h>
+
+#include "nss_api_if.h"
+
+/*
+ * Debug output levels
+ * 0 = OFF
+ * 1 = ASSERTS / ERRORS
+ * 2 = 1 + WARN
+ * 3 = 2 + INFO
+ * 4 = 3 + TRACE
+ */
+
+#if (NSS_CONNMGR_DEBUG_LEVEL < 1)
+#define NSS_CONNMGR_DEBUG_ASSERT(s, ...)
+#define NSS_CONNMGR_DEBUG_ERROR(s, ...)
+#define NSS_CONNMGR_DEBUG_CHECK_MAGIC(i, m, s, ...)
+#define NSS_CONNMGR_DEBUG_SET_MAGIC(i, m)
+#define NSS_CONNMGR_DEBUG_CLEAR_MAGIC(i)
+#else
+#define NSS_CONNMGR_DEBUG_ASSERT(c, s, ...) if (!(c)) { printk("%s:%d:ASSERT:", __FILE__, __LINE__);printk(s, ##__VA_ARGS__); while(1); }
+#define NSS_CONNMGR_DEBUG_ERROR(s, ...) printk("%s:%d:ERROR:", __FILE__, __LINE__);printk(s, ##__VA_ARGS__)
+#define NSS_CONNMGR_DEBUG_CHECK_MAGIC(i, m, s, ...) if (i->magic != m) { NSS_CONNMGR_DEBUG_ASSERT(FALSE, s, ##__VA_ARGS__); }
+#define NSS_CONNMGR_DEBUG_SET_MAGIC(i, m) i->magic = m
+#define NSS_CONNMGR_DEBUG_CLEAR_MAGIC(i) i->magic = 0
+#endif
+
+#if (NSS_CONNMGR_DEBUG_LEVEL < 2)
+#define NSS_CONNMGR_DEBUG_WARN(s, ...)
+#else
+#define NSS_CONNMGR_DEBUG_WARN(s, ...) { printk("%s:%d:WARN:", __FILE__, __LINE__);printk(s, ##__VA_ARGS__); }
+#endif
+
+#if (NSS_CONNMGR_DEBUG_LEVEL < 3)
+#define NSS_CONNMGR_DEBUG_INFO(s, ...)
+#else
+#define NSS_CONNMGR_DEBUG_INFO(s, ...) { printk("%s:%d:INFO:", __FILE__, __LINE__);printk(s, ##__VA_ARGS__); }
+#endif
+
+#if (NSS_CONNMGR_DEBUG_LEVEL < 4)
+#define NSS_CONNMGR_DEBUG_TRACE(s, ...)
+#else
+#define NSS_CONNMGR_DEBUG_TRACE(s, ...) { printk("%s:%d:TRACE:", __FILE__, __LINE__);printk(s, ##__VA_ARGS__); }
+#endif
+
+/*
+ * Custom types recognised within the Connection Manager
+ */
+typedef uint8_t mac_addr_t[6];
+typedef uint32_t ipv4_addr_t;
+
+/*
+ * Tuple Match
+ */
+#define IS_TUPLE_MATCH( connection , sync) (\
+		(connection->src_addr == establish->flow_ip) && \
+		(connection->src_port == establish->flow_ident) && \
+		(connection->src_addr_xlate == establish->flow_ip_xlate) && \
+		(connection->src_port_xlate == establish->flow_ident_xlate) && \
+		(connection->dest_addr == establish->return_ip) && \
+		(connection->dest_port == establish->return_ident) && \
+		(connection->dest_addr_xlate == establish->return_ip_xlate) && \
+		(connection->dest_port_xlate == establish->return_ident_xlate))
+
+/*
+ * Local Host IP = 127.0.0.1 (0x7f:00:00:01)
+ */
+#define IS_LOCAL_HOST(ip) (ip == 0x7f000001)
+
+/*
+ * Displaying addresses
+ */
+#define MAC_AS_BYTES(mac_addr) mac_addr[5], mac_addr[4], mac_addr[3], mac_addr[2], mac_addr[1], mac_addr[0]
+
+#define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
+
+#define IPV4_ADDR_FMT "%d.%d.%d.%d"
+
+#define IPV4_ADDR_TO_QUAD(ip)  (ip) >> 24, ((ip) & 0x00ff0000) >> 16, ((ip) & 0x0000ff00) >> 8, ((ip) & 0x000000ff)
+
+/*
+ * Max NSS IPV4 Flow entries
+ *
+ * TODO - This information should come from NSS. Once NSS driver team adds an
+ * API for this, change this.
+ */
+#define NSS_CONNMGR_IPV4_CONN_MAX 256
+
+/*
+ * size of buffer allocated for stats printing (using debugfs)
+ */
+#define NSS_CONNMGR_IPV4_DEBUGFS_BUF_SZ (NSS_CONNMGR_IPV4_CONN_MAX*512)
+
+/*
+ * Maximum string length:
+ * This should be equal to maximum string size of any stats
+ * inclusive of stats value
+ */
+#define NSS_CONNMGR_IPV4_MAX_STR_LENGTH 96
+
+
+/*
+ * IPV4 Connection statistics
+ */
+enum nss_connmgr_ipv4_conn_statistics {
+	NSS_CONNMGR_IPV4_ACCELERATED_RX_PKTS = 0,
+	/* Accelerated IPv4 RX packets */
+	NSS_CONNMGR_IPV4_ACCELERATED_RX_BYTES,
+	/* Accelerated IPv4 RX bytes */
+	NSS_CONNMGR_IPV4_ACCELERATED_TX_PKTS,
+	/* Accelerated IPv4 TX packets */
+	NSS_CONNMGR_IPV4_ACCELERATED_TX_BYTES,
+	/* Accelerated IPv4 TX bytes */
+	NSS_CONNMGR_IPV4_STATS_MAX
+};
+
+typedef enum nss_connmgr_ipv4_conn_statistics nss_connmgr_ipv4_conn_statistics_t;
+
+/*
+ * Debug statistics
+ */
+enum nss_connmgr_ipv4_debug_statistics {
+	NSS_CONNMGR_IPV4_CREATE_FAIL,
+				/* Rule create failures */
+	NSS_CONNMGR_IPV4_DESTROY_FAIL,
+				/* Rule destroy failures */
+	NSS_CONNMGR_IPV4_ESTABLISH_MISS,
+				/* No establish response from NSS  */
+	NSS_CONNMGR_IPV4_DESTROY_MISS,
+				/* No Flush/Evict/Destroy response from NSS */
+	NSS_CONNMGR_IPV4_DEBUG_STATS_MAX
+};
+
+typedef enum nss_connmgr_ipv4_debug_statistics nss_connmgr_debug_ipv4_statistics_t;
+
+/*
+ * nss_connmgr_ipv4_conn_stats_str
+ *      Connection statistics strings
+ */
+static char *nss_connmgr_ipv4_conn_stats_str[] = {
+	"rx_pkts",
+	"rx_bytes",
+	"tx_pkts",
+	"tx_bytes",
+};
+
+/*
+ * nss_connmgr_ipv4_stats_str
+ *      Debug statistics strings
+ */
+static char *nss_connmgr_ipv4_debug_stats_str[] = {
+	"create_fail",
+	"destroy_fail",
+	"establish_miss",
+	"destroy_miss",
+};
+
+/*
+ * Connection states as defined by connection manager
+ *
+ * INACTIVE    Connection is not active
+ * ESTABLISHED Connection is established, and NSS sends periodic sync messages
+ * STALE       Linux and NSS are out of sync.
+ *		Conntrack -> Conn Mgr sent a rule destroy command,
+ *		but the command did  not reach NSS
+ *
+ */
+typedef enum  {
+	NSS_CONNMGR_IPV4_STATE_INACTIVE,
+	NSS_CONNMGR_IPV4_STATE_ESTABLISHED,
+	NSS_CONNMGR_IPV4_STATE_STALE,
+} nss_connmgr_ipv4_conn_state_t;
+
+/*
+ * Connection states strings
+ */
+static char *nss_connmgr_ipv4_conn_state_str[] = {
+	"inactive",
+	"established",
+	"stale",
+};
+
+/*
+ * IPv4 connection info
+ */
+struct nss_connmgr_ipv4_connection {
+	nss_connmgr_ipv4_conn_state_t  state;
+					/* Connection state */
+	uint8_t  protocol;		/* Protocol number */
+	int32_t  src_interface;		/* Flow interface number */
+	uint32_t src_addr;		/* Non-NAT source address, i.e. the creator of the connection */
+	int32_t  src_port;		/* Non-NAT source port */
+	uint32_t src_addr_xlate;	/* NAT translated source address, i.e. the creator of the connection */
+	int32_t  src_port_xlate;	/* NAT translated source port */
+	int32_t  dest_interface;	/* Return interface number */
+	uint32_t dest_addr;		/* Non-NAT destination address, i.e. the to whom the connection was created */
+	int32_t  dest_port;		/* Non-NAT destination port */
+	uint32_t dest_addr_xlate;	/* NAT translated destination address, i.e. the to whom the connection was created */
+	int32_t  dest_port_xlate;	/* NAT translated destination port */
+	uint64_t stats[NSS_CONNMGR_IPV4_STATS_MAX];
+					/* Connection statistics */
+	uint32_t last_sync;		/* Last sync time as jiffies */
+};
+
+/*
+ * Global connection manager instance object.
+ */
+struct nss_connmgr_ipv4_instance {
+	spinlock_t lock;		/* Lock to Protect against SMP access. */
+	struct kobject *nom_v4;	/* Sysfs link. Represents the sysfs folder /sys/nom_v4 */
+	int32_t stopped;		/* General operational control.When non-zero further traffic will not be processed */
+	int32_t terminate;		/* Signal to tell the control thread to terminate */
+	struct task_struct *thread;
+					/* Control thread */
+	void *nss_context;		/* Registration context used to identify the manager in calls to the NSS driver */
+#ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
+	struct notifier_block conntrack_notifier;
+					/* NF conntrack event system to monitor connection tracking changes */
+#else
+	struct nf_ct_event_notifier conntrack_notifier;
+					/* NF conntrack event system to monitor connection tracking changes */
+#endif
+	struct nss_connmgr_ipv4_connection connection[NSS_CONNMGR_IPV4_CONN_MAX];
+					/* Connection Table */
+	struct dentry *dent;		/* Debugfs directory */
+	uint32_t debug_stats[NSS_CONNMGR_IPV4_DEBUG_STATS_MAX];
+					/* Debug statistics */
+};
+
+static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
+				struct sk_buff *skb,
+				const struct net_device *in_unused,
+				const struct net_device *out,
+				int (*okfn)(struct sk_buff *));
+
+static ssize_t nss_connmgr_ipv4_read_conn_stats(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos);
+
+static ssize_t nss_connmgr_ipv4_read_debug_stats(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos);
+
+static ssize_t nss_connmgr_ipv4_clear_stats(struct file *fp, const char __user *ubuf, size_t count, loff_t *ppos);
+
+#ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
+static int nss_connmgr_ipv4_conntrack_event(struct notifier_block *this, unsigned long events, void *ptr);
+#else
+static int nss_connmgr_ipv4_conntrack_event(unsigned int events, struct nf_ct_event *item);
+#endif
+
+
+static struct nss_connmgr_ipv4_instance nss_connmgr_ipv4 = {
+		.stopped = 0,
+		.terminate= 0,
+		.thread = NULL,
+		.nss_context = NULL,
+#ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
+		.conntrack_notifier = {
+			.notifier_call = nss_connmgr_ipv4_conntrack_event,
+		},
+#else
+		.conntrack_notifier = {
+			.fcn = nss_connmgr_ipv4_conntrack_event,
+		},
+#endif
+};
+
+/*
+ * Post routing netfilter hook
+ * 	This will pick up local outbound and packets going from one interface to another
+ */
+static struct nf_hook_ops nss_connmgr_ipv4_ops_post_routing[] __read_mostly = {
+	{
+	.hook           = nss_connmgr_ipv4_post_routing_hook,
+	.owner          = THIS_MODULE,
+	.pf             = PF_INET,
+	.hooknum        = NF_INET_POST_ROUTING,
+	.priority       = NF_IP_PRI_NAT_SRC + 1, /*
+						  * Refer to include/linux/netfiler_ipv4.h for priority levels.
+						  * Examine packets after NAT translation (and potentially any ALG processing)
+						  */
+	},
+};
+
+/*
+ * Expose what should be static flags in the TCP connection tracker.
+ */
+extern int nf_ct_tcp_be_liberal;
+extern int nf_ct_tcp_no_window_check;
+
+static const struct file_operations nss_connmgr_ipv4_show_stats_ops = {
+	.open = simple_open,
+	.read = nss_connmgr_ipv4_read_conn_stats,
+};
+
+static const struct file_operations nss_connmgr_ipv4_show_debug_stats_ops = {
+	.open = simple_open,
+	.read = nss_connmgr_ipv4_read_debug_stats,
+};
+
+static const struct file_operations nss_connmgr_ipv4_clear_stats_ops = {
+	.write = nss_connmgr_ipv4_clear_stats,
+};
+
+/*
+ * Network flow
+ *
+ * HOST1-----------ROUTER------------HOST2
+ * HOST1 has IPa and MACa
+ * ROUTER has IPb and MACb facing HOST1 and IPc and MACc facing HOST2
+ * HOST2 has IPd and MACd
+ * i.e.
+ * HOST1-----------------ROUTER----------------HOST2
+ * IPa/MACa--------IPb/MACb:::IPc/MACc---------IPd/MACd
+ *
+ * Sending a packet from HOST1 to HOST2, the packet is mangled as follows (NAT'ed to HOST2):
+ * IPa/MACa---------->IPd/MACb:::::IPc/MACc---------->IPd/MACd
+ *
+ * Reply:
+ * IPa/MACa<----------IPd/MACb:::::IPc/MACc<----------IPd/MACd
+ *
+ * NOTE: IPx is considered to be IP addressing, protocol and port information combined.
+ */
+
+/*
+ * nss_connmgr_ipv4_mac_addr_get()
+ *	Return the hardware (MAC) address of the given IPv4 address, if any.
+ *
+ * Returns 0 on success or a negative result on failure.
+ * We look up the rtable entry for the address and,
+ * from its neighbour structure,obtain the hardware address.
+ * This means we will also work if the neighbours are routers too.
+ */
+static int nss_connmgr_ipv4_mac_addr_get(ipv4_addr_t addr, mac_addr_t mac_addr)
+{
+	struct neighbour *neigh;
+	struct rtable *rt;
+	struct dst_entry *dst;
+
+	/*
+	 * Get the MAC addresses that correspond to source and destination host addresses.
+	 * We look up the rtable entries and, from its neighbour structure, obtain the hardware address.
+	 * This means we will also work if the neighbours are routers too.
+	 */
+	rt = ip_route_output(&init_net, addr, 0, 0, 0);
+	if (IS_ERR(rt)) {
+		return -1;
+	}
+
+	dst = (struct dst_entry *)rt;
+
+	rcu_read_lock();
+	neigh = dst_get_neighbour_noref(dst);
+	if (!neigh) {
+		rcu_read_unlock();
+		dst_release(dst);
+		return -2;
+	}
+	if (!(neigh->nud_state & NUD_VALID)) {
+		rcu_read_unlock();
+		dst_release(dst);
+		return -3;
+	}
+	if (!neigh->dev) {
+		rcu_read_unlock();
+		dst_release(dst);
+		return -4;
+	}
+	memcpy(mac_addr, neigh->ha, (size_t)neigh->dev->addr_len);
+	rcu_read_unlock();
+
+	dst_release(dst);
+
+	/*
+	 * If this mac looks like a multicast then it MAY be either truly multicast or it could be broadcast
+	 * Either way we fail!  We don't want to deal with multicasts or any sort because the NSS cannot deal with them.
+	 */
+	if (is_multicast_ether_addr(mac_addr)) {
+		NSS_CONNMGR_DEBUG_TRACE("Mac is multicast / broadcast - ignoring\n");
+		return -5;
+	}
+
+	return 0;
+}
+
+/*
+ * nss_connmgr_ipv4_post_routing_hook()
+ *	Called for packets about to leave the box - either locally generated or forwarded from another interface
+ */
+static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
+				struct sk_buff *skb,
+				const struct net_device *in_unused,
+				const struct net_device *out,
+				int (*okfn)(struct sk_buff *))
+{
+	struct nss_ipv4_create unic;
+
+	struct net_device *in;
+	struct nf_conn *ct;
+	enum ip_conntrack_info ctinfo;
+	struct net_device *src_dev;
+	struct net_device *dest_dev;
+	struct nf_conntrack_tuple orig_tuple;
+	struct nf_conntrack_tuple reply_tuple;
+
+	nss_tx_status_t nss_tx_status;
+
+	/*
+	 * Don't process broadcast or multicast
+	 */
+	if (skb->pkt_type == PACKET_BROADCAST) {
+		NSS_CONNMGR_DEBUG_TRACE("Broadcast, ignoring: %p\n", skb);
+		return NF_ACCEPT;
+	}
+	if (skb->pkt_type == PACKET_MULTICAST) {
+		NSS_CONNMGR_DEBUG_TRACE("Multicast, ignoring: %p\n", skb);
+		return NF_ACCEPT;
+	}
+
+	/*
+	 * Only process packets being forwarded across the router - obtain the input interface for the skb
+	 * IMPORTANT 'in' must be released with dev_put(), this is not true for 'out'
+	 */
+	in = dev_get_by_index(&init_net, skb->skb_iif);
+	if  (!in) {
+		NSS_CONNMGR_DEBUG_TRACE("Not forwarded, ignoring: skb %p iif %d\n", skb, skb->skb_iif);
+		return NF_ACCEPT;
+	}
+
+	/*
+	 * Only work with standard 802.3 mac address sizes
+	 */
+	if (in->addr_len != 6) {
+		dev_put(in);
+		NSS_CONNMGR_DEBUG_TRACE("in device (%s) not 802.3 hw addr len (%u), ignoring: %p\n", in->name, (unsigned)in->addr_len, skb);
+		return NF_ACCEPT;
+	}
+	if (out->addr_len != 6) {
+		dev_put(in);
+		NSS_CONNMGR_DEBUG_TRACE("out device (%s) not 802.3 hw addr len (%u), ignoring: %p\n", out->name, (unsigned)out->addr_len, skb);
+		return NF_ACCEPT;
+	}
+
+	/*
+	 * Only process packets that are also tracked by conntrack
+	 */
+	ct = nf_ct_get(skb, &ctinfo);
+	if (!ct) {
+		dev_put(in);
+		NSS_CONNMGR_DEBUG_TRACE("No conntrack connection, ignoring: %p\n", skb);
+		return NF_ACCEPT;
+	}
+	NSS_CONNMGR_DEBUG_TRACE("skb: %p tracked by connection: %p\n", skb, ct);
+
+	/*
+	 * Special untracked connection is not monitored
+	 */
+	if (ct == &nf_conntrack_untracked) {
+		dev_put(in);
+		NSS_CONNMGR_DEBUG_TRACE("%p: Untracked connection\n", ct);
+		return NF_ACCEPT;
+	}
+
+	/*
+	 * Any connection needing support from a 'helper' (aka NAT ALG) is kept away from the Network Accelerator
+	 */
+	if (nfct_help(ct)) {
+		dev_put(in);
+		NSS_CONNMGR_DEBUG_TRACE("%p: Connection has helper\n", ct);
+		return NF_ACCEPT;
+	}
+
+	/*
+	 * Now examine conntrack to identify the protocol, IP addresses and portal information involved
+	 * IMPORTANT: The information here will be as the 'ORIGINAL' direction, i.e. who established the connection.
+	 * This MAY NOT be the same as the current packet direction, for example, this packet direction may be eth1->eth0 but
+	 * originally the connection may be been started from a packet going from eth0->eth1.
+	 */
+	orig_tuple = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
+	reply_tuple = ct->tuplehash[IP_CT_DIR_REPLY].tuple;
+	unic.protocol = (int32_t)orig_tuple.dst.protonum;
+
+	/*
+	 * Get addressing information, non-NAT first
+	 */
+	unic.src_ip = (ipv4_addr_t)orig_tuple.src.u3.ip;
+	unic.dest_ip = (ipv4_addr_t)orig_tuple.dst.u3.ip;
+
+	/*
+	 * NAT'ed addresses - note these are as seen from the 'reply' direction
+	 * When NAT does not apply to this connection these will be identical to the above.
+	 */
+	unic.src_ip_xlate = (ipv4_addr_t)reply_tuple.dst.u3.ip;
+	unic.dest_ip_xlate = (ipv4_addr_t)reply_tuple.src.u3.ip;
+
+	unic.flags = 0;
+
+	unic.return_pppoe_session_id = 0;
+	unic.flow_pppoe_session_id = 0;
+
+	switch (unic.protocol) {
+	case IPPROTO_TCP:
+		unic.src_port = (int32_t)orig_tuple.src.u.tcp.port;
+		unic.dest_port = (int32_t)orig_tuple.dst.u.tcp.port;
+		unic.src_port_xlate = (int32_t)reply_tuple.dst.u.tcp.port;
+		unic.dest_port_xlate = (int32_t)reply_tuple.src.u.tcp.port;
+		unic.flow_window_scale = ct->proto.tcp.seen[0].td_scale;
+		unic.flow_max_window = ct->proto.tcp.seen[0].td_maxwin;
+		unic.flow_end = ct->proto.tcp.seen[0].td_end;
+		unic.flow_max_end = ct->proto.tcp.seen[0].td_maxend;
+		unic.return_window_scale = ct->proto.tcp.seen[1].td_scale;
+		unic.return_max_window = ct->proto.tcp.seen[1].td_maxwin;
+		unic.return_end = ct->proto.tcp.seen[1].td_end;
+		unic.return_max_end = ct->proto.tcp.seen[1].td_maxend;
+		if ( nf_ct_tcp_be_liberal || nf_ct_tcp_no_window_check ||
+			(ct->proto.tcp.seen[0].flags & IP_CT_TCP_FLAG_BE_LIBERAL) ||
+			(ct->proto.tcp.seen[1].flags & IP_CT_TCP_FLAG_BE_LIBERAL)) {
+
+			unic.flags |= NSS_IPV4_CREATE_FLAG_NO_SEQ_CHECK;
+		}
+
+		/*
+		 * Don't try to manage a non-established connection.
+		 */
+		if (!test_bit(IPS_ASSURED_BIT, &ct->status)) {
+			dev_put(in);
+			NSS_CONNMGR_DEBUG_TRACE("%p: Non-established connection\n", ct);
+			return NF_ACCEPT;
+		}
+
+		/*
+		 * If the connection is shutting down do not manage it.
+		 * state can not be SYN_SENT, SYN_RECV because connection is assured
+		 * Not managed states: FIN_WAIT, CLOSE_WAIT, LAST_ACK, TIME_WAIT, CLOSE.
+		 */
+		spin_lock_bh(&ct->lock);
+		if (ct->proto.tcp.state != TCP_CONNTRACK_ESTABLISHED) {
+			spin_unlock_bh(&ct->lock);
+			dev_put(in);
+			NSS_CONNMGR_DEBUG_TRACE("%p: Connection in termination state %#X\n", ct, ct->proto.tcp.state);
+			return NF_ACCEPT;
+		}
+		spin_unlock_bh(&ct->lock);
+
+		break;
+
+	case IPPROTO_UDP:
+		unic.src_port = (int32_t)orig_tuple.src.u.udp.port;
+		unic.dest_port = (int32_t)orig_tuple.dst.u.udp.port;
+		unic.src_port_xlate = (int32_t)reply_tuple.dst.u.udp.port;
+		unic.dest_port_xlate = (int32_t)reply_tuple.src.u.udp.port;
+		break;
+
+	default:
+		/*
+		 * Streamengine compatibility - database stores non-ported protocols with port numbers equal to negative protocol number
+		 * to indicate unused.
+		 */
+		dev_put(in);
+		NSS_CONNMGR_DEBUG_TRACE("%p: Unhandled protocol %d\n", ct, unic.protocol);
+		return NF_ACCEPT;
+	}
+
+	/*
+	 * Get MAC addresses
+	 * NOTE: We are dealing with the ORIGINAL direction here so 'in' and 'out' dev may need
+	 * to be swapped if this packet is a reply
+	 */
+	if (ctinfo < IP_CT_IS_REPLY) {
+		src_dev = in;
+		dest_dev = (struct net_device *)out;
+		NSS_CONNMGR_DEBUG_TRACE("%p: dir: Original\n", ct);
+	} else {
+		src_dev = (struct net_device *)out;
+		dest_dev = in;
+		NSS_CONNMGR_DEBUG_TRACE("%p: dir: Reply\n", ct);
+	}
+
+	/*
+	 * Get the MAC addresses that correspond to source and destination host addresses.
+	 */
+	if (nss_connmgr_ipv4_mac_addr_get(unic.src_ip, unic.src_mac)) {
+		dev_put(in);
+		NSS_CONNMGR_DEBUG_TRACE("%p: Failed to find MAC address for src IP: %pI4\n", ct, &unic.src_ip);
+		return NF_ACCEPT;
+	}
+
+	if (nss_connmgr_ipv4_mac_addr_get(unic.src_ip_xlate, unic.src_mac_xlate)) {
+		dev_put(in);
+		NSS_CONNMGR_DEBUG_TRACE("%p: Failed to find MAC address for xlate src IP: %pI4\n", ct, &unic.src_ip_xlate);
+		return NF_ACCEPT;
+	}
+
+	/*
+	 * Do dest now
+	 */
+	if (nss_connmgr_ipv4_mac_addr_get(unic.dest_ip, unic.dest_mac)) {
+		dev_put(in);
+		NSS_CONNMGR_DEBUG_TRACE("%p: Failed to find MAC address for dest IP: %pI4\n", ct, &unic.dest_ip);
+		return NF_ACCEPT;
+	}
+
+	if (nss_connmgr_ipv4_mac_addr_get(unic.dest_ip_xlate, unic.dest_mac_xlate)) {
+		dev_put(in);
+		NSS_CONNMGR_DEBUG_TRACE("%p: Failed to find MAC address for xlate dest IP: %pI4\n", ct, &unic.dest_ip_xlate);
+		return NF_ACCEPT;
+	}
+
+	/*
+	 * Only devices that are NSS devices may be accelerated.
+	 */
+	unic.src_interface_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, src_dev);
+	if (unic.src_interface_num < 0) {
+		dev_put(in);
+		return NF_ACCEPT;
+	}
+
+	unic.dest_interface_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, dest_dev);
+	if (unic.dest_interface_num < 0) {
+		dev_put(in);
+		return NF_ACCEPT;
+	}
+
+	/*
+	 * Create the Network Accelerator connection cache entries
+	 *
+	 * NOTE: All of the information we have is from the point of view of who created the connection however
+	 * the skb may actually be in the 'reply' direction - which is important to know when configuring the NSS as we have to set the right information
+	 * on the right "match" and "forwarding" entries.
+	 * We can use the ctinfo to determine which direction the skb is in and then swap fields as necessary.
+	 */
+	unic.src_ip = ntohl(unic.src_ip);
+	unic.dest_ip = ntohl(unic.dest_ip);
+	unic.src_ip_xlate = ntohl(unic.src_ip_xlate);
+	unic.dest_ip_xlate = ntohl(unic.dest_ip_xlate);
+	unic.src_port = ntohs(unic.src_port);
+	unic.dest_port = ntohs(unic.dest_port);
+	unic.src_port_xlate = ntohs(unic.src_port_xlate);
+	unic.dest_port_xlate = ntohs(unic.dest_port_xlate);
+
+	/*
+	 * Get MTU values for source and destination interfaces.
+	 */
+	unic.from_mtu = in->mtu;
+	unic.to_mtu = out->mtu;
+
+	/*
+	 * We have everything we need (hopefully :-])
+	 */
+	NSS_CONNMGR_DEBUG_TRACE("\n%p: Conntrack connection\n"
+			"skb: %p\n"
+			"dir: %s\n"
+			"Protocol: %d\n"
+			"src_ip: " IPV4_ADDR_FMT ":%d\n"
+			"dest_ip: " IPV4_ADDR_FMT "%d"
+			"src_ip_xlate: " IPV4_ADDR_FMT "%d\n"
+			"dest_ip_xlate: " IPV4_ADDR_FMT "%d\n"
+			"src_mac: " MAC_FMT "\n"
+			"dest_mac: " MAC_FMT "\n"
+			"src_mac_xlate: " MAC_FMT "\n"
+			"dest_mac_xlate: " MAC_FMT "\n"
+			"src_dev: %s\n"
+			"dest_dev: %s\n"
+			"src_iface_num: %u\n"
+			"dest_iface_num: %u\n",
+			ct,
+			skb,
+			(ctinfo < IP_CT_IS_REPLY)? "Original" : "Reply",
+			unic.protocol,
+			IPV4_ADDR_TO_QUAD(unic.src_ip), unic.src_port,
+			IPV4_ADDR_TO_QUAD(unic.dest_ip), unic.dest_port,
+			IPV4_ADDR_TO_QUAD(unic.src_ip_xlate), unic.src_port_xlate,
+			IPV4_ADDR_TO_QUAD(unic.dest_ip_xlate), unic.dest_port_xlate,
+			MAC_AS_BYTES(unic.src_mac),
+			MAC_AS_BYTES(unic.dest_mac),
+			MAC_AS_BYTES(unic.src_mac_xlate),
+			MAC_AS_BYTES(unic.dest_mac_xlate),
+			src_dev->name,
+			dest_dev->name,
+			unic.src_interface_num,
+			unic.dest_interface_num);
+
+	/*
+	 * If operations have stopped then do not proceed further
+	 */
+	spin_lock_bh(&nss_connmgr_ipv4.lock);
+	if (unlikely(nss_connmgr_ipv4.stopped)) {
+		spin_unlock_bh(&nss_connmgr_ipv4.lock);
+		dev_put(in);
+		NSS_CONNMGR_DEBUG_TRACE("Stopped, ignoring: %p\n", skb);
+		return NF_ACCEPT;
+	}
+	spin_unlock_bh(&nss_connmgr_ipv4.lock);
+
+	nss_tx_status = nss_tx_create_ipv4_rule(nss_connmgr_ipv4.nss_context, &unic);
+
+	if (nss_tx_status == NSS_TX_SUCCESS) {
+		goto out;
+	} else if (nss_tx_status == NSS_TX_FAILURE_NOT_READY) {
+		NSS_CONNMGR_DEBUG_ERROR("NSS not ready to accept rule \n");
+
+		spin_lock_bh(&nss_connmgr_ipv4.lock);
+		nss_connmgr_ipv4.debug_stats[NSS_CONNMGR_IPV4_CREATE_FAIL]++;
+		spin_unlock_bh(&nss_connmgr_ipv4.lock);
+	} else {
+		NSS_CONNMGR_DEBUG_TRACE("NSS create rule failed  skb: %p\n", skb);
+
+		spin_lock_bh(&nss_connmgr_ipv4.lock);
+		nss_connmgr_ipv4.debug_stats[NSS_CONNMGR_IPV4_CREATE_FAIL]++;
+		spin_unlock_bh(&nss_connmgr_ipv4.lock);
+	}
+
+out:
+	/*
+	 * Release the interface on which this skb arrived
+	 */
+	dev_put(in);
+
+	return NF_ACCEPT;
+}
+
+/*
+ * nss_connmgr_ipv4_net_dev_callback()
+ *	Callback handler from the linux device driver for the Network Accelerator.
+ *
+ * The NSS passes sync and stats information to the device driver - which then passes them
+ * onto this callback. This arrangement means that dependencies on driver and conntrack modules
+ * are solely in this module. * These callbacks aim to keep conntrack connections alive and to ensure that connection
+ * state - especially for TCP connections that track sequence space for example - is kept in synchronisation
+ * before packets flow back through linux from a period of NSS processing.
+ */
+static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
+{
+	struct nf_conntrack_tuple_hash *h;
+	struct nf_conntrack_tuple tuple;
+	struct nf_conn *ct;
+	struct nf_conn_counter *acct;
+	struct nss_connmgr_ipv4_connection *connection;
+	struct neighbour *neigh;
+
+	struct nss_ipv4_sync *sync;
+	struct nss_ipv4_establish *establish;
+
+	struct net_device *flow_dev;
+	struct net_device *return_dev;
+
+	uint32_t arp_key;
+
+
+	switch (nicp->reason)
+	{
+		case NSS_IPV4_CB_REASON_ESTABLISH:
+			establish = &nicp->params.establish;
+
+			if (unlikely(establish->index >= NSS_CONNMGR_IPV4_CONN_MAX)) {
+				NSS_CONNMGR_DEBUG_WARN("Bad establish index: %d\n", establish->index);
+				return;
+			}
+
+			/*
+			 * Connection manager uses the same index value as NSS , for the connection table.
+			 * The index is sent by NSS as part of Establish (and sync) packets.
+			 */
+			connection = &nss_connmgr_ipv4.connection[establish->index];
+
+			NSS_CONNMGR_DEBUG_TRACE("NSS IPv4 Establish callback %d \n", establish->index);
+
+			spin_lock_bh(&nss_connmgr_ipv4.lock);
+
+			/*
+			 * TODO Capture the condition state == ESTABLISHED in a variable,
+			 * and use the variable to print the error message later to avoid spin unlock/lock
+			 */
+			if (unlikely(connection->state == NSS_CONNMGR_IPV4_STATE_ESTABLISHED)) {
+				spin_unlock_bh(&nss_connmgr_ipv4.lock);
+
+				NSS_CONNMGR_DEBUG_TRACE("Invalid establish callback. Conn already established : %d \n", establish->index);
+				spin_lock_bh(&nss_connmgr_ipv4.lock);
+
+			}
+
+			connection->state = NSS_CONNMGR_IPV4_STATE_ESTABLISHED;
+
+			connection->protocol = establish->protocol;
+			connection->src_interface = establish->flow_interface;
+			connection->src_addr = establish->flow_ip;
+			connection->src_port = establish->flow_ident;
+			connection->src_addr_xlate = establish->flow_ip_xlate;
+			connection->src_port_xlate = establish->flow_ident_xlate;
+
+			connection->dest_interface = establish->return_interface;
+			connection->dest_addr = establish->return_ip;
+			connection->dest_port = establish->return_ident;
+			connection->dest_addr_xlate = establish->return_ip_xlate;
+			connection->dest_port_xlate = establish->return_ident_xlate;
+
+			memset(connection->stats, 0, (8*NSS_CONNMGR_IPV4_STATS_MAX));
+
+			spin_unlock_bh(&nss_connmgr_ipv4.lock);
+
+			return;
+
+		case NSS_IPV4_CB_REASON_SYNC:
+			sync = &nicp->params.sync;
+
+			if (unlikely(sync->index >= NSS_CONNMGR_IPV4_CONN_MAX)) {
+				NSS_CONNMGR_DEBUG_WARN("Bad sync index: %d\n", sync->index);
+				return;
+			}
+
+			connection = &nss_connmgr_ipv4.connection[sync->index];
+
+			NSS_CONNMGR_DEBUG_TRACE("NSS IPv4 Sync callback %d %d \n", sync->index, sync->reason);
+
+			spin_lock_bh(&nss_connmgr_ipv4.lock);
+			/*
+			 * TODO Capture the condition state != ESTABLISHED in a variable,
+			 * and use the variable to print the error message later to avoid spin unlock/lock
+			 */
+			if (unlikely(connection->state != NSS_CONNMGR_IPV4_STATE_ESTABLISHED)) {
+				spin_unlock_bh(&nss_connmgr_ipv4.lock);
+				NSS_CONNMGR_DEBUG_TRACE("Invalid sync callback. Conn not established : %d \n", sync->index);
+				spin_lock_bh(&nss_connmgr_ipv4.lock);
+			}
+
+			spin_unlock_bh(&nss_connmgr_ipv4.lock);
+
+			switch (sync->reason) {
+				case NSS_IPV4_SYNC_REASON_STATS:
+					spin_lock_bh(&nss_connmgr_ipv4.lock);
+					connection->stats[NSS_CONNMGR_IPV4_ACCELERATED_RX_PKTS] += sync->flow_packet_count;
+					connection->stats[NSS_CONNMGR_IPV4_ACCELERATED_RX_BYTES] += sync->flow_byte_count;
+					connection->stats[NSS_CONNMGR_IPV4_ACCELERATED_TX_PKTS] += sync->return_packet_count;
+					connection->stats[NSS_CONNMGR_IPV4_ACCELERATED_TX_BYTES] += sync->return_byte_count;
+					spin_unlock_bh(&nss_connmgr_ipv4.lock);
+					break;
+
+				case NSS_IPV4_SYNC_REASON_FLUSH:
+				case NSS_IPV4_SYNC_REASON_EVICT:
+				case NSS_IPV4_SYNC_REASON_DESTROY:
+					spin_lock_bh(&nss_connmgr_ipv4.lock);
+					connection->state = NSS_CONNMGR_IPV4_STATE_INACTIVE;
+					spin_unlock_bh(&nss_connmgr_ipv4.lock);
+					break;
+
+				case NSS_IPV4_SYNC_REASON_PPPOE_DESTROY:
+					break;
+
+				default:
+					NSS_CONNMGR_DEBUG_TRACE("%d: Invalid Sync Message\n", sync->reason);
+					return;
+
+			}
+			break;
+
+		default:
+			NSS_CONNMGR_DEBUG_WARN("%d: Unhandled callback\n", nicp->reason);
+			return;
+	}
+
+	/*
+	 * Create a tuple so as to be able to look up a connection
+	 */
+	memset(&tuple, 0, sizeof(tuple));
+	tuple.src.u3.ip = ntohl(connection->src_addr);
+	tuple.src.u.all = ntohs((__be16)connection->src_port);
+	tuple.src.l3num = AF_INET;
+
+	tuple.dst.u3.ip = ntohl(connection->dest_addr);
+	tuple.dst.dir = IP_CT_DIR_ORIGINAL;
+	tuple.dst.protonum = (uint8_t)connection->protocol;
+	tuple.dst.u.all = ntohs((__be16)connection->dest_port);
+
+	NSS_CONNMGR_DEBUG_TRACE("\nNSS Update, lookup connection using\n"
+			"Protocol: %d\n"
+			"src_addr: %pI4:%d\n"
+			"dest_addr: %pI4:%d\n",
+			(int)tuple.dst.protonum,
+			&(tuple.src.u3.ip), (int)tuple.src.u.all,
+			&(tuple.dst.u3.ip), (int)tuple.dst.u.all);
+
+	/*
+	 * Look up conntrack connection
+	 */
+	h = nf_conntrack_find_get(&init_net, NF_CT_DEFAULT_ZONE, &tuple);
+	if (!h) {
+		NSS_CONNMGR_DEBUG_WARN("Conntrack not found for sync\n");
+		return;
+	}
+
+	ct = nf_ct_tuplehash_to_ctrack(h);
+	NF_CT_ASSERT(ct->timeout.data == (unsigned long)ct);
+
+	/*
+	 * Only update if this is not a fixed timeout
+	 */
+	if (!test_bit(IPS_FIXED_TIMEOUT_BIT, &ct->status)) {
+		ct->timeout.expires += sync->delta_jiffies;
+	}
+
+	acct = nf_conn_acct_find(ct);
+	if (acct) {
+		spin_lock_bh(&ct->lock);
+		atomic64_add(sync->flow_packet_count, &acct[IP_CT_DIR_ORIGINAL].packets);
+		atomic64_add(sync->flow_byte_count, &acct[IP_CT_DIR_ORIGINAL].bytes);
+
+		atomic64_add(sync->return_packet_count, &acct[IP_CT_DIR_REPLY].packets);
+		atomic64_add(sync->return_byte_count, &acct[IP_CT_DIR_REPLY].bytes);
+		spin_unlock_bh(&ct->lock);
+	}
+
+	switch (connection->protocol) {
+	case IPPROTO_TCP:
+		spin_lock_bh(&ct->lock);
+		if (ct->proto.tcp.seen[0].td_maxwin < sync->flow_max_window) {
+			ct->proto.tcp.seen[0].td_maxwin = sync->flow_max_window;
+		}
+		if ((int32_t)(ct->proto.tcp.seen[0].td_end - sync->flow_end) < 0) {
+			ct->proto.tcp.seen[0].td_end = sync->flow_end;
+		}
+		if ((int32_t)(ct->proto.tcp.seen[0].td_maxend - sync->flow_max_end) < 0) {
+			ct->proto.tcp.seen[0].td_maxend = sync->flow_max_end;
+		}
+		if (ct->proto.tcp.seen[1].td_maxwin < sync->return_max_window) {
+			ct->proto.tcp.seen[1].td_maxwin = sync->return_max_window;
+		}
+		if ((int32_t)(ct->proto.tcp.seen[1].td_end - sync->return_end) < 0) {
+			ct->proto.tcp.seen[1].td_end = sync->return_end;
+		}
+		if ((int32_t)(ct->proto.tcp.seen[1].td_maxend - sync->return_max_end) < 0) {
+			ct->proto.tcp.seen[1].td_maxend = sync->return_max_end;
+		}
+		spin_unlock_bh(&ct->lock);
+		break;
+	}
+
+	flow_dev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->src_interface);
+	if (unlikely(!flow_dev)) {
+		NSS_CONNMGR_DEBUG_WARN("Invalid src dev reference from NSS \n");
+		goto out;
+	}
+
+	return_dev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->dest_interface);
+	if (unlikely(!return_dev)) {
+		NSS_CONNMGR_DEBUG_WARN("Invalid dest dev reference from NSS \n");
+		goto out;
+	}
+
+	/*
+	 * Hold the net_device references
+	 */
+	dev_hold(flow_dev);
+	dev_hold(return_dev);
+
+	/*
+	 * Update ARP table.
+	 */
+	arp_key = ntohl(connection->src_addr);
+	neigh = neigh_lookup(&arp_tbl, &arp_key, flow_dev);
+	if (neigh) {
+		neigh_update(neigh, NULL, neigh->nud_state, NEIGH_UPDATE_F_WEAK_OVERRIDE);
+		neigh_release(neigh);
+	}
+
+	arp_key = ntohl(connection->dest_addr);
+	neigh = neigh_lookup(&arp_tbl, &arp_key, return_dev);
+	if (neigh) {
+		neigh_update(neigh, NULL, neigh->nud_state, NEIGH_UPDATE_F_WEAK_OVERRIDE);
+		neigh_release(neigh);
+	}
+
+	/*
+	 * Release the net_device references
+	 */
+	dev_put(flow_dev);
+	dev_put(return_dev);
+
+out:
+	/*
+	 * Release connection
+	 */
+	nf_ct_put(ct);
+
+	return;
+}
+
+#ifdef CONFIG_NF_CONNTRACK_EVENTS
+/*
+ * nss_connmgr_ipv4_conntrack_event()
+ *	Callback event invoked when conntrack connection state changes, currently we handle destroy events to quickly release state
+ */
+#ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
+static int nss_connmgr_ipv4_conntrack_event(struct notifier_block *this, unsigned long events, void *ptr)
+#else
+static int nss_connmgr_ipv4_conntrack_event(unsigned int events, struct nf_ct_event *item)
+#endif
+{
+	struct nss_ipv4_destroy unid;
+#ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
+	struct nf_ct_event *item = (struct nf_ct_event *)ptr;
+#endif
+	struct nf_conn *ct = item->ct;
+	struct nf_conntrack_tuple orig_tuple;
+	struct nf_conntrack_tuple reply_tuple;
+
+	nss_tx_status_t nss_tx_status;
+
+	/*
+	 * Basic sanity checks on the event
+	 */
+	if (!ct) {
+		NSS_CONNMGR_DEBUG_WARN("No ct in conntrack event callback\n");
+		return NOTIFY_DONE;
+	}
+	if (ct == &nf_conntrack_untracked) {
+		NSS_CONNMGR_DEBUG_TRACE("%p: ignoring untracked connn", ct);
+		return NOTIFY_DONE;
+	}
+
+	/*
+	 * Only interested if this is IPv4
+	 */
+	if (nf_ct_l3num(ct) != AF_INET) {
+		return NOTIFY_DONE;
+	}
+
+	/*
+	 * Only interested in destroy events
+	 */
+	if (!(events & (1 << IPCT_DESTROY))) {
+		return NOTIFY_DONE;
+	}
+
+	/*
+	 * Now examine conntrack to identify the protocol, IP addresses and portal information involved
+	 * IMPORTANT: The information here will be as the 'ORIGINAL' direction, i.e. who established the connection.
+	 * This MAY NOT be the same as the current packet direction, for example, this packet direction may be eth1->eth0 but
+	 * originally the connection may be been started from a packet going from eth0->eth1.
+	 */
+	orig_tuple = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
+	reply_tuple = ct->tuplehash[IP_CT_DIR_REPLY].tuple;
+	unid.protocol = (int32_t)orig_tuple.dst.protonum;
+
+	/*
+	 * Get addressing information, non-NAT first
+	 */
+	unid.src_ip = (ipv4_addr_t)orig_tuple.src.u3.ip;
+	unid.dest_ip = (ipv4_addr_t)orig_tuple.dst.u3.ip;
+
+	switch (unid.protocol) {
+	case IPPROTO_TCP:
+		unid.src_port = (int32_t)orig_tuple.src.u.tcp.port;
+		unid.dest_port = (int32_t)orig_tuple.dst.u.tcp.port;
+		break;
+
+	case IPPROTO_UDP:
+		unid.src_port = (int32_t)orig_tuple.src.u.udp.port;
+		unid.dest_port = (int32_t)orig_tuple.dst.u.udp.port;
+		break;
+
+	default:
+		/*
+		 * Streamengine compatibility - database stores non-ported protocols with port numbers equal to negative protocol number
+		 * to indicate unused.
+		 */
+		NSS_CONNMGR_DEBUG_TRACE("%p: Unhandled protocol %d\n", ct, unid.protocol);
+		unid.src_port = -unid.protocol;
+		unid.dest_port = -unid.protocol;
+	}
+
+	/*
+	 * Only deal with TCP or UDP
+	 */
+	if ((unid.protocol != IPPROTO_TCP) && (unid.protocol != IPPROTO_UDP)) {
+		return NOTIFY_DONE;
+	}
+
+	unid.src_ip = ntohl(unid.src_ip);
+	unid.dest_ip = ntohl(unid.dest_ip);
+	unid.src_port = ntohs(unid.src_port);
+	unid.dest_port = ntohs(unid.dest_port);
+
+	if (IS_LOCAL_HOST(unid.src_ip)) {
+		NSS_CONNMGR_DEBUG_TRACE("localhost packet ignored \n");
+		return NOTIFY_DONE;
+	}
+
+	NSS_CONNMGR_DEBUG_TRACE("\n%p: Connection destroyed\n"
+			"Protocol: %d\n"
+			"src_ip: %pI4:%d\n"
+			"dest_ip: %pI4:%d\n",
+			ct,
+			unid.protocol,
+			&(unid.src_ip), unid.src_port,
+			&(unid.dest_ip), unid.dest_port);
+
+	/*
+	 * Destroy the Network Accelerator connection cache entries.
+	 */
+	nss_tx_status = nss_tx_destroy_ipv4_rule(nss_connmgr_ipv4.nss_context, &unid);
+
+	if (nss_tx_status == NSS_TX_SUCCESS) {
+		goto out;
+	} else if (nss_tx_status == NSS_TX_FAILURE_NOT_READY) {
+		spin_lock_bh(&nss_connmgr_ipv4.lock);
+		nss_connmgr_ipv4.debug_stats[NSS_CONNMGR_IPV4_DESTROY_FAIL]++;
+		spin_unlock_bh(&nss_connmgr_ipv4.lock);
+		NSS_CONNMGR_DEBUG_ERROR("NSS not ready to accept 'destroy IPv4' rule \n");
+	} else {
+		spin_lock_bh(&nss_connmgr_ipv4.lock);
+		nss_connmgr_ipv4.debug_stats[NSS_CONNMGR_IPV4_DESTROY_FAIL]++;
+		spin_unlock_bh(&nss_connmgr_ipv4.lock);
+		NSS_CONNMGR_DEBUG_TRACE("NSS destroy rule fail \n");
+	}
+out:
+	return NOTIFY_DONE;
+}
+#endif
+
+/*
+ * nss_connmgr_ipv4_init_connection_table()
+ *	initialize connection table
+ */
+static void nss_connmgr_ipv4_init_connection_table(void)
+{
+	int32_t i,j;
+
+	spin_lock_bh(&nss_connmgr_ipv4.lock);
+	for (i = 0; (i < NSS_CONNMGR_IPV4_CONN_MAX); i++) {
+		nss_connmgr_ipv4.connection[i].state = NSS_CONNMGR_IPV4_STATE_INACTIVE;
+
+		for (j = 0; (j < NSS_CONNMGR_IPV4_STATS_MAX); j++) {
+			nss_connmgr_ipv4.connection[i].stats[j] = 0;
+		}
+	}
+	spin_unlock_bh(&nss_connmgr_ipv4.lock);
+
+	return;
+}
+
+
+/*
+ * nss_connmgr_ipv4_get_terminate()
+ */
+static ssize_t nss_connmgr_ipv4_get_terminate(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	ssize_t count;
+	int num;
+
+	/*
+	 * Operate under our locks
+	 */
+	spin_lock_bh(&nss_connmgr_ipv4.lock);
+	num = nss_connmgr_ipv4.terminate;
+	spin_unlock_bh(&nss_connmgr_ipv4.lock);
+
+	count = snprintf(buf, (ssize_t)PAGE_SIZE, "%d\n", num);
+	return count;
+}
+
+/*
+ * nss_connmgr_ipv4_set_terminate()
+ *	Writing anything to this 'file' will cause the default classifier to terminate
+ */
+static ssize_t nss_connmgr_ipv4_set_terminate(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+
+
+	NSS_CONNMGR_DEBUG_INFO("Terminate\n");
+	spin_lock_bh(&nss_connmgr_ipv4.lock);
+	nss_connmgr_ipv4.terminate = 1;
+	wake_up_process(nss_connmgr_ipv4.thread);
+	spin_unlock_bh(&nss_connmgr_ipv4.lock);
+
+	return count;
+}
+
+/*
+ * nss_connmgr_ipv4_get_stop()
+ * 	Get the value of "stopped" operational control variable
+ */
+static ssize_t nss_connmgr_ipv4_get_stop(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	ssize_t count;
+	int num;
+
+	/*
+	 * Operate under our locks
+	 */
+	spin_lock_bh(&nss_connmgr_ipv4.lock);
+	num = nss_connmgr_ipv4.stopped;
+	spin_unlock_bh(&nss_connmgr_ipv4.lock);
+
+	count = snprintf(buf, (ssize_t)PAGE_SIZE, "%d\n", num);
+	return count;
+}
+
+/*
+ * nss_connmgr_ipv4_set_stop()
+ * 	Set the value of "stopped" operational control variable.
+ * 	This will stop further processing of packets and adding new rules
+ * 	to NSS (fastpath).
+ */
+static ssize_t nss_connmgr_ipv4_set_stop(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	char num_buf[12];
+	int num;
+
+
+	/*
+	 * Get the number from buf into a properly z-termed number buffer
+	 */
+	if (count > 11) {
+		return 0;
+	}
+	memcpy(num_buf, buf, count);
+	num_buf[count] = '\0';
+	sscanf(num_buf, "%d", &num);
+	NSS_CONNMGR_DEBUG_TRACE("nss_connmgr_ipv4_stop = %d\n", num);
+
+	/*
+	 * Operate under our locks and stop further processing of packets
+	 */
+	spin_lock_bh(&nss_connmgr_ipv4.lock);
+	nss_connmgr_ipv4.stopped = num;
+	spin_unlock_bh(&nss_connmgr_ipv4.lock);
+
+	return count;
+}
+
+/*
+ * SysFS attributes for the default classifier itself.
+ */
+static const struct device_attribute nss_connmgr_ipv4_terminate_attr =
+		__ATTR(terminate, S_IWUGO | S_IRUGO, nss_connmgr_ipv4_get_terminate, nss_connmgr_ipv4_set_terminate);
+static const struct device_attribute nss_connmgr_ipv4_stop_attr =
+		__ATTR(stop, S_IWUGO | S_IRUGO, nss_connmgr_ipv4_get_stop, nss_connmgr_ipv4_set_stop);
+
+/*
+ * nss_connmgr_ipv4_thread_fn()
+ *	A thread to handle tasks that can only be done in thread context.
+ */
+static int nss_connmgr_ipv4_thread_fn(void *arg)
+{
+	int result = 0;
+
+	NSS_CONNMGR_DEBUG_INFO("NSS Connection manager thread start\n");
+
+	/*
+	 * Get reference to this module - we release it when the thread exits
+	 */
+	try_module_get(THIS_MODULE);
+
+	/*
+	 * Create /sys/nom_v4
+	 */
+	nss_connmgr_ipv4.nom_v4 = kobject_create_and_add("nom_v4", NULL);
+	if (unlikely(nss_connmgr_ipv4.nom_v4 == NULL)) {
+		NSS_CONNMGR_DEBUG_ERROR("Failed to register nom_v4\n");
+		goto task_cleanup_1;
+	}
+
+	/*
+	 * Create files, one for each parameter supported by this module
+	 */
+	result = sysfs_create_file(nss_connmgr_ipv4.nom_v4, &nss_connmgr_ipv4_terminate_attr.attr);
+	if (result) {
+		NSS_CONNMGR_DEBUG_ERROR("Failed to register terminate file %d\n", result);
+		goto task_cleanup_2;
+	}
+
+	/*
+	 * Register netfilter hooks - IPV4
+	 */
+	result = nf_register_hooks(nss_connmgr_ipv4_ops_post_routing, ARRAY_SIZE(nss_connmgr_ipv4_ops_post_routing));
+	if (result < 0) {
+		NSS_CONNMGR_DEBUG_ERROR("Can't register nf post routing hook %d\n", result);
+		goto task_cleanup_3;
+	}
+
+	result = sysfs_create_file(nss_connmgr_ipv4.nom_v4, &nss_connmgr_ipv4_stop_attr.attr);
+	if (result) {
+		NSS_CONNMGR_DEBUG_ERROR("Failed to register stop file %d\n", result);
+		goto task_cleanup_4;
+	}
+
+#ifdef CONFIG_NF_CONNTRACK_EVENTS
+	/*
+	 * Eventing subsystem is available so we register a notifier hook to get fast notifications of expired connections
+	 */
+	result = nf_conntrack_register_notifier(&init_net, &nss_connmgr_ipv4.conntrack_notifier);
+	if (result < 0) {
+		NSS_CONNMGR_DEBUG_ERROR("Can't register nf notifier hook %d\n", result);
+		goto task_cleanup_5;
+	}
+#endif
+
+	/*
+	 * Register this module with the Linux NSS driver (net_device)
+	 */
+	nss_connmgr_ipv4.nss_context = nss_register_ipv4_mgr(nss_connmgr_ipv4_net_dev_callback);
+
+	/*
+	 * Initialize connection table
+	 */
+	nss_connmgr_ipv4_init_connection_table();
+
+	/*
+	 * Allow wakeup signals
+	 */
+	allow_signal(SIGCONT);
+	spin_lock_bh(&nss_connmgr_ipv4.lock);
+	while (!nss_connmgr_ipv4.terminate) {
+		/*
+		 * Sleep and wait for an instruction
+		 */
+		spin_unlock_bh(&nss_connmgr_ipv4.lock);
+		NSS_CONNMGR_DEBUG_TRACE("nss_connmgr_ipv4 sleep\n");
+		set_current_state(TASK_INTERRUPTIBLE);
+		schedule();
+		spin_lock_bh(&nss_connmgr_ipv4.lock);
+	}
+	spin_unlock_bh(&nss_connmgr_ipv4.lock);
+	NSS_CONNMGR_DEBUG_INFO("nss_connmgr_ipv4 terminate\n");
+
+	result = 0;
+
+	nss_unregister_ipv4_mgr();
+
+#ifdef CONFIG_NF_CONNTRACK_EVENTS
+	nf_conntrack_unregister_notifier(&init_net, &nss_connmgr_ipv4.conntrack_notifier);
+task_cleanup_5:
+#endif
+	sysfs_remove_file(nss_connmgr_ipv4.nom_v4, &nss_connmgr_ipv4_stop_attr.attr);
+task_cleanup_4:
+	nf_unregister_hooks(nss_connmgr_ipv4_ops_post_routing, ARRAY_SIZE(nss_connmgr_ipv4_ops_post_routing));
+task_cleanup_3:
+	sysfs_remove_file(nss_connmgr_ipv4.nom_v4, &nss_connmgr_ipv4_terminate_attr.attr);
+task_cleanup_2:
+	kobject_put(nss_connmgr_ipv4.nom_v4);
+task_cleanup_1:
+
+	module_put(THIS_MODULE);
+	return result;
+}
+/*
+ * nss_connmgr_ipv4_read_conn_stats
+ *      Read IPV4 stats
+ */
+static ssize_t nss_connmgr_ipv4_read_conn_stats(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
+{
+	int32_t i;
+	int32_t j;
+	int32_t k;
+	size_t size_al = NSS_CONNMGR_IPV4_DEBUGFS_BUF_SZ;
+	size_t size_wr = 0;
+	ssize_t bytes_read = 0;
+
+	/*
+	 * Temporary array to hold statistics for printing. To avoid holding
+	 * spinlocks for long time while printing, we copy the stats to this
+	 * temporary buffer while holding the spinlock, unlock and then print.
+	 * Also to avoid using big chunk of memory on stack, we use an array of
+	 * only 8 connections, and print stats for 8 connections at a time
+	 */
+	uint64_t stats[8][NSS_CONNMGR_IPV4_STATS_MAX];
+	nss_connmgr_ipv4_conn_state_t  state[8];
+
+	char *lbuf = kzalloc(size_al, GFP_KERNEL);
+	if (unlikely(lbuf == NULL)) {
+		NSS_CONNMGR_DEBUG_WARN("Could not allocate memory for local statistics buffer \n");
+		return 0;
+	}
+
+	/*
+	 * TODO : Handle buffer full conditions by putting some checks , so it
+	 * doesn't crash or print something rubbish
+	 */
+	size_wr = scnprintf(lbuf, size_al,"connection mgr ipv4 stats :\n\n");
+
+	for (i = 0; (i < NSS_CONNMGR_IPV4_CONN_MAX) && (size_wr < size_al) ; i+=8) {
+
+		/* 1. Take a lock */
+		spin_lock_bh(&nss_connmgr_ipv4.lock);
+
+		/* 2. Copy stats for 8 connections into local buffer */
+		for (j = 0; j < 8; j++) {
+			state[j] = nss_connmgr_ipv4.connection[i+j].state;
+			for (k = 0; (k < NSS_CONNMGR_IPV4_STATS_MAX); k++) {
+				stats[j][k] = nss_connmgr_ipv4.connection[i+j].stats[k];
+			}
+		}
+
+		/* 3. Release the lock */
+		spin_unlock_bh(&nss_connmgr_ipv4.lock);
+
+		/* 4. Print stats for 8 connections */
+		for (j = 0; (j < 8); j++)
+		{
+			size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+					"------------  Connection %d ( %s )---------------\n",
+					(i+j), nss_connmgr_ipv4_conn_state_str[state[j]]);
+
+			for (k = 0; (k < NSS_CONNMGR_IPV4_STATS_MAX); k++) {
+				size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+						"%s = %llu\n", nss_connmgr_ipv4_conn_stats_str[k], stats[j][k]);
+			}
+		}
+	}
+
+	if (size_wr == size_al) {
+		NSS_CONNMGR_DEBUG_WARN("Print Buffer not available for debug stats \n");
+	}
+	else {
+		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,"\nconnection mgr stats end\n\n");
+	}
+
+	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, strlen(lbuf));
+	kfree(lbuf);
+
+	return bytes_read;
+}
+
+/*
+ * nss_connmgr_ipv4_read_debug_stats
+ *	Read connection manager debug stats
+ */
+static ssize_t nss_connmgr_ipv4_read_debug_stats(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
+{
+	int32_t i;
+
+	/*
+	 * max output lines = #stats + start tag line + end tag line + three blank lines
+	 */
+	uint32_t max_output_lines = NSS_CONNMGR_IPV4_DEBUG_STATS_MAX + 5;
+	size_t size_al = NSS_CONNMGR_IPV4_MAX_STR_LENGTH * max_output_lines;
+	size_t size_wr = 0;
+	ssize_t bytes_read = 0;
+	uint32_t stats_shadow[NSS_CONNMGR_IPV4_DEBUG_STATS_MAX];
+
+	char *lbuf = kzalloc(size_al, GFP_KERNEL);
+	if (unlikely(lbuf == NULL)) {
+		NSS_CONNMGR_DEBUG_WARN("Could not allocate memory for local statistics buffer");
+		return 0;
+	}
+
+	size_wr = scnprintf(lbuf, size_al,"debug stats start:\n\n");
+	spin_lock_bh(&nss_connmgr_ipv4.lock);
+
+	for (i = 0; (i < NSS_CONNMGR_IPV4_MAX_STR_LENGTH); i++) {
+		stats_shadow[i] = nss_connmgr_ipv4.debug_stats[i];
+	}
+
+	spin_unlock_bh(&nss_connmgr_ipv4.lock);
+
+	for (i = 0; (i < NSS_CONNMGR_IPV4_DEBUG_STATS_MAX); i++) {
+		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+					"%s = %u\n", nss_connmgr_ipv4_debug_stats_str[i], stats_shadow[i]);
+	}
+
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,"\ndebug stats end\n\n");
+	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, strlen(lbuf));
+	kfree(lbuf);
+
+	return bytes_read;
+}
+
+/*
+ * nss_connmgr_ipv4_clear_stats
+ *      Clear IPV4 stats
+ */
+static ssize_t nss_connmgr_ipv4_clear_stats(struct file *fp, const char __user *ubuf, size_t count , loff_t *ppos)
+{
+	int32_t i,j;
+
+	spin_lock_bh(&nss_connmgr_ipv4.lock);
+	for (i = 0; (i < NSS_CONNMGR_IPV4_CONN_MAX); i++) {
+		for (j = 0; (j < NSS_CONNMGR_IPV4_STATS_MAX); j++) {
+			nss_connmgr_ipv4.connection[i].stats[j] = 0;
+		}
+	}
+	spin_unlock_bh(&nss_connmgr_ipv4.lock);
+
+	return count;
+}
+
+/*
+ * nss_connmgr_ipv4_module_get()
+ *	Take a reference to the module
+ */
+void nss_connmgr_ipv4_module_get(void)
+{
+	try_module_get(THIS_MODULE);
+}
+EXPORT_SYMBOL(nss_connmgr_ipv4_module_get);
+
+/*
+ * nss_connmgr_ipv4_module_put()
+ *	Release a reference to the module
+ */
+void nss_connmgr_ipv4_module_put(void)
+{
+	module_put(THIS_MODULE);
+}
+EXPORT_SYMBOL(nss_connmgr_ipv4_module_put);
+
+/*
+ * nss_connmgr_ipv4_init()
+ */
+static int __init nss_connmgr_ipv4_init(void)
+{
+	struct dentry *dent, *dfile;
+
+	NSS_CONNMGR_DEBUG_INFO("NSS Connection Manager Module init\n");
+
+	/*
+	 * Initialise our global database lock
+	 */
+	spin_lock_init(&nss_connmgr_ipv4.lock);
+
+	/*
+	 * Create a thread to handle the start/stop.
+	 * NOTE: We use a thread as some things we need to do cannot be done in this context
+	 */
+	nss_connmgr_ipv4.terminate = 0;
+	nss_connmgr_ipv4.thread = kthread_create(nss_connmgr_ipv4_thread_fn, NULL, "%s", "nss_connmgr_ipv4_thread");
+	if (!nss_connmgr_ipv4.thread) {
+		return -EINVAL;
+	}
+	wake_up_process(nss_connmgr_ipv4.thread);
+
+	/*
+	 * Create debugfs files for stats
+	 */
+	dent = debugfs_create_dir("qca-nss-connmgr-ipv4", NULL);
+
+	if (unlikely(dent == NULL)) {
+
+		/*
+		 * non-availability of debugfs dir is not catastrophe.
+		 * Print a message and gracefully return
+		 */
+		NSS_CONNMGR_DEBUG_WARN("Failed to create nss_connmgr_ipv4 dir in debugfs \n");
+		return 0;
+	}
+
+	nss_connmgr_ipv4.dent = dent;
+
+	dfile = debugfs_create_file("connection_stats", S_IRUGO , dent, &nss_connmgr_ipv4, &nss_connmgr_ipv4_show_stats_ops);
+
+	if (unlikely(dfile == NULL))
+	{
+		NSS_CONNMGR_DEBUG_WARN("Failed to create nss_connmgr_ipv4/connection_stats in debugfs \n");
+		debugfs_remove(dent);
+	}
+
+	dfile = debugfs_create_file("debug_stats", S_IRUGO , dent, &nss_connmgr_ipv4, &nss_connmgr_ipv4_show_debug_stats_ops);
+
+	if (unlikely(dfile == NULL))
+	{
+		NSS_CONNMGR_DEBUG_WARN("Failed to create nss_connmgr_ipv4/debug_stats in debugfs \n");
+		debugfs_remove(dent);
+	}
+
+	dfile = debugfs_create_file("clear_stats", S_IRUGO | S_IWUSR , dent, &nss_connmgr_ipv4, &nss_connmgr_ipv4_clear_stats_ops);
+
+	if (unlikely(dfile == NULL))
+	{
+		NSS_CONNMGR_DEBUG_WARN("Failed to create nss_connmgr_ipv4/clear_stats in debugfs \n");
+		debugfs_remove(dent);
+	}
+
+
+	return 0;
+}
+
+/*
+ * nss_connmgr_ipv4_exit()
+ * 	Module exit function
+ */
+static void __exit nss_connmgr_ipv4_exit(void)
+{
+	/*
+	 * Remove debugfs tree
+	 */
+	if (likely(nss_connmgr_ipv4.dent != NULL)) {
+		debugfs_remove_recursive(nss_connmgr_ipv4.dent);
+	}
+
+	NSS_CONNMGR_DEBUG_INFO("NSS Connection Manager Module exit\n");
+}
+
+module_init(nss_connmgr_ipv4_init);
+module_exit(nss_connmgr_ipv4_exit);
+
+MODULE_AUTHOR("Qualcomm Atheros Inc");
+MODULE_DESCRIPTION("NSS IPv4 Connection manager");
+MODULE_LICENSE("Dual BSD/GPL");
+
