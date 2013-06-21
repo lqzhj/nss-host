@@ -574,6 +574,7 @@ enum DmaRegisters {
 	DmaControl = 0x0018,	/* CSR6 - Dma Operation Mode Register           */
 	DmaInterrupt = 0x001C,	/* CSR7 - Interrupt enable                      */
 	DmaMissedFr = 0x0020,	/* CSR8 - Missed Frame & Buffer overflow Counter */
+	DmaAxiBusMode = 0x0028,	/* AXI Bus Mode Settings			*/
 	DmaTxCurrDesc = 0x0048,	/*      - Current host Tx Desc Register         */
 	DmaRxCurrDesc = 0x004C,	/*      - Current host Rx Desc Register         */
 	DmaTxCurrAddr = 0x0050,	/* CSR20 - Current host transmit buffer address */
@@ -593,6 +594,7 @@ enum DmaBusModeReg {
 	DmaTxPriorityRatio21 = 0x00004000,	/* (PR)TX:RX DMA priority ratio 2:1     */
 	DmaTxPriorityRatio31 = 0x00008000,	/* (PR)TX:RX DMA priority ratio 3:1     */
 	DmaTxPriorityRatio41 = 0x0000C000,	/* (PR)TX:RX DMA priority ratio 4:1     */
+	DmaAddressAlignedBeats = 0x02000000,	/* Address Aligned beats		*/
 	DmaBurstLengthx8 = 0x01000000,		/* When set mutiplies the PBL by 8      */
 	DmaBurstLength256 = 0x01002000,		/*(DmaBurstLengthx8
 						   | DmaBurstLength32) = 256            */
@@ -776,6 +778,33 @@ enum DmaMissedFrReg {
 	DmaOvfFrmCntMask = 0x0FFE0000,
 	DmaOvfFrmCntShift = 17,
 	DmaOvfFrmCntOvf = 0x10000000,
+};
+
+
+/* DmaAxiBusMod	= 0x,0028 */
+enum DmaAxiBusModeReg {
+	DmaEnLpi = 0x80000000,
+	DmaLpiXitFrm = 0x40000000,
+	DmaWrOsrNumReqs16 = 0x00F00000,
+	DmaWrOsrNumReqs8 = 0x00700000,
+	DmaWrOsrNumReqs4 = 0x00300000,
+	DmaWrOsrNumReqs2 = 0x00100000,
+	DmaWrOsrNumReqs1 = 0x00000000,
+	DmaRdOsrNumReqs16 = 0x000F0000,
+	DmaRdOsrNumReqs8 = 0x00070000,
+	DmaRdOsrNumReqs4 = 0x00030000,
+	DmaRdOsrNumReqs2 = 0x00010000,
+	DmaRdOsrNumReqs1 = 0x00000000,
+	DmaOnekbbe = 0x00002000,
+	DmaAxiAal = 0x00001000,
+	DmaAxiBlen256 = 0x00000080,
+	DmaAxiBlen128 = 0x00000040,
+	DmaAxiBlen64 = 0x00000020,
+	DmaAxiBlen32 = 0x00000010,
+	DmaAxiBlen16 = 0x00000008,
+	DmaAxiBlen8 = 0x00000004,
+	DmaAxiBlen4 = 0x00000002,
+	DmaUndefined = 0x00000001,
 };
 
 /**********************************************************
@@ -1057,7 +1086,7 @@ enum InitialRegisters {
 	DmaBusModeInit = DmaFixedBurstEnable | DmaBurstLength8
 	    | DmaDescriptorSkip2 | DmaResetOff,
 
-	DmaBusModeVal = DmaFixedBurstEnable | DmaBurstLength32
+	DmaBusModeVal = DmaBurstLength32
 	    | DmaBurstLengthx8 | DmaDescriptorSkip0
 	    | DmaDescriptor8Words | DmaArbitPr,
 
@@ -1087,6 +1116,7 @@ enum InitialRegisters {
 	    | DmaIntRxStoppedMask | DmaIntTxAbnMask
 	    | DmaIntTxNormMask | DmaIntTxStoppedMask,
 	DmaIntDisable = 0,
+	DmaAxiBusModeVal = DmaAxiBlen16 | DmaRdOsrNumReqs8 | DmaWrOsrNumReqs8,
 };
 
 /**********************************************************
@@ -1457,8 +1487,13 @@ enum GmacTSStatusReg {
 					gmacdev->macid, gmacdev, ##args);		\
 			}while(0)
 
+#define nss_gmac_early_dbg(msg, args...)						\
+			do{								\
+				printk("nss_gmac: " msg "\n", ##args);			\
+			}while(0)
 #else
 #define nss_gmac_warn(gmacdev,  msg, args...)	do{	}while(0)
+#define nss_gmac_early_dbg(msg, args...)	do{	}while(0)
 #endif
 
 #if (NSS_GMAC_DEBUG_LEVEL >= 2)
@@ -1758,6 +1793,7 @@ int32_t nss_gmac_phy_loopback(nss_gmac_dev *gmacdev, bool loopback);
 int32_t nss_gmac_read_version(nss_gmac_dev *gmacdev);
 void nss_gmac_reset(nss_gmac_dev *gmacdev);
 int32_t nss_gmac_dma_bus_mode_init(nss_gmac_dev *gmacdev, uint32_t init_value);
+int32_t nss_gmac_dma_axi_bus_mode_init(nss_gmac_dev *gmacdev, uint32_t init_value);
 int32_t nss_gmac_dma_control_init(nss_gmac_dev *gmacdev, uint32_t init_value);
 void nss_gmac_wd_enable(nss_gmac_dev *gmacdev);
 void nss_gmac_wd_disable(nss_gmac_dev *gmacdev);
@@ -1813,14 +1849,13 @@ void nss_gmac_rx_flow_control_enable(nss_gmac_dev *gmacdev);
 void nss_gmac_rx_flow_control_disable(nss_gmac_dev *gmacdev);
 void nss_gmac_tx_flow_control_enable(nss_gmac_dev *gmacdev);
 void nss_gmac_tx_flow_control_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_tx_activate_flow_control(nss_gmac_dev *gmacdev);
-void nss_gmac_tx_deactivate_flow_control(nss_gmac_dev *gmacdev);
 void nss_gmac_tx_pause_enable(nss_gmac_dev *gmacdev);
 void nss_gmac_tx_pause_disable(nss_gmac_dev *gmacdev);
 void nss_gmac_rx_pause_enable(nss_gmac_dev *gmacdev);
 void nss_gmac_rx_pause_disable(nss_gmac_dev *gmacdev);
+void nss_gmac_flush_tx_fifo(nss_gmac_dev *gmacdev);
 void nss_gmac_mac_init(nss_gmac_dev *gmacdev);
-void nss_gmac_check_phy_init(nss_gmac_dev *gmacdev);
+int32_t nss_gmac_check_phy_init(nss_gmac_dev *gmacdev);
 void nss_gmac_set_mac_addr(nss_gmac_dev *gmacdev,
 			      uint32_t MacHigh, uint32_t MacLow, uint8_t *MacAddr);
 void nss_gmac_get_mac_addr(nss_gmac_dev *gmacdev,

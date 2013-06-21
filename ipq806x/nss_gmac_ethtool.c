@@ -25,6 +25,7 @@ struct nss_gmac_ethtool_stats {
 
 #define DRVINFO_LEN		32
 #define NSS_GMAC_STAT(m)	offsetof(struct nss_gmac_sync, m)
+#define HW_ERR_SIZE		sizeof(uint32_t)
 
 /**
  * @brief Array of strings describing statistics
@@ -62,6 +63,16 @@ static const struct nss_gmac_ethtool_stats gmac_gstrings_stats[] = {
 	{"tx_dropped", NSS_GMAC_STAT(tx_dropped)},
 	{"rx_missed", NSS_GMAC_STAT(rx_missed)},
 	{"fifo_overflows", NSS_GMAC_STAT(fifo_overflows)},
+	{"pmt_interrupts", NSS_GMAC_STAT(hw_errs[0])},
+	{"mmc_interrupts", NSS_GMAC_STAT(hw_errs[0]) + (1 * HW_ERR_SIZE)},
+	{"line_interface_interrupts", NSS_GMAC_STAT(hw_errs[0]) + (2 * HW_ERR_SIZE)},
+	{"fatal_bus_error_interrupts", NSS_GMAC_STAT(hw_errs[0]) + (3 * HW_ERR_SIZE)},
+	{"rx_buffer_unavailable_interrupts", NSS_GMAC_STAT(hw_errs[0]) + (4 * HW_ERR_SIZE)},
+	{"rx_process_stopped_interrupts", NSS_GMAC_STAT(hw_errs[0]) + (5 * HW_ERR_SIZE)},
+	{"tx_underflow_interrupts", NSS_GMAC_STAT(hw_errs[0]) + (6 * HW_ERR_SIZE)},
+	{"rx_overflow_interrupts", NSS_GMAC_STAT(hw_errs[0]) + (7 * HW_ERR_SIZE)},
+	{"tx_jabber_timeout_interrutps", NSS_GMAC_STAT(hw_errs[0]) + (8 * HW_ERR_SIZE)},
+	{"tx_process_stopped_interrutps", NSS_GMAC_STAT(hw_errs[0]) + (9 * HW_ERR_SIZE)},
 	{"gmac_total_ticks", NSS_GMAC_STAT(gmac_total_ticks)},
 	{"gmac_worst_case_ticks", NSS_GMAC_STAT(gmac_worst_case_ticks)},
 	{"gmac_iterations", NSS_GMAC_STAT(gmac_iterations)},
@@ -83,7 +94,7 @@ static int32_t nss_gmac_get_strset_count(struct net_device *netdev, int32_t sset
 		break;
 
 	default:
-		nss_gmac_msg("%s: Invalid string set", __FUNCTION__);
+		nss_gmac_early_dbg("%s: Invalid string set", __FUNCTION__);
 		return -EOPNOTSUPP;
 		break;
 	}

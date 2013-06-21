@@ -10,14 +10,15 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __NSS_CLOCKS_H
-#define __NSS_CLOCKS_H
+#ifndef __NSS_GMAC_CLOCKS_H
+#define __NSS_GMAC_CLOCKS_H
 
 #include <asm/io.h>
 #include <mach/msm_iomap.h>
 
 /* Peripheral clock registers. */
 #define NSS_ACC_REG				(0x28EC)
+#define NSS_RESET_SPARE				(0x3B60)
 #define CLK_HALT_NSSFAB0_NSSFAB1_STATEA		(0x3C20)
 #define GMAC_COREn_CLK_SRC_CTL(n)		(0x3CA0+(32*n))
 #define GMAC_COREn_CLK_SRC0_MD(n)		(0x3CA4+(32*n))
@@ -34,6 +35,13 @@
 #define GMAC_FS_S_W_VAL			8		/* Wake and sleep counter value of
 							   memory footswitch control. Assuming
 							   max core frequency is 266MHz */
+
+/* NSS_RESET_SPARE register bits */
+#define CAL_PBRS_RST_N_RESET		0x04000000
+#define LCKDT_RST_N_RESET		0x08000000
+#define SRDS_N_RESET			0x10000000
+
+
 /* GMAC_COREn_CLK_SRC_CTL register bits */
 #define GMAC_DUAL_MN8_SEL		0x00000001
 #define GMAC_CLK_ROOT_ENA		0x00000002
@@ -71,4 +79,4 @@
 #define GMAC_CLK_INV			0x0020
 #define GMAC_CLK_FABRIC_GATE_EN		0x0040
 
-#endif /* __NSS_CLOCKS_H */
+#endif /* __NSS_GMAC_CLOCKS_H */

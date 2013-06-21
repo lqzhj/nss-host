@@ -755,7 +755,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	 */
 	netdev = alloc_etherdev(sizeof(nss_gmac_dev));
 	if (!netdev) {
-		nss_gmac_msg("%s: alloc_etherdev() failed", __FUNCTION__);
+		nss_gmac_early_dbg("%s: alloc_etherdev() failed", __FUNCTION__);
 		return -ENOMEM;
 	}
 
@@ -772,9 +772,11 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	netdev->base_addr = pdev->resource[0].start;
 	netdev->irq = pdev->resource[1].start;
 
+	gmacdev->nss_state = NSS_STATE_UNINITIALIZED;
 	gmacdev->emulation = gmaccfg->emulation;
 	gmacdev->phy_mii_type = gmaccfg->phy_mii_type;
 	gmacdev->phy_base = gmaccfg->phy_mdio_addr;
+	gmacdev->loop_back_mode = NOLOOPBACK;
 
 	if (gmaccfg->poll_required) {
 		test_and_set_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags);	
@@ -816,14 +818,34 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 		goto nss_gmac_attach_fail;
 	}
 
-	gmacdev->mdc_clk_div = MDC_CLK_DIV;
+	if (gmacdev->emulation == 0) {
+		struct device *miidev;
+		uint8_t busid[MII_BUS_ID_SIZE];
 
-	if (gmacdev->emulation && (gmacdev->phy_mii_type == GMAC_INTF_RGMII)) {
-		if (nss_gmac_init_mdiobus(gmacdev) != 0) {
-			nss_gmac_info(gmacdev, "mdio bus register FAIL.");
+		snprintf(busid, MII_BUS_ID_SIZE, "%s.%d", IPQ806X_MDIO_BUS_NAME, IPQ806X_MDIO_BUS_NUM);
+
+		miidev = bus_find_device_by_name(&platform_bus_type,
+						NULL,
+						busid);
+		if (!miidev) {
+			nss_gmac_info(gmacdev, "mdio bus '%s' get FAIL.", busid);
 			goto mdiobus_init_fail;
 		}
-		nss_gmac_info(gmacdev, "mdio bus register OK.");
+
+		gmacdev->miibus = dev_get_drvdata(miidev);
+		if (!gmacdev->miibus) {
+			nss_gmac_info(gmacdev, "mdio bus '%s' get FAIL.", busid);
+			goto mdiobus_init_fail;
+		}
+
+		nss_gmac_info(gmacdev, "mdio bus '%s' OK.", gmacdev->miibus->id);
+
+	} else 	if (gmacdev->emulation && (gmacdev->phy_mii_type == GMAC_INTF_RGMII)) {
+		if (nss_gmac_init_mdiobus(gmacdev) != 0) {
+			nss_gmac_info(gmacdev, "mdio bus register FAIL for emulation.");
+			goto mdiobus_init_fail;
+		}
+		nss_gmac_info(gmacdev, "mdio bus '%s' register OK for emulation.",gmacdev->miibus->id);
 	}
 
 	/*
@@ -838,18 +860,8 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	netdev->netdev_ops = &nss_gmac_netdev_ops;
 	nss_gmac_ethtool_register(netdev);
 
-	/* Register the network interface */
-	if (register_netdev(netdev)) {
-		nss_gmac_info(gmacdev, "Error registering netdevice %s",
-			      netdev->name);
-		ret = -EFAULT;
-		goto nss_gmac_reg_fail;
-	}
-
-	if (!test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
-		nss_gmac_info(gmacdev, "skipping PHY connect");
-		goto skip_phy_connect;
-	}
+	/* Initialize work for workqueue */
+	INIT_DELAYED_WORK(&gmacdev->gmacwork, nss_gmac_work);
 
 	switch (gmacdev->phy_mii_type) {
 	case GMAC_INTF_RGMII:
@@ -887,13 +899,21 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	}
 
 	nss_gmac_update_features(&(gmacdev->phydev->supported), &(gmacdev->phydev->advertising));
-	gmacdev->phydev->irq = 0;
+	gmacdev->phydev->irq = PHY_POLL;
 	nss_gmac_info(gmacdev, "PHY %s attach OK", phy_id);
 
 	/* reset corresponding Phy */
 	if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
-		gmacdev->phydev->irq = PHY_POLL;
 		nss_gmac_reset_phy(gmacdev, gmacdev->phy_base);
+
+		if (gmacdev->phy_mii_type == GMAC_INTF_RGMII) {
+			/* RGMII Tx delay */
+			nss_gmac_info(gmacdev, "%s: Program RGMII Tx delay..... " , __FUNCTION__);
+			mdiobus_write(gmacdev->miibus, gmacdev->phy_base, 0x1D, 0x05);
+			mdiobus_write(gmacdev->miibus, gmacdev->phy_base, 0x1E, 0x100);
+			mdiobus_write(gmacdev->miibus, gmacdev->phy_base, 0x1D, 0x0B);
+			mdiobus_write(gmacdev->miibus, gmacdev->phy_base, 0x1E, 0xBC20);
+		}
 	}
 
 	/* XXX: Test code to verify if MDIO access is OK. Remove after bringup. */
@@ -901,8 +921,6 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 		      nss_gmac_mii_rd_reg(gmacdev, gmacdev->phy_base, MII_PHYSID1));
 	nss_gmac_info(gmacdev, "%s MII_PHYSID2 - 0x%04x", netdev->name,
 		      nss_gmac_mii_rd_reg(gmacdev, gmacdev->phy_base, MII_PHYSID2));
-
-skip_phy_connect:
 
 	/*
 	 * Set up the tx and rx descriptor queue/ring
@@ -925,8 +943,16 @@ skip_phy_connect:
 
 	nss_gmac_tx_rx_desc_init(gmacdev);
 
-	/* Initialize work for workqueue */
-	INIT_DELAYED_WORK(&gmacdev->gmacwork, nss_gmac_work);
+	test_and_set_bit(__NSS_GMAC_RXCSUM, &gmacdev->flags);
+	nss_gmac_ipc_offload_init(gmacdev);
+
+	/* Register the network interface */
+	if (register_netdev(netdev)) {
+		nss_gmac_info(gmacdev, "Error registering netdevice %s",
+			      netdev->name);
+		ret = -EFAULT;
+		goto nss_gmac_reg_fail;
+	}
 
 	nss_gmac_info(gmacdev,
 		      "Initialized NSS GMAC%d interface %s: (base = 0x%lx, "
@@ -935,6 +961,9 @@ skip_phy_connect:
 		      gmacdev->phy_base, test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags));
 
 	return 0;
+
+nss_gmac_reg_fail:
+	unregister_netdev(gmacdev->netdev);
 
 nss_gmac_rx_fail:
 	nss_gmac_giveup_tx_desc_queue(gmacdev, dev, RINGMODE);
@@ -946,9 +975,6 @@ nss_gmac_tx_fail:
 	}
 
 nss_gmac_phy_attach_fail:
-	unregister_netdev(gmacdev->netdev);
-
-nss_gmac_reg_fail:
 	if (gmacdev->emulation) {
 		nss_gmac_deinit_mdiobus(gmacdev);
 	}
@@ -979,7 +1005,7 @@ static int nss_gmac_remove(struct platform_device *pdev)
 
 	gmacdev = ctx.nss_gmac[pdev->id];
 	if (!gmacdev) {
-		nss_gmac_msg("Invalid GMAC");
+		nss_gmac_early_dbg("Invalid GMAC");
 		return -EINVAL;
 	}
 

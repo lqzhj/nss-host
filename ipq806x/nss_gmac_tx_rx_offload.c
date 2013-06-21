@@ -33,6 +33,10 @@
 static void nss_gmac_copy_stats(nss_gmac_dev *gmacdev,
 				struct nss_gmac_sync *gstat)
 {
+	struct nss_gmac_sync *pstat = NULL;
+
+	pstat = &(gmacdev->nss_stats);
+
 	BUG_ON(!spin_is_locked(&gmacdev->stats_lock));
 
 	gmacdev->nss_stats.rx_bytes += gstat->rx_bytes;
@@ -74,7 +78,16 @@ static void nss_gmac_copy_stats(nss_gmac_dev *gmacdev,
 	gmacdev->nss_stats.tx_ip_header_errors += gstat->tx_ip_header_errors;
 	gmacdev->nss_stats.tx_ip_payload_errors += gstat->tx_ip_payload_errors;
 	gmacdev->nss_stats.tx_dropped += gstat->tx_dropped;
-	memcpy(gmacdev->nss_stats.hw_errs, gstat->hw_errs, 10);
+	pstat->hw_errs[0] += gstat->hw_errs[0];
+	pstat->hw_errs[1] += gstat->hw_errs[1];
+	pstat->hw_errs[2] += gstat->hw_errs[2];
+	pstat->hw_errs[3] += gstat->hw_errs[3];
+	pstat->hw_errs[4] += gstat->hw_errs[4];
+	pstat->hw_errs[5] += gstat->hw_errs[5];
+	pstat->hw_errs[6] += gstat->hw_errs[6];
+	pstat->hw_errs[7] += gstat->hw_errs[7];
+	pstat->hw_errs[8] += gstat->hw_errs[8];
+	pstat->hw_errs[9] += gstat->hw_errs[9];
 	gmacdev->nss_stats.rx_missed += gstat->rx_missed;
 	gmacdev->nss_stats.fifo_overflows += gstat->fifo_overflows;
 	gmacdev->nss_stats.gmac_total_ticks += gstat->gmac_total_ticks;
@@ -218,7 +231,6 @@ static void nss_notify_linkup(nss_gmac_dev *gmacdev)
 			       link, gmacdev->macid);
 }
 
-
 /**
  * This function checks for completion of PHY init
  * and proceeds to initialize mac based on parameters
@@ -230,12 +242,20 @@ void nss_gmac_linkup(nss_gmac_dev *gmacdev)
 {
 	struct net_device *netdev = gmacdev->netdev;
 
-	nss_gmac_info(gmacdev, "%s Link %s", netdev->name, "up");
 	nss_gmac_spare_ctl(gmacdev);
 
-	nss_gmac_check_phy_init(gmacdev);
+	if (nss_gmac_check_phy_init(gmacdev) != 0) {
+		gmacdev->link_state = LINKDOWN;
+		return;
+	}
+
 	gmacdev->link_state = LINKUP;
-	gmacdev->loop_back_mode = NOLOOPBACK;
+	nss_gmac_dev_set_speed(gmacdev);
+
+	nss_gmac_msg("%s %sMbps %sDuplex",
+		      netdev->name, (gmacdev->speed == SPEED1000) ?
+		      "1000" : ((gmacdev->speed == SPEED100) ? "100" : "10"),
+		      (gmacdev->duplex_mode == FULLDUPLEX) ? "Full" : "Half");
 
 	if (gmacdev->first_linkup_done == 0) {
 		nss_gmac_disable_interrupt_all(gmacdev);
@@ -246,6 +266,7 @@ void nss_gmac_linkup(nss_gmac_dev *gmacdev)
 		nss_gmac_init_tx_desc_base(gmacdev);
 		nss_gmac_init_rx_desc_base(gmacdev);
 		nss_gmac_dma_bus_mode_init(gmacdev, DmaBusModeVal);
+		nss_gmac_dma_axi_bus_mode_init(gmacdev, DmaAxiBusModeVal);
 		nss_gmac_dma_control_init(gmacdev, DmaOMR);
 		nss_gmac_disable_mmc_tx_interrupt(gmacdev, 0xFFFFFFFF);
 		nss_gmac_disable_mmc_rx_interrupt(gmacdev, 0xFFFFFFFF);
@@ -275,11 +296,6 @@ void nss_gmac_linkup(nss_gmac_dev *gmacdev)
 
 	nss_notify_linkup(gmacdev);
 
-	nss_gmac_info(gmacdev, "%s Speed %sMbps %sDuplex",
-		      netdev->name, (gmacdev->speed == SPEED1000) ?
-		      "1000" : ((gmacdev->speed == SPEED100) ? "100" : "10"),
-		      (gmacdev->duplex_mode == FULLDUPLEX) ? "Full" : "Half");
-
 	netif_carrier_on(netdev);
 }
 
@@ -294,12 +310,11 @@ void nss_gmac_linkdown(nss_gmac_dev *gmacdev)
 {
 	struct net_device *netdev = gmacdev->netdev;
 
-	nss_gmac_info(gmacdev, "%s Link %s", netdev->name, "down");
+	nss_gmac_msg("%s Link %s", netdev->name, "down");
 
 	gmacdev->link_state = LINKDOWN;
 	gmacdev->duplex_mode = 0;
 	gmacdev->speed = 0;
-	gmacdev->loop_back_mode = NOLOOPBACK;
 
 	if (test_bit(__NSS_GMAC_UP, &gmacdev->flags)) {
 		netif_carrier_off(netdev);
@@ -356,8 +371,11 @@ void nss_gmac_work(struct work_struct *work)
 					gmacdev->netdev->dev_addr,
 					gmacdev->macid);
 
-		phy_start(gmacdev->phydev);
-		phy_start_aneg(gmacdev->phydev);
+		if (gmacdev->phydev) {
+			nss_gmac_info(gmacdev, "%s: start phy 0x%x", __FUNCTION__, gmacdev->phydev->phy_id);
+			phy_start(gmacdev->phydev);
+			phy_start_aneg(gmacdev->phydev);
+		}
 
 		return;
 	}
@@ -533,14 +551,20 @@ void nss_gmac_linux_tx_timeout(struct net_device *netdev)
 	gmacdev = (nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 
-	nss_gmac_info(gmacdev, "%s called", __FUNCTION__);
-
 	if (gmacdev->gmac_power_down == 0) {
 		/* If Mac is in powerdown */
 		nss_gmac_info(gmacdev,
 			      "%s TX time out during power down is ignored",
 			      netdev->name);
+		return;
 	}
+
+	netif_carrier_off(netdev);
+	nss_gmac_disable_dma_tx(gmacdev);
+	nss_gmac_flush_tx_fifo(gmacdev);
+	nss_gmac_enable_dma_tx(gmacdev);
+	netif_carrier_on(netdev);
+	netif_start_queue(netdev);
 }
 
 

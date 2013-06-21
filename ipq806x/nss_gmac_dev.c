@@ -129,7 +129,7 @@ int32_t nss_gmac_read_phy_reg(uint32_t *RegBase, uint32_t PhyBase,
 		mdelay(100);
 	}
 
-	nss_gmac_msg
+	nss_gmac_early_dbg
 	    ("Error::: PHY not responding; Busy bit not cleared!! addr:%x, data:%x\n",
 	     temp, *data);
 
@@ -175,7 +175,7 @@ int32_t nss_gmac_write_phy_reg(uint32_t *RegBase, uint32_t PhyBase,
 		mdelay(100);
 	}
 
-	nss_gmac_msg
+	nss_gmac_early_dbg
 	    ("Error::: PHY not responding; Busy bit not cleared!! addr:data %x:%x",
 	     temp, data);
 
@@ -341,6 +341,22 @@ void nss_gmac_reset(nss_gmac_dev *gmacdev)
 int32_t nss_gmac_dma_bus_mode_init(nss_gmac_dev *gmacdev, uint32_t init_value)
 {
 	nss_gmac_write_reg((uint32_t *)gmacdev->dma_base, DmaBusMode,
+			   init_value);
+	return 0;
+}
+
+/*
+ * Function to program DMA AXI bus mode register.
+ * The Bus Mode register is programmed with the value given.
+ * The bits to be set are bit wise or'ed and sent as the second
+ * argument to this function.
+ * @param[in] pointer to nss_gmac_dev.
+ * @param[in] the data to be programmed.
+ * @return 0 on success else return the error status.
+ */
+int32_t nss_gmac_dma_axi_bus_mode_init(nss_gmac_dev *gmacdev, uint32_t init_value)
+{
+	nss_gmac_write_reg((uint32_t *)gmacdev->dma_base, DmaAxiBusMode,
 			   init_value);
 	return 0;
 }
@@ -1089,55 +1105,6 @@ void nss_gmac_tx_flow_control_disable(nss_gmac_dev *gmacdev)
 				GmacFlowControl, GmacTxFlowControl);
 }
 
-/*
- * Initiate Flowcontrol operation.
- * When Set
- * 	- In full duplex GMAC initiates pause control frame.
- *	- In Half duplex GMAC initiates back pressure function.
- * @param[in] pointer to nss_gmac_dev.
- * @return void.
- */
-void nss_gmac_tx_activate_flow_control(nss_gmac_dev *gmacdev)
-{
-	/*
-	 * In case of full duplex check for this bit to b'0.
-	 * If it is read as b'1 indicates that control
-	 * frame transmission is in progress.
-	 */
-	if (gmacdev->speed == FULLDUPLEX) {
-		if (!nss_gmac_check_reg_bits((uint32_t *)gmacdev->mac_base,
-					     GmacFlowControl,
-					     GmacFlowControlBackPressure)) {
-			nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-					      GmacFlowControl,
-					      GmacFlowControlBackPressure);
-		}
-
-		return;
-	}
-
-	/* half duplex mode */
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacFlowControl,
-			      GmacFlowControlBackPressure);
-}
-
-/*
- * stops Flowcontrol operation.
- * @param[in] pointer to nss_gmac_dev.
- * @return void.
- */
-void nss_gmac_tx_deactivate_flow_control(nss_gmac_dev *gmacdev)
-{
-	/* In full duplex this bit is automatically cleared after
-	 * transmitting a pause control frame.
-	 */
-	if (gmacdev->speed == HALFDUPLEX) {
-		nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-				      GmacFlowControl,
-				      GmacFlowControlBackPressure);
-	}
-}
 
 /*
  * This enables processing of received pause frame.
@@ -1198,6 +1165,17 @@ void nss_gmac_rx_pause_disable(nss_gmac_dev *gmacdev)
 
 	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
 				GmacFlowControl, GmacRxFlowControl);
+}
+
+
+/*
+ * Flush Dma Tx fifo.
+ * @param[in] pointer to nss_gmac_dev.
+ * @return void.
+ */
+void nss_gmac_flush_tx_fifo(nss_gmac_dev *gmacdev)
+{
+	nss_gmac_set_reg_bits((uint32_t *)gmacdev->dma_base, DmaControl, DmaFlushTxFifo);
 }
 
 /*
@@ -1319,8 +1297,6 @@ void nss_gmac_mac_init(nss_gmac_dev *gmacdev)
 		nss_gmac_retry_enable(gmacdev);
 	}
 
-	nss_gmac_dev_set_speed(gmacdev);
-
 	nss_gmac_pad_crc_strip_disable(gmacdev);
 	nss_gmac_back_off_limit(gmacdev, GmacBackoffLimit0);
 	nss_gmac_deferral_check_disable(gmacdev);
@@ -1349,13 +1325,145 @@ void nss_gmac_mac_init(nss_gmac_dev *gmacdev)
 	nss_gmac_rx_enable(gmacdev);
 }
 
+
+static void nss_gmac_check_pcs_status(nss_gmac_dev *gmacdev)
+{
+	struct nss_gmac_global_ctx *ctx = NULL;
+	uint32_t *qsgmii_base = NULL;
+	uint32_t id = 0;
+	uint32_t reg = 0;
+
+	ctx = gmacdev->ctx;
+	qsgmii_base = ctx->qsgmii_base;
+	id = gmacdev->macid;
+
+	gmacdev->link_state = LINKDOWN;
+
+	/* confirm link is up in PCS_QSGMII_MAC_STATUS register */
+	reg = nss_gmac_read_reg(qsgmii_base, PCS_QSGMII_MAC_STAT);
+	if (!(reg & PCS_MAC_STAT_CHn_LINK(id))) {
+		return;
+	}
+
+	gmacdev->link_state = LINKUP;
+
+	reg = nss_gmac_read_reg(qsgmii_base, PCS_QSGMII_MAC_STAT);
+
+	/* save duplexity */
+	if (reg & PCS_MAC_STAT_CHn_DUPLEX(id)) {
+		gmacdev->duplex_mode = FULLDUPLEX;
+	} else {
+		gmacdev->duplex_mode = HALFDUPLEX;
+	}
+
+	/* save speed */
+	switch (PCS_MAC_STAT_CHn_SPEED(id, reg)) {
+	case 0:
+		gmacdev->speed = SPEED10;
+		break;
+
+	case 1:
+		gmacdev->speed = SPEED100;
+		break;
+
+	case 2:
+		gmacdev->speed = SPEED1000;
+		break;
+	}
+}
+
+
+/*
+ * Handle Q/SGMII linkup
+ * @param[in] pointer to nss_gmac_dev.
+ * @return void.
+ */
+static void nss_gmac_check_sgmii_link(nss_gmac_dev *gmacdev)
+{
+	struct nss_gmac_global_ctx *ctx = NULL;
+	uint32_t *qsgmii_base = NULL;
+	uint32_t id = 0;
+	uint32_t reg = 0;
+	uint32_t duplex = 0;
+	uint32_t speed = 0;
+	int32_t timeout = 0;
+	int32_t timeout_count = 0;
+	int32_t timeout_speed = 0;
+
+	ctx = gmacdev->ctx;
+	qsgmii_base = ctx->qsgmii_base;
+	id = gmacdev->macid;
+
+reheck_pcs_mac_status:
+	nss_gmac_check_pcs_status(gmacdev);
+	if (gmacdev->link_state == LINKDOWN) {
+		return;
+	}
+
+	speed = gmacdev->speed;
+	duplex = gmacdev->duplex_mode;
+
+	/* switch clock dividers */
+	nss_gmac_dev_set_speed(gmacdev);
+
+	/* flush GMAC fifo */
+	nss_gmac_flush_tx_fifo(gmacdev);
+
+	/* reinitiate autoneg in QSGMII CSR. */
+	nss_gmac_set_reg_bits(qsgmii_base, PCS_MODE_CTL,
+				PCS_MODE_CTL_CHn_AUTONEG_RESTART(id));
+	nss_gmac_clear_reg_bits(qsgmii_base, PCS_MODE_CTL,
+				PCS_MODE_CTL_CHn_AUTONEG_RESTART(id));
+	timeout = 50;
+	reg = nss_gmac_read_reg(qsgmii_base, PCS_ALL_CH_STAT);
+	while(!(reg & PCS_CHn_AUTONEG_COMPLETE(id)) && timeout > 0) {
+		timeout--;
+		mdelay(10);
+		reg = nss_gmac_read_reg(qsgmii_base, PCS_ALL_CH_STAT);
+	}
+
+	/* handle autoneg timeout */
+	if (timeout == 0) {
+		nss_gmac_info(gmacdev, "%s: PCS ch %d autoneg timeout", __FUNCTION__, id);
+		timeout_count++;
+		if (timeout_count == 2) {
+			gmacdev->link_state = LINKDOWN;
+			nss_gmac_set_reg_bits(qsgmii_base, PCS_MODE_CTL,
+					      PCS_MODE_CTL_CHn_PHY_RESET(id));
+			return;
+		}
+		goto reheck_pcs_mac_status;
+	}
+	nss_gmac_trace(gmacdev, "%s: PCS ch %d autoneg complete", __FUNCTION__, id);
+
+	nss_gmac_check_pcs_status(gmacdev);
+	if (gmacdev->link_state == LINKDOWN) {
+		goto reheck_pcs_mac_status;
+	}
+
+	/* verify speed has not changed */
+	if (speed != gmacdev->speed) {
+		timeout_speed++;
+		if (timeout_speed == 2) {
+			gmacdev->link_state = LINKDOWN;
+			nss_gmac_set_reg_bits(qsgmii_base, PCS_MODE_CTL,
+					      PCS_MODE_CTL_CHn_PHY_RESET(id));
+			return;
+		}
+
+		goto reheck_pcs_mac_status;
+	}
+}
+
+
 /*
  * This function checks to see if phy PHY autonegotiation is complete.
  * It reads PHY registers to retrieve current speed and duplexity settings.
  * @param[in] pointer to nss_gmac_dev.
- * @return void
+ * @return 0 on success. If successful, it updates gmacdev->speed and
+ * 	   gmacdev->duplex_mode with current speed and duplex mode.
  */
-void nss_gmac_check_phy_init(nss_gmac_dev *gmacdev)
+int32_t nss_gmac_check_phy_init(nss_gmac_dev *gmacdev)
 {
 	struct phy_device *phydev = NULL;
 	int32_t count;
@@ -1368,7 +1476,7 @@ void nss_gmac_check_phy_init(nss_gmac_dev *gmacdev)
 					&& !gmacdev->emulation) {
 		gmacdev->speed = SPEED1000;
 		gmacdev->duplex_mode = FULLDUPLEX;
-		return;
+		return 0;
 	}
 
 	if (gmacdev->emulation && (gmacdev->phy_mii_type == GMAC_INTF_SGMII
@@ -1376,7 +1484,19 @@ void nss_gmac_check_phy_init(nss_gmac_dev *gmacdev)
 		/* Emulation build, Q/SGMII interface. Returning 100Mbps FD */
 		gmacdev->speed = SPEED100;
 		gmacdev->duplex_mode = FULLDUPLEX;
-		return;
+		return 0;
+	}
+
+	if (gmacdev->phy_mii_type == GMAC_INTF_SGMII
+		|| gmacdev->phy_mii_type == GMAC_INTF_QSGMII) {
+		nss_gmac_check_sgmii_link(gmacdev);
+		if (gmacdev->link_state == LINKDOWN) {
+			nss_gmac_info(gmacdev, "%s: SGMII phy linkup ERROR.", __FUNCTION__);
+			return -EIO;
+		}
+
+		nss_gmac_trace(gmacdev, "%s: SGMII phy linkup OK.", __FUNCTION__);
+		return 0;
 	}
 
 	phydev = gmacdev->phydev;
@@ -1392,6 +1512,7 @@ void nss_gmac_check_phy_init(nss_gmac_dev *gmacdev)
 	if (count == DEFAULT_LOOP_VARIABLE) {
 		nss_gmac_info(gmacdev, "%s: %s Timeout waiting for autoneg.",
 			      __FUNCTION__, gmacdev->netdev->name);
+		return -EIO;
 	}
 
 	genphy_read_status(phydev);
@@ -1420,7 +1541,7 @@ void nss_gmac_check_phy_init(nss_gmac_dev *gmacdev)
 		break;
 	}
 
-	return;
+	return 0;
 }
 
 /*
