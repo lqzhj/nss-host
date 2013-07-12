@@ -147,7 +147,7 @@ static void nss_gmac_rumi_qsgmii_init(nss_gmac_dev *gmacdev)
  */
 void nss_gmac_qsgmii_dev_init(nss_gmac_dev *gmacdev)
 {
-	uint32_t val;
+	uint32_t val = 0;
 	uint32_t id = gmacdev->macid;
 	uint8_t *nss_base = (uint8_t *)(gmacdev->ctx->nss_base);
 	uint32_t *qsgmii_base = (uint32_t *)(gmacdev->ctx->qsgmii_base);
@@ -284,6 +284,8 @@ static void nss_gmac_qsgmii_common_init(uint32_t *qsgmii_base)
 		/* Put PCS in QSGMII Mode */
 		nss_gmac_write_reg(qsgmii_base, PCS_QSGMII_SGMII_MODE, PCS_QSGMII_MODE_QSGMII);
 
+		nss_gmac_clear_reg_bits(qsgmii_base, QSGMII_PHY_QSGMII_CTL, QSGMII_PHY_TX_SLEW_MASK);
+
 		goto out;
 	}
 
@@ -305,6 +307,8 @@ out:
 	       __FUNCTION__, (uint32_t)qsgmii_base, (uint32_t)PCS_QSGMII_SGMII_MODE, val);
 
 	/* Mode ctrl signal for mode selection */
+	nss_gmac_clear_reg_bits(qsgmii_base, PCS_MODE_CTL, PCS_MODE_CTL_SGMII_MAC
+							   | PCS_MODE_CTL_SGMII_PHY);
 	nss_gmac_set_reg_bits(qsgmii_base, PCS_MODE_CTL, PCS_MODE_CTL_SGMII_MAC);
 
 	/* Apply reset to PCS and release */
@@ -329,6 +333,9 @@ out:
 	val = nss_gmac_read_reg(qsgmii_base, PCS_QSGMII_CTL);
 	nss_gmac_early_dbg("%s: qsgmii_base(0x%x) + PCS_QSGMII_CTL(0x%x): 0x%x",
 	       __FUNCTION__, (uint32_t)qsgmii_base, (uint32_t)PCS_QSGMII_CTL, val);
+
+	/* set debug bits */
+	nss_gmac_set_reg_bits((uint32_t *)qsgmii_base, PCS_ALL_CH_CTL, 0xF0000000);
 }
 
 
@@ -606,7 +613,8 @@ int32_t nss_gmac_dev_set_speed(nss_gmac_dev *gmacdev)
 	nss_gmac_info(gmacdev, "%s:NSS_ETH_CLK_DIV0(0x%x) - 0x%x",
 		      __FUNCTION__, NSS_ETH_CLK_DIV0, val);
 
-	if (gmacdev->phy_mii_type == GMAC_INTF_SGMII) {
+	if (gmacdev->phy_mii_type == GMAC_INTF_SGMII
+	    || gmacdev->phy_mii_type == GMAC_INTF_QSGMII) {
 		nss_gmac_clear_reg_bits(qsgmii_base, PCS_MODE_CTL,
 					PCS_MODE_CTL_CHn_AUTONEG_EN(gmacdev->macid));
 
@@ -660,8 +668,6 @@ void nss_gmac_dev_init(nss_gmac_dev *gmacdev)
 	val = nss_gmac_read_reg(MSM_CLK_CTL_BASE, GMAC_COREn_CLK_SRC_CTL(id));
 	nss_gmac_trace(gmacdev, "%s: MSM_CLK_CTL_BASE(0x%x) + GMAC_COREn_CLK_SRC_CTL(%d)(0x%x): 0x%x",
 		       __FUNCTION__, (uint32_t)MSM_CLK_CTL_BASE, id, (uint32_t)GMAC_COREn_CLK_SRC_CTL(id), val);
-
-
 
 	/* b) Program M & D values in GMAC_COREn_CLK_SRC[0,1]_MD register. */
 	nss_gmac_write_reg(MSM_CLK_CTL_BASE, GMAC_COREn_CLK_SRC0_MD(id), 0);

@@ -890,9 +890,21 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	}
 
 	/* connect PHY */
-	gmacdev->phydev = phy_connect(netdev, (const char *)phy_id,
-				      &nss_gmac_adjust_link, 0,
-				      phyif);
+	if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
+		gmacdev->phydev = phy_connect(netdev, (const char *)phy_id,
+					      &nss_gmac_adjust_link, 0,
+					      phyif);
+	} else {
+		/*
+		 * If the GMAC is attached to a switch, execute phy_attach()
+		 * that does not take a callback. The callback is not required since,
+		 * for GMACs connected to switch, the link is always up.
+		*/
+		gmacdev->phydev = phy_attach(netdev, (const char *)phy_id,
+					      0,
+					      phyif);
+	}
+
 	if (!gmacdev->phydev) {
 		nss_gmac_info(gmacdev, "PHY %s attach FAIL", phy_id);
 		goto nss_gmac_phy_attach_fail;

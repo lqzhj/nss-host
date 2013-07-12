@@ -1309,7 +1309,8 @@ void nss_gmac_mac_init(nss_gmac_dev *gmacdev)
 	nss_gmac_set_pass_control(gmacdev, GmacPassControl0);
 	nss_gmac_broadcast_enable(gmacdev);
 	nss_gmac_src_addr_filter_disable(gmacdev);
-	nss_gmac_multicast_disable(gmacdev);
+	nss_gmac_multicast_enable(gmacdev);
+	gmacdev->netdev->flags |= IFF_ALLMULTI;
 	nss_gmac_dst_addr_filter_normal(gmacdev);
 	nss_gmac_multicast_hash_filter_disable(gmacdev);
 	nss_gmac_promisc_enable(gmacdev);
@@ -1347,8 +1348,6 @@ static void nss_gmac_check_pcs_status(nss_gmac_dev *gmacdev)
 
 	gmacdev->link_state = LINKUP;
 
-	reg = nss_gmac_read_reg(qsgmii_base, PCS_QSGMII_MAC_STAT);
-
 	/* save duplexity */
 	if (reg & PCS_MAC_STAT_CHn_DUPLEX(id)) {
 		gmacdev->duplex_mode = FULLDUPLEX;
@@ -1384,30 +1383,34 @@ static void nss_gmac_check_sgmii_link(nss_gmac_dev *gmacdev)
 	uint32_t *qsgmii_base = NULL;
 	uint32_t id = 0;
 	uint32_t reg = 0;
-	uint32_t duplex = 0;
-	uint32_t speed = 0;
+	uint32_t previous_linkup_duplex = 0;
+	uint32_t previous_linkup_speed = 0;
+	uint32_t new_duplex = 0;
+	uint32_t new_speed = 0;
 	int32_t timeout = 0;
 	int32_t timeout_count = 0;
-	int32_t timeout_speed = 0;
 
 	ctx = gmacdev->ctx;
 	qsgmii_base = ctx->qsgmii_base;
 	id = gmacdev->macid;
 
+	previous_linkup_speed = gmacdev->speed;
+	previous_linkup_duplex = gmacdev->duplex_mode;
+
 reheck_pcs_mac_status:
 	nss_gmac_check_pcs_status(gmacdev);
 	if (gmacdev->link_state == LINKDOWN) {
+		if (gmacdev->phydev->link) {
+			nss_gmac_warn(gmacdev, "SGMII PCS error. Resetting PHY using MDIO");
+			phy_write(gmacdev->phydev, MII_BMCR,
+				  BMCR_RESET | phy_read(gmacdev->phydev, MII_BMCR));
+		}
+
 		return;
 	}
 
-	speed = gmacdev->speed;
-	duplex = gmacdev->duplex_mode;
-
-	/* switch clock dividers */
-	nss_gmac_dev_set_speed(gmacdev);
-
-	/* flush GMAC fifo */
-	nss_gmac_flush_tx_fifo(gmacdev);
+	new_speed = gmacdev->speed;
+	new_duplex = gmacdev->duplex_mode;
 
 	/* reinitiate autoneg in QSGMII CSR. */
 	nss_gmac_set_reg_bits(qsgmii_base, PCS_MODE_CTL,
@@ -1437,21 +1440,22 @@ reheck_pcs_mac_status:
 	nss_gmac_trace(gmacdev, "%s: PCS ch %d autoneg complete", __FUNCTION__, id);
 
 	nss_gmac_check_pcs_status(gmacdev);
-	if (gmacdev->link_state == LINKDOWN) {
-		goto reheck_pcs_mac_status;
+
+	if ((gmacdev->link_state == LINKDOWN) || (new_speed != gmacdev->speed)) {
+		gmacdev->link_state = LINKDOWN;
+			nss_gmac_warn(gmacdev, "SGMII PCS error. Resetting PHY using MDIO");
+			phy_write(gmacdev->phydev, MII_BMCR,
+				  BMCR_RESET | phy_read(gmacdev->phydev, MII_BMCR));
+		return;
 	}
 
-	/* verify speed has not changed */
-	if (speed != gmacdev->speed) {
-		timeout_speed++;
-		if (timeout_speed == 2) {
-			gmacdev->link_state = LINKDOWN;
-			nss_gmac_set_reg_bits(qsgmii_base, PCS_MODE_CTL,
-					      PCS_MODE_CTL_CHn_PHY_RESET(id));
-			return;
-		}
+	/* check if initial speed has changed */
+	if (previous_linkup_speed != gmacdev->speed) {
+		/* switch clock dividers */
+		nss_gmac_dev_set_speed(gmacdev);
 
-		goto reheck_pcs_mac_status;
+		/* flush GMAC fifo */
+		nss_gmac_flush_tx_fifo(gmacdev);
 	}
 }
 

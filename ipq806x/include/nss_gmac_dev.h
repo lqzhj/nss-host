@@ -1088,7 +1088,7 @@ enum InitialRegisters {
 
 	DmaBusModeVal = DmaBurstLength32
 	    | DmaBurstLengthx8 | DmaDescriptorSkip0
-	    | DmaDescriptor8Words | DmaArbitPr,
+	    | DmaDescriptor8Words | DmaArbitPr | DmaAddressAlignedBeats,
 
 	/* 1000 Mb/s mode */
 	DmaControlInit1000 = DmaStoreAndForward,
@@ -1100,7 +1100,7 @@ enum InitialRegisters {
 	DmaControlInit10 = DmaStoreAndForward,
 
 	DmaOMR = DmaStoreAndForward | DmaRxStoreAndForward
-	    | DmaRxThreshCtrl128 | DmaTxSecondFrame | DmaRxFrameFlush,
+	    | DmaRxThreshCtrl128 | DmaTxSecondFrame,
 
 	/* Interrupt groups */
 	DmaIntErrorMask = DmaIntBusError,	/* Error                        */

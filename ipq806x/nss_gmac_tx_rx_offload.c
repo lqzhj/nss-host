@@ -372,9 +372,13 @@ void nss_gmac_work(struct work_struct *work)
 					gmacdev->macid);
 
 		if (gmacdev->phydev) {
-			nss_gmac_info(gmacdev, "%s: start phy 0x%x", __FUNCTION__, gmacdev->phydev->phy_id);
-			phy_start(gmacdev->phydev);
-			phy_start_aneg(gmacdev->phydev);
+			if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
+				nss_gmac_info(gmacdev, "%s: start phy 0x%x", __FUNCTION__, gmacdev->phydev->phy_id);
+				phy_start(gmacdev->phydev);
+				phy_start_aneg(gmacdev->phydev);
+			} else {
+				nss_gmac_linkup(gmacdev);
+			}
 		}
 
 		return;
@@ -462,6 +466,7 @@ int nss_gmac_linux_open(struct net_device *netdev)
 	ctx = gmacdev->ctx;
 
 	netif_carrier_off(netdev);
+
 
 	/**
 	 * Now platform dependent initialization.
