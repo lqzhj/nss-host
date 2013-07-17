@@ -58,8 +58,10 @@
  */
 #define NSS_MAX_CORES 2
 #define NSS_MAX_PHYSICAL_INTERFACES 4
-#define NSS_MAX_VIRTUAL_INTERFACES 8
-#define NSS_MAX_NET_INTERFACES (NSS_MAX_PHYSICAL_INTERFACES + NSS_MAX_VIRTUAL_INTERFACES)
+#define NSS_MAX_VIRTUAL_INTERFACES 4
+#define NSS_MAX_SPECIAL_NET_INTERFACES 8
+#define NSS_MAX_DEVICE_INTERFACES (NSS_MAX_PHYSICAL_INTERFACES + NSS_MAX_VIRTUAL_INTERFACES)
+#define NSS_MAX_NET_INTERFACES (NSS_MAX_DEVICE_INTERFACES + NSS_MAX_SPECIAL_NET_INTERFACES)
 
 /*
  * Default payload size for NSS buffers
@@ -463,6 +465,7 @@ struct nss_top_instance {
 	uint8_t crypto_handler_id;
 	uint8_t ipsec_handler_id;
 	uint8_t wlan_handler_id;
+	uint8_t tun6rd_handler_id;
 	uint8_t phys_if_handler_id[4];
 	nss_ipv4_callback_t ipv4_callback;
 					/* IPv4 sync/establish callback function */

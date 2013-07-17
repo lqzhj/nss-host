@@ -243,6 +243,15 @@ struct nss_profiler_tx {
 };
 
 /*
+ * Interface params command
+ */
+struct nss_generic_if_params {
+	uint32_t interface_num;		/* Interface number */
+	uint32_t len;			/* Valid information length */
+	uint8_t buf[1];			/* Buffer */
+};
+
+/*
  * Types of TX metadata.
  */
 enum nss_tx_metadata_types {
@@ -267,6 +276,7 @@ enum nss_tx_metadata_types {
 	NSS_TX_METADATA_TYPE_C2C_TX_MAP,
 	NSS_TX_METADATA_TYPE_IPSEC_RULE,
 	NSS_TX_METADATA_TYPE_PROFILER_TX,
+	NSS_TX_METADATA_TYPE_GENERIC_IF_PARAMS,
 };
 
 /*
@@ -294,6 +304,7 @@ struct nss_tx_metadata_object {
 		struct nss_c2c_tx_map c2c_tx_map;
 		struct nss_ipsec_rule ipsec_rule;
 		struct nss_profiler_tx profiler_tx;
+		struct nss_generic_if_params generic_if_params;
 	} sub;
 };
 
@@ -902,15 +913,15 @@ struct nss_if_mem_map {
 	uint8_t h2n_rings;			/* Number of descriptor rings in the H2N direction */
 	uint8_t n2h_rings;			/* Number of descriptor rings in the N2H direction */
 	uint32_t h2n_nss_index[16];
-				/* Index number for the next descriptor that will be read by the NSS in the H2N0 descriptor ring (NSS owned) */
+			/* Index number for the next descriptor that will be read by the NSS in the H2N0 descriptor ring (NSS owned) */
 	uint32_t n2h_nss_index[15];
-				/* Index number for the next descriptor that will be written by the NSS in the N2H0 descriptor ring (NSS owned) */
+			/* Index number for the next descriptor that will be written by the NSS in the N2H0 descriptor ring (NSS owned) */
 	uint8_t num_phys_ports;
 	uint8_t reserved1[3];	/* Reserved for future use */
 	uint32_t h2n_hlos_index[16];
-				/* Index number for the next descriptor that will be written by the HLOS in the H2N0 descriptor ring (HLOS owned) */
+			/* Index number for the next descriptor that will be written by the HLOS in the H2N0 descriptor ring (HLOS owned) */
 	uint32_t n2h_hlos_index[15];
-				/* Index number for the next descriptor that will be read by the HLOS in the N2H0 descriptor ring (HLOS owned) */
+			/* Index number for the next descriptor that will be read by the HLOS in the N2H0 descriptor ring (HLOS owned) */
 	uint32_t c2c_start;	/* Reserved for future use */
 };
 #endif /* __NSS_HLOS_IF_H */

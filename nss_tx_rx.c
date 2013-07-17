@@ -92,8 +92,12 @@ static void nss_rx_metadata_ipv4_rule_sync(struct nss_ctx_instance *nss_ctx, str
 		nicp.params.sync.reason = NSS_IPV4_SYNC_REASON_EVICT;
 		break;
 
+	case NSS_IPV4_RULE_SYNC_REASON_DESTROY:
+		nicp.params.sync.reason = NSS_IPV4_SYNC_REASON_DESTROY;
+		break;
+
 	default:
-		nss_warning("Bad sync reason: %d\n", nirs->reason);
+		nss_warning("Bad ipv4 sync reason: %d\n", nirs->reason);
 		return;
 	}
 
@@ -174,7 +178,22 @@ static void nss_rx_metadata_ipv6_rule_sync(struct nss_ctx_instance *nss_ctx, str
 	nicp.params.sync.return_max_end = nirs->return_max_end;
 	nicp.params.sync.return_packet_count = nirs->return_rx_packet_count;
 	nicp.params.sync.return_byte_count = nirs->return_rx_byte_count;
-	nicp.params.sync.final_sync = (nirs->reason == NSS_IPV6_RULE_SYNC_REASON_FLUSH) ? 1 : 0;
+
+	switch(nirs->reason) {
+	case NSS_IPV6_RULE_SYNC_REASON_FLUSH:
+	case NSS_IPV6_RULE_SYNC_REASON_DESTROY:
+	case NSS_IPV6_RULE_SYNC_REASON_EVICT:
+		nicp.params.sync.final_sync = 1;
+		break;
+
+	case NSS_IPV6_RULE_SYNC_REASON_STATS:
+		nicp.params.sync.final_sync = 0;
+		break;
+
+	default:
+		nss_warning("Bad ipv6 sync reason: %d\n", nirs->reason);
+		return;
+	}
 
 	/*
 	 * Convert ms ticks from the NSS to jiffies.  We know that inc_ticks is small
@@ -1438,6 +1457,57 @@ nss_tx_status_t nss_tx_profiler_if_buf(void *ctx, uint8_t *buf, uint32_t len)
 }
 
 /*
+ * nss_tx_generic_if_buf()
+ *	NSS Generic rule Tx API
+ */
+nss_tx_status_t nss_tx_generic_if_buf(void *ctx, uint32_t if_num, uint8_t *buf, uint32_t len)
+{
+	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *)ctx;
+	struct sk_buff *nbuf;
+	int32_t status;
+	struct nss_tx_metadata_object *ntmo;
+	struct nss_generic_if_params *ngip;
+
+	nss_trace("%p: Generic If Tx, interface = %d, buf=%p", nss_ctx, interface, buf);
+
+	NSS_VERIFY_CTX_MAGIC(nss_ctx);
+	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
+		nss_warning("%p: 'Generic If Tx' rule dropped as core not ready", nss_ctx);
+		return NSS_TX_FAILURE_NOT_READY;
+	}
+
+	nbuf = __dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE, GFP_ATOMIC | __GFP_NOWARN);
+	if (unlikely(!nbuf)) {
+		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
+		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
+		spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
+		nss_warning("%p: 'Generic If Tx' rule dropped as command allocation failed", nss_ctx);
+		return NSS_TX_FAILURE;
+	}
+
+	ntmo = (struct nss_tx_metadata_object *)skb_put(nbuf, sizeof(struct nss_tx_metadata_object));
+	ntmo->type = NSS_TX_METADATA_TYPE_GENERIC_IF_PARAMS;
+
+	ngip = &ntmo->sub.generic_if_params;
+	ngip->interface_num = if_num;
+	ngip->len = len;
+	memcpy(ngip->buf, buf, len);
+
+	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
+	if (status != NSS_CORE_STATUS_SUCCESS) {
+		dev_kfree_skb_any(nbuf);
+		nss_warning("%p: Unable to enqueue 'Generic If Tx' rule\n", nss_ctx);
+		return NSS_TX_FAILURE;
+	}
+
+	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
+								NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
+
+	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_CMD_REQ]);
+	return NSS_TX_SUCCESS;
+}
+
+/*
  * nss_get_interface_number()
  *	Return the interface number of the NSS net_device.
  *
@@ -1467,6 +1537,29 @@ int32_t nss_get_interface_number(void *ctx, void *dev)
 
 	nss_warning("%p: Interface number could not be found as interface has not registered yet", nss_ctx);
 	return -1;
+}
+
+/*
+ * nss_get_interface_dev()
+ *      Return the net_device for NSS interface id.
+ *
+ * Returns NULL on failure or the net_device for NSS interface id.
+ */
+void *nss_get_interface_dev(void *ctx, uint32_t if_num)
+{
+	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *)ctx;
+
+	NSS_VERIFY_CTX_MAGIC(nss_ctx);
+	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
+		nss_warning("%p: Interface device could not be found as core not ready", nss_ctx);
+		return NULL;
+	}
+
+	if (unlikely(if_num >= NSS_MAX_NET_INTERFACES)) {
+		return NULL;
+	}
+
+	return nss_ctx->nss_top->if_ctx[if_num];
 }
 
 /*
@@ -1715,6 +1808,30 @@ void nss_unregister_ipsec_if(uint32_t if_num)
 }
 
 /*
+ * nss_register_tun6rd_if()
+ */
+void *nss_register_tun6rd_if(uint32_t if_num, nss_tun6rd_callback_t tun6rd_callback, void *if_ctx)
+{
+	nss_assert((if_num >= NSS_MAX_VIRTUAL_INTERFACES) && (if_num < NSS_MAX_NET_INTERFACES));
+
+	nss_top_main.if_ctx[if_num] = if_ctx;
+	nss_top_main.if_rx_callback[if_num] = tun6rd_callback;
+
+	return (void *)&nss_top_main.nss[nss_top_main.tun6rd_handler_id];
+}
+
+/*
+ * nss_unregister_tun6rd_if()
+ */
+void nss_unregister_tun6rd_if(uint32_t if_num)
+{
+	nss_assert((if_num >= NSS_MAX_VIRTUAL_INTERFACES) && (if_num < NSS_MAX_NET_INTERFACES));
+
+	nss_top_main.if_rx_callback[if_num] = NULL;
+	nss_top_main.if_ctx[if_num] = NULL;
+}
+
+/*
  * nss_register_profiler_if()
  */
 void *nss_register_profiler_if(nss_profiler_callback_t profiler_callback, nss_core_id_t core_id, void *ctx)
@@ -1739,6 +1856,7 @@ void nss_unregister_profiler_if(nss_core_id_t core_id)
 }
 
 EXPORT_SYMBOL(nss_get_interface_number);
+EXPORT_SYMBOL(nss_get_interface_dev);
 EXPORT_SYMBOL(nss_get_state);
 
 EXPORT_SYMBOL(nss_register_connection_expire_all);
@@ -1785,6 +1903,11 @@ EXPORT_SYMBOL(nss_register_ipsec_if);
 EXPORT_SYMBOL(nss_unregister_ipsec_if);
 EXPORT_SYMBOL(nss_tx_ipsec_rule);
 
+EXPORT_SYMBOL(nss_register_tun6rd_if);
+EXPORT_SYMBOL(nss_unregister_tun6rd_if);
+
 EXPORT_SYMBOL(nss_register_profiler_if);
 EXPORT_SYMBOL(nss_unregister_profiler_if);
 EXPORT_SYMBOL(nss_tx_profiler_if_buf);
+
+EXPORT_SYMBOL(nss_tx_generic_if_buf);

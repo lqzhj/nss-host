@@ -352,7 +352,7 @@ static int32_t nss_core_handle_cause_nonqueue (struct nss_ctx_instance *nss_ctx,
 		mask = size - 1;
 		count = ((nss_index - hlos_index - 1) + size) & (mask);
 
-		nss_info("%p: Adding %d buffers to empty queue", nss_ctx, count);
+		nss_trace("%p: Adding %d buffers to empty queue", nss_ctx, count);
 
 		/*
 		 * Fill empty buffer queue with buffers leaving one empty descriptor

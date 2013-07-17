@@ -530,6 +530,16 @@ typedef enum {
 extern int32_t nss_get_interface_number(void *nss_ctx, void *dev);
 
 /**
+ * @brief Obtain interface device pointer
+ *
+ * @param nss_ctx NSS context
+ * @param uint32_t Interface number
+ *
+ * @return void* Interface device pointer
+ */
+extern void *nss_get_interface_dev(void *nss_ctx, uint32_t if_num);
+
+/**
  * @brief Obtain the NSS state
  *
  * @param nss_ctx NSS context
@@ -975,6 +985,45 @@ extern void nss_unregister_profiler_if(nss_core_id_t core_id);
  *	This context was returned during registration.
  */
 extern nss_tx_status_t nss_tx_profiler_if_buf(void *ctx, uint8_t *buf, uint32_t len);
+
+/**
+ * @brief Send generic interface based command to NSS
+ *
+ * @param ctx NSS context
+ * @param if_num NSS interface to deliver this message
+ * @param buf Buffer to send to NSS
+ * @param len Length of buffer
+ *
+ * @return nss_tx_status_t Tx status
+ *
+ * @note Valid context must be provided (for the right core).
+ *	This context was returned during registration.
+ */
+extern nss_tx_status_t nss_tx_generic_if_buf(void *ctx, uint32_t if_num, uint8_t *buf, uint32_t len);
+
+/**
+ * Methods provided by NSS driver for use by 6rd tunnel
+ */
+
+/**
+ * Callback to receive 6rd callback
+ */
+typedef void (*nss_tun6rd_callback_t)(void *ctx, void *os_buf);
+
+/**
+ * @brief Register to send/receive 6rd tunnel messages to NSS
+ *
+ * @param tun6rd_callback Callback
+ * @param ctx 6rd tunnel context
+ *
+ * @return void* NSS context
+ */
+extern void *nss_register_tun6rd_if(uint32_t if_num, nss_tun6rd_callback_t tun6rd_callback, void *ctx);
+
+/**
+ * @brief Unregister 6rd tunnel interface with NSS
+ */
+extern void nss_unregister_tun6rd_if(uint32_t if_num);
 
 /**@}*/
 #endif /** __NSS_API_IF_H */
