@@ -377,14 +377,6 @@ int32_t nss_gmac_common_init(struct nss_gmac_global_ctx *ctx)
 
 	nss_gmac_clear_all_regs((uint32_t *)ctx->nss_base);
 
-	/*
-	 * QSGMII PHY VCO PLL Init. Fixes QSGMII clock lock issue.
-	 */
-	nss_gmac_write_reg((uint32_t *)(ctx->qsgmii_base), QSGMII_PHY_SERDES_CTL,
-					SERDES_LOCK_DETECT_EN | SERDES_PLL_EN
-					| SERDES_PLL_LOOP_FILTER(0x4) | SERDES_RSV(0x10)
-					| SERDES_PLL_AMP(0x2) | SERDES_PLL_ICP(0x6));
-
 	nss_gmac_write_reg((uint32_t *)(ctx->qsgmii_base), QSGMII_PHY_QSGMII_CTL,
 					QSGMII_PHY_CDR_EN | QSGMII_PHY_RX_FRONT_EN
 					| QSGMII_PHY_RX_SIGNAL_DETECT_EN | QSGMII_PHY_TX_DRIVER_EN
@@ -393,10 +385,8 @@ int32_t nss_gmac_common_init(struct nss_gmac_global_ctx *ctx)
 					| QSGMII_PHY_RX_INPUT_EQU(0x1) | QSGMII_PHY_CDR_PI_SLEW(0x2)
 					| QSGMII_PHY_TX_SLEW(0x2) | QSGMII_PHY_TX_DRV_AMP(0xC));
 
-	nss_gmac_write_reg((uint32_t *)(MSM_CLK_CTL_BASE), NSS_RESET_SPARE, 0x1FFFFFFF);
+	nss_gmac_write_reg((uint32_t *)(MSM_CLK_CTL_BASE), NSS_RESET_SPARE, 0x0FFFFFFF);
 	udelay(100);
-	nss_gmac_clear_reg_bits((uint32_t *)(MSM_CLK_CTL_BASE), NSS_RESET_SPARE, SRDS_N_RESET);
-	mdelay(1);
 	nss_gmac_clear_reg_bits((uint32_t *)(MSM_CLK_CTL_BASE), NSS_RESET_SPARE, CAL_PBRS_RST_N_RESET);
 	mdelay(10);
 	nss_gmac_clear_reg_bits((uint32_t *)(MSM_CLK_CTL_BASE), NSS_RESET_SPARE, LCKDT_RST_N_RESET);
