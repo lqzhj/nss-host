@@ -378,6 +378,14 @@ enum nss_core_state {
 struct nss_top_instance;
 struct nss_ctx_instance;
 struct int_ctx_instance;
+struct net_dev_priv_instance;
+
+/*
+ * Network device private data instance
+ */
+struct netdev_priv_instance {
+	struct int_ctx_instance *int_ctx;	/* Back pointer to interrupt context */
+};
 
 /*
  * Interrupt context instance (one per IRQ per NSS core)
@@ -388,8 +396,11 @@ struct int_ctx_instance {
 					owns this interrupt */
 	uint32_t irq;			/* HLOS IRQ number */
 	uint32_t shift_factor;		/* Shift factor for this IRQ number */
-	uint32_t int_cause;		/* Interrupt cause carried forward to BH */
-	struct tasklet_struct bh;	/* Bottom half handler */
+	uint32_t cause;			/* Interrupt cause carried forward to BH */
+	struct net_device *ndev;	/* Network device associated with this interrupt
+					   context */
+	struct napi_struct napi;	/* NAPI handler */
+	bool napi_active;		/* NAPI is active */
 };
 
 /*
@@ -526,8 +537,6 @@ struct nss_top_instance {
 	/*
 	 * TODO: Review and update following fields
 	 */
-	bool napi_active;		/* Flag indicating if NAPI is currently active or not */
-	bool netdevice_notifier;	/* Flag indicating if netdevice notifier is registered */
 	uint64_t last_rx_jiffies;	/* Time of the last RX message from the NA in jiffies */
 };
 
@@ -546,8 +555,8 @@ static inline void nss_pkt_stats_increment(struct nss_ctx_instance *nss_ctx, uin
 /*
  * APIs provided by nss_core.c
  */
-extern void nss_core_handle_bh (unsigned long ctx);
-extern int32_t nss_core_send_buffer (struct nss_ctx_instance *nss_ctx, uint32_t if_num,
+extern int nss_core_handle_napi(struct napi_struct *napi, int budget);
+extern int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 					struct sk_buff *nbuf, uint16_t qid,
 					uint8_t buffer_type, uint16_t flags);
 extern int32_t nss_core_send_crypto(struct nss_ctx_instance *nss_ctx, void *buf, uint32_t buf_paddr, uint16_t len);

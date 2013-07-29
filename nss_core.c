@@ -22,7 +22,7 @@ static int32_t nss_send_c2c_map(struct nss_ctx_instance *nss_own, struct nss_ctx
 
 	nss_info("%p: C2C map:%x\n", nss_own, nss_other->c2c_start);
 
-	nbuf =  __dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE, GFP_ATOMIC);
+	nbuf = __dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE, GFP_ATOMIC);
 	if (unlikely(!nbuf)) {
 		spin_lock_bh(&nss_own->nss_top->stats_lock);
 		nss_own->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
@@ -467,25 +467,26 @@ static uint32_t nss_core_get_prioritized_cause(uint32_t cause, uint32_t *type, i
 }
 
 /*
- * nss_core_handle_bh()
- *      Bottom half handler for NSS
+ * nss_core_handle_napi()
+ *	NAPI handler for NSS
  */
-void nss_core_handle_bh(unsigned long ctx)
+int nss_core_handle_napi(struct napi_struct *napi, int budget)
 {
-	uint32_t prio_cause, int_cause;
-	int16_t processed, weight;
-	uint32_t cause_type;
-	struct int_ctx_instance *int_ctx = (struct int_ctx_instance *)ctx;
+	int16_t processed, weight, count = 0;
+	uint32_t prio_cause, int_cause, cause_type;
+	struct netdev_priv_instance *ndev_priv = netdev_priv(napi->dev);
+	struct int_ctx_instance *int_ctx = ndev_priv->int_ctx;
 	struct nss_ctx_instance *nss_ctx = int_ctx->nss_ctx;
 
 	/*
 	 * Read cause of interrupt
 	 */
 	nss_hal_read_interrupt_cause(nss_ctx->nmap, int_ctx->irq, int_ctx->shift_factor, &int_cause);
+	nss_hal_clear_interrupt_cause(nss_ctx->nmap, int_ctx->irq, int_ctx->shift_factor, int_cause);
+	int_ctx->cause |= int_cause;
 
 	do {
-		nss_hal_clear_interrupt_cause(nss_ctx->nmap, int_ctx->irq, int_ctx->shift_factor, int_cause);
-		while (int_cause) {
+		while ((int_ctx->cause) && (budget)) {
 
 			/*
 			 * Obtain the cause as per priority. Also obtain the weight
@@ -493,7 +494,11 @@ void nss_core_handle_bh(unsigned long ctx)
 			 * NOTE: The idea is that all causes are processed as per priority and weight
 			 * so that no single cause can overwhelm the system.
 			 */
-			prio_cause = nss_core_get_prioritized_cause(int_cause, &cause_type, &weight);
+			prio_cause = nss_core_get_prioritized_cause(int_ctx->cause, &cause_type, &weight);
+			if (budget < weight) {
+				weight = budget;
+			}
+
 			processed = 0;
 			switch (cause_type) {
 			case NSS_INTR_CAUSE_QUEUE:
@@ -502,35 +507,52 @@ void nss_core_handle_bh(unsigned long ctx)
 
 			case NSS_INTR_CAUSE_NON_QUEUE:
 				processed = nss_core_handle_cause_nonqueue(nss_ctx, prio_cause, weight);
+
+				/*
+				 * Buffer replenish should also be considered in NAPI weight
+				 */
+				processed = weight - 1;
 				break;
 
 			default:
 				nss_warning("%p: Invalid cause %x received from nss", nss_ctx, int_cause);
+				nss_assert(0);
 				break;
 			}
 
-			if (processed <= weight) {
+			count += processed;
+			budget -= processed;
+			if (processed < weight) {
 				/*
-				 * If we could only manage to process packets lesser
-				 * than weight then processing for our queue/cause
-				 * is complete and we can clear the cause for this cycle
+				 * If #packets processed were lesser than weight then
+				 * processing for this queue/cause is complete and
+				 * we can clear this interrupt cause from interrupt context
+				 * structure
 				 */
-				int_cause &= ~prio_cause;
+				int_ctx->cause &= ~prio_cause;
 			}
 		}
 
 		nss_hal_read_interrupt_cause(nss_ctx->nmap, int_ctx->irq, int_ctx->shift_factor, &int_cause);
-	} while (int_cause);
+		nss_hal_clear_interrupt_cause(nss_ctx->nmap, int_ctx->irq, int_ctx->shift_factor, int_cause);
+		int_ctx->cause |= int_cause;
+	} while ((int_ctx->cause) && (budget));
 
-	/*
-	 * Re-enable any further interrupt from this IRQ
-	 */
-	nss_hal_enable_interrupt(nss_ctx->nmap, int_ctx->irq, int_ctx->shift_factor, NSS_HAL_SUPPORTED_INTERRUPTS);
+	if (int_ctx->cause == 0) {
+		napi_complete(napi);
 
-	/*
-	 * WARNING: This code should be removed after UBI32 IRQ mask issue is resolved in hardware
-	 */
-	enable_irq(int_ctx->irq);
+		/*
+		 * Re-enable any further interrupt from this IRQ
+		 */
+		nss_hal_enable_interrupt(nss_ctx->nmap, int_ctx->irq, int_ctx->shift_factor, NSS_HAL_SUPPORTED_INTERRUPTS);
+
+		/*
+		 * WARNING: This code should be removed after UBI32 IRQ mask issue is resolved in hardware
+		 */
+		enable_irq(int_ctx->irq);
+	}
+
+	return count;
 }
 
 /*

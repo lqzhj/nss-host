@@ -1426,6 +1426,10 @@ nss_tx_status_t nss_tx_profiler_if_buf(void *ctx, uint8_t *buf, uint32_t len)
 		return NSS_TX_FAILURE_NOT_READY;
 	}
 
+	if (NSS_NBUF_PAYLOAD_SIZE < (len + sizeof(uint32_t) + sizeof(struct nss_profiler_tx))) {
+		return NSS_TX_FAILURE_TOO_LARGE;
+	}
+
 	nbuf = __dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE, GFP_ATOMIC | __GFP_NOWARN);
 	if (unlikely(!nbuf)) {
 		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
@@ -1474,6 +1478,10 @@ nss_tx_status_t nss_tx_generic_if_buf(void *ctx, uint32_t if_num, uint8_t *buf, 
 	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
 		nss_warning("%p: 'Generic If Tx' rule dropped as core not ready", nss_ctx);
 		return NSS_TX_FAILURE_NOT_READY;
+	}
+
+	if (NSS_NBUF_PAYLOAD_SIZE < (len + sizeof(uint32_t) + sizeof(struct nss_generic_if_params))) {
+		return NSS_TX_FAILURE_TOO_LARGE;
 	}
 
 	nbuf = __dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE, GFP_ATOMIC | __GFP_NOWARN);

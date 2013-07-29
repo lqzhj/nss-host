@@ -975,7 +975,7 @@ extern void nss_unregister_profiler_if(nss_core_id_t core_id);
 /**
  * @brief Send profiler command to NSS
  *
- * @param ctx NSS context
+ * @param nss_ctx NSS context
  * @param buf Buffer to send to NSS
  * @param len Length of buffer
  *
@@ -984,12 +984,12 @@ extern void nss_unregister_profiler_if(nss_core_id_t core_id);
  * @note Valid context must be provided (for the right core).
  *	This context was returned during registration.
  */
-extern nss_tx_status_t nss_tx_profiler_if_buf(void *ctx, uint8_t *buf, uint32_t len);
+extern nss_tx_status_t nss_tx_profiler_if_buf(void *nss_ctx, uint8_t *buf, uint32_t len);
 
 /**
  * @brief Send generic interface based command to NSS
  *
- * @param ctx NSS context
+ * @param nss_ctx NSS context
  * @param if_num NSS interface to deliver this message
  * @param buf Buffer to send to NSS
  * @param len Length of buffer
@@ -999,7 +999,7 @@ extern nss_tx_status_t nss_tx_profiler_if_buf(void *ctx, uint8_t *buf, uint32_t 
  * @note Valid context must be provided (for the right core).
  *	This context was returned during registration.
  */
-extern nss_tx_status_t nss_tx_generic_if_buf(void *ctx, uint32_t if_num, uint8_t *buf, uint32_t len);
+extern nss_tx_status_t nss_tx_generic_if_buf(void *nss_ctx, uint32_t if_num, uint8_t *buf, uint32_t len);
 
 /**
  * Methods provided by NSS driver for use by 6rd tunnel
