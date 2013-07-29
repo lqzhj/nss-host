@@ -54,6 +54,32 @@
  */
 #define IPV6_ADDR_TO_OCTAL(ipv6) ((uint16_t *)ipv6)[0], ((uint16_t *)ipv6)[1], ((uint16_t *)ipv6)[2], ((uint16_t *)ipv6)[3], ((uint16_t *)ipv6)[4], ((uint16_t *)ipv6)[5], ((uint16_t *)ipv6)[6], ((uint16_t *)ipv6)[7]
 
+/*
+ * Link aggregation enslave/release events
+ */
+enum nss_lag_event {
+	NSS_LAG_RELEASE,
+	NSS_LAG_ENSLAVE,
+};
+
+/*
+ * Link aggregation commands
+ */
+enum nss_lag_cmd {
+	NSS_LAG_STATE_CHANGE = 0,
+};
+
+/*
+ * Structure used to send Link Aggregation enslave/release commands.
+ */
+struct nss_lag_state_change {
+	uint32_t cmd;
+	uint32_t lag_id;		/* LAG id */
+	uint32_t if_num;		/* Interface number */
+	uint32_t event;			/* NSS_LAG_{RELEASE/ENSLAVE} */
+};
+
+
 /**
  * IPv4 rule sync reasons.
  */

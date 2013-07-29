@@ -36,6 +36,7 @@
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter_bridge.h>
 #include <linux/if_bridge.h>
+#include <linux/if_bonding.h>
 #include <net/netfilter/nf_conntrack.h>
 #include <net/netfilter/nf_conntrack_acct.h>
 #include <net/netfilter/nf_conntrack_helper.h>
@@ -150,6 +151,12 @@ typedef uint32_t ipv4_addr_t;
  */
 #define NSS_CONNMGR_IPV4_MAX_STR_LENGTH 96
 #define NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED 0xFFF
+
+/*
+ * NSS specific special interface number
+ * for LAG group 0.
+ */
+#define NSS_LAG0_INTERFACE_NUM		26
 
 /*
  * IPV4 Connection statistics
@@ -353,6 +360,12 @@ static const struct file_operations nss_connmgr_ipv4_show_debug_stats_ops = {
 static const struct file_operations nss_connmgr_ipv4_clear_stats_ops = {
 	.write = nss_connmgr_ipv4_clear_stats,
 };
+
+static struct bond_cb nss_connmgr_bond_cb;
+extern struct net_device *bond_get_tx_dev(struct sk_buff *skb, uint8_t *src_mac,
+					  uint8_t *dst_mac, void *src,
+					  void *dst, uint16_t protocol,
+					  struct net_device *bond_dev);
 
 /*
  * Network flow
@@ -896,6 +909,226 @@ out:
 }
 
 /*
+ * nss_connmgr_destroy_ipv4_rule()
+ *     Destroy an ipv4 rule. Called with nss_connmgr_ipv4.lock held.
+ */
+static int32_t nss_connmgr_destroy_ipv4_rule(struct nss_connmgr_ipv4_connection *connection)
+{
+	struct nss_ipv4_destroy unid;
+	nss_tx_status_t nss_tx_status;
+
+	unid.protocol = connection->protocol;
+	unid.src_ip = connection->src_addr;
+	unid.dest_ip = connection->dest_addr;
+	unid.src_port = connection->src_port;
+	unid.dest_port = connection->dest_port;
+
+	nss_tx_status = nss_tx_destroy_ipv4_rule(nss_connmgr_ipv4.nss_context,
+						 &unid);
+	if (nss_tx_status != NSS_TX_SUCCESS) {
+		NSS_CONNMGR_DEBUG_ERROR("Unable to destroy IPv4 rule."
+					"src %X:%d dst %X:%d proto %d\n",
+					unid.src_ip, unid.src_port,
+					unid.dest_ip, unid.dest_port,
+					unid.protocol);
+		return -EIO;
+	}
+
+	return 0;
+}
+
+/*
+ * nss_connmgr_bond_link_down()
+ *     Callback used to signal a link down on an interface
+ *     that is part of a link aggregation.
+ */
+static void nss_connmgr_bond_link_down(struct net_device *slave_dev)
+{
+	uint32_t if_num = 0;
+	uint32_t i = 0;
+	int32_t if_src = 0;
+	int32_t if_dst = 0;
+	struct nss_connmgr_ipv4_connection *connection = NULL;
+	nss_connmgr_ipv4_conn_state_t cstate;
+
+	if_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, slave_dev);
+	if (if_num < 0) {
+		NSS_CONNMGR_DEBUG_ERROR("Cannot find NSS if num for slave dev %s\n", slave_dev->name);
+		return;
+	}
+
+	for (i = 0; i < NSS_CONNMGR_IPV4_CONN_MAX; i++) {
+		spin_lock_bh(&nss_connmgr_ipv4.lock);
+		connection = &nss_connmgr_ipv4.connection[i];
+		cstate = connection->state;
+		if_src = connection->src_interface;
+		if_dst = connection->dest_interface;
+		spin_unlock_bh(&nss_connmgr_ipv4.lock);
+
+		if (cstate != NSS_CONNMGR_IPV4_STATE_ESTABLISHED) {
+			continue;
+		}
+
+		if (if_num == if_src
+		    || if_num == if_dst) {
+			spin_lock_bh(&nss_connmgr_ipv4.lock);
+			if (connection->state != NSS_CONNMGR_IPV4_STATE_ESTABLISHED) {
+				spin_unlock_bh(&nss_connmgr_ipv4.lock);
+				continue;
+			}
+
+			NSS_CONNMGR_DEBUG_INFO("destroying NSS rule at index %d\n", i);
+			nss_connmgr_destroy_ipv4_rule(connection);
+			spin_unlock_bh(&nss_connmgr_ipv4.lock);
+		}
+	}
+}
+
+/*
+ * nss_connmgr_bond_link_up()
+ *     Callback used to signal a link up on an interface
+ *     that is part of a link aggregation.
+ */
+static void nss_connmgr_bond_link_up(struct net_device *slave_dev)
+{
+	uint32_t if_num = 0;
+	uint32_t i = 0;
+	struct nss_connmgr_ipv4_connection *connection = NULL;
+	struct net_device *dest_dev = NULL;
+	uint8_t src_mac[ETH_ALEN];
+	uint8_t dst_mac[ETH_ALEN];
+	uint32_t src;
+	uint32_t dst;
+	uint16_t proto;
+	nss_connmgr_ipv4_conn_state_t cstate;
+
+	if_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, slave_dev);
+	if (if_num < 0) {
+		NSS_CONNMGR_DEBUG_ERROR("Cannot find NSS if num for slave dev %s\n", slave_dev->name);
+		return;
+	}
+
+	for (i = 0; i < NSS_CONNMGR_IPV4_CONN_MAX; i++)
+	{
+		spin_lock_bh(&nss_connmgr_ipv4.lock);
+		connection = &nss_connmgr_ipv4.connection[i];
+		cstate = connection->state;
+		src = htonl(connection->src_addr);
+		dst = htonl(connection->dest_addr);
+		proto = connection->protocol;
+		spin_unlock_bh(&nss_connmgr_ipv4.lock);
+
+		if (cstate != NSS_CONNMGR_IPV4_STATE_ESTABLISHED) {
+			continue;
+		}
+
+		if (nss_connmgr_ipv4_mac_addr_get(src, src_mac)) {
+			NSS_CONNMGR_DEBUG_INFO("Unable to get src mac addr, index %d \n", i);
+			continue;
+		}
+
+		if (nss_connmgr_ipv4_mac_addr_get(dst, dst_mac)) {
+			NSS_CONNMGR_DEBUG_INFO("Unable to get dst mac addr, index %d \n", i);
+			continue;
+		}
+
+
+		/* get egress interface for this flow */
+		dest_dev = bond_get_tx_dev(NULL, src_mac, dst_mac,
+					   (void *)&src,
+					   (void *)&dst,
+					   proto,
+					   slave_dev->master);
+		if (!dest_dev) {
+			continue;
+		}
+
+		if (slave_dev == dest_dev) {
+			spin_lock_bh(&nss_connmgr_ipv4.lock);
+			if (connection->state != NSS_CONNMGR_IPV4_STATE_ESTABLISHED) {
+				spin_unlock_bh(&nss_connmgr_ipv4.lock);
+				continue;
+			}
+
+			NSS_CONNMGR_DEBUG_INFO("destroying NSS rule at index %d\n", i);
+			nss_connmgr_destroy_ipv4_rule(connection);
+			spin_unlock_bh(&nss_connmgr_ipv4.lock);
+		}
+	}
+}
+
+/*
+ * nss_send_lag_state()
+ *	Send the currnet LAG state of a physical interface.
+ */
+static int32_t nss_send_lag_state(struct net_device *netdev)
+{
+	int32_t lagid = 0;
+	struct nss_lag_state_change lc;
+	int32_t ifnum;
+	nss_tx_status_t nss_tx_status;
+
+	ifnum = nss_get_interface_number(nss_connmgr_ipv4.nss_context, netdev);
+	if (ifnum < 0) {
+		return -EINVAL;
+	}
+
+	lc.if_num = ifnum;
+
+	if (!(netdev->flags & IFF_SLAVE)) {
+		lc.cmd = NSS_LAG_STATE_CHANGE;
+		lc.lag_id = 0;
+		lc.event = NSS_LAG_RELEASE;
+		nss_tx_status = nss_tx_generic_if_buf(nss_connmgr_ipv4.nss_context,
+						       lagid + NSS_LAG0_INTERFACE_NUM,
+						       (uint8_t *)&lc, sizeof(lc));
+		if (nss_tx_status != NSS_TX_SUCCESS) {
+			return -EIO;
+		}
+
+		return 0;
+	}
+
+	lagid = bond_get_id(netdev->master);
+	if (lagid < 0) {
+		NSS_CONNMGR_DEBUG_WARN("Unable to get LAG group id for %s \n", netdev->name);
+		return -EINVAL;
+	}
+
+	lc.cmd = NSS_LAG_STATE_CHANGE;
+	lc.lag_id = lagid;
+	lc.event = NSS_LAG_ENSLAVE;
+	nss_tx_status = nss_tx_generic_if_buf(nss_connmgr_ipv4.nss_context,
+					      lagid + NSS_LAG0_INTERFACE_NUM,
+					      (uint8_t *)&lc, sizeof(lc));
+	if (nss_tx_status != NSS_TX_SUCCESS) {
+		return -EIO;
+	}
+
+	return 0;
+}
+
+/*
+ * nss_connmgr_bond_release()
+ *	Callback used to signal a physical interface
+ *	leaving an aggregation.
+ */
+static void nss_connmgr_bond_release(struct net_device *slave_dev)
+{
+	nss_send_lag_state(slave_dev);
+}
+
+/*
+ * nss_connmgr_bond_release()
+ *	Callback used to signal a physical interface
+ *	joining an aggregation.
+ */
+static void nss_connmgr_bond_enslave(struct net_device *slave_dev)
+{
+	nss_send_lag_state(slave_dev);
+}
+
+/*
  * nss_connmgr_ipv4_post_routing_hook()
  *	Called for packets about to leave the box - either locally generated or forwarded from another interface
  */
@@ -1204,6 +1437,21 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 	if (unic.src_interface_num < 0) {
 		dev_put(in);
 		return NF_ACCEPT;
+	}
+
+	/*
+	 * Handle Link Aggregation master
+	 */
+	if ((dest_dev->priv_flags & IFF_BONDING) && (dest_dev->flags & IFF_MASTER)) {
+		struct net_device *dest_slave = NULL;
+
+		dest_slave = bond_get_tx_dev(skb, NULL, NULL, NULL, NULL, 0, dest_dev);
+		if (dest_slave == NULL) {
+			dev_put(in);
+			return NF_ACCEPT;
+		}
+
+		dest_dev = dest_slave;
 	}
 
 	unic.dest_interface_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, dest_dev);
@@ -1536,10 +1784,18 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 		goto out;
 	}
 
+	if ((flow_dev->flags & IFF_SLAVE) && (flow_dev->priv_flags & IFF_BONDING)) {
+		flow_dev = flow_dev->master;
+	}
+
 	return_dev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->dest_interface);
 	if (unlikely(!return_dev)) {
 		NSS_CONNMGR_DEBUG_WARN("Invalid dest dev reference from NSS \n");
 		goto out;
+	}
+
+	if ((return_dev->flags & IFF_SLAVE) && (return_dev->priv_flags & IFF_BONDING)) {
+		return_dev = return_dev->master;
 	}
 
 	/*
@@ -2215,6 +2471,14 @@ static int __init nss_connmgr_ipv4_init(void)
 		debugfs_remove(dent);
 	}
 
+	/*
+	 * Register Link Aggregation callbacks
+	 */
+	nss_connmgr_bond_cb.bond_cb_link_down = nss_connmgr_bond_link_down;
+	nss_connmgr_bond_cb.bond_cb_link_up = nss_connmgr_bond_link_up;
+	nss_connmgr_bond_cb.bond_cb_release = nss_connmgr_bond_release;
+	nss_connmgr_bond_cb.bond_cb_enslave = nss_connmgr_bond_enslave;
+	bond_register_cb(&nss_connmgr_bond_cb);
 
 	return 0;
 }
@@ -2225,6 +2489,8 @@ static int __init nss_connmgr_ipv4_init(void)
  */
 static void __exit nss_connmgr_ipv4_exit(void)
 {
+	bond_unregister_cb();
+
 	/*
 	 * Remove debugfs tree
 	 */
