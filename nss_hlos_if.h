@@ -257,6 +257,14 @@ struct nss_generic_if_params {
 };
 
 /*
+ * The NSS freq start or stop strcture
+ */
+struct nss_freq_change {
+	uint32_t frequency;
+	uint32_t start_or_end;
+};
+
+/*
  * Types of TX metadata.
  */
 enum nss_tx_metadata_types {
@@ -280,8 +288,12 @@ enum nss_tx_metadata_types {
 	NSS_TX_METADATA_TYPE_MSS_SET,
 	NSS_TX_METADATA_TYPE_C2C_TX_MAP,
 	NSS_TX_METADATA_TYPE_IPSEC_RULE,
+	NSS_TX_METADATA_TYPE_IPSEC_TX_RULE_DESTROY,
+	NSS_TX_METADATA_TYPE_IPSEC_RX_RULE_CREATE,
+	NSS_TX_METADATA_TYPE_IPSEC_RX_RULE_DESTROY,
 	NSS_TX_METADATA_TYPE_PROFILER_TX,
 	NSS_TX_METADATA_TYPE_GENERIC_IF_PARAMS,
+	NSS_TX_METADATA_TYPE_NSS_FREQ_CHANGE,
 };
 
 /*
@@ -310,7 +322,16 @@ struct nss_tx_metadata_object {
 		struct nss_ipsec_rule ipsec_rule;
 		struct nss_profiler_tx profiler_tx;
 		struct nss_generic_if_params generic_if_params;
+		struct nss_freq_change freq_change;
 	} sub;
+};
+
+/*
+ * The NSS freq ack structure
+ */
+struct nss_freq_ack {
+	uint32_t freq_current;
+	int32_t ack_status;
 };
 
 struct nss_port_info {
@@ -764,6 +785,7 @@ enum nss_rx_metadata_types {
 	NSS_RX_METADATA_TYPE_NSS_STATS_SYNC,
 	NSS_RX_METADATA_TYPE_PPPOE_STATS_SYNC,
 	NSS_RX_METADATA_TYPE_PROFILER_SYNC,
+	NSS_RX_METADATA_TYPE_FREQ_ACK,
 };
 
 /*
@@ -783,6 +805,7 @@ struct nss_rx_metadata_object {
 		struct nss_nss_stats_sync nss_stats_sync;
 		struct nss_pppoe_exception_stats_sync pppoe_exception_stats_sync;
 		struct nss_profiler_sync profiler_sync;
+		struct nss_freq_ack freq_ack;
 	} sub;
 };
 

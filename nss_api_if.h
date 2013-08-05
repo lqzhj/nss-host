@@ -1029,5 +1029,15 @@ extern void *nss_register_tun6rd_if(uint32_t if_num, nss_tun6rd_callback_t tun6r
  */
 extern void nss_unregister_tun6rd_if(uint32_t if_num);
 
+/*
+ * @brief NSS Frequency Change
+ * @ param ctx NSS context
+ * @ param eng Frequency Value in Hz
+ * @ param start_or_end Start or End of Freq Change
+ *
+ * @return nss_tx_status_t Tx Status
+ */
+nss_tx_status_t nss_freq_change(void *ctx, uint32_t eng, uint32_t start_or_end);
+
 /**@}*/
 #endif /** __NSS_API_IF_H */

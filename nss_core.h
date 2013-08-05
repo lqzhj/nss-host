@@ -553,6 +553,17 @@ static inline void nss_pkt_stats_increment(struct nss_ctx_instance *nss_ctx, uin
 #endif
 
 /*
+ * NSS Statistics and Data for User Space
+ */
+struct nss_cmd_buffer {
+	int32_t current_freq;
+	int32_t auto_scale;
+	int32_t max_freq;
+	uint32_t register_addr;
+	uint32_t register_data;
+};
+
+/*
  * APIs provided by nss_core.c
  */
 extern int nss_core_handle_napi(struct napi_struct *napi, int budget);

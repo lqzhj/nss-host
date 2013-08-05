@@ -11,7 +11,12 @@
 
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/proc_fs.h>
+#include <linux/device.h>
 #include <mach/msm_nss.h>
+
+#include <linux/sysctl.h>
+#include <linux/regulator/consumer.h>
 
 /*
  * Declare module parameters
@@ -45,10 +50,23 @@ MODULE_PARM_DESC(string1, "NSS Core 1 identification string");
  * Global declarations
  */
 
+
+/*
+ * Define for RPM Nominal and Turbo for NSS
+ */
+#define NSS_NOM_VCC  1050000
+#define NSS_TURB_VCC 1150000
+
+/*
+ * Global Handlers for the nss regulators
+ */
+struct regulator *nss0_vreg;
+
 /*
  * Top level nss context structure
  */
 struct nss_top_instance nss_top_main;
+struct nss_cmd_buffer nss_cmd_buf;
 
 /*
  * File local/Static variables/functions
@@ -100,6 +118,40 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 
 	nss_ctx->nss_top = nss_top;
 	nss_ctx->id = nss_dev->id;
+
+	nss_info("%p: NSS_DEV_ID %s \n", nss_ctx, dev_name(&nss_dev->dev));
+
+	/*
+	 * Both NSS cores controlled by same regulator, Hook only Once
+	 */
+	if (!nss_dev->id) {
+		nss0_vreg = devm_regulator_get(&nss_dev->dev, "VDD_UBI0");
+
+		if (IS_ERR(nss0_vreg)) {
+
+			err = PTR_ERR(nss0_vreg);
+			nss_info("%p: Regulator %s get failed, err=%d\n", nss_ctx, dev_name(&nss_dev->dev), err);
+			return err;
+
+		} else {
+
+			nss_info("%p: Regulator %s get success\n", nss_ctx, dev_name(&nss_dev->dev));
+
+			err = regulator_enable(nss0_vreg);
+			if (err) {
+				nss_info("%p: Regulator %s enable voltage failed, err=%d\n", nss_ctx, dev_name(&nss_dev->dev), err);
+				return err;
+			}
+
+			err = regulator_set_voltage(nss0_vreg, NSS_NOM_VCC, NSS_NOM_VCC);
+			if (err) {
+				nss_info("%p: Regulator %s set voltage failed, err=%d\n", nss_ctx, dev_name(&nss_dev->dev), err);
+				return err;
+			}
+
+
+		}
+	}
 
 	/*
 	 * Get virtual and physical memory addresses for nss logical/hardware address maps
@@ -365,6 +417,176 @@ struct platform_driver nss_driver = {
 };
 
 /*
+ * nss_current_freq_handler()
+ *	Handle Userspace Frequency Change Requests
+ */
+static int nss_current_freq_handler (ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	void *ubicom_na_nss_context = NULL;
+	int ret;
+	int vret;
+
+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+
+	if (write) {
+
+		ubicom_na_nss_context = nss_register_ipv4_mgr(NULL);
+
+		nss_info("Frequency Set to %d\n", nss_cmd_buf.current_freq);
+
+		/* If support NSS freq is in the table send the new frequency request to NSS */
+
+		if (nss_cmd_buf.current_freq == 110000000) {
+
+			nss_freq_change(ubicom_na_nss_context, 533000000, 0);
+			nss_hal_pvt_divide_pll(0, 11, 1);
+			nss_hal_pvt_enable_pll18(1100);
+			nss_freq_change(ubicom_na_nss_context, nss_cmd_buf.current_freq, 0);
+			nss_hal_pvt_divide_pll(0, 18, 5);
+
+			vret = regulator_set_voltage(nss0_vreg, NSS_NOM_VCC, NSS_NOM_VCC);
+			if (vret) {
+				nss_info("Regulator set voltage failed, err=%d\n", vret);
+				return ret;
+			}
+
+		} else if (nss_cmd_buf.current_freq == 225000000) {
+
+			nss_freq_change(ubicom_na_nss_context, 533000000, 0);
+			nss_hal_pvt_divide_pll(0, 11, 1);
+			nss_hal_pvt_enable_pll18(1100);
+			nss_freq_change(ubicom_na_nss_context, nss_cmd_buf.current_freq, 0);
+			nss_hal_pvt_divide_pll(0, 18, 2);
+
+			vret = regulator_set_voltage(nss0_vreg, NSS_NOM_VCC, NSS_NOM_VCC);
+			if (vret) {
+				nss_info("Regulator set voltage failed, err=%d\n", vret);
+				return ret;
+			}
+
+		} else if (nss_cmd_buf.current_freq == 550000000) {
+
+			nss_freq_change(ubicom_na_nss_context, 533000000, 0);
+			nss_hal_pvt_divide_pll(0, 11, 1);
+			nss_hal_pvt_enable_pll18(1100);
+			nss_freq_change(ubicom_na_nss_context, nss_cmd_buf.current_freq, 0);
+			nss_hal_pvt_divide_pll(0, 18, 1);
+
+			vret = regulator_set_voltage(nss0_vreg, NSS_NOM_VCC, NSS_NOM_VCC);
+			if (vret) {
+				nss_info("Regulator set voltage failed, err=%d\n", vret);
+				return ret;
+			}
+
+		} else if (nss_cmd_buf.current_freq == 733000000) {
+			vret = regulator_set_voltage(nss0_vreg, NSS_TURB_VCC, NSS_TURB_VCC);
+			if (vret) {
+				nss_info("Regulator set voltage failed, err=%d\n", vret);
+				return ret;
+			}
+
+			nss_freq_change(ubicom_na_nss_context, 533000000, 0);
+			nss_hal_pvt_divide_pll(0, 11, 1);
+			nss_hal_pvt_enable_pll18(1466);
+			nss_freq_change(ubicom_na_nss_context, nss_cmd_buf.current_freq, 0);
+			nss_hal_pvt_divide_pll(0, 18, 1);
+
+		} else {
+			nss_info("Frequency not found. Please check Frequency Table\n");
+		}
+	}
+	return ret;
+}
+
+/*
+ * nss_auto_scale_handler()
+ *	Enables or Disable Auto Scaling
+ */
+static int nss_auto_scale_handler (ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	int ret;
+
+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+
+	printk("Not Supported\n");
+
+	return ret;
+}
+
+/*
+ * nss_get_freq_table_handler()
+ *	Display Support Freq and Ex how to Change.
+ */
+static int nss_get_freq_table_handler (ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	int ret;
+
+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+
+	printk("Frequency Supported - 110Mhz 225Mhz 550Mhz 733Mhz \n");
+	printk("Ex. To Change Frequency - echo 110000000 > current_freq \n");
+
+	return ret;
+}
+
+/*
+ * sysctl-tuning infrastructure.
+ */
+static ctl_table nss_freq_table[] = {
+	{
+		.procname		= "current_freq",
+		.data			= &nss_cmd_buf.current_freq,
+		.maxlen			= sizeof(int),
+		.mode			= 0644,
+		.proc_handler	= &nss_current_freq_handler,
+	},
+	{
+		.procname		= "freq_table",
+		.data			= &nss_cmd_buf.max_freq,
+		.maxlen			= sizeof(int),
+		.mode			= 0644,
+		.proc_handler	= &nss_get_freq_table_handler,
+	},
+	{
+		.procname		= "auto_scale",
+		.data			= &nss_cmd_buf.auto_scale,
+		.maxlen			= sizeof(int),
+		.mode			= 0644,
+		.proc_handler	= &nss_auto_scale_handler,
+	},
+	{ }
+};
+
+static ctl_table nss_clock_dir[] = {
+	{
+		.procname		= "clock",
+		.mode			= 0555,
+		.child			= nss_freq_table,
+	},
+	{ }
+};
+
+static ctl_table nss_root_dir[] = {
+	{
+		.procname		= "nss",
+		.mode			= 0555,
+		.child			= nss_clock_dir,
+	},
+	{ }
+};
+
+static ctl_table nss_root[] = {
+	{
+		.procname		= "dev",
+		.mode			= 0555,
+		.child			= nss_root_dir,
+	},
+	{ }
+};
+
+static struct ctl_table_header *nss_dev_header;
+
+/*
  * nss_init()
  *	Registers nss driver
  */
@@ -395,6 +617,11 @@ static int __init nss_init(void)
 	nss_top_main.nss[1].load = (uint32_t)load1;
 
 	/*
+	 * Register sysctl table.
+	 */
+	nss_dev_header = register_sysctl_table(nss_root);
+
+	/*
 	 * Register platform_driver
 	 */
 	return platform_driver_register(&nss_driver);
@@ -407,6 +634,10 @@ static int __init nss_init(void)
 static void __exit nss_cleanup(void)
 {
 	nss_info("Exit NSS driver");
+
+	if (nss_dev_header)
+		unregister_sysctl_table(nss_dev_header);
+
 	platform_driver_unregister(&nss_driver);
 }
 

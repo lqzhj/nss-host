@@ -13,6 +13,10 @@
  * Global variables/extern declarations
  */
 extern struct nss_top_instance nss_top_main;
+extern struct nss_frequency_statistics nss_freq_stat;
+
+#define NSS_ACK_STARTED 0
+#define NSS_ACK_FINISHED 1
 
 #if (NSS_DEBUG_LEVEL > 0)
 #define NSS_VERIFY_CTX_MAGIC(x) nss_verify_ctx_magic(x)
@@ -35,6 +39,37 @@ static inline void nss_verify_init_done(struct nss_ctx_instance *nss_ctx)
 #define NSS_VERIFY_CTX_MAGIC(x)
 #define NSS_VERIFY_INIT_DONE(x)
 #endif
+
+/*
+ * nss_rx_metadata_nss_freq_ack()
+ *     Handle the nss ack of frequency change.
+ */
+static void nss_rx_metadata_nss_freq_ack(struct nss_ctx_instance *nss_ctx, struct nss_freq_ack *nfa)
+{
+	void *ubicom_na_nss_context = NULL;
+	ubicom_na_nss_context = nss_register_ipv4_mgr(NULL);
+
+	if (nfa->ack_status == NSS_ACK_STARTED) {
+
+		/*
+		 * NSS finished start noficiation - HW change clocks and send end notification
+		 */
+
+		nss_info("%p: NSS ACK Received: %d - Change HW CLK/Send Finish to NSS\n", nss_ctx, nfa->ack);
+		nss_freq_change(ubicom_na_nss_context, nfa->freq_current, 1);
+
+	} else if (nfa->ack_status == NSS_ACK_FINISHED) {
+
+		/*
+		 * NSS finished end notification - Done
+		 */
+
+		nss_info("%p: NSS Finish End Notification ACK: %d - Running: %dmhz\n", nss_ctx, nfa->ack, nfa->freq_current);
+
+	} else {
+		nss_info("%p: NSS had an error - Running: %dmhz\n", nss_ctx, nfa->freq_current);
+	}
+}
 
 /*
  * nss_rx_metadata_ipv4_rule_establish()
@@ -228,6 +263,52 @@ static void nss_rx_metadata_ipv6_rule_sync(struct nss_ctx_instance *nss_ctx, str
 	 */
 
 	spin_unlock_bh(&nss_top->stats_lock);
+}
+
+/*
+ * nss_freq_change()
+ *     NSS frequency change API
+ */
+nss_tx_status_t nss_freq_change(void *ctx, uint32_t eng, uint32_t start_or_end)
+{
+	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) ctx;
+	struct sk_buff *nbuf;
+	int32_t status;
+	struct nss_tx_metadata_object *ntmo;
+	struct nss_freq_change *nfc;
+
+	nss_info("%p: Frequency Changing to: %d\n", nss_ctx, eng);
+
+	NSS_VERIFY_CTX_MAGIC(nss_ctx);
+	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
+		return NSS_TX_FAILURE_NOT_READY;
+	}
+
+	nbuf = __dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE, GFP_ATOMIC | __GFP_NOWARN);
+	if (unlikely(!nbuf)) {
+		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
+		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
+		spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
+		return NSS_TX_FAILURE;
+	}
+
+	ntmo = (struct nss_tx_metadata_object *)skb_put(nbuf, sizeof(struct nss_tx_metadata_object));
+	ntmo->type = NSS_TX_METADATA_TYPE_NSS_FREQ_CHANGE;
+
+	nfc = &ntmo->sub.freq_change;
+	nfc->frequency = eng;
+	nfc->start_or_end = start_or_end;
+
+	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
+	if (status != NSS_CORE_STATUS_SUCCESS) {
+		dev_kfree_skb_any(nbuf);
+		nss_info("%p: unable to enqueue 'nss frequency change' - marked as stopped\n", nss_ctx);
+		return NSS_TX_FAILURE;
+	}
+
+	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit, NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
+
+	return NSS_TX_SUCCESS;
 }
 
 /*
@@ -462,6 +543,10 @@ void nss_rx_handle_status_pkt(struct nss_ctx_instance *nss_ctx, struct sk_buff *
 
 	case NSS_RX_METADATA_TYPE_PROFILER_SYNC:
 		nss_rx_metadata_profiler_sync(nss_ctx, &nrmo->sub.profiler_sync);
+		break;
+
+	case NSS_RX_METADATA_TYPE_FREQ_ACK:
+		nss_rx_metadata_nss_freq_ack(nss_ctx, &nrmo->sub.freq_ack);
 		break;
 
 	default:
