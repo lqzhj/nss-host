@@ -32,7 +32,7 @@
 #include <net/ip6_route.h>
 #include <net/tcp.h>
 #include <asm/unaligned.h>
-#include <asm/uaccess.h>	/* for put_user */
+#include <asm/uaccess.h> /* for put_user */
 
 #include <linux/netfilter_ipv6.h>
 #include <linux/netfilter_bridge.h>
@@ -225,11 +225,11 @@ static char *nss_connmgr_ipv6_debug_stats_str[] = {
 /*
  * Connection states as defined by connection manager
  *
- * 	INACTIVE	Connection is not active
- * 	ESTABLISHED	Connection is established, and NSS sends periodic sync messages
- * 	STALE		Linux and NSS are out of sync.
- * 			Conntrack -> Conn Mgr sent a rule destroy command,
- * 			but the command did  not reach NSS
+ * INACTIVE	Connection is not active
+ * ESTABLISHED	Connection is established, and NSS sends periodic sync messages
+ * STALE	Linux and NSS are out of sync.
+ * 		Conntrack -> Conn Mgr sent a rule destroy command,
+ * 		but the command did  not reach NSS
  *
  */
 typedef enum  {
@@ -251,16 +251,18 @@ static char *nss_connmgr_ipv6_conn_state_str[] = {
  * ipv6 statistics
  */
 struct nss_connmgr_ipv6_connection {
-	uint8_t  state;					/* Connection state - established, not established, destroyed */
-	uint8_t  protocol;				/* Protocol number */
-	int32_t  src_interface;				/* Flow interface number */
-	uint32_t src_addr[4];				/* Source address, i.e. the creator of the connection */
-	int32_t  src_port;				/* Source port */
-	int32_t  dest_interface;			/* Return interface number */
-	uint32_t dest_addr[4];				/* Destination address, i.e. the to whom the connection was created */
-	int32_t  dest_port;				/* Destination port */
-	uint64_t stats[NSS_CONNMGR_IPV6_STATS_MAX];	/* Connection statistics */
-	uint32_t last_sync;				/* Last sync time as jiffies */
+	uint8_t  state;		/* Connection state - established, not established, destroyed */
+	uint8_t  protocol;	/* Protocol number */
+	int32_t  src_interface;	/* Flow interface number */
+	uint32_t src_addr[4];	/* Source address, i.e. the creator of the connection */
+	int32_t  src_port;	/* Source port */
+	int32_t  dest_interface;
+				/* Return interface number */
+	uint32_t dest_addr[4];	/* Destination address, i.e. the to whom the connection was created */
+	int32_t  dest_port;	/* Destination port */
+	uint64_t stats[NSS_CONNMGR_IPV6_STATS_MAX];
+				/* Connection statistics */
+	uint32_t last_sync;	/* Last sync time as jiffies */
 };
 
 /*
@@ -278,13 +280,6 @@ struct nss_connmgr_ipv6_instance {
 				/* Control thread */
 	void *nss_context;
 				/* Registration context used to identify the manager in calls to the NSS driver */
-#ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
-	struct notifier_block conntrack_notifier;
-				/* NF conntrack event system to monitor connection tracking changes */
-#else
-	struct nf_ct_event_notifier conntrack_notifier;
-				/* NF conntrack event system to monitor connection tracking changes */
-#endif
 	struct nss_connmgr_ipv6_connection connection[NSS_CONNMGR_IPV6_CONN_MAX];
 				/* Connection Table */
 	struct dentry *dent;	/* Debugfs directory */
@@ -302,27 +297,15 @@ static ssize_t nss_connmgr_ipv6_read_stats(struct file *fp, char __user *ubuf, s
 static ssize_t nss_connmgr_ipv6_read_debug_stats(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos);
 static ssize_t nss_connmgr_ipv6_clear_stats(struct file *fp, const char __user *ubuf, size_t count, loff_t *ppos);
 
-#ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
-static int nss_connmgr_ipv6_conntrack_event(struct notifier_block *this, unsigned long events, void *ptr);
-#else
-static int nss_connmgr_ipv6_conntrack_event(unsigned int events, struct nf_ct_event *item);
+#ifdef CONFIG_NF_CONNTRACK_EVENTS
+static int nss_connmgr_ipv6_conntrack_event(struct nf_conn *ct);
 #endif
-
 
 static struct nss_connmgr_ipv6_instance nss_connmgr_ipv6 = {
 		.stopped = 0,
 		.terminate = 0,
 		.thread = NULL,
 		.nss_context = NULL,
-#ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
-		.conntrack_notifier = {
-			.notifier_call =nss_connmgr_ipv6_conntrack_event,
-		},
-#else
-		.conntrack_notifier = {
-			.fcn = nss_connmgr_ipv6_conntrack_event,
-		},
-#endif
 };
 
 /*
@@ -351,6 +334,11 @@ static struct nf_hook_ops nss_connmgr_ipv6_ops_post_routing[] __read_mostly = {
  */
 extern int nf_ct_tcp_be_liberal;
 extern int nf_ct_tcp_no_window_check;
+
+#ifdef CONFIG_NF_CONNTRACK_EVENTS
+extern void nss_connmgr_ipv4_register_conntrack_event_cb(int (*event_cb)(struct nf_conn *));
+extern void nss_connmgr_ipv4_unregister_conntrack_event_cb(void);
+#endif
 
 static const struct file_operations nss_connmgr_ipv6_show_stats_ops = {
 	.open = simple_open,
@@ -1006,17 +994,9 @@ out:
  * nss_connmgr_ipv6_conntrack_event()
  *	Callback event invoked when conntrack connection state changes, currently we handle destroy events to quickly release state
  */
-#ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
-static int nss_connmgr_ipv6_conntrack_event(struct notifier_block *this, unsigned long events, void *ptr)
-#else
-static int nss_connmgr_ipv6_conntrack_event(unsigned int events, struct nf_ct_event *item)
-#endif
+static int nss_connmgr_ipv6_conntrack_event(struct nf_conn *ct)
 {
 	struct nss_ipv6_destroy unid;
-#ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
-	struct nf_ct_event *item = (struct nf_ct_event *)ptr;
-#endif
-	struct nf_conn *ct = item->ct;
 	struct nf_conntrack_tuple orig_tuple;
 	struct nf_conntrack_tuple reply_tuple;
 
@@ -1031,20 +1011,6 @@ static int nss_connmgr_ipv6_conntrack_event(unsigned int events, struct nf_ct_ev
 	}
 	if (ct == &nf_conntrack_untracked) {
 		NSS_CONNMGR_DEBUG_TRACE("%p: ignoring untracked connn", ct);
-		return NOTIFY_DONE;
-	}
-
-	/*
-	 * Only interested if this is ipv6
-	 */
-	if (nf_ct_l3num(ct) != AF_INET6) {
-		return NOTIFY_DONE;
-	}
-
-	/*
-	 * Only interested in destroy events
-	 */
-	if (!(events & (1 << IPCT_DESTROY))) {
 		return NOTIFY_DONE;
 	}
 
@@ -1084,7 +1050,6 @@ static int nss_connmgr_ipv6_conntrack_event(unsigned int events, struct nf_ct_ev
 		unid.src_port = -unid.protocol;
 		unid.dest_port = -unid.protocol;
 	}
-
 
 	/*
 	 * Only deal with TCP or UDP
@@ -1310,17 +1275,10 @@ static int nss_connmgr_ipv6_thread_fn(void *arg)
 
 #ifdef CONFIG_NF_CONNTRACK_EVENTS
 	/*
-	 * Eventing subsystem is available so we register a notifier hook to get fast notifications of expired connections
+	 * We register a callback with ipv4 connection manager module
+	 * to get NF conntrack notifications of expired connections
 	 */
-	/*
-	 * TODO Current we are just ignoring the error case where notifier cannot be registered.
-	 * No conntrack destroy events will be recieved in this case and hence destroy rule command
-	 * will never be sent to NSS. This will be fixed (by moving to netlink based conntrack notification */
-
-	result = nf_conntrack_register_notifier(&init_net, &nss_connmgr_ipv6.conntrack_notifier);
-	if (result < 0) {
-		NSS_CONNMGR_DEBUG_TRACE("Can't register nf notifier hook %d\n", result);
-	}
+	nss_connmgr_ipv4_register_conntrack_event_cb(nss_connmgr_ipv6_conntrack_event);
 #endif
 
 	/*
@@ -1351,14 +1309,10 @@ static int nss_connmgr_ipv6_thread_fn(void *arg)
 	spin_unlock_bh(&nss_connmgr_ipv6.lock);
 	NSS_CONNMGR_DEBUG_INFO("nss_connmgr_ipv6 terminate\n");
 
-	result = 0;
-
 	nss_unregister_ipv6_mgr();
 
 #ifdef CONFIG_NF_CONNTRACK_EVENTS
-	if (!result) {
-		nf_conntrack_unregister_notifier(&init_net, &nss_connmgr_ipv6.conntrack_notifier);
-	}
+	nss_connmgr_ipv4_unregister_conntrack_event_cb();
 #endif
 	sysfs_remove_file(nss_connmgr_ipv6.nom_v6, &nss_connmgr_ipv6_stop_attr.attr);
 task_cleanup_4:
