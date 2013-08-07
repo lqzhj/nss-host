@@ -85,6 +85,7 @@ static int32_t nss_core_handle_cause_queue(struct nss_ctx_instance *nss_ctx, uin
 	struct net_device *ndev;
 	struct n2h_desc_if_instance *desc_if;
 	struct n2h_descriptor *desc;
+	uint32_t nr_frags;
 	struct nss_if_mem_map *if_map = (struct nss_if_mem_map *)(nss_ctx->vmap);
 
 	qid = nss_core_cause_to_queue(cause);
@@ -131,25 +132,43 @@ static int32_t nss_core_handle_cause_queue(struct nss_ctx_instance *nss_ctx, uin
 			 */
 			nss_rx_handle_crypto_buf(nss_ctx, desc->opaque, desc->buffer, desc->payload_len);
 		} else {
+
 			/*
 			* Obtain nbuf
 			*/
 			nbuf = (struct sk_buff *)desc->opaque;
 
 			/*
-			 * Set relevant fields within nbuf (len, head, tail)
+			 * Get the number of fragments
 			 */
-			nbuf->data = nbuf->head + desc->payload_offs;
-			nbuf->len = desc->payload_len;
-			nbuf->tail = nbuf->data + nbuf->len;
+			nr_frags = skb_shinfo(nbuf)->nr_frags;
+			if (likely(nr_frags == 0)) {
+
+				/*
+				 * Set relevant fields within nbuf (len, head, tail)
+				 */
+				nbuf->data = nbuf->head + desc->payload_offs;
+				nbuf->len = desc->payload_len;
+				nbuf->tail = nbuf->data + nbuf->len;
+
+				/*
+				 * TODO: Check if there is any issue wrt map and unmap,
+				 * NSS should playaround with data area and should not
+				 * touch HEADROOM area
+				 */
+				dma_unmap_single(NULL, (desc->buffer + desc->payload_offs), desc->payload_len, DMA_FROM_DEVICE);
+			}
+
+			/*
+			 * The Assumption here is that the scattered SKB will be
+			 * given back by NSS POP buffer only to free them.
+			 * Hence it is assumed that there is no need to unmap the
+			 * scattered segments and the first segment of SKB
+			 */
 
 			/*
 			 * TODO: Unmap data buffer area for scatter-gather
-			 * TODO: Check if there is any issue wrt map and unmap, NSS should playaround with data area and should not
-			 *	touch HEADROOM area
 			 */
-			dma_unmap_single(NULL, (desc->buffer + desc->payload_offs), desc->payload_len, DMA_FROM_DEVICE);
-
 			switch (desc->buffer_type) {
 			case N2H_BUFFER_PACKET_VIRTUAL:
 				NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_RX_VIRTUAL]);
@@ -783,9 +802,17 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		}
 
 		/*
-		 * Update bit flag for last descriptor
+		 * Update bit flag for last descriptor.
+		 * The discard flag shall be set for all fragments except the
+		 * the last one.The NSS returns the last fragment to HLOS
+		 * after the packet processing is done.We do need to send the
+		 * packet buffer address (skb) in the descriptor of last segment
+		 * when the decriptor returns from NSS the HLOS uses the
+		 * opaque field to free the memory allocated.
 		 */
 		desc->bit_flags |= H2N_BIT_FLAG_LAST_SEGMENT;
+		desc->bit_flags &= ~(H2N_BIT_FLAG_DISCARD);
+		desc->opaque = (uint32_t)nbuf;
 	}
 
 	/*
