@@ -537,6 +537,7 @@ nss_tx_status_t nss_tx_create_ipv4_rule(void *ctx, struct nss_ipv4_create *unic)
 	nirc->flow_max_end = unic->flow_max_end;
 	nirc->flow_mtu = unic->from_mtu;
 	memcpy(nirc->flow_mac, unic->src_mac, 6);
+	nirc->ingress_vlan_tag = unic->ingress_vlan_tag;
 
 	nirc->return_pppoe_session_id = unic->return_pppoe_session_id;
 	memcpy(nirc->return_pppoe_remote_mac, unic->return_pppoe_remote_mac, ETH_ALEN);
@@ -555,6 +556,8 @@ nss_tx_status_t nss_tx_create_ipv4_rule(void *ctx, struct nss_ipv4_create *unic)
 	} else {
 		memcpy(nirc->return_mac, unic->dest_mac, 6);
 	}
+
+	nirc->egress_vlan_tag = unic->egress_vlan_tag;
 
 	nirc->flags = 0;
 	if (unic->flags & NSS_IPV4_CREATE_FLAG_NO_SEQ_CHECK) {
@@ -683,6 +686,7 @@ nss_tx_status_t nss_tx_create_ipv6_rule(void *ctx, struct nss_ipv6_create *unic)
 	nirc->flow_max_end = unic->flow_max_end;
 	nirc->flow_mtu = unic->from_mtu;
 	memcpy(nirc->flow_mac, unic->src_mac, 6);
+	nirc->ingress_vlan_tag = unic->ingress_vlan_tag;
 
 	nirc->return_pppoe_session_id = unic->return_pppoe_session_id;
 	memcpy(nirc->return_pppoe_remote_mac, unic->return_pppoe_remote_mac, ETH_ALEN);
@@ -698,6 +702,8 @@ nss_tx_status_t nss_tx_create_ipv6_rule(void *ctx, struct nss_ipv6_create *unic)
 	nirc->return_max_end = unic->return_max_end;
 	nirc->return_mtu = unic->to_mtu;
 	memcpy(nirc->return_mac, unic->dest_mac, 6);
+
+	nirc->egress_vlan_tag = unic->egress_vlan_tag;
 
 	nirc->flags = 0;
 	if (unic->flags & NSS_IPV6_CREATE_FLAG_NO_SEQ_CHECK) {

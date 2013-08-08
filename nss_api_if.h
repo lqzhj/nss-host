@@ -101,12 +101,14 @@ struct nss_ipv4_create {
 	uint32_t flow_max_end;		/**< Flow maximum end */
 	uint16_t flow_pppoe_session_id;			/**< PPPoE session associated with flow */
 	uint8_t flow_pppoe_remote_mac[ETH_ALEN];	/**< Remote PPPoE peer MAC address */
+	uint16_t ingress_vlan_tag;	/**< Ingress VLAN tag expected for this flow */
 	uint8_t return_window_scale;	/**< Window scaling factor of return direction (TCP) */
 	uint32_t return_max_window;	/**< Maximum window size of return direction */
 	uint32_t return_end;		/**< Flow end for return direction */
 	uint32_t return_max_end;	/**< Flow maximum end for return direction */
 	uint16_t return_pppoe_session_id;		/**< PPPoE session ID for return direction */
 	uint8_t return_pppoe_remote_mac[ETH_ALEN];	/**< Remote PPPoE peer MAC sddress for return */
+	uint16_t egress_vlan_tag;	/**< Egress VLAN tag expected for this flow */
 	uint8_t spo_needed;		/**< Is SPO required */
 	uint32_t param_a0;		/**< Custom extra parameter 0 */
 	uint32_t param_a1;		/**< Custom extra parameter 1 */
@@ -178,12 +180,14 @@ struct nss_ipv6_create {
 	uint32_t flow_max_end;		/**< Flow max end */
 	uint16_t flow_pppoe_session_id;			/**< PPPoE session associated with flow */
 	uint8_t flow_pppoe_remote_mac[ETH_ALEN];	/**< Remote PPPoE peer MAC address */
+	uint16_t ingress_vlan_tag;	/**< Ingress VLAN tag expected for this flow */
 	uint8_t return_window_scale;	/**< Window scaling factor (TCP) for return */
 	uint32_t return_max_window;	/**< Maximum window size (TCP) for return */
 	uint32_t return_end;		/**< End for return */
 	uint32_t return_max_end;	/**< Maximum end for return */
 	uint16_t return_pppoe_session_id;		/**< PPPoE session associated with return */
 	uint8_t return_pppoe_remote_mac[ETH_ALEN];	/**< Remote PPPoE peer MAC address for return */
+	uint16_t egress_vlan_tag;	/**< Egress VLAN tag expected for this flow */
 };
 
 /**

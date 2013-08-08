@@ -43,6 +43,7 @@ struct nss_ipv4_rule_create {
 	uint32_t flow_mtu;			/* Flow interface`s MTU */
 	uint16_t flow_pppoe_session_id;		/* PPPoE session ID. */
 	uint16_t flow_pppoe_remote_mac[3];	/* PPPoE Server MAC address */
+	uint16_t ingress_vlan_tag;		/* Ingress VLAN tag expected for this flow */
 	int32_t return_interface_num;		/* Return interface number */
 	uint32_t return_ip;			/* Return IP address */
 	uint32_t return_ip_xlate;		/* Translated return IP address */
@@ -56,6 +57,7 @@ struct nss_ipv4_rule_create {
 	uint32_t return_mtu;			/* Return interface`s MTU */
 	uint16_t return_pppoe_session_id;	/* PPPoE session ID. */
 	uint16_t return_pppoe_remote_mac[3];	/* PPPoE Server MAC address */
+	uint16_t egress_vlan_tag;		/* Egress VLAN tag expected for this flow */
 	uint8_t flags;				/* Bit flags associated with the rule */
 	enum nss_lro_modes lro_mode;	/* LRO mode for this connection */
 };
@@ -95,6 +97,7 @@ struct nss_ipv6_rule_create {
 	uint32_t flow_mtu;			/* Flow interface`s MTU */
 	uint16_t flow_pppoe_session_id;		/* PPPoE session ID. */
 	uint16_t flow_pppoe_remote_mac[3];	/* PPPoE Server MAC address */
+	uint16_t ingress_vlan_tag;		/* Ingress VLAN tag expected for this flow */
 	int32_t return_interface_num;		/* Return interface number */
 	uint32_t return_ip[4];			/* Return IP address */
 	uint32_t return_ident;			/* Return ident (e.g. port) */
@@ -106,7 +109,9 @@ struct nss_ipv6_rule_create {
 	uint32_t return_mtu;			/* Return interface`s MTU */
 	uint16_t return_pppoe_session_id;	/* PPPoE session ID. */
 	uint16_t return_pppoe_remote_mac[3];	/* PPPoE Server MAC address */
-	uint8_t flags;				/* Bit flags associated with the rule */};
+	uint16_t egress_vlan_tag;		/* Egress VLAN tag expected for this flow */
+	uint8_t flags;				/* Bit flags associated with the rule */
+};
 
 /*
  * The NSS IPv6 rule destruction structure.
