@@ -50,6 +50,7 @@
 #include <net/arp.h>
 
 #include "nss_api_if.h"
+#include <linux/../../net/8021q/vlan.h>
 
 /*
  * Debug output levels
@@ -141,6 +142,9 @@
  */
 typedef uint8_t mac_addr_t[6];
 typedef uint32_t ipv6_addr_t[4];
+
+#define is_bridge_port(dev) (dev->priv_flags & IFF_BRIDGE_PORT)
+#define is_bridge_device(dev) (dev->priv_flags & IFF_EBRIDGE)
 
 /*
  * Displaying addresses
@@ -295,6 +299,12 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 				const struct net_device *out,
 				int (*okfn)(struct sk_buff *));
 
+static unsigned int nss_connmgr_ipv6_bridge_post_routing_hook(unsigned int hooknum,
+                                 struct sk_buff *skb,
+                                 const struct net_device *in_unused,
+                                 const struct net_device *out,
+                                 int (*okfn)(struct sk_buff *));
+
 static ssize_t nss_connmgr_ipv6_read_stats(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos);
 static ssize_t nss_connmgr_ipv6_read_debug_stats(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos);
 static ssize_t nss_connmgr_ipv6_clear_stats(struct file *fp, const char __user *ubuf, size_t count, loff_t *ppos);
@@ -327,6 +337,16 @@ static struct nf_hook_ops nss_connmgr_ipv6_ops_post_routing[] __read_mostly = {
 					 * Refer to include/linux/netfiler_ipv6.h for priority levels.
 					 * Examine packets after NAT translation (and potentially any ALG processing)
 					 */
+	},
+	{
+	.hook           = nss_connmgr_ipv6_bridge_post_routing_hook,
+	.owner          = THIS_MODULE,
+	.pf             = PF_BRIDGE,
+	.hooknum        = NF_BR_POST_ROUTING,
+	.priority       = NF_BR_PRI_FILTER_OTHER,	/*
+							 * Refer to include/linux/netfiler_bridge.h for priority levels.
+							 * Examine packets that are being forwarded by a bridge slave
+							 */
 	},
 };
 
@@ -447,6 +467,440 @@ static int nss_connmgr_ipv6_mac_addr_get(struct net *net, int oif, ipv6_addr_t a
 	return 0;
 }
 
+static struct net_device *nss_connmgr_get_dev_from_ipv6_address(struct net *net, int oif, struct in6_addr addr)
+{
+	struct rt6_info *rt6i;
+	struct dst_entry *dst;
+
+	/*
+	 * Look up the route to this address
+	 */
+	rt6i = rt6_lookup(net, &addr, NULL, oif, 0);
+	if (!rt6i) {
+		NSS_CONNMGR_DEBUG_TRACE("rt6_lookup failed for: " IPV6_ADDR_OCTAL_FMT "\n", IPV6_ADDR_TO_OCTAL(addr.in6_u.u6_addr32));
+		return NULL;
+	}
+
+	dst = (struct dst_entry *)rt6i;
+
+	return dst->dev;
+}
+
+/*
+ * nss_connmgr_ipv6_bridge_post_routing_hook()
+ *	Called for packets about to leave the box through a bridge slave interface
+ */
+static unsigned int nss_connmgr_ipv6_bridge_post_routing_hook(unsigned int hooknum,
+		struct sk_buff *skb,
+		const struct net_device *in_unused,
+		const struct net_device *out,
+		int (*okfn)(struct sk_buff *))
+{
+	struct nss_ipv6_create unic;
+
+	struct net_device *in;
+	struct nf_conn *ct;
+	enum ip_conntrack_info ctinfo;
+	struct net_device *src_dev;
+	struct net_device *dest_dev;
+	struct net_device *br_port_in_dev, *physical_out_dev, *rt_dev;
+	struct nf_conntrack_tuple orig_tuple;
+	struct nf_conntrack_tuple reply_tuple;
+	struct ethhdr *eh;
+
+	nss_tx_status_t nss_tx_status;
+
+	/*
+	 * Don't process broadcast or multicast
+	 */
+	if (skb->pkt_type == PACKET_BROADCAST) {
+		NSS_CONNMGR_DEBUG_TRACE("Broadcast, ignoring: %p\n", skb);
+		return NF_ACCEPT;
+	}
+	if (skb->pkt_type == PACKET_MULTICAST) {
+		NSS_CONNMGR_DEBUG_TRACE("Multicast, ignoring: %p\n", skb);
+		return NF_ACCEPT;
+	}
+
+	/*
+	 * Only process packets being forwarded across the router - obtain the input interface for the skb
+	 * IMPORTANT 'in' must be released with dev_put(), this is not true for 'out'
+	 */
+	in = dev_get_by_index(&init_net, skb->skb_iif);
+	if  (!in) {
+		NSS_CONNMGR_DEBUG_TRACE("Not forwarded, ignoring: %p\n", skb);
+		return NF_ACCEPT;
+	}
+
+	/*
+	 * Only work with standard 802.3 mac address sizes
+	 */
+	if (in->addr_len != 6) {
+		dev_put(in);
+		NSS_CONNMGR_DEBUG_TRACE("in device (%s) not 802.3 hw addr len (%u), ignoring: %p\n", in->name, (unsigned)in->addr_len, skb);
+		return NF_ACCEPT;
+	}
+
+	if (out->addr_len != 6) {
+		dev_put(in);
+		NSS_CONNMGR_DEBUG_TRACE("out device (%s) not 802.3 hw addr len (%u), ignoring: %p\n", out->name, (unsigned)out->addr_len, skb);
+		return NF_ACCEPT;
+	}
+
+	/*
+	 * Only process packets that are also tracked by conntrack
+	 */
+	ct = nf_ct_get(skb, &ctinfo);
+	if (!ct) {
+		dev_put(in);
+		NSS_CONNMGR_DEBUG_TRACE("No conntrack connection, ignoring: %p\n", skb);
+		return NF_ACCEPT;
+	}
+	NSS_CONNMGR_DEBUG_TRACE("skb: %p tracked by connection: %p\n", skb, ct);
+
+	/*
+	 * Special untracked connection is not monitored
+	 */
+	if (ct == &nf_conntrack_untracked) {
+		dev_put(in);
+		NSS_CONNMGR_DEBUG_TRACE("%p: Untracked connection\n", ct);
+		return NF_ACCEPT;
+	}
+
+	/*
+	 * Any connection needing support from a 'helper' (aka NAT ALG) is kept away from the Network Accelerator
+	 */
+	if (nfct_help(ct)) {
+		dev_put(in);
+		NSS_CONNMGR_DEBUG_TRACE("%p: Connection has helper\n", ct);
+		return NF_ACCEPT;
+	}
+
+	/*
+	 * If egress interface is not a bridge slave port, ignore
+	 */
+	if (!is_bridge_port(out)) {
+		dev_put(in);
+		return NF_ACCEPT;
+	}
+
+	/*
+	 * Now examine conntrack to identify the protocol, IP addresses and portal information involved
+	 * IMPORTANT: The information here will be as the 'ORIGINAL' direction, i.e. who established the connection.
+	 * This MAY NOT be the same as the current packet direction, for example, this packet direction may be eth1->eth0 but
+	 * originally the connection may be been started from a packet going from eth0->eth1.
+	 */
+	orig_tuple = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
+	reply_tuple = ct->tuplehash[IP_CT_DIR_REPLY].tuple;
+	unic.protocol = (int32_t)orig_tuple.dst.protonum;
+
+	/*
+	 * Get addressing information
+	 */
+	IN6_ADDR_TO_IPV6_ADDR(unic.src_ip, orig_tuple.src.u3.in6);
+	IN6_ADDR_TO_IPV6_ADDR(unic.dest_ip, orig_tuple.dst.u3.in6);
+
+	unic.flags = 0;
+
+	unic.return_pppoe_session_id = 0;
+	unic.flow_pppoe_session_id = 0;
+
+	switch (unic.protocol) {
+	case IPPROTO_TCP:
+		unic.src_port = (int32_t)orig_tuple.src.u.tcp.port;
+		unic.dest_port = (int32_t)orig_tuple.dst.u.tcp.port;
+		unic.flow_window_scale = ct->proto.tcp.seen[0].td_scale;
+		unic.flow_max_window = ct->proto.tcp.seen[0].td_maxwin;
+		unic.flow_end = ct->proto.tcp.seen[0].td_end;
+		unic.flow_max_end = ct->proto.tcp.seen[0].td_maxend;
+		unic.return_window_scale = ct->proto.tcp.seen[1].td_scale;
+		unic.return_max_window = ct->proto.tcp.seen[1].td_maxwin;
+		unic.return_end = ct->proto.tcp.seen[1].td_end;
+		unic.return_max_end = ct->proto.tcp.seen[1].td_maxend;
+		if (nf_ct_tcp_be_liberal || nf_ct_tcp_no_window_check ||
+			(ct->proto.tcp.seen[0].flags & IP_CT_TCP_FLAG_BE_LIBERAL) ||
+			(ct->proto.tcp.seen[1].flags & IP_CT_TCP_FLAG_BE_LIBERAL)) {
+
+			unic.flags |= NSS_IPV6_CREATE_FLAG_NO_SEQ_CHECK;
+		}
+
+		/*
+		 * Don't try to manage a non-established connection.
+		 */
+		if (!test_bit(IPS_ASSURED_BIT, &ct->status)) {
+			dev_put(in);
+			NSS_CONNMGR_DEBUG_TRACE("%p: Non-established connection\n", ct);
+			return NF_ACCEPT;
+		}
+
+		/*
+		 * If the connection is shutting down do not manage it.
+		 * state can not be SYN_SENT, SYN_RECV because connection is assured
+		 * Not managed states: FIN_WAIT, CLOSE_WAIT, LAST_ACK, TIME_WAIT, CLOSE.
+		 */
+		spin_lock_bh(&ct->lock);
+		if (ct->proto.tcp.state != TCP_CONNTRACK_ESTABLISHED) {
+			spin_unlock_bh(&ct->lock);
+			dev_put(in);
+			NSS_CONNMGR_DEBUG_TRACE("%p: Connection in termination state %#X\n", ct, ct->proto.tcp.state);
+			return NF_ACCEPT;
+		}
+		spin_unlock_bh(&ct->lock);
+
+		break;
+
+	case IPPROTO_UDP:
+		unic.src_port = (int32_t)orig_tuple.src.u.udp.port;
+		unic.dest_port = (int32_t)orig_tuple.dst.u.udp.port;
+		break;
+
+	default:
+		/*
+		 * Streamengine compatibility - database stores non-ported protocols with port numbers equal to negative protocol number
+		 * to indicate unused.
+		 */
+		dev_put(in);
+		NSS_CONNMGR_DEBUG_TRACE("%p: Unhandled protocol %d\n", ct, unic.protocol);
+		return NF_ACCEPT;
+	}
+
+	/*
+	 * Initialize the VLAN tag information.
+	 */
+	unic.ingress_vlan_tag = NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED;
+	unic.egress_vlan_tag = NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED;
+
+	/*
+	 * Access the ingress routed interface
+	 */
+	rt_dev = nss_connmgr_get_dev_from_ipv6_address(dev_net(in), in->ifindex, ipv6_hdr(skb)->saddr);
+
+	/*
+	 * Is this pure bridge flow with no Layer-3 routing involved in the path?
+	 */
+	if ((rt_dev == NULL)
+		|| (is_bridge_device(rt_dev) && (rt_dev == (struct net_device *)out->master))) {
+		/*
+		 * Is the ingress bridge port is a virtual interface?
+		 */
+		if (!is_bridge_port(in)) {
+			/*
+			 * Try to access the ingress bridge slave interface for this packet
+			 */
+			br_port_in_dev = br_port_dev_get(out->master, eth_hdr(skb)->h_source);
+			if (br_port_in_dev == NULL) {
+				dev_put(in);
+				NSS_CONNMGR_DEBUG_TRACE("Bridge-CM: Ingress Virtual Port not found for bridge %s\n",out->master->name);
+				return NF_ACCEPT;
+			}
+			NSS_CONNMGR_DEBUG_TRACE("Bridge-CM: Bridge Port Ingress Virtual Interface = %s\n", br_port_in_dev->name);
+
+			/*
+			 * Is the ingress slave interface of the bridge a VLAN interface?
+			 */
+			if (is_vlan_dev(br_port_in_dev)) {
+				/*
+				 * Access the VLAN ID of the VLAN interface
+				 */
+				if (ctinfo < IP_CT_IS_REPLY) {
+					unic.ingress_vlan_tag = vlan_dev_priv(br_port_in_dev)->vlan_id;
+					NSS_CONNMGR_DEBUG_TRACE("Bridge-CM: Ingress VLAN ID = %d\n",vlan_dev_priv(br_port_in_dev)->vlan_id);
+				} else {
+					unic.egress_vlan_tag = vlan_dev_priv(br_port_in_dev)->vlan_id;
+					NSS_CONNMGR_DEBUG_TRACE("Bridge-CM: Egress VLAN ID = %d\n",vlan_dev_priv(br_port_in_dev)->vlan_id);
+				}
+			}
+			dev_put(br_port_in_dev);
+		}
+		unic.flags |= NSS_IPV4_CREATE_FLAG_BRIDGE_FLOW;
+
+		/*
+		 * Configure the MAC addresses for the flow
+		 */
+		eh = (struct ethhdr *)skb->mac_header;
+
+		memcpy(unic.src_mac, eh->h_source, ETH_HLEN);
+		memcpy(unic.dest_mac, eh->h_dest, ETH_HLEN);
+	} else {
+		/*
+		 * This is a routed + bridged flow
+		 */
+
+		/*
+		 * Check if the ingress is a VLAN interface
+		 */
+		if (is_vlan_dev(rt_dev)) {
+			if (ctinfo < IP_CT_IS_REPLY) {
+				unic.ingress_vlan_tag = vlan_dev_priv(rt_dev)->vlan_id;
+				NSS_CONNMGR_DEBUG_TRACE("Bridge-CM: Ingress VLAN ID = %d\n",vlan_dev_priv(rt_dev)->vlan_id);
+			} else {
+				unic.egress_vlan_tag = vlan_dev_priv(rt_dev)->vlan_id;
+				NSS_CONNMGR_DEBUG_TRACE("Bridge-CM: Egress VLAN ID = %d\n",vlan_dev_priv(rt_dev)->vlan_id);
+			}
+		}
+	}
+
+	physical_out_dev = (struct net_device *)out;
+
+	/*
+	 * Check if we have a VLAN interface at the egress
+	 */
+	if (is_vlan_dev((struct net_device *)out)) {
+		/*
+		 * Access the physical egress interface
+		 */
+		physical_out_dev = vlan_dev_priv(out)->real_dev;
+
+		if (ctinfo < IP_CT_IS_REPLY) {
+			unic.egress_vlan_tag = vlan_dev_priv(out)->vlan_id;
+			NSS_CONNMGR_DEBUG_TRACE("Bridge-CM: Egress VLAN ID = %d\n",vlan_dev_priv(out)->vlan_id);
+		} else {
+			unic.ingress_vlan_tag = vlan_dev_priv(out)->vlan_id;
+			NSS_CONNMGR_DEBUG_TRACE("Bridge-CM: Ingress VLAN ID = %d\n",vlan_dev_priv(out)->vlan_id);
+		}
+	}
+	/*
+	 * Get MAC addresses
+	 * NOTE: We are dealing with the ORIGINAL direction here so 'in' and 'out' dev may need
+	 * to be swapped if this packet is a reply
+	 */
+	if (ctinfo < IP_CT_IS_REPLY) {
+		src_dev = in;
+		dest_dev = physical_out_dev;
+		NSS_CONNMGR_DEBUG_TRACE("%p: dir: Original\n", ct);
+	} else {
+		src_dev = physical_out_dev;
+		dest_dev = in;
+		NSS_CONNMGR_DEBUG_TRACE("%p: dir: Reply\n", ct);
+	}
+
+
+	/*
+	 * Collect the MAC address information if routing is involved in the flow
+	 */
+	if ((rt_dev != NULL)
+		&& !(is_bridge_device(rt_dev) && (rt_dev == (struct net_device *)out->master))) {
+		/*
+		 * Get the MAC addresses that correspond to source and destination host addresses.
+		 */
+		if (nss_connmgr_ipv6_mac_addr_get(dev_net(src_dev), src_dev->ifindex, unic.src_ip, unic.src_mac)) {
+			dev_put(in);
+			NSS_CONNMGR_DEBUG_TRACE("%p: Failed to find MAC address for src IP: %pI6\n", ct, &unic.src_ip);
+			return NF_ACCEPT;
+		}
+
+		/*
+		 * Do dest now
+		 */
+		if (nss_connmgr_ipv6_mac_addr_get(dev_net(dest_dev), dest_dev->ifindex, unic.dest_ip, unic.dest_mac)) {
+			dev_put(in);
+			NSS_CONNMGR_DEBUG_TRACE("%p: Failed to find MAC address for dest IP: %pI6\n", ct, &unic.dest_ip);
+			return NF_ACCEPT;
+		}
+	}
+
+	/*
+	 * Only devices that are NSS devices may be accelerated.
+	 */
+	unic.src_interface_num = nss_get_interface_number(nss_connmgr_ipv6.nss_context, src_dev);
+	if (unic.src_interface_num < 0) {
+		dev_put(in);
+		return NF_ACCEPT;
+	}
+
+	unic.dest_interface_num = nss_get_interface_number(nss_connmgr_ipv6.nss_context, dest_dev);
+	if (unic.dest_interface_num < 0) {
+		dev_put(in);
+		return NF_ACCEPT;
+	}
+
+	/*
+	 * Get MTU values for source and destination interfaces.
+	 */
+	unic.from_mtu = in->mtu;
+	unic.to_mtu = out->mtu;
+
+	/*
+	 * We have everything we need (hopefully :-])
+	 */
+	NSS_CONNMGR_DEBUG_TRACE("\n%p: Conntrack connection\n"
+			"skb: %p\n"
+			"dir: %s\n"
+			"Protocol: %d\n"
+			"src_ip: " IPV6_ADDR_OCTAL_FMT ":%d\n"
+			"dest_ip: " IPV6_ADDR_OCTAL_FMT ":%d\n"
+			"src_mac: " MAC_FMT "\n"
+			"dest_mac: " MAC_FMT "\n"
+			"src_dev: %s\n"
+			"dest_dev: %s\n"
+			"src_iface_num: %u\n"
+			"dest_iface_num: %u\n"
+			"ingress_vlan_tag: %u"
+			"egress_vlan_tag: %u",
+			ct,
+			skb,
+			(ctinfo < IP_CT_IS_REPLY)? "Original" : "Reply",
+			unic.protocol,
+			IPV6_ADDR_TO_OCTAL(unic.src_ip), unic.src_port,
+			IPV6_ADDR_TO_OCTAL(unic.dest_ip), unic.dest_port,
+			MAC_AS_BYTES(unic.src_mac),
+			MAC_AS_BYTES(unic.dest_mac),
+			src_dev->name,
+			dest_dev->name,
+			unic.src_interface_num,
+			unic.dest_interface_num,
+			unic.ingress_vlan_tag,
+			unic.egress_vlan_tag);
+
+	/*
+	 * Create the Network Accelerator connection cache entries
+	 *
+	 * NOTE: All of the information we have is from the point of view of who created the connection however
+	 * the skb may actually be in the 'reply' direction - which is important to know when configuring the NSS as we have to set the right information
+	 * on the right "match" and "forwarding" entries.
+	 * We can use the ctinfo to determine which direction the skb is in and then swap fields as necessary.
+	 */
+	IPV6_ADDR_NTOH(unic.src_ip, unic.src_ip);
+	IPV6_ADDR_NTOH(unic.dest_ip, unic.dest_ip);
+	unic.src_port = ntohs(unic.src_port);
+	unic.dest_port = ntohs(unic.dest_port);
+	/*
+	 * If operations have stopped then do not process packets
+	 */
+	spin_lock_bh(&nss_connmgr_ipv6.lock);
+	if (unlikely(nss_connmgr_ipv6.stopped)) {
+		spin_unlock_bh(&nss_connmgr_ipv6.lock);
+		dev_put(in);
+		NSS_CONNMGR_DEBUG_TRACE("Stopped, ignoring: %p\n", skb);
+
+		return NF_ACCEPT;
+	}
+	spin_unlock_bh(&nss_connmgr_ipv6.lock);
+	nss_tx_status = nss_tx_create_ipv6_rule(nss_connmgr_ipv6.nss_context, &unic);
+
+	if (nss_tx_status == NSS_TX_SUCCESS) {
+		goto out;
+	} else if (nss_tx_status == NSS_TX_FAILURE_NOT_READY) {
+		NSS_CONNMGR_DEBUG_ERROR("NSS not ready to accept rule \n");
+		spin_lock_bh(&nss_connmgr_ipv6.lock);
+		nss_connmgr_ipv6.debug_stats[NSS_CONNMGR_IPV6_CREATE_FAIL]++;
+		spin_unlock_bh(&nss_connmgr_ipv6.lock);
+	} else {
+		NSS_CONNMGR_DEBUG_TRACE("NSS create rule failed  skb: %p\n", skb);
+		spin_lock_bh(&nss_connmgr_ipv6.lock);
+		nss_connmgr_ipv6.debug_stats[NSS_CONNMGR_IPV6_CREATE_FAIL]++;
+		spin_unlock_bh(&nss_connmgr_ipv6.lock);
+	}
+
+out:
+	/*
+	 * Release the interface on which this skb arrived
+	 */
+	dev_put(in);
+
+	return NF_ACCEPT;
+}
+
 /*
  * nss_connmgr_ipv6_post_routing_hook()
  *	Called for packets about to leave the box - either locally generated or forwarded from another interface
@@ -464,6 +918,7 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 	enum ip_conntrack_info ctinfo;
 	struct net_device *src_dev;
 	struct net_device *dest_dev;
+	struct net_device *rt_dev, *br_port_dev;
 	struct nf_conntrack_tuple orig_tuple;
 	struct nf_conntrack_tuple reply_tuple;
 
@@ -655,6 +1110,78 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 	}
 
 	/*
+	 * Access the ingress routed interface
+	 */
+	rt_dev = nss_connmgr_get_dev_from_ipv6_address(dev_net(in), in->ifindex, ipv6_hdr(skb)->saddr);
+	if (!rt_dev) {
+		/*
+		 * This should not happen
+		 */
+		dev_put(in);
+		return NF_ACCEPT;
+	}
+
+	/*
+	 * The ingress-routed interface is a virtual interface, which could possibly be a VLAN interface
+	 */
+	if (rt_dev != in) {
+		/*
+		 * The ingress is a VLAN interface
+		 */
+		if (is_vlan_dev(rt_dev)) {
+			if (ctinfo < IP_CT_IS_REPLY) {
+				unic.ingress_vlan_tag = vlan_dev_priv(rt_dev)->vlan_id;
+				NSS_CONNMGR_DEBUG_INFO("Route-CM: Ingress VLAN ID = %d\n",vlan_dev_priv(rt_dev)->vlan_id);
+			} else {
+				unic.egress_vlan_tag = vlan_dev_priv(rt_dev)->vlan_id;
+				NSS_CONNMGR_DEBUG_INFO("Route-CM: Egress VLAN ID = %d\n",vlan_dev_priv(rt_dev)->vlan_id);
+			}
+		} else if (is_bridge_device(rt_dev)) {
+			/*
+			 * Get the slave bridge port which is the ingress interface
+			 * for this packet
+			 */
+			br_port_dev = br_port_dev_get(rt_dev, eth_hdr(skb)->h_source);
+			if (br_port_dev) {
+				/*
+				 * Is the ingress bridge port a VLAN interface?
+				 */
+				if (is_vlan_dev(br_port_dev)) {
+					if (ctinfo < IP_CT_IS_REPLY) {
+						unic.ingress_vlan_tag = vlan_dev_priv(br_port_dev)->vlan_id;
+						NSS_CONNMGR_DEBUG_INFO("Route-CM: Ingress VLAN ID = %d\n",vlan_dev_priv(br_port_dev)->vlan_id);
+					} else {
+						unic.egress_vlan_tag = vlan_dev_priv(br_port_dev)->vlan_id;
+						NSS_CONNMGR_DEBUG_INFO("Route-CM: Egress VLAN ID = %d\n",vlan_dev_priv(br_port_dev)->vlan_id);
+					}
+				} else {
+					NSS_CONNMGR_DEBUG_INFO("Route-CM: Ingress Bridge Physical device name: %s\n", br_port_dev->name);
+				}
+				dev_put(br_port_dev);
+			} else {
+				NSS_CONNMGR_DEBUG_INFO("Route-CM: Could not get slave interface from bridge device %s\n",rt_dev->name);
+				dev_put(in);
+				return NF_ACCEPT;
+			}
+		}
+	}
+
+	/*
+	 * Check if the egress interface is a VLAN interface
+	 */
+	if (is_vlan_dev((struct net_device *)out)) {
+		if (ctinfo < IP_CT_IS_REPLY) {
+			unic.egress_vlan_tag = vlan_dev_priv(out)->vlan_id;
+			dest_dev = vlan_dev_priv(out)->real_dev;
+			NSS_CONNMGR_DEBUG_INFO("Route-CM: Egress VLAN ID = %d\n",vlan_dev_priv(out)->vlan_id);
+		} else {
+			unic.ingress_vlan_tag = vlan_dev_priv(out)->vlan_id;
+			src_dev = vlan_dev_priv(out)->real_dev;
+			NSS_CONNMGR_DEBUG_INFO("Route-CM: Ingress VLAN ID = %d\n",vlan_dev_priv(out)->vlan_id);
+		}
+	}
+
+	/*
 	 * Only devices that are NSS devices may be accelerated.
 	 */
 	unic.src_interface_num = nss_get_interface_number(nss_connmgr_ipv6.nss_context, src_dev);
@@ -689,7 +1216,9 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 			"src_dev: %s\n"
 			"dest_dev: %s\n"
 			"src_iface_num: %u\n"
-			"dest_iface_num: %u\n",
+			"dest_iface_num: %u\n"
+			"ingress_vlan_tag: %u\n"
+			"egress_vlan_tag: %u\n",
 			ct,
 			skb,
 			(ctinfo < IP_CT_IS_REPLY)? "Original" : "Reply",
@@ -701,7 +1230,9 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 			src_dev->name,
 			dest_dev->name,
 			unic.src_interface_num,
-			unic.dest_interface_num);
+			unic.dest_interface_num,
+			unic.ingress_vlan_tag,
+			unic.egress_vlan_tag);
 
 	/*
 	 * Create the Network Accelerator connection cache entries
