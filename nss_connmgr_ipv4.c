@@ -145,7 +145,7 @@ typedef uint32_t ipv4_addr_t;
  * inclusive of stats value
  */
 #define NSS_CONNMGR_IPV4_MAX_STR_LENGTH 96
-
+#define NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED 0xFFF
 
 /*
  * IPV4 Connection statistics
@@ -592,6 +592,12 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 		NSS_CONNMGR_DEBUG_TRACE("%p: Unhandled protocol %d\n", ct, unic.protocol);
 		return NF_ACCEPT;
 	}
+
+	/*
+	 * Initialize VLAN tag information
+	 */
+	unic.ingress_vlan_tag = NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED;
+	unic.egress_vlan_tag = NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED;
 
 	/*
 	 * Get MAC addresses

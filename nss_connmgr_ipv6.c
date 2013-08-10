@@ -169,6 +169,8 @@ typedef uint32_t ipv6_addr_t[4];
  * inclusive of stats value
  */
 #define NSS_CONNMGR_IPV6_MAX_STR_LENGTH 96
+#define NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED 0xFFF
+
 enum nss_connmgr_ipv6_conn_stats {
 	NSS_CONNMGR_IPV6_ACCELERATED_RX_PKTS = 0,
 					/* Accelerated ipv6 RX packets */
@@ -612,6 +614,12 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 		NSS_CONNMGR_DEBUG_TRACE("%p: Unhandled protocol %d\n", ct, unic.protocol);
 		return NF_ACCEPT;
 	}
+
+	/*
+	 * Initialize VLAN tag information
+	 */
+	unic.ingress_vlan_tag = NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED;
+	unic.egress_vlan_tag = NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED;
 
 	/*
 	 * Get MAC addresses
