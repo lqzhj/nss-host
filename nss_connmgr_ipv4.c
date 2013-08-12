@@ -159,6 +159,16 @@ typedef uint32_t ipv4_addr_t;
 #define NSS_LAG0_INTERFACE_NUM		26
 
 /*
+ * Virtual Interface Number for IPSec Tunnel
+ */
+#define NSS_IPSEC_ENCAP_INTERFACE 8
+
+/*
+ * Device Type for IPSec Tunnel devices
+ */
+#define ARPHRD_IPSEC_TUNNEL_TYPE 31
+
+/*
  * IPV4 Connection statistics
  */
 enum nss_connmgr_ipv4_conn_statistics {
@@ -1431,12 +1441,16 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 	}
 
 	/*
-	 * Only devices that are NSS devices may be accelerated.
+	 * Only devices that are NSS devices, or IPSec tunnel devices are accelerated.
 	 */
-	unic.src_interface_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, src_dev);
-	if (unic.src_interface_num < 0) {
-		dev_put(in);
-		return NF_ACCEPT;
+	if (src_dev->type == ARPHRD_IPSEC_TUNNEL_TYPE) {
+		unic.src_interface_num = NSS_IPSEC_ENCAP_INTERFACE;
+	} else {
+		unic.src_interface_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, src_dev);
+		if (unic.src_interface_num < 0) {
+			dev_put(in);
+			return NF_ACCEPT;
+		}
 	}
 
 	/*
@@ -1454,10 +1468,15 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 		dest_dev = dest_slave;
 	}
 
-	unic.dest_interface_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, dest_dev);
-	if (unic.dest_interface_num < 0) {
-		dev_put(in);
-		return NF_ACCEPT;
+	if (dest_dev->type == ARPHRD_IPSEC_TUNNEL_TYPE) {
+		unic.dest_interface_num = NSS_IPSEC_ENCAP_INTERFACE;
+	} else {
+
+		unic.dest_interface_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, dest_dev);
+		if (unic.dest_interface_num < 0) {
+			dev_put(in);
+			return NF_ACCEPT;
+		}
 	}
 
 	/*
