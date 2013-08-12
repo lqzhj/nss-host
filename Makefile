@@ -21,6 +21,11 @@ qca-nss-drv-objs := nss_init.o nss_core.o nss_tx_rx.o nss_stats.o
 
 obj-m += qca-nss-connmgr-ipv4.o
 obj-m += qca-nss-connmgr-ipv6.o
+ifeq "$(CONFIG_IPV6_SIT_6RD)" "y"
+obj-m += qca-nss-tun6rd.o
+qca-nss-tun6rd-objs := nss_tun6rd.o
+ccflags-y += -DNSS_TUN6RD_DEBUG_LEVEL=0
+endif
 
 qca-nss-connmgr-ipv4-objs := nss_connmgr_ipv4.o
 qca-nss-connmgr-ipv6-objs := nss_connmgr_ipv6.o
