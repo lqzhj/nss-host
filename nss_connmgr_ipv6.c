@@ -935,12 +935,25 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 	nss_tx_status_t nss_tx_status;
 
 	/*
+	 * Variables needed for PPPoE WAN mode.
+	 */
+	struct net_device *new_out = (struct net_device *)out;
+	struct net_device *eth_out = NULL;
+	struct net_device *ppp_in = NULL;
+	struct net_device *ppp_src = NULL;
+	struct net_device *ppp_dest = NULL;
+	bool is_flow_pppoe = false;
+	bool is_return_pppoe = false;
+	bool is_tmp_pppoe = false;
+
+	/*
 	 * Don't process broadcast or multicast
 	 */
 	if (skb->pkt_type == PACKET_BROADCAST) {
 		NSS_CONNMGR_DEBUG_TRACE("Broadcast, ignoring: %p\n", skb);
 		return NF_ACCEPT;
 	}
+
 	if (skb->pkt_type == PACKET_MULTICAST) {
 		NSS_CONNMGR_DEBUG_TRACE("Multicast, ignoring: %p\n", skb);
 		return NF_ACCEPT;
@@ -961,14 +974,7 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 	 */
 	if ((in->addr_len != 6) && (in->type != ARPHRD_SIT) && (in->type != ARPHRD_TUNNEL6)) {
 		NSS_CONNMGR_DEBUG_TRACE("in device (%s) not 802.3 hw addr len (%u), ignoring: %p\n", in->name, (unsigned)in->addr_len, skb);
-		dev_put(in);
-		return NF_ACCEPT;
-	}
-
-	if ((out->addr_len != 6) && (out->type != ARPHRD_SIT) && (out->type != ARPHRD_TUNNEL6)) {
-		dev_put(in);
-		NSS_CONNMGR_DEBUG_TRACE("out device (%s) not 802.3 hw addr len (%u), ignoring: %p\n", out->name, (unsigned)out->addr_len, skb);
-		return NF_ACCEPT;
+		goto out;
 	}
 
 	/*
@@ -976,9 +982,8 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 	 */
 	ct = nf_ct_get(skb, &ctinfo);
 	if (!ct) {
-		dev_put(in);
 		NSS_CONNMGR_DEBUG_TRACE("No conntrack connection, ignoring: %p\n", skb);
-		return NF_ACCEPT;
+		goto out;
 	}
 	NSS_CONNMGR_DEBUG_TRACE("skb: %p tracked by connection: %p\n", skb, ct);
 
@@ -986,18 +991,89 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 	 * Special untracked connection is not monitored
 	 */
 	if (ct == &nf_conntrack_untracked) {
-		dev_put(in);
 		NSS_CONNMGR_DEBUG_TRACE("%p: Untracked connection\n", ct);
-		return NF_ACCEPT;
+		goto out;
 	}
 
 	/*
 	 * Any connection needing support from a 'helper' (aka NAT ALG) is kept away from the Network Accelerator
 	 */
 	if (nfct_help(ct)) {
-		dev_put(in);
 		NSS_CONNMGR_DEBUG_TRACE("%p: Connection has helper\n", ct);
-		return NF_ACCEPT;
+		goto out;
+	}
+
+	/*
+	 * In PPPoE connection case, the interfaces will be as below in this function.
+	 *
+	 *
+	 * ORIGINAL DIRECTION for LAN to WAN:
+	 *
+	 * PC1 --------> LAN (eth2) -----------> WAN (eth3 - pppoe-wan) -------> PC2
+	 *				in = eth2
+	 *				out = pppoe-wan
+	 *
+	 * REPLY DIRECTION for LAN to WAN:
+	 *
+	 * PC1 <-------- LAN (eth2) <----------- WAN (eth3 - pppoe-wan) <------- PC2
+	 *				in = eth3
+	 *				out = eth2
+	 *
+	 * ORIGINAL DIRECTION for WAN to LAN:
+	 *
+	 * PC1 <-------- LAN (eth2) <----------- WAN (eth3 - pppoe-wan) <------- PC2
+	 *				in = eth3
+	 *				out = eth2
+	 *
+	 * REPLY DIRECTION for WAN to LAN:
+	 *
+	 * PC1 --------> LAN (eth2) -----------> WAN (eth3 - pppoe-wan) -------> PC2
+	 *				in = eth2
+	 *				out = pppoe-wan
+	 *
+	 */
+
+	/*
+	 * Input device is always physical device (eth0, eth1, etc...), because dev_get_by_index()
+	 * returns the physical interface device.
+	 */
+	ppp_in = ppp_get_ppp_netdev(in);
+	if (unlikely(ppp_in)) {
+		/*
+		 * It mway not be pppoe interface. It may be PPTP or L2TP.
+		 */
+		if (!ppp_get_session_id(ppp_in)) {
+			goto out;
+		}
+
+		is_flow_pppoe = true;
+	}
+
+	/*
+	 * ppp_get_eth_netdev returns the corresponding Ethernet net_device if "out" is a PPP net_device.
+	 * Otherwise it returns NULL. Let's obtain the physical device from the PPP device, then do our
+	 * all further processes with this physical device.
+	 */
+	eth_out = ppp_get_eth_netdev((struct net_device *)out);
+	if (unlikely(eth_out)) {
+		/*
+		 * It may not be PPPoE interface. It may be PPTP or L2TP. In that case,
+		 * we shouldn't set the is_return_pppoe flag.
+		 */
+		if (!ppp_get_session_id((struct net_device *)out)) {
+			goto out;
+		}
+
+		is_return_pppoe = true;
+		new_out = eth_out;
+	}
+
+	/*
+	 * Only work with standard 802.3 mac address sizes
+	 */
+	if (new_out->addr_len != 6 && (new_out->type != ARPHRD_SIT) && (new_out->type != ARPHRD_TUNNEL6)) {
+		NSS_CONNMGR_DEBUG_TRACE("out device (%s) not 802.3 hw addr len (%u), ignoring: %p\n", new_out->name, (unsigned)new_out->addr_len, skb);
+		goto out;
 	}
 
 	/*
@@ -1018,8 +1094,13 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 
 	unic.flags = 0;
 
+	/*
+	 * Set the PPPoE values to the defaults, just in case there is not any PPPoE connection.
+	 */
 	unic.return_pppoe_session_id = 0;
 	unic.flow_pppoe_session_id = 0;
+	memset(unic.return_pppoe_remote_mac, 0, ETH_ALEN);
+	memset(unic.flow_pppoe_remote_mac, 0, ETH_ALEN);
 
 	switch (unic.protocol) {
 	case IPPROTO_TCP:
@@ -1044,9 +1125,8 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 		 * Don't try to manage a non-established connection.
 		 */
 		if (!test_bit(IPS_ASSURED_BIT, &ct->status)) {
-			dev_put(in);
 			NSS_CONNMGR_DEBUG_TRACE("%p: Non-established connection\n", ct);
-			return NF_ACCEPT;
+			goto out;
 		}
 
 		/*
@@ -1057,9 +1137,8 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 		spin_lock_bh(&ct->lock);
 		if (ct->proto.tcp.state != TCP_CONNTRACK_ESTABLISHED) {
 			spin_unlock_bh(&ct->lock);
-			dev_put(in);
 			NSS_CONNMGR_DEBUG_TRACE("%p: Connection in termination state %#X\n", ct, ct->proto.tcp.state);
-			return NF_ACCEPT;
+			goto out;
 		}
 		spin_unlock_bh(&ct->lock);
 
@@ -1080,9 +1159,8 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 		 * Streamengine compatibility - database stores non-ported protocols with port numbers equal to negative protocol number
 		 * to indicate unused.
 		 */
-		dev_put(in);
 		NSS_CONNMGR_DEBUG_TRACE("%p: Unhandled protocol %d\n", ct, unic.protocol);
-		return NF_ACCEPT;
+		goto out;
 	}
 
 	/*
@@ -1098,30 +1176,63 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 	 */
 	if (ctinfo < IP_CT_IS_REPLY) {
 		src_dev = in;
-		dest_dev = (struct net_device *)out;
+		dest_dev = new_out;
 		NSS_CONNMGR_DEBUG_TRACE("%p: dir: Original\n", ct);
 	} else {
-		src_dev = (struct net_device *)out;
+		src_dev = new_out;
 		dest_dev = in;
 		NSS_CONNMGR_DEBUG_TRACE("%p: dir: Reply\n", ct);
+
+		/*
+		 * Swap the is_pppoe_xxx flags.
+		 */
+		is_tmp_pppoe = is_flow_pppoe;
+		is_flow_pppoe = is_return_pppoe;
+		is_return_pppoe = is_tmp_pppoe;
+
 	}
 
 	/*
 	 * Get the MAC addresses that correspond to source and destination host addresses.
+	 * NOTE: XXX We cannot find the MAC addresses of the hosts which are behind the PPPoE servers. So,
+	 * we are just copying the PPPoE server MAC addresses here as a src or dest MAC addresses. Then, we will
+	 * send the packets to the PPPoE server and it will handle the packet.
 	 */
-	if (nss_connmgr_ipv6_mac_addr_get(dev_net(src_dev), src_dev->ifindex, unic.src_ip, unic.src_mac)) {
-		dev_put(in);
-		NSS_CONNMGR_DEBUG_TRACE("%p: Failed to find MAC address for src IP: %pI6\n", ct, &unic.src_ip);
-		return NF_ACCEPT;
+	if (unlikely(is_flow_pppoe)) {
+		ppp_src = ppp_get_ppp_netdev(src_dev);
+		if (!ppp_src) {
+			NSS_CONNMGR_DEBUG_TRACE("%p: ppp_src is NULL\n", ct);
+			goto out;
+		}
+
+		memcpy(unic.src_mac, (uint8_t *)ppp_get_remote_mac(ppp_src), ETH_ALEN);
+		unic.flow_pppoe_session_id = (uint16_t)ppp_get_session_id(ppp_src);
+		memcpy(unic.flow_pppoe_remote_mac, (uint8_t *)ppp_get_remote_mac(ppp_src), ETH_ALEN);
+	} else {
+		if (nss_connmgr_ipv6_mac_addr_get(dev_net(src_dev), src_dev->ifindex, unic.src_ip, unic.src_mac)) {
+			NSS_CONNMGR_DEBUG_TRACE("%p: Failed to find MAC address for src IP: %pI6\n", ct, &unic.src_ip);
+			goto out;
+		}
 	}
 
 	/*
 	 * Do dest now
 	 */
-	if (nss_connmgr_ipv6_mac_addr_get(dev_net(dest_dev), dest_dev->ifindex, unic.dest_ip, unic.dest_mac)) {
-		dev_put(in);
-		NSS_CONNMGR_DEBUG_TRACE("%p: Failed to find MAC address for dest IP: %pI6\n", ct, &unic.dest_ip);
-		return NF_ACCEPT;
+	if (unlikely(is_return_pppoe)) {
+		ppp_dest =  ppp_get_ppp_netdev(dest_dev);
+		if (!ppp_dest) {
+			NSS_CONNMGR_DEBUG_TRACE("%p: ppp_dest is NULL\n", ct);
+			goto out;
+		}
+
+		memcpy(unic.dest_mac, (uint8_t *)ppp_get_remote_mac(ppp_dest), ETH_ALEN);
+		unic.return_pppoe_session_id = (uint16_t)ppp_get_session_id(ppp_dest);
+		memcpy(unic.return_pppoe_remote_mac, (uint8_t *)ppp_get_remote_mac(ppp_dest), ETH_ALEN);
+	} else {
+		if (nss_connmgr_ipv6_mac_addr_get(dev_net(dest_dev), dest_dev->ifindex, unic.dest_ip, unic.dest_mac)) {
+			NSS_CONNMGR_DEBUG_TRACE("%p: Failed to find MAC address for dest IP: %pI6\n", ct, &unic.dest_ip);
+			goto out;
+		}
 	}
 
 	/*
@@ -1132,8 +1243,7 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 		/*
 		 * This should not happen
 		 */
-		dev_put(in);
-		return NF_ACCEPT;
+		goto out;
 	}
 
 	/*
@@ -1175,8 +1285,7 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 				dev_put(br_port_dev);
 			} else {
 				NSS_CONNMGR_DEBUG_INFO("Route-CM: Could not get slave interface from bridge device %s\n",rt_dev->name);
-				dev_put(in);
-				return NF_ACCEPT;
+				goto out;
 			}
 		}
 	}
@@ -1184,15 +1293,15 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 	/*
 	 * Check if the egress interface is a VLAN interface
 	 */
-	if (is_vlan_dev((struct net_device *)out)) {
+	if (is_vlan_dev(new_out)) {
 		if (ctinfo < IP_CT_IS_REPLY) {
-			unic.egress_vlan_tag = vlan_dev_priv(out)->vlan_id;
-			dest_dev = vlan_dev_priv(out)->real_dev;
-			NSS_CONNMGR_DEBUG_INFO("Route-CM: Egress VLAN ID = %d\n",vlan_dev_priv(out)->vlan_id);
+			unic.egress_vlan_tag = vlan_dev_priv(new_out)->vlan_id;
+			dest_dev = vlan_dev_priv(new_out)->real_dev;
+			NSS_CONNMGR_DEBUG_INFO("Route-CM: Egress VLAN ID = %d\n",vlan_dev_priv(new_out)->vlan_id);
 		} else {
-			unic.ingress_vlan_tag = vlan_dev_priv(out)->vlan_id;
-			src_dev = vlan_dev_priv(out)->real_dev;
-			NSS_CONNMGR_DEBUG_INFO("Route-CM: Ingress VLAN ID = %d\n",vlan_dev_priv(out)->vlan_id);
+			unic.ingress_vlan_tag = vlan_dev_priv(new_out)->vlan_id;
+			src_dev = vlan_dev_priv(new_out)->real_dev;
+			NSS_CONNMGR_DEBUG_INFO("Route-CM: Ingress VLAN ID = %d\n",vlan_dev_priv(new_out)->vlan_id);
 		}
 	}
 
@@ -1201,14 +1310,12 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 	 */
 	unic.src_interface_num = nss_get_interface_number(nss_connmgr_ipv6.nss_context, src_dev);
 	if (unic.src_interface_num < 0) {
-		dev_put(in);
-		return NF_ACCEPT;
+		goto out;
 	}
 
 	unic.dest_interface_num = nss_get_interface_number(nss_connmgr_ipv6.nss_context, dest_dev);
 	if (unic.dest_interface_num < 0) {
-		dev_put(in);
-		return NF_ACCEPT;
+		goto out;
 	}
 
 	/*
@@ -1233,7 +1340,9 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 			"src_iface_num: %u\n"
 			"dest_iface_num: %u\n"
 			"ingress_vlan_tag: %u\n"
-			"egress_vlan_tag: %u\n",
+			"egress_vlan_tag: %u\n"
+			"flow_pppoe_session_id: %u\n"
+			"return_pppoe_session_id: %u\n",
 			ct,
 			skb,
 			(ctinfo < IP_CT_IS_REPLY)? "Original" : "Reply",
@@ -1247,7 +1356,9 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 			unic.src_interface_num,
 			unic.dest_interface_num,
 			unic.ingress_vlan_tag,
-			unic.egress_vlan_tag);
+			unic.egress_vlan_tag,
+			unic.flow_pppoe_session_id,
+			unic.return_pppoe_session_id);
 
 	/*
 	 * Create the Network Accelerator connection cache entries
@@ -1267,10 +1378,8 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 	spin_lock_bh(&nss_connmgr_ipv6.lock);
 	if (unlikely(nss_connmgr_ipv6.stopped)) {
 		spin_unlock_bh(&nss_connmgr_ipv6.lock);
-		dev_put(in);
 		NSS_CONNMGR_DEBUG_TRACE("Stopped, ignoring: %p\n", skb);
-
-		return NF_ACCEPT;
+		goto out;
 	}
 	spin_unlock_bh(&nss_connmgr_ipv6.lock);
 	nss_tx_status = nss_tx_create_ipv6_rule(nss_connmgr_ipv6.nss_context, &unic);
@@ -1294,6 +1403,22 @@ out:
 	 * Release the interface on which this skb arrived
 	 */
 	dev_put(in);
+
+	if (ppp_in) {
+		dev_put(ppp_in);
+	}
+
+	if (eth_out) {
+		dev_put(eth_out);
+	}
+
+	if (ppp_src) {
+		dev_put(ppp_src);
+	}
+
+	if (ppp_dest) {
+		dev_put(ppp_dest);
+	}
 
 	return NF_ACCEPT;
 }
