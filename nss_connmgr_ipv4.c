@@ -2367,7 +2367,7 @@ static ssize_t nss_connmgr_ipv4_read_debug_stats(struct file *fp, char __user *u
 	size_wr = scnprintf(lbuf, size_al,"debug stats start:\n\n");
 	spin_lock_bh(&nss_connmgr_ipv4.lock);
 
-	for (i = 0; (i < NSS_CONNMGR_IPV4_MAX_STR_LENGTH); i++) {
+	for (i = 0; (i < NSS_CONNMGR_IPV4_DEBUG_STATS_MAX); i++) {
 		stats_shadow[i] = nss_connmgr_ipv4.debug_stats[i];
 	}
 

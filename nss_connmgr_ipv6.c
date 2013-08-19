@@ -1967,7 +1967,7 @@ static ssize_t nss_connmgr_ipv6_read_debug_stats(struct file *fp, char __user *u
 	size_wr = scnprintf(lbuf, size_al,"debug stats start:\n\n");
 	spin_lock_bh(&nss_connmgr_ipv6.lock);
 
-	for (i = 0; (i < NSS_CONNMGR_IPV6_MAX_STR_LENGTH); i++) {
+	for (i = 0; (i < NSS_CONNMGR_IPV6_DEBUG_STATS_MAX); i++) {
 		stats_shadow[i] = nss_connmgr_ipv6.debug_stats[i];
 	}
 
