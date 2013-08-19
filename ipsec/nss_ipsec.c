@@ -339,7 +339,7 @@ static struct nss_ipsec_tunnel* nss_ipsec_get_tunnel(struct net_device *dev, str
 	/*
 	 * exception is indicated using the first registered tunnel
 	 */
-	if (gbl_except_dev)  {
+	if (!gbl_except_dev)  {
 		gbl_except_dev = dev;
 	}
 
