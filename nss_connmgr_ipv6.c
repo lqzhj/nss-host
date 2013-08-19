@@ -536,8 +536,8 @@ static unsigned int nss_connmgr_ipv6_bridge_post_routing_hook(unsigned int hookn
 	 * Only work with standard 802.3 mac address sizes
 	 */
 	if (in->addr_len != 6) {
-		dev_put(in);
 		NSS_CONNMGR_DEBUG_TRACE("in device (%s) not 802.3 hw addr len (%u), ignoring: %p\n", in->name, (unsigned)in->addr_len, skb);
+		dev_put(in);
 		return NF_ACCEPT;
 	}
 
@@ -950,8 +950,8 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 	 * Only work with standard 802.3 mac address sizes
 	 */
 	if (in->addr_len != 6) {
-		dev_put(in);
 		NSS_CONNMGR_DEBUG_TRACE("in device (%s) not 802.3 hw addr len (%u), ignoring: %p\n", in->name, (unsigned)in->addr_len, skb);
+		dev_put(in);
 		return NF_ACCEPT;
 	}
 
