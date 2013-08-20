@@ -485,9 +485,10 @@ int nss_gmac_linux_open(struct net_device *netdev)
 	 * Inform the Linux Networking stack about the hardware
 	 * capability of checksum offloading
 	 */
-	netdev->features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
-	netdev->hw_features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_TSO | NETIF_F_SG | NETIF_F_UFO;
-	netdev->vlan_features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_TSO | NETIF_F_SG | NETIF_F_UFO;
+	netdev->features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_TSO | NETIF_F_SG | NETIF_F_UFO | NETIF_F_TSO6;
+	netdev->hw_features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_TSO | NETIF_F_SG | NETIF_F_UFO | NETIF_F_TSO6;
+	netdev->vlan_features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_TSO | NETIF_F_SG | NETIF_F_UFO | NETIF_F_TSO6;
+	netdev->wanted_features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_TSO | NETIF_F_SG | NETIF_F_UFO | NETIF_F_TSO6;
 
 	/**
 	 * Set GMAC state to UP before link state is checked
