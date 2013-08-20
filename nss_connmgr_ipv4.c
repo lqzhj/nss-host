@@ -814,6 +814,21 @@ static unsigned int nss_connmgr_ipv4_bridge_post_routing_hook(unsigned int hookn
 		return NF_ACCEPT;
 	}
 
+	/*
+	 * Handle Link Aggregation master
+	 */
+	if ((dest_dev->priv_flags & IFF_BONDING) && (dest_dev->flags & IFF_MASTER)) {
+		struct net_device *dest_slave = NULL;
+
+		dest_slave = bond_get_tx_dev(skb, NULL, NULL, NULL, NULL, 0, dest_dev);
+		if (dest_slave == NULL) {
+			dev_put(in);
+			return NF_ACCEPT;
+		}
+
+		dest_dev = dest_slave;
+	}
+
 	unic.dest_interface_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, dest_dev);
 	if (unic.dest_interface_num < 0) {
 		dev_put(in);
