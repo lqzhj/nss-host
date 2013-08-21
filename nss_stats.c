@@ -706,7 +706,7 @@ static ssize_t nss_stats_gmac_read(struct file *fp, char __user *ubuf, size_t sz
  */
 static ssize_t nss_stats_if_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
 {
-	uint32_t i, id;
+	uint32_t i, k, id;
 
 	/*
 	 * max output lines per interface =
@@ -730,6 +730,7 @@ static ssize_t nss_stats_if_read(struct file *fp, char __user *ubuf, size_t sz, 
 	size_t size_wr = 0;
 	ssize_t bytes_read = 0;
 	uint64_t *stats_shadow;
+	uint64_t pppoe_stats_shadow[NSS_PPPOE_NUM_SESSION_PER_INTERFACE][NSS_EXCEPTION_EVENT_PPPOE_MAX];
 
 	char *lbuf = kzalloc(size_al, GFP_KERNEL);
 	if (unlikely(lbuf == NULL)) {
@@ -755,6 +756,7 @@ static ssize_t nss_stats_if_read(struct file *fp, char __user *ubuf, size_t sz, 
 	stats_shadow = kzalloc(64 * 8, GFP_KERNEL);
 	if (unlikely(stats_shadow == NULL)) {
 		nss_warning("Could not allocate memory for local shadow buffer");
+		kfree(lbuf);
 		return 0;
 	}
 
@@ -880,18 +882,23 @@ static ssize_t nss_stats_if_read(struct file *fp, char __user *ubuf, size_t sz, 
 		 * Exception PPPoE
 		 */
 		spin_lock_bh(&nss_top_main.stats_lock);
-		for (i = 0; (i < NSS_EXCEPTION_EVENT_PPPOE_MAX); i++) {
-			stats_shadow[i] = nss_top_main.stats_if_exception_pppoe[id][i];
+		for (k = 0; k < NSS_PPPOE_NUM_SESSION_PER_INTERFACE; k++) {
+			for (i = 0; (i < NSS_EXCEPTION_EVENT_PPPOE_MAX); i++) {
+				pppoe_stats_shadow[k][i] = nss_top_main.stats_if_exception_pppoe[id][k][i];
+			}
 		}
 
 		spin_unlock_bh(&nss_top_main.stats_lock);
 
 		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "Exception PPPoE:\n");
-		for (i = 0; (i < NSS_EXCEPTION_EVENT_PPPOE_MAX); i++) {
-			size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
-					"%s = %llu\n",
-					nss_stats_str_if_exception_pppoe[i],
-					stats_shadow[i]);
+		for (k = 0; k < NSS_PPPOE_NUM_SESSION_PER_INTERFACE; k++) {
+			size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "%d. Session\n", k);
+			for (i = 0; (i < NSS_EXCEPTION_EVENT_PPPOE_MAX); i++) {
+				size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+						"%s = %llu\n",
+						nss_stats_str_if_exception_pppoe[i],
+						pppoe_stats_shadow[k][i]);
+			}
 		}
 		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\n");
 	}

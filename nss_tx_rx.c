@@ -22,6 +22,7 @@
 #include "nss_core.h"
 #include <nss_hal.h>
 #include <linux/module.h>
+#include <linux/ppp_channel.h>
 
 /*
  * Global variables/extern declarations
@@ -113,6 +114,7 @@ static void nss_rx_metadata_ipv4_rule_sync(struct nss_ctx_instance *nss_ctx, str
 {
 	struct nss_top_instance *nss_top = nss_ctx->nss_top;
 	struct nss_ipv4_cb_params nicp;
+	struct net_device *pppoe_dev = NULL;
 
 	nicp.reason = NSS_IPV4_CB_REASON_SYNC;
 	nicp.params.sync.index = nirs->index;
@@ -175,7 +177,28 @@ static void nss_rx_metadata_ipv4_rule_sync(struct nss_ctx_instance *nss_ctx, str
 	nss_top->stats_ipv4[NSS_STATS_IPV4_ACCELERATED_RX_PKTS] += nirs->flow_rx_packet_count + nirs->return_rx_packet_count;
 	nss_top->stats_ipv4[NSS_STATS_IPV4_ACCELERATED_RX_BYTES] += nirs->flow_rx_byte_count + nirs->return_rx_byte_count;
 	nss_top->stats_ipv4[NSS_STATS_IPV4_ACCELERATED_TX_PKTS] += nirs->flow_tx_packet_count + nirs->return_tx_packet_count;
-	nss_top->stats_ipv4[NSS_STATS_IPV4_ACCELERATED_TX_BYTES] += nirs->flow_tx_byte_count + nirs->return_tx_packet_count;
+	nss_top->stats_ipv4[NSS_STATS_IPV4_ACCELERATED_TX_BYTES] += nirs->flow_tx_byte_count + nirs->return_tx_byte_count;
+
+	/*
+	 * Update the PPPoE interface stats, if there is any PPPoE session on the interfaces.
+	 */
+	if (nirs->flow_pppoe_session_id) {
+		pppoe_dev = ppp_session_to_netdev(nirs->flow_pppoe_session_id, (uint8_t *)nirs->flow_pppoe_remote_mac);
+		if (pppoe_dev) {
+	                ppp_update_stats(pppoe_dev, nirs->flow_rx_packet_count, nirs->flow_rx_byte_count,
+                                        nirs->flow_tx_packet_count, nirs->flow_tx_byte_count);
+			dev_put(pppoe_dev);
+		}
+        }
+
+	if (nirs->return_pppoe_session_id) {
+		pppoe_dev = ppp_session_to_netdev(nirs->return_pppoe_session_id, (uint8_t *)nirs->return_pppoe_remote_mac);
+		if (pppoe_dev) {
+	                ppp_update_stats(pppoe_dev, nirs->return_rx_packet_count, nirs->return_rx_byte_count,
+                                        nirs->return_tx_packet_count, nirs->return_tx_byte_count);
+			dev_put(pppoe_dev);
+		}
+       }
 
 	/*
 	 * TODO: Update per dev accelerated statistics
@@ -213,6 +236,7 @@ static void nss_rx_metadata_ipv6_rule_sync(struct nss_ctx_instance *nss_ctx, str
 {
 	struct nss_top_instance *nss_top = nss_ctx->nss_top;
 	struct nss_ipv6_cb_params nicp;
+	struct net_device *pppoe_dev = NULL;
 
 	nicp.reason = NSS_IPV6_CB_REASON_SYNC;
 	nicp.params.sync.index = nirs->index;
@@ -269,7 +293,28 @@ static void nss_rx_metadata_ipv6_rule_sync(struct nss_ctx_instance *nss_ctx, str
 	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_RX_PKTS] += nirs->flow_rx_packet_count + nirs->return_rx_packet_count;
 	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_RX_BYTES] += nirs->flow_rx_byte_count + nirs->return_rx_byte_count;
 	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_TX_PKTS] += nirs->flow_tx_packet_count + nirs->return_tx_packet_count;
-	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_TX_BYTES] += nirs->flow_tx_byte_count + nirs->return_tx_packet_count;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_TX_BYTES] += nirs->flow_tx_byte_count + nirs->return_tx_byte_count;
+
+	/*
+	 * Update the PPPoE interface stats, if there is any PPPoE session on the interfaces.
+	 */
+	if (nirs->flow_pppoe_session_id) {
+		pppoe_dev = ppp_session_to_netdev(nirs->flow_pppoe_session_id, (uint8_t *)nirs->flow_pppoe_remote_mac);
+		if (pppoe_dev) {
+			ppp_update_stats(pppoe_dev, nirs->flow_rx_packet_count, nirs->flow_rx_byte_count,
+                                        nirs->flow_tx_packet_count, nirs->flow_tx_byte_count);
+			dev_put(pppoe_dev);
+		}
+        }
+
+	if (nirs->return_pppoe_session_id) {
+		pppoe_dev = ppp_session_to_netdev(nirs->return_pppoe_session_id, (uint8_t *)nirs->return_pppoe_remote_mac);
+		if (pppoe_dev) {
+			ppp_update_stats(pppoe_dev, nirs->return_rx_packet_count, nirs->return_rx_byte_count,
+				nirs->return_tx_packet_count, nirs->return_tx_byte_count);
+			dev_put(pppoe_dev);
+		}
+	}
 
 	/*
 	 * TODO: Update per dev accelerated statistics
@@ -494,6 +539,122 @@ static void nss_rx_metadata_nss_stats_sync(struct nss_ctx_instance *nss_ctx, str
 static void nss_rx_metadata_pppoe_exception_stats_sync(struct nss_ctx_instance *nss_ctx, struct nss_pppoe_exception_stats_sync *npess)
 {
 	/* Place holder */
+	struct nss_top_instance *nss_top = nss_ctx->nss_top;
+	uint32_t index = npess->index;
+	uint32_t interface_num = npess->interface_num;
+	uint32_t i;
+
+	spin_lock_bh(&nss_top->stats_lock);
+
+	for (i = 0; i < NSS_EXCEPTION_EVENT_PPPOE_MAX; i++) {
+		nss_top->stats_if_exception_pppoe[interface_num][index][i] += npess->exception_events_pppoe[i];
+	}
+
+	spin_unlock_bh(&nss_top->stats_lock);
+}
+
+/*
+ * nss_tx_destroy_pppoe_connection_rule)
+ *	Destroy PPoE connection rule associated with the session ID and remote server MAC address.
+ */
+static void nss_tx_destroy_pppoe_connection_rule(void *ctx, uint16_t pppoe_session_id, uint8_t *pppoe_remote_mac)
+{
+	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) ctx;
+	struct nss_top_instance *nss_top = nss_ctx->nss_top;
+	struct sk_buff *nbuf;
+	int32_t status;
+	struct nss_tx_metadata_object *ntmo;
+	struct nss_pppoe_rule_destroy *nprd;
+	uint16_t *pppoe_remote_mac_uint16_t = (uint16_t *)pppoe_remote_mac;
+	uint32_t i, j, k;
+
+	nss_info("%p: Destroy all PPPoE rules of session ID: %x remote MAC: %x:%x:%x:%x:%x:%x", nss_ctx, pppoe_session_id,
+			pppoe_remote_mac[0], pppoe_remote_mac[1], pppoe_remote_mac[2],
+			pppoe_remote_mac[3], pppoe_remote_mac[4], pppoe_remote_mac[5]);
+
+	NSS_VERIFY_CTX_MAGIC(nss_ctx);
+	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
+		nss_warning("%p: 'Destroy all rules by PPPoE session dropped as core not ready", nss_ctx);
+		return;
+	}
+
+	nbuf = __dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE, GFP_ATOMIC | __GFP_NOWARN);
+	if (unlikely(!nbuf)) {
+		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
+		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
+		spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
+		nss_warning("%p: 'Destroy all rules by PPPoE session dropped as command allocation failed", nss_ctx);
+		return;
+	}
+
+	ntmo = (struct nss_tx_metadata_object *)skb_put(nbuf, sizeof(struct nss_tx_metadata_object));
+	ntmo->type = NSS_TX_METADATA_TYPE_DESTROY_PPPOE_CONNECTION_RULE;
+
+	nprd = &ntmo->sub.pppoe_rule_destroy;
+	nprd->pppoe_session_id = pppoe_session_id;
+	nprd->pppoe_remote_mac[0] = pppoe_remote_mac_uint16_t[0];
+	nprd->pppoe_remote_mac[1] = pppoe_remote_mac_uint16_t[1];
+	nprd->pppoe_remote_mac[2] = pppoe_remote_mac_uint16_t[2];
+
+	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
+	if (status != NSS_CORE_STATUS_SUCCESS) {
+		dev_kfree_skb_any(nbuf);
+		nss_warning("%p: Unable to enqueue 'Destroy all rules by PPPoE session\n", nss_ctx);
+		return;
+	}
+
+	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
+								NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
+
+	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_CMD_REQ]);
+
+	/*
+	 * Reset the PPPoE statistics.
+	 */
+	spin_lock_bh(&nss_top->stats_lock);
+	/*
+	 * TODO: Don't reset all the statistics. Reset only the destroyed session's stats.
+	 */
+	for (i = 0; i < NSS_MAX_NET_INTERFACES; i++) {
+		for (j = 0; j < NSS_PPPOE_NUM_SESSION_PER_INTERFACE; j++) {
+			for (k = 0; k < NSS_EXCEPTION_EVENT_PPPOE_MAX; k++) {
+				nss_top->stats_if_exception_pppoe[i][j][k] = 0;
+			}
+		}
+	}
+
+        nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_CREATE_REQUESTS] = 0;
+        nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_CREATE_FAILURES] = 0;
+        nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_DESTROY_REQUESTS] = 0;
+        nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_DESTROY_MISSES] = 0;
+
+	/*
+	 * TODO: Do we need to unregister the destroy method? The ppp_dev has already gone.
+	 */
+	spin_unlock_bh(&nss_top->stats_lock);
+}
+
+/*
+ * nss_rx_metadata_pppoe_rule_create_success()
+ *	Handle the PPPoE rule create success message.
+ */
+static void nss_rx_metadata_pppoe_rule_create_success(struct nss_ctx_instance *nss_ctx, struct nss_pppoe_rule_create_success *pcs)
+{
+	struct net_device *ppp_dev = ppp_session_to_netdev(pcs->pppoe_session_id, pcs->pppoe_remote_mac);
+
+	if (!ppp_dev) {
+		nss_warning("%p: There is not any PPP devices with SID: %x remote MAC: %x:%x:%x:%x:%x:%x", nss_ctx, pcs->pppoe_session_id,
+			pcs->pppoe_remote_mac[0], pcs->pppoe_remote_mac[1], pcs->pppoe_remote_mac[2],
+                        pcs->pppoe_remote_mac[3], pcs->pppoe_remote_mac[4], pcs->pppoe_remote_mac[5]);
+
+		return;
+	}
+
+	if (!ppp_register_destroy_method(ppp_dev, nss_tx_destroy_pppoe_connection_rule, (void *)nss_ctx)) {
+		nss_warning("%p: Failed to register destroy method", nss_ctx);
+	}
+
+	dev_put(ppp_dev);
 }
 
 /*
@@ -552,6 +713,10 @@ void nss_rx_handle_status_pkt(struct nss_ctx_instance *nss_ctx, struct sk_buff *
 
 	case NSS_RX_METADATA_TYPE_PPPOE_STATS_SYNC:
 		nss_rx_metadata_pppoe_exception_stats_sync(nss_ctx, &nrmo->sub.pppoe_exception_stats_sync);
+		break;
+
+	case NSS_RX_METADATA_TYPE_PPPOE_RULE_CREATE_SUCCESS:
+		nss_rx_metadata_pppoe_rule_create_success(nss_ctx, &nrmo->sub.pppoe_rule_create_success);
 		break;
 
 	case NSS_RX_METADATA_TYPE_PROFILER_SYNC:

@@ -293,7 +293,7 @@ enum nss_tx_metadata_types {
 	NSS_TX_METADATA_TYPE_VIRTUAL_INTERFACE_DESTROY,
 	NSS_TX_METADATA_TYPE_DESTROY_ALL_L3_RULES,
 	NSS_TX_METADATA_TYPE_DESTROY_ALL_L2SWITCH_RULES,
-	NSS_TX_METADATA_TYPE_DESTROY_ALL_RULES_BY_PPPOE_SESSION,
+	NSS_TX_METADATA_TYPE_DESTROY_PPPOE_CONNECTION_RULE,
 	NSS_TX_METADATA_TYPE_INTERFACE_OPEN,
 	NSS_TX_METADATA_TYPE_INTERFACE_CLOSE,
 	NSS_TX_METADATA_TYPE_INTERFACE_LINK_STATE_NOTIFY,
@@ -400,6 +400,9 @@ struct nss_ipv4_rule_sync {
 	uint32_t flow_rx_byte_count;	/* Flow interface's RX byte count */
 	uint32_t flow_tx_packet_count;	/* Flow interface's TX packet count */
 	uint32_t flow_tx_byte_count;	/* Flow interface's TX byte count */
+	uint16_t flow_pppoe_session_id; /* Flow interface`s PPPoE session ID. */
+	uint16_t flow_pppoe_remote_mac[3];
+					/* Flow interface's PPPoE remote server MAC address if there is any */
 	uint32_t return_max_window;	/* Return direction's largest seen window */
 	uint32_t return_end;		/* Return direction's largest seen sequence + segment length */
 	uint32_t return_max_end;	/* Return direction's largest seen ack + max(1, win) */
@@ -409,6 +412,10 @@ struct nss_ipv4_rule_sync {
 	uint32_t return_tx_packet_count;
 					/* Return interface's TX packet count */
 	uint32_t return_tx_byte_count;	/* Return interface's TX byte count */
+	uint16_t return_pppoe_session_id;
+					/* Return interface`s PPPoE session ID. */
+	uint16_t return_pppoe_remote_mac[3];
+					/* Return interface's PPPoE remote server MAC address if there is any */
 	uint32_t inc_ticks;		/* Number of ticks since the last sync */
 	uint32_t reason;		/* Reason for the sync */
 };
@@ -460,6 +467,9 @@ struct nss_ipv6_rule_sync {
 	uint32_t flow_rx_byte_count;	/* Flow interface's RX byte count */
 	uint32_t flow_tx_packet_count;	/* Flow interface's TX packet count */
 	uint32_t flow_tx_byte_count;	/* Flow interface's TX byte count */
+	uint16_t flow_pppoe_session_id; /* Flow interface`s PPPoE session ID. */
+	uint16_t flow_pppoe_remote_mac[3];
+					/* Flow interface's PPPoE remote server MAC address if there is any */
 	uint32_t return_max_window;	/* Return direction's largest seen window */
 	uint32_t return_end;		/* Return direction's largest seen sequence + segment length */
 	uint32_t return_max_end;	/* Return direction's largest seen ack + max(1, win) */
@@ -469,6 +479,10 @@ struct nss_ipv6_rule_sync {
 	uint32_t return_tx_packet_count;
 					/* Return interface's TX packet count */
 	uint32_t return_tx_byte_count;	/* Return interface's TX byte count */
+	uint16_t return_pppoe_session_id;
+					/* Return interface`s PPPoE session ID. */
+	uint16_t return_pppoe_remote_mac[3];
+					/* Return interface's PPPoE remote server MAC address if there is any */
 	uint32_t inc_ticks;		/* Number of ticks since the last sync */
 	uint32_t reason;		/* Reason for the sync */
 };
@@ -771,6 +785,17 @@ struct nss_pppoe_exception_stats_sync {
 					/* PPPoE server MAC address */
 	uint32_t exception_events_pppoe[NSS_EXCEPTION_EVENT_PPPOE_MAX];
 					/* PPPoE exception events */
+	uint32_t index;			/* Per interface array index */
+	uint32_t interface_num;		/* Interface number on which this session is created */
+};
+
+/*
+ * The NSS PPPoE rule create success structure.
+ */
+struct nss_pppoe_rule_create_success {
+	uint16_t pppoe_session_id;	/* PPPoE session ID on which stats are based */
+	uint8_t pppoe_remote_mac[ETH_ALEN];
+					/* PPPoE server MAC address */
 };
 
 /*
@@ -795,6 +820,7 @@ enum nss_rx_metadata_types {
 	NSS_RX_METADATA_TYPE_INTERFACE_STATS_SYNC,
 	NSS_RX_METADATA_TYPE_NSS_STATS_SYNC,
 	NSS_RX_METADATA_TYPE_PPPOE_STATS_SYNC,
+	NSS_RX_METADATA_TYPE_PPPOE_RULE_CREATE_SUCCESS,
 	NSS_RX_METADATA_TYPE_PROFILER_SYNC,
 	NSS_RX_METADATA_TYPE_FREQ_ACK,
 };
@@ -815,6 +841,7 @@ struct nss_rx_metadata_object {
 		struct nss_interface_stats_sync interface_stats_sync;
 		struct nss_nss_stats_sync nss_stats_sync;
 		struct nss_pppoe_exception_stats_sync pppoe_exception_stats_sync;
+		struct nss_pppoe_rule_create_success pppoe_rule_create_success;
 		struct nss_profiler_sync profiler_sync;
 		struct nss_freq_ack freq_ack;
 	} sub;

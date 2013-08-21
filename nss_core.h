@@ -542,8 +542,8 @@ struct nss_top_instance {
 					/* IPv4 protocol exception events per interface */
 	uint64_t stats_if_exception_ipv6[NSS_MAX_NET_INTERFACES][NSS_EXCEPTION_EVENT_IPV6_MAX];
 					/* IPv6 protocol exception events per interface */
-	uint64_t stats_if_exception_pppoe[NSS_MAX_NET_INTERFACES][NSS_EXCEPTION_EVENT_PPPOE_MAX];
-					/* PPPoE exception events per interface */
+	uint64_t stats_if_exception_pppoe[NSS_MAX_NET_INTERFACES][NSS_PPPOE_NUM_SESSION_PER_INTERFACE][NSS_EXCEPTION_EVENT_PPPOE_MAX];
+					/* PPPoE exception events for per session on per interface */
 	uint64_t pe_queue_dropped;	/* Number of packets dropped because the PE queue is too full */
 	uint64_t pe_total_ticks;	/* Total clock ticks spend inside the PE */
 	uint32_t pe_worst_case_ticks;	/* Worst case iteration of the PE in ticks */
