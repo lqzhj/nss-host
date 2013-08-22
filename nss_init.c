@@ -442,73 +442,98 @@ static int nss_current_freq_handler (ctl_table *ctl, int write, void __user *buf
 
 	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
 
-	if (write) {
-
-		ubicom_na_nss_context = nss_register_ipv4_mgr(NULL);
-
-		nss_info("Frequency Set to %d\n", nss_cmd_buf.current_freq);
-
-		/* If support NSS freq is in the table send the new frequency request to NSS */
-
-		if (nss_cmd_buf.current_freq == 110000000) {
-
-			nss_freq_change(ubicom_na_nss_context, 533000000, 0);
-			nss_hal_pvt_divide_pll(0, 11, 1);
-			nss_hal_pvt_enable_pll18(1100);
-			nss_freq_change(ubicom_na_nss_context, nss_cmd_buf.current_freq, 0);
-			nss_hal_pvt_divide_pll(0, 18, 5);
-
-			vret = regulator_set_voltage(nss0_vreg, NSS_NOM_VCC, NSS_NOM_VCC);
-			if (vret) {
-				nss_info("Regulator set voltage failed, err=%d\n", vret);
-				return ret;
-			}
-
-		} else if (nss_cmd_buf.current_freq == 225000000) {
-
-			nss_freq_change(ubicom_na_nss_context, 533000000, 0);
-			nss_hal_pvt_divide_pll(0, 11, 1);
-			nss_hal_pvt_enable_pll18(1100);
-			nss_freq_change(ubicom_na_nss_context, nss_cmd_buf.current_freq, 0);
-			nss_hal_pvt_divide_pll(0, 18, 2);
-
-			vret = regulator_set_voltage(nss0_vreg, NSS_NOM_VCC, NSS_NOM_VCC);
-			if (vret) {
-				nss_info("Regulator set voltage failed, err=%d\n", vret);
-				return ret;
-			}
-
-		} else if (nss_cmd_buf.current_freq == 550000000) {
-
-			nss_freq_change(ubicom_na_nss_context, 533000000, 0);
-			nss_hal_pvt_divide_pll(0, 11, 1);
-			nss_hal_pvt_enable_pll18(1100);
-			nss_freq_change(ubicom_na_nss_context, nss_cmd_buf.current_freq, 0);
-			nss_hal_pvt_divide_pll(0, 18, 1);
-
-			vret = regulator_set_voltage(nss0_vreg, NSS_NOM_VCC, NSS_NOM_VCC);
-			if (vret) {
-				nss_info("Regulator set voltage failed, err=%d\n", vret);
-				return ret;
-			}
-
-		} else if (nss_cmd_buf.current_freq == 733000000) {
-			vret = regulator_set_voltage(nss0_vreg, NSS_TURB_VCC, NSS_TURB_VCC);
-			if (vret) {
-				nss_info("Regulator set voltage failed, err=%d\n", vret);
-				return ret;
-			}
-
-			nss_freq_change(ubicom_na_nss_context, 533000000, 0);
-			nss_hal_pvt_divide_pll(0, 11, 1);
-			nss_hal_pvt_enable_pll18(1466);
-			nss_freq_change(ubicom_na_nss_context, nss_cmd_buf.current_freq, 0);
-			nss_hal_pvt_divide_pll(0, 18, 1);
-
-		} else {
-			nss_info("Frequency not found. Please check Frequency Table\n");
-		}
+	if (!write) {
+		return ret;
 	}
+
+	ubicom_na_nss_context = nss_register_ipv4_mgr(NULL);
+	nss_info("Frequency Set to %d\n", nss_cmd_buf.current_freq);
+
+	/* If support NSS freq is in the table send the new frequency request to NSS */
+
+	if (nss_cmd_buf.current_freq == 110000000) {
+
+		nss_freq_change(ubicom_na_nss_context, 533000000, 0);
+		nss_hal_pvt_pll_change(11);
+
+		nss_hal_pvt_enable_pll18(1100);
+		ret = nss_hal_pvt_divide_pll18(0, 5);
+		if (!ret) {
+			return 0;
+		}
+
+		nss_freq_change(ubicom_na_nss_context, nss_cmd_buf.current_freq, 0);
+		nss_hal_pvt_pll_change(18);
+
+		vret = regulator_set_voltage(nss0_vreg, NSS_NOM_VCC, NSS_NOM_VCC);
+		if (vret) {
+			nss_info("Regulator set voltage failed, err=%d\n", vret);
+			return ret;
+		}
+
+	} else if (nss_cmd_buf.current_freq == 275000000) {
+
+		nss_freq_change(ubicom_na_nss_context, 533000000, 0);
+		nss_hal_pvt_pll_change(11);
+
+		nss_hal_pvt_enable_pll18(1100);
+		ret = nss_hal_pvt_divide_pll18(0, 2);
+		if (!ret) {
+			return ret;
+		}
+
+		nss_freq_change(ubicom_na_nss_context, nss_cmd_buf.current_freq, 0);
+		nss_hal_pvt_pll_change(11);
+
+		vret = regulator_set_voltage(nss0_vreg, NSS_NOM_VCC, NSS_NOM_VCC);
+		if (vret) {
+			nss_info("Regulator set voltage failed, err=%d\n", vret);
+			return ret;
+		}
+
+	} else if (nss_cmd_buf.current_freq == 550000000) {
+
+		nss_freq_change(ubicom_na_nss_context, 533000000, 0);
+		nss_hal_pvt_pll_change(11);
+
+		nss_hal_pvt_enable_pll18(1100);
+		ret = nss_hal_pvt_divide_pll18(0, 1);
+		if (!ret) {
+			return ret;
+		}
+
+		nss_freq_change(ubicom_na_nss_context, nss_cmd_buf.current_freq, 0);
+		nss_hal_pvt_pll_change(18);
+
+		vret = regulator_set_voltage(nss0_vreg, NSS_NOM_VCC, NSS_NOM_VCC);
+		if (vret) {
+			nss_info("Regulator set voltage failed, err=%d\n", vret);
+			return ret;
+		}
+
+	} else if (nss_cmd_buf.current_freq == 733000000) {
+		vret = regulator_set_voltage(nss0_vreg, NSS_TURB_VCC, NSS_TURB_VCC);
+		if (vret) {
+			nss_info("Regulator set voltage failed, err=%d\n", vret);
+			return ret;
+		}
+
+		nss_freq_change(ubicom_na_nss_context, 533000000, 0);
+		nss_hal_pvt_pll_change(11);
+
+		nss_hal_pvt_enable_pll18(1466);
+		ret = nss_hal_pvt_divide_pll18(0, 1);
+		if (!ret) {
+			return ret;
+		}
+
+		nss_freq_change(ubicom_na_nss_context, nss_cmd_buf.current_freq, 0);
+		nss_hal_pvt_pll_change(18);
+
+	} else {
+		nss_info("Frequency not found. Please check Frequency Table\n");
+	}
+
 	return ret;
 }
 

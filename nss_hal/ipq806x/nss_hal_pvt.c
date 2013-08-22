@@ -48,44 +48,46 @@ static inline uint32_t clk_reg_read_32(volatile void *addr)
  */
 void nss_hal_pvt_pll_change(uint32_t pll)
 {
-	uint32_t ns_reg0;
-	uint32_t ns_reg1;
+	uint32_t ctl_reg0;
+	uint32_t ctl_reg1;
 
-	uint32_t pll11_mask = 0x3;
-	uint32_t pll18_mask = 0x1;
+	uint32_t pll11_mask = 0x1;
+	uint32_t pll18_mask = 0x0;
 
-	uint32_t pll_cl_mask = 0x7;
+	uint32_t pll_cl_mask = 0x1;
 
 
 	printk("Picking PLL%d\n", pll);
 
 	if (pll == 11) {
-		ns_reg0 = clk_reg_read_32(UBI32_COREn_CLK_SRC0_NS(0));
-		ns_reg1 = clk_reg_read_32(UBI32_COREn_CLK_SRC1_NS(1));
 
-		ns_reg0 &= ~pll_cl_mask;
-		ns_reg1 &= ~pll_cl_mask;
+		ctl_reg0 = clk_reg_read_32(UBI32_COREn_CLK_CTL(0));
+		ctl_reg1 = clk_reg_read_32(UBI32_COREn_CLK_CTL(1));
 
-		ns_reg0 |= pll11_mask;
-		ns_reg1 |= pll11_mask;
+		ctl_reg0 &= ~pll_cl_mask;
+		ctl_reg1 &= ~pll_cl_mask;
 
-		clk_reg_write_32(UBI32_COREn_CLK_SRC0_NS(0), ns_reg0);
-		clk_reg_write_32(UBI32_COREn_CLK_SRC0_NS(1), ns_reg1);
-		
+		ctl_reg0 |= pll11_mask;
+		ctl_reg1 |= pll11_mask;
+
+		clk_reg_write_32(UBI32_COREn_CLK_CTL(0), ctl_reg0);
+		clk_reg_write_32(UBI32_COREn_CLK_CTL(1), ctl_reg1);
 
 	} else if (pll == 18) {
-		ns_reg0 = clk_reg_read_32(UBI32_COREn_CLK_SRC0_NS(0));
-		ns_reg1 = clk_reg_read_32(UBI32_COREn_CLK_SRC1_NS(1));
 
-		ns_reg0 &= ~pll_cl_mask;
-		ns_reg1 &= ~pll_cl_mask;
+		ctl_reg0 = clk_reg_read_32(UBI32_COREn_CLK_CTL(0));
+		ctl_reg1 = clk_reg_read_32(UBI32_COREn_CLK_CTL(1));
 
-		ns_reg0 |= pll18_mask;
-		ns_reg1 |= pll18_mask;
+		ctl_reg0 &= ~pll_cl_mask;
+		ctl_reg1 &= ~pll_cl_mask;
 
-		clk_reg_write_32(UBI32_COREn_CLK_SRC0_NS(0), ns_reg0);
-		clk_reg_write_32(UBI32_COREn_CLK_SRC0_NS(1), ns_reg1);
+		ctl_reg0 |= pll18_mask;
+		ctl_reg1 |= pll18_mask;
 
+		clk_reg_write_32(UBI32_COREn_CLK_CTL(0), ctl_reg0);
+		clk_reg_write_32(UBI32_COREn_CLK_CTL(1), ctl_reg1);
+	} else {
+		BUG_ON(1);
 	}
 
 	return;
@@ -95,7 +97,7 @@ void nss_hal_pvt_pll_change(uint32_t pll)
  * nss_hal_pvt_divide_pll
  *	Divide PLL by int val
  */
-uint32_t nss_hal_pvt_divide_pll(uint32_t core_id, uint32_t pll, uint32_t divider)
+uint32_t nss_hal_pvt_divide_pll18(uint32_t core_id, uint32_t divider)
 {
 	uint32_t ns_mask 	= 0x00ff01ff;
 	uint32_t ns_mask_1	= 0x00ff0001;
@@ -207,9 +209,9 @@ uint32_t nss_hal_pvt_divide_pll(uint32_t core_id, uint32_t pll, uint32_t divider
 
 		ns_reg0 |= ns_mask_5;
 		ns_reg1 |= ns_mask_5;
+	} else {
+		return 0;
 	}
-
-	nss_hal_pvt_pll_change(pll);
 
 	clk_reg_write_32(UBI32_COREn_CLK_SRC0_MD(0), md_reg0);
 	clk_reg_write_32(UBI32_COREn_CLK_SRC0_MD(1), md_reg1);
@@ -274,6 +276,8 @@ uint32_t nss_hal_pvt_enable_pll18(uint32_t speed)
 		 */
 		clk_reg_write_32(PLL18_CONFIG, 0x014B5625);
 		clk_reg_write_32(PLL18_TEST_CTL, 0x00003080);
+	} else {
+		BUG_ON(1);
 	}
 
 	/*
@@ -429,7 +433,12 @@ void __nss_hal_common_reset(uint32_t *clk_src)
 		printk("Enable PLL18 Failed, Using Alternate");
 		*clk_src = NSS_REGS_CLK_SRC_ALTERNATE;
 	} else {
-		nss_hal_pvt_divide_pll(0, 18, 1);
+
+		/*
+		 * Src0 is PLL18 Src1 is pll0 - setup
+		 */
+		clk_reg_write_32(UBI32_COREn_CLK_SRC1_NS(0), 0xff000b);
+		clk_reg_write_32(UBI32_COREn_CLK_SRC1_NS(1), 0xff000b);
 	}
 
 	/*

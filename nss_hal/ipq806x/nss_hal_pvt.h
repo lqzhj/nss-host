@@ -72,7 +72,7 @@ static inline void __nss_hal_send_interrupt(uint32_t map, uint32_t irq __attribu
 
 extern void __nss_hal_core_reset(uint32_t core_id, uint32_t map, uint32_t addr, uint32_t clk_src);
 extern void __nss_hal_common_reset(uint32_t *clk_src);
-extern uint32_t nss_hal_pvt_divide_pll(uint32_t core_id, uint32_t pll, uint32_t divider);
+extern uint32_t nss_hal_pvt_divide_pll18(uint32_t core_id, uint32_t divider);
 extern void nss_hal_pvt_pll_change(uint32_t pll);
 extern uint32_t nss_hal_pvt_enable_pll18(uint32_t speed);
 

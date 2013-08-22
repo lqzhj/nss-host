@@ -60,8 +60,7 @@ static inline void nss_verify_init_done(struct nss_ctx_instance *nss_ctx)
  */
 static void nss_rx_metadata_nss_freq_ack(struct nss_ctx_instance *nss_ctx, struct nss_freq_ack *nfa)
 {
-	void *ubicom_na_nss_context = NULL;
-	ubicom_na_nss_context = nss_register_ipv4_mgr(NULL);
+	void *ubicom_na_nss_context = nss_register_ipv4_mgr(NULL);
 
 	if (nfa->ack_status == NSS_ACK_STARTED) {
 
