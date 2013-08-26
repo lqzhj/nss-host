@@ -75,18 +75,18 @@ struct net_device *gbl_except_dev = NULL;
  */
 static struct nss_ipsec_tunnel *nss_ipsec_get_tunnel_by_dev(struct net_device *dev)
 {
-	struct nss_ipsec_tunnel *tunnel = NULL;
+	struct nss_ipsec_tunnel *tunnel;
 	struct list_head *cur;
 
 	list_for_each(cur, &tunnel_head) {
 		tunnel = (struct nss_ipsec_tunnel *)cur;
 
 		if (tunnel->dev == dev) {
-			break;
+			return tunnel;
 		}
 	}
 
-	return tunnel;
+	return NULL;
 }
 
 /*
