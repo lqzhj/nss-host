@@ -43,9 +43,6 @@
 #define NSS_GMAC_EXTRA			NET_IP_ALIGN
 #define NSS_GMAC_JUMBO_MTU		9600		/* Max jumbo frame size	*/
 
-/* This is the IP's phy address. */
-#define NSS_GMAC_DEFAULT_MAC_ADDR	{0x00, 0x03, 0x64, 0xDE, 0xFA, 0xDD}
-
 /* Max size of buffer that can be programed into one field of desc */
 #define NSS_GMAC_MAX_DESC_BUFF		0x1FFF
 #define NSS_GMAC_RTL_VER		"(3.72a)"

@@ -742,7 +742,6 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	struct net_device *netdev = NULL;
 	struct msm_nss_gmac_platform_data *gmaccfg = NULL;
 	nss_gmac_dev *gmacdev = NULL;
-	const uint8_t def_mac[ETH_ALEN] = NSS_GMAC_DEFAULT_MAC_ADDR;
 	struct device *dev = &pdev->dev;
 	uint32_t ret = 0;
 	phy_interface_t phyif = 0;
@@ -851,10 +850,15 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	/*
 	 * This just fill in some default MAC address
 	 */
-	memcpy(netdev->perm_addr, def_mac, ETH_ALEN);
-	memcpy(netdev->dev_addr, def_mac, ETH_ALEN);
-	netdev->dev_addr[ETH_ALEN - 1] += pdev->id;
-	memset(netdev->broadcast, 0xff, ETH_ALEN);
+	if (is_valid_ether_addr(gmaccfg->mac_addr)) {
+		memcpy(netdev->dev_addr, &gmaccfg->mac_addr, ETH_ALEN);
+	} else {
+		random_ether_addr(netdev->dev_addr);
+		nss_gmac_msg("GMAC%d(%p) Invalid MAC@ - using %02x:%02x:%02x:%02x:%02x:%02x",
+			gmacdev->macid, gmacdev,
+			*netdev->dev_addr, *netdev->dev_addr+1, *netdev->dev_addr+2,
+			*netdev->dev_addr+3, *netdev->dev_addr+4, *netdev->dev_addr+5);
+	}
 
 	netdev->watchdog_timeo = 5 * HZ;
 	netdev->netdev_ops = &nss_gmac_netdev_ops;
