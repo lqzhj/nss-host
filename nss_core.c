@@ -789,7 +789,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 
 			desc->interface_num = (int8_t)if_num;
 			desc->opaque = (uint32_t)NULL;
-			desc->payload_offs = frag->page_offset;
+			desc->payload_offs = 0;
 			desc->payload_len = skb_frag_size(frag);
 			desc->buffer_len = skb_frag_size(frag);
 			desc->buffer = skb_frag_dma_map(NULL, frag, 0, skb_frag_size(frag), DMA_TO_DEVICE);
