@@ -1,4 +1,4 @@
-/* * Copyright (c) 2013 Qualcomm Atheros, Inc. */
+/* Copyright (c) 2013, Qualcomm Atheros Inc. */
 /*
  * @file
  * This file defines the function prototypes for the NSS GMAC device.
