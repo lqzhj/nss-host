@@ -186,6 +186,8 @@ typedef struct _nss_gmac_dev {
 	uint32_t first_linkup_done;	/* when set, it indicates that first
 					   link up detection after interface
 					   bring up has been done               */
+	int32_t forced_speed;		/* Forced Speed */
+	int32_t forced_duplex;		/* Forced Duplex */
 
 	struct net_device *netdev;
 	struct platform_device *pdev;

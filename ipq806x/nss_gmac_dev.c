@@ -195,7 +195,7 @@ uint16_t nss_gmac_mii_rd_reg(nss_gmac_dev *gmacdev, uint32_t phy,
 {
 	uint16_t data = 0;
 
-	if (!gmacdev->phydev) {
+	if (IS_ERR_OR_NULL(gmacdev->phydev)) {
 		nss_gmac_info(gmacdev, "Error: Reading uninitialized PHY...");
 		return 0;
 	}
@@ -217,7 +217,7 @@ uint16_t nss_gmac_mii_rd_reg(nss_gmac_dev *gmacdev, uint32_t phy,
 void nss_gmac_mii_wr_reg(nss_gmac_dev *gmacdev, uint32_t phy,
 			 uint32_t reg, uint16_t data)
 {
-	if (!gmacdev->phydev) {
+	if (IS_ERR_OR_NULL(gmacdev->phydev)) {
 		nss_gmac_info(gmacdev, "Error: Writing uninitialized PHY...");
 		return;
 	}
@@ -1478,9 +1478,9 @@ int32_t nss_gmac_check_phy_init(nss_gmac_dev *gmacdev)
 	 */
 	if (!test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)
 					&& !gmacdev->emulation) {
-		gmacdev->speed = SPEED1000;
-		gmacdev->duplex_mode = FULLDUPLEX;
-		return 0;
+		gmacdev->speed = gmacdev->forced_speed;
+		gmacdev->duplex_mode = gmacdev->forced_duplex;
+		goto out;
 	}
 
 	if (gmacdev->emulation && (gmacdev->phy_mii_type == GMAC_INTF_SGMII
@@ -1488,7 +1488,7 @@ int32_t nss_gmac_check_phy_init(nss_gmac_dev *gmacdev)
 		/* Emulation build, Q/SGMII interface. Returning 100Mbps FD */
 		gmacdev->speed = SPEED100;
 		gmacdev->duplex_mode = FULLDUPLEX;
-		return 0;
+		goto out;
 	}
 
 	if (gmacdev->phy_mii_type == GMAC_INTF_SGMII
@@ -1500,7 +1500,7 @@ int32_t nss_gmac_check_phy_init(nss_gmac_dev *gmacdev)
 		}
 
 		nss_gmac_trace(gmacdev, "%s: SGMII phy linkup OK.", __FUNCTION__);
-		return 0;
+		goto out;
 	}
 
 	phydev = gmacdev->phydev;
@@ -1543,6 +1543,22 @@ int32_t nss_gmac_check_phy_init(nss_gmac_dev *gmacdev)
 	case DUPLEX_FULL:
 		gmacdev->duplex_mode = FULLDUPLEX;
 		break;
+	}
+
+out:
+	nss_gmac_msg("%s %sMbps %sDuplex",
+			gmacdev->netdev->name, (gmacdev->speed == SPEED1000) ?
+			"1000" : ((gmacdev->speed == SPEED100) ? "100" : "10"),
+			(gmacdev->duplex_mode == FULLDUPLEX) ? "Full" : "Half");
+
+	/*
+	 * We may want to force speed and duplex settings even after link
+	 * polling. This may be for a GMAC connected to a switch where the
+	 * parameters of link between GAMC and switch are forced.
+	 */
+	if (gmacdev->forced_speed != SPEED_UNKNOWN) {
+		gmacdev->speed = gmacdev->forced_speed;
+		gmacdev->duplex_mode = gmacdev->forced_duplex;
 	}
 
 	return 0;

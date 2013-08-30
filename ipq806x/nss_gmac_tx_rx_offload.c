@@ -266,11 +266,6 @@ void nss_gmac_linkup(nss_gmac_dev *gmacdev)
 	gmacdev->link_state = LINKUP;
 	nss_gmac_dev_set_speed(gmacdev);
 
-	nss_gmac_msg("%s %sMbps %sDuplex",
-		      netdev->name, (gmacdev->speed == SPEED1000) ?
-		      "1000" : ((gmacdev->speed == SPEED100) ? "100" : "10"),
-		      (gmacdev->duplex_mode == FULLDUPLEX) ? "Full" : "Half");
-
 	if (gmacdev->first_linkup_done == 0) {
 		nss_gmac_disable_interrupt_all(gmacdev);
 		nss_gmac_reset(gmacdev);
@@ -385,7 +380,7 @@ void nss_gmac_work(struct work_struct *work)
 					gmacdev->netdev->dev_addr,
 					gmacdev->macid);
 
-		if (gmacdev->phydev) {
+		if (!IS_ERR_OR_NULL(gmacdev->phydev)) {
 			if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
 				nss_gmac_info(gmacdev, "%s: start phy 0x%x", __FUNCTION__, gmacdev->phydev->phy_id);
 				phy_start(gmacdev->phydev);
@@ -551,7 +546,10 @@ int nss_gmac_linux_close(struct net_device *netdev)
 
 	cancel_delayed_work_sync(&gmacdev->gmacwork);
 
-	phy_stop(gmacdev->phydev);
+	if(!IS_ERR_OR_NULL(gmacdev->phydev)) {
+		phy_stop(gmacdev->phydev);
+	}
+
 	test_and_clear_bit(__NSS_GMAC_UP, &gmacdev->flags);
 	test_and_clear_bit(__NSS_GMAC_CLOSING, &gmacdev->flags);
 

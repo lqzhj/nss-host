@@ -781,6 +781,38 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 		test_and_set_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags);	
 	}
 
+	switch (gmaccfg->forced_speed) {
+	case SPEED_10:
+		gmacdev->forced_speed = SPEED10;
+		break;
+
+	case SPEED_100:
+		gmacdev->forced_speed = SPEED100;
+		break;
+
+	case SPEED_1000:
+		gmacdev->forced_speed = SPEED1000;
+		break;
+
+	default:
+		gmacdev->forced_speed = SPEED_UNKNOWN;
+		break;
+	}
+
+	switch (gmaccfg->forced_duplex) {
+	case DUPLEX_HALF:
+		gmacdev->forced_duplex = HALFDUPLEX;
+		break;
+
+	case DUPLEX_FULL:
+		gmacdev->forced_duplex = FULLDUPLEX;
+		break;
+
+	default:
+		gmacdev->forced_duplex = DUPLEX_UNKNOWN;
+		break;
+	}
+
 	gmacdev->rgmii_delay = gmaccfg->rgmii_delay;
 	gmacdev->macid = pdev->id;
 
@@ -909,7 +941,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 					      phyif);
 	}
 
-	if (!gmacdev->phydev) {
+	if (IS_ERR_OR_NULL(gmacdev->phydev)) {
 		nss_gmac_info(gmacdev, "PHY %s attach FAIL", phy_id);
 		goto nss_gmac_phy_attach_fail;
 	}
@@ -985,7 +1017,7 @@ nss_gmac_rx_fail:
 	nss_gmac_giveup_tx_desc_queue(gmacdev, dev, RINGMODE);
 
 nss_gmac_tx_fail:
-	if (gmacdev->phydev) {
+	if (!IS_ERR_OR_NULL(gmacdev->phydev)) {
 		phy_disconnect(gmacdev->phydev);
 		gmacdev->phydev = NULL;
 	}
@@ -1034,7 +1066,7 @@ static int nss_gmac_remove(struct platform_device *pdev)
 	 */
 	nss_gmac_giveup_rx_desc_queue(gmacdev, dev, RINGMODE);
 	nss_gmac_giveup_tx_desc_queue(gmacdev, dev, RINGMODE);
-	if (gmacdev->phydev) {
+	if (!IS_ERR_OR_NULL(gmacdev->phydev)) {
 		phy_disconnect(gmacdev->phydev);
 		gmacdev->phydev = NULL;
 	}
