@@ -545,13 +545,13 @@ static unsigned int nss_connmgr_ipv6_bridge_post_routing_hook(unsigned int hookn
 	 * Only work with standard 802.3 mac address sizes
 	 * Skip mac address check for Tunnel interface
 	 */
-	if ((in->addr_len != 6) && (in->type != ARPHRD_SIT)) {
-		dev_put(in);
+	if ((in->addr_len != 6) && (in->type != ARPHRD_SIT) && (in->type != ARPHRD_TUNNEL6)) {
 		NSS_CONNMGR_DEBUG_TRACE("in device (%s) not 802.3 hw addr len (%u), ignoring: %p\n", in->name, (unsigned)in->addr_len, skb);
+		dev_put(in);
 		return NF_ACCEPT;
 	}
 
-	if ((out->addr_len != 6) && (out->type != ARPHRD_SIT)) {
+	if ((out->addr_len != 6) && (out->type != ARPHRD_SIT) && (out->type != ARPHRD_TUNNEL6)) {
 		dev_put(in);
 		NSS_CONNMGR_DEBUG_TRACE("out device (%s) not 802.3 hw addr len (%u), ignoring: %p\n", out->name, (unsigned)out->addr_len, skb);
 		return NF_ACCEPT;
@@ -959,13 +959,13 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 	/*
 	 * Only work with standard 802.3 mac address sizes
 	 */
-	if ((in->addr_len != 6) && (in->type != ARPHRD_SIT)) {
+	if ((in->addr_len != 6) && (in->type != ARPHRD_SIT) && (in->type != ARPHRD_TUNNEL6)) {
 		NSS_CONNMGR_DEBUG_TRACE("in device (%s) not 802.3 hw addr len (%u), ignoring: %p\n", in->name, (unsigned)in->addr_len, skb);
 		dev_put(in);
 		return NF_ACCEPT;
 	}
 
-	if ((out->addr_len != 6) && (out->type != ARPHRD_SIT)) {
+	if ((out->addr_len != 6) && (out->type != ARPHRD_SIT) && (in->type != ARPHRD_TUNNEL6)) {
 		dev_put(in);
 		NSS_CONNMGR_DEBUG_TRACE("out device (%s) not 802.3 hw addr len (%u), ignoring: %p\n", out->name, (unsigned)out->addr_len, skb);
 		return NF_ACCEPT;
@@ -1068,6 +1068,11 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 	case IPPROTO_UDP:
 		unic.src_port = (int32_t)orig_tuple.src.u.udp.port;
 		unic.dest_port = (int32_t)orig_tuple.dst.u.udp.port;
+		break;
+
+	case IPPROTO_IPIP:
+		unic.src_port = 0;
+		unic.dest_port = 0;
 		break;
 
 	default:

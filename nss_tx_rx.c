@@ -1944,6 +1944,30 @@ void nss_unregister_tun6rd_if(uint32_t if_num)
 }
 
 /*
+ * nss_register_tunipip6_if()
+ */
+void *nss_register_tunipip6_if(uint32_t if_num, nss_tunipip6_callback_t tunipip6_callback, void *if_ctx)
+{
+	nss_assert((if_num >= NSS_MAX_VIRTUAL_INTERFACES) && (if_num < NSS_MAX_NET_INTERFACES));
+
+	nss_top_main.if_ctx[if_num] = if_ctx;
+	nss_top_main.if_rx_callback[if_num] = tunipip6_callback;
+
+	return (void *)&nss_top_main.nss[nss_top_main.tunipip6_handler_id];
+}
+
+/*
+ * nss_unregister_tunipip6_if()
+ */
+void nss_unregister_tunipip6_if(uint32_t if_num)
+{
+	nss_assert((if_num >= NSS_MAX_VIRTUAL_INTERFACES) && (if_num < NSS_MAX_NET_INTERFACES));
+
+	nss_top_main.if_rx_callback[if_num] = NULL;
+	nss_top_main.if_ctx[if_num] = NULL;
+}
+
+/*
  * nss_register_profiler_if()
  */
 void *nss_register_profiler_if(nss_profiler_callback_t profiler_callback, nss_core_id_t core_id, void *ctx)
@@ -2017,6 +2041,9 @@ EXPORT_SYMBOL(nss_tx_ipsec_rule);
 
 EXPORT_SYMBOL(nss_register_tun6rd_if);
 EXPORT_SYMBOL(nss_unregister_tun6rd_if);
+
+EXPORT_SYMBOL(nss_register_tunipip6_if);
+EXPORT_SYMBOL(nss_unregister_tunipip6_if);
 
 EXPORT_SYMBOL(nss_register_profiler_if);
 EXPORT_SYMBOL(nss_unregister_profiler_if);

@@ -21,6 +21,7 @@ qca-nss-drv-objs := nss_init.o nss_core.o nss_tx_rx.o nss_stats.o
 
 obj-m += qca-nss-connmgr-ipv4.o
 obj-m += qca-nss-connmgr-ipv6.o
+obj-m += qca-nss-tunipip6.o
 ifeq "$(CONFIG_IPV6_SIT_6RD)" "y"
 obj-m += qca-nss-tun6rd.o
 qca-nss-tun6rd-objs := nss_tun6rd.o
@@ -29,9 +30,11 @@ endif
 
 qca-nss-connmgr-ipv4-objs := nss_connmgr_ipv4.o
 qca-nss-connmgr-ipv6-objs := nss_connmgr_ipv6.o
+qca-nss-tunipip6-objs := nss_tunipip6.o
 
 ccflags-y += -I$(obj)/nss_hal/include -DNSS_DEBUG_LEVEL=0 -DNSS_EMPTY_BUFFER_SIZE=1792 -DNSS_PKT_STATS_ENABLED=0
 ccflags-y += -DNSS_CONNMGR_DEBUG_LEVEL=0
+ccflags-y += -DNSS_TUNIPIP6_DEBUG_LEVEL=0
 
 obj ?= .
 

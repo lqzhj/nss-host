@@ -316,6 +316,10 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 		nss_top->tun6rd_handler_id = nss_dev->id;
 	}
 
+	if (npd->tunipip6_enabled == NSS_FEATURE_ENABLED) {
+		nss_top->tunipip6_handler_id = nss_dev->id;
+	}
+
 	if (npd->gmac_enabled[0] == NSS_FEATURE_ENABLED) {
 		nss_top->phys_if_handler_id[0] = nss_dev->id;
 	}

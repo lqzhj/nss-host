@@ -1055,6 +1055,11 @@ extern nss_tx_status_t nss_tx_generic_if_buf(void *nss_ctx, uint32_t if_num, uin
 typedef void (*nss_tun6rd_callback_t)(void *ctx, void *os_buf);
 
 /**
+ * Callback to receive ipip6 callback
+ */
+typedef void (*nss_tunipip6_callback_t)(void *ctx, void *os_buf);
+
+/**
  * @brief Register to send/receive 6rd tunnel messages to NSS
  *
  * @param tun6rd_callback Callback
@@ -1068,6 +1073,21 @@ extern void *nss_register_tun6rd_if(uint32_t if_num, nss_tun6rd_callback_t tun6r
  * @brief Unregister 6rd tunnel interface with NSS
  */
 extern void nss_unregister_tun6rd_if(uint32_t if_num);
+
+/**
+ * @brief Register to send/receive ipip6 tunnel messages to NSS
+ *
+ * @param tunipip6_callback Callback
+ * @param ctx ipip6 tunnel context
+ *
+ * @return void* NSS context
+ */
+extern void *nss_register_tunipip6_if(uint32_t if_num, nss_tunipip6_callback_t tunipip6_callback, void *ctx);
+
+/**
+ * @brief Unregister ipip6 tunnel interface with NSS
+ */
+extern void nss_unregister_tunipip6_if(uint32_t if_num);
 
 /*
  * @brief NSS Frequency Change

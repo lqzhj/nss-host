@@ -491,6 +491,7 @@ struct nss_top_instance {
 	uint8_t ipsec_handler_id;
 	uint8_t wlan_handler_id;
 	uint8_t tun6rd_handler_id;
+	uint8_t tunipip6_handler_id;
 	uint8_t phys_if_handler_id[4];
 	nss_ipv4_callback_t ipv4_callback;
 					/* IPv4 sync/establish callback function */
