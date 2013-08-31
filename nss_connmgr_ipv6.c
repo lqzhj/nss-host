@@ -208,6 +208,8 @@ typedef enum nss_connmgr_ipv6_conn_statistics nss_connmgr_ipv6_conn_statistics_t
  * Debug statistics
  */
 enum nss_connmgr_ipv6_debug_statistics {
+	NSS_CONNMGR_IPV6_ACTIVE_CONN,
+				/* Active connections */
 	NSS_CONNMGR_IPV6_CREATE_FAIL,
 				/* Rule create failures */
 	NSS_CONNMGR_IPV6_DESTROY_FAIL,
@@ -226,10 +228,10 @@ typedef enum nss_connmgr_ipv6_debug_statistics nss_connmgr_debug_ipv6_statistics
  *      Connection statistics strings
  */
 static char *nss_connmgr_ipv6_conn_stats_str[] = {
-	 "rx_pkts",
-	 "rx_bytes",
-	 "tx_pkts",
-	 "tx_bytes",
+	"rx_pkts",
+	"rx_bytes",
+	"tx_pkts",
+	"tx_bytes",
 };
 
 /*
@@ -237,10 +239,11 @@ static char *nss_connmgr_ipv6_conn_stats_str[] = {
  *      Debug statistics strings
  */
 static char *nss_connmgr_ipv6_debug_stats_str[] = {
-	 "create_fail",
-	 "destroy_fail",
-	 "establish_miss",
-	 "destroy_miss",
+	"active_conns",
+	"create_fail",
+	"destroy_fail",
+	"establish_miss",
+	"destroy_miss",
 };
 
 /*
@@ -258,15 +261,6 @@ typedef enum  {
 	NSS_CONNMGR_IPV6_STATE_ESTABLISHED,
 	NSS_CONNMGR_IPV6_STATE_STALE,
 } nss_connmgr_ipv6_conn_state_t;
-
-/*
- * Connection states strings
- */
-static char *nss_connmgr_ipv6_conn_state_str[] = {
-	"inactive",
-	"established",
-	"stale",
-};
 
 /*
  * ipv6 statistics
@@ -315,10 +309,10 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 				int (*okfn)(struct sk_buff *));
 
 static unsigned int nss_connmgr_ipv6_bridge_post_routing_hook(unsigned int hooknum,
-                                 struct sk_buff *skb,
-                                 const struct net_device *in_unused,
-                                 const struct net_device *out,
-                                 int (*okfn)(struct sk_buff *));
+		struct sk_buff *skb,
+		const struct net_device *in_unused,
+		const struct net_device *out,
+		int (*okfn)(struct sk_buff *));
 
 static ssize_t nss_connmgr_ipv6_read_stats(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos);
 static ssize_t nss_connmgr_ipv6_read_debug_stats(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos);
@@ -329,10 +323,10 @@ static int nss_connmgr_ipv6_conntrack_event(struct nf_conn *ct);
 #endif
 
 static struct nss_connmgr_ipv6_instance nss_connmgr_ipv6 = {
-		.stopped = 0,
-		.terminate = 0,
-		.thread = NULL,
-		.nss_context = NULL,
+	.stopped = 0,
+	.terminate = 0,
+	.thread = NULL,
+	.nss_context = NULL,
 };
 
 /*
@@ -727,7 +721,7 @@ static unsigned int nss_connmgr_ipv6_bridge_post_routing_hook(unsigned int hookn
 			}
 			dev_put(br_port_in_dev);
 		}
-		unic.flags |= NSS_IPV4_CREATE_FLAG_BRIDGE_FLOW;
+		unic.flags |= NSS_IPV6_CREATE_FLAG_BRIDGE_FLOW;
 
 		/*
 		 * Configure the MAC addresses for the flow
@@ -1339,15 +1333,15 @@ static void nss_connmgr_ipv6_net_dev_callback(struct nss_ipv6_cb_params *nicp)
 
 			connection = &nss_connmgr_ipv6.connection[establish->index];
 
+			spin_lock_bh(&nss_connmgr_ipv6.lock);
 			if (unlikely(connection->state == NSS_CONNMGR_IPV6_STATE_ESTABLISHED)) {
+				spin_unlock_bh(&nss_connmgr_ipv6.lock);
 				NSS_CONNMGR_DEBUG_WARN("Invalid sync callback. Conn already established : %d \n", establish->index);
 				return;
 			}
-			NSS_CONNMGR_DEBUG_TRACE("NSS ipv6 Establish callback %d \n", establish->index);
-
-			spin_lock_bh(&nss_connmgr_ipv6.lock);
 
 			connection->state = NSS_CONNMGR_IPV6_STATE_ESTABLISHED;
+			nss_connmgr_ipv6.debug_stats[NSS_CONNMGR_IPV6_ACTIVE_CONN]++;
 
 			connection->protocol = establish->protocol;
 
@@ -1386,10 +1380,13 @@ static void nss_connmgr_ipv6_net_dev_callback(struct nss_ipv6_cb_params *nicp)
 
 			NSS_CONNMGR_DEBUG_TRACE("NSS ipv6 Sync callback %d \n", sync->index);
 
+			spin_lock_bh(&nss_connmgr_ipv6.lock);
 			if (unlikely(connection->state != NSS_CONNMGR_IPV6_STATE_ESTABLISHED)) {
+				spin_unlock_bh(&nss_connmgr_ipv6.lock);
 				NSS_CONNMGR_DEBUG_WARN("Invalid sync callback. Conn not established : %d \n", sync->index);
 				return;
 			}
+			spin_unlock_bh(&nss_connmgr_ipv6.lock);
 
 			break;
 
@@ -1398,19 +1395,17 @@ static void nss_connmgr_ipv6_net_dev_callback(struct nss_ipv6_cb_params *nicp)
 			return;
 	}
 
+	spin_lock_bh(&nss_connmgr_ipv6.lock);
+	connection->stats[NSS_CONNMGR_IPV6_ACCELERATED_RX_PKTS] += sync->flow_packet_count;
+	connection->stats[NSS_CONNMGR_IPV6_ACCELERATED_RX_BYTES] += sync->flow_byte_count;
+	connection->stats[NSS_CONNMGR_IPV6_ACCELERATED_TX_PKTS]+= sync->return_packet_count;
+	connection->stats[NSS_CONNMGR_IPV6_ACCELERATED_TX_BYTES] += sync->return_byte_count;
 	if (sync->final_sync) {
-		spin_lock_bh(&nss_connmgr_ipv6.lock);
 		connection->state = NSS_CONNMGR_IPV6_STATE_INACTIVE;
-		spin_unlock_bh(&nss_connmgr_ipv6.lock);
-	} else {
-		spin_lock_bh(&nss_connmgr_ipv6.lock);
-		connection->stats[NSS_CONNMGR_IPV6_ACCELERATED_RX_PKTS] += sync->flow_packet_count;
-		connection->stats[NSS_CONNMGR_IPV6_ACCELERATED_RX_BYTES] += sync->flow_byte_count;
-		connection->stats[NSS_CONNMGR_IPV6_ACCELERATED_TX_PKTS]+= sync->return_packet_count;
-		connection->stats[NSS_CONNMGR_IPV6_ACCELERATED_TX_BYTES] += sync->return_byte_count;
-		spin_unlock_bh(&nss_connmgr_ipv6.lock);
-
+		nss_connmgr_ipv6.debug_stats[NSS_CONNMGR_IPV6_ACTIVE_CONN]--;
 	}
+	spin_unlock_bh(&nss_connmgr_ipv6.lock);
+
 
 	/*
 	 * Create a tuple so as to be able to look up a connection
@@ -1450,7 +1445,9 @@ static void nss_connmgr_ipv6_net_dev_callback(struct nss_ipv6_cb_params *nicp)
 	 * Only update if this is not a fixed timeout
 	 */
 	if (!test_bit(IPS_FIXED_TIMEOUT_BIT, &ct->status)) {
+		spin_lock_bh(&ct->lock);
 		ct->timeout.expires += sync->delta_jiffies;
+		spin_unlock_bh(&ct->lock);
 	}
 
 	acct = nf_conn_acct_find(ct);
@@ -1665,6 +1662,7 @@ static void nss_connmgr_ipv6_init_connection_table(void)
 	int32_t i,j;
 
 	spin_lock_bh(&nss_connmgr_ipv6.lock);
+
 	for (i = 0; (i < NSS_CONNMGR_IPV6_CONN_MAX); i++) {
 		nss_connmgr_ipv6.connection[i].state = NSS_CONNMGR_IPV6_STATE_INACTIVE;
 
@@ -1672,6 +1670,11 @@ static void nss_connmgr_ipv6_init_connection_table(void)
 			nss_connmgr_ipv6.connection[i].stats[j] = 0;
 		}
 	}
+
+	for (i = 0; (i < NSS_CONNMGR_IPV6_DEBUG_STATS_MAX); i++) {
+		nss_connmgr_ipv6.debug_stats[i] = 0;
+	}
+
 	spin_unlock_bh(&nss_connmgr_ipv6.lock);
 
 	return;
@@ -1902,7 +1905,13 @@ static ssize_t nss_connmgr_ipv6_read_stats(struct file *fp, char __user *ubuf, s
 	 * only 8 connections, and print stats for 8 connections at a time
 	 */
 	uint64_t stats[8][NSS_CONNMGR_IPV6_STATS_MAX];
-	nss_connmgr_ipv6_conn_state_t  state[8];
+	uint8_t state[8];
+	uint32_t src_addr[8][4];
+	int32_t  src_port[8];
+	uint32_t dest_addr[8][4];
+	int32_t  dest_port[8];
+	uint8_t  protocol[8];
+
 
 	char *lbuf = kzalloc(size_al, GFP_KERNEL);
 	if (unlikely(lbuf == NULL)) {
@@ -1924,18 +1933,43 @@ static ssize_t nss_connmgr_ipv6_read_stats(struct file *fp, char __user *ubuf, s
 		/* 2. Copy stats for 8 connections into local buffer */
 		for (j = 0; j < 8; j++) {
 			state[j] = nss_connmgr_ipv6.connection[i+j].state;
+			src_port[j] = nss_connmgr_ipv6.connection[i+j].src_port;
+			dest_port[j] = nss_connmgr_ipv6.connection[i+j].dest_port;
+			memcpy(src_addr[j], nss_connmgr_ipv6.connection[i].src_addr, sizeof(src_addr[j]));
+			memcpy(dest_addr[j], nss_connmgr_ipv6.connection[i].dest_addr, sizeof(dest_addr[j]));
+			protocol[j] = nss_connmgr_ipv6.connection[i+j].protocol;
 		}
+
 		memcpy(stats, nss_connmgr_ipv6.connection[i].stats, sizeof(stats));
 
 		/* 3. Release the lock */
 		spin_unlock_bh(&nss_connmgr_ipv6.lock);
 
 		/* 4. Print stats for 8 connections */
-		for (j = 0; (j < 8); j++)
-		{
+		for (j = 0; (j < 8); j++) {
+
+			if (state[j] != NSS_CONNMGR_IPV6_STATE_ESTABLISHED) {
+				continue;
+			}
+
+			IPV6_ADDR_NTOH(src_addr[j], src_addr[j]);
+			IPV6_ADDR_NTOH(dest_addr[j], dest_addr[j]);
+
+			size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "---------------------------------\n");
+			if (protocol[j] == IPPROTO_TCP) {
+				size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "tcp ");
+			} else if (protocol[j] == IPPROTO_UDP) {
+				size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "udp ");
+			} else {
+				size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "proto=%d ",protocol[j]);
+			}
+
 			size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
-					"------------  Connection %d ( %s ) ---------------\n",
-					(i+j), nss_connmgr_ipv6_conn_state_str[state[j]]);
+					"src: " IPV6_ADDR_OCTAL_FMT ":%d\n"
+					"dest: " IPV6_ADDR_OCTAL_FMT ":%d\n",
+					IPV6_ADDR_TO_OCTAL(src_addr[j]), (int)ntohs(src_port[j]),
+					IPV6_ADDR_TO_OCTAL(dest_addr[j]), (int)ntohs(dest_port[j]));
+
 			for (k = 0; (k < NSS_CONNMGR_IPV6_STATS_MAX); k++) {
 				size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
 						"%s = %llu\n", nss_connmgr_ipv6_conn_stats_str[k], stats[j][k]);

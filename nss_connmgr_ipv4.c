@@ -202,6 +202,8 @@ typedef enum nss_connmgr_ipv4_conn_statistics nss_connmgr_ipv4_conn_statistics_t
  * Debug statistics
  */
 enum nss_connmgr_ipv4_debug_statistics {
+	NSS_CONNMGR_IPV4_ACTIVE_CONN,
+				/* Active connections */
 	NSS_CONNMGR_IPV4_CREATE_FAIL,
 				/* Rule create failures */
 	NSS_CONNMGR_IPV4_DESTROY_FAIL,
@@ -231,6 +233,7 @@ static char *nss_connmgr_ipv4_conn_stats_str[] = {
  *      Debug statistics strings
  */
 static char *nss_connmgr_ipv4_debug_stats_str[] = {
+	"active_conns",
 	"create_fail",
 	"destroy_fail",
 	"establish_miss",
@@ -252,15 +255,6 @@ typedef enum  {
 	NSS_CONNMGR_IPV4_STATE_ESTABLISHED,
 	NSS_CONNMGR_IPV4_STATE_STALE,
 } nss_connmgr_ipv4_conn_state_t;
-
-/*
- * Connection states strings
- */
-static char *nss_connmgr_ipv4_conn_state_str[] = {
-	"inactive",
-	"established",
-	"stale",
-};
 
 /*
  * IPv4 connection info
@@ -1666,11 +1660,12 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 				spin_unlock_bh(&nss_connmgr_ipv4.lock);
 
 				NSS_CONNMGR_DEBUG_TRACE("Invalid establish callback. Conn already established : %d \n", establish->index);
-				spin_lock_bh(&nss_connmgr_ipv4.lock);
+				return;
 
 			}
 
 			connection->state = NSS_CONNMGR_IPV4_STATE_ESTABLISHED;
+			nss_connmgr_ipv4.debug_stats[NSS_CONNMGR_IPV4_ACTIVE_CONN]++;
 
 			connection->protocol = establish->protocol;
 			connection->src_interface = establish->flow_interface;
@@ -1710,13 +1705,23 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 			 */
 			if (unlikely(connection->state != NSS_CONNMGR_IPV4_STATE_ESTABLISHED)) {
 				spin_unlock_bh(&nss_connmgr_ipv4.lock);
-				NSS_CONNMGR_DEBUG_TRACE("Invalid sync callback. Conn not established : %d \n", sync->index);
-				spin_lock_bh(&nss_connmgr_ipv4.lock);
+				NSS_CONNMGR_DEBUG_WARN("Invalid sync callback. Conn not established : %d \n", sync->index);
+				return;
 			}
 
 			spin_unlock_bh(&nss_connmgr_ipv4.lock);
 
 			switch (sync->reason) {
+
+				case NSS_IPV4_SYNC_REASON_FLUSH:
+				case NSS_IPV4_SYNC_REASON_EVICT:
+				case NSS_IPV4_SYNC_REASON_DESTROY:
+					spin_lock_bh(&nss_connmgr_ipv4.lock);
+					connection->state = NSS_CONNMGR_IPV4_STATE_INACTIVE;
+					nss_connmgr_ipv4.debug_stats[NSS_CONNMGR_IPV4_ACTIVE_CONN]--;
+					spin_unlock_bh(&nss_connmgr_ipv4.lock);
+					/* Fall through to increment stats */
+
 				case NSS_IPV4_SYNC_REASON_STATS:
 					spin_lock_bh(&nss_connmgr_ipv4.lock);
 					connection->stats[NSS_CONNMGR_IPV4_ACCELERATED_RX_PKTS] += sync->flow_packet_count;
@@ -1726,13 +1731,6 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 					spin_unlock_bh(&nss_connmgr_ipv4.lock);
 					break;
 
-				case NSS_IPV4_SYNC_REASON_FLUSH:
-				case NSS_IPV4_SYNC_REASON_EVICT:
-				case NSS_IPV4_SYNC_REASON_DESTROY:
-					spin_lock_bh(&nss_connmgr_ipv4.lock);
-					connection->state = NSS_CONNMGR_IPV4_STATE_INACTIVE;
-					spin_unlock_bh(&nss_connmgr_ipv4.lock);
-					break;
 
 				case NSS_IPV4_SYNC_REASON_PPPOE_DESTROY:
 					break;
@@ -1786,7 +1784,9 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 	 * Only update if this is not a fixed timeout
 	 */
 	if (!test_bit(IPS_FIXED_TIMEOUT_BIT, &ct->status)) {
+		spin_lock_bh(&ct->lock);
 		ct->timeout.expires += sync->delta_jiffies;
+		spin_unlock_bh(&ct->lock);
 	}
 
 	acct = nf_conn_acct_find(ct);
@@ -1988,12 +1988,7 @@ static int nss_connmgr_ipv4_conntrack_event(unsigned int events, struct nf_ct_ev
 		return NOTIFY_DONE;
 	}
 
-	unid.src_ip = ntohl(unid.src_ip);
-	unid.dest_ip = ntohl(unid.dest_ip);
-	unid.src_port = ntohs(unid.src_port);
-	unid.dest_port = ntohs(unid.dest_port);
-
-	if (IS_LOCAL_HOST(unid.src_ip)) {
+	if (IS_LOCAL_HOST(ntohl(unid.src_ip))) {
 		NSS_CONNMGR_DEBUG_TRACE("localhost packet ignored \n");
 		return NOTIFY_DONE;
 	}
@@ -2006,6 +2001,11 @@ static int nss_connmgr_ipv4_conntrack_event(unsigned int events, struct nf_ct_ev
 			unid.protocol,
 			&(unid.src_ip), unid.src_port,
 			&(unid.dest_ip), unid.dest_port);
+
+	unid.src_ip = ntohl(unid.src_ip);
+	unid.dest_ip = ntohl(unid.dest_ip);
+	unid.src_port = ntohs(unid.src_port);
+	unid.dest_port = ntohs(unid.dest_port);
 
 	/*
 	 * Destroy the Network Accelerator connection cache entries.
@@ -2073,6 +2073,11 @@ static void nss_connmgr_ipv4_init_connection_table(void)
 			nss_connmgr_ipv4.connection[i].stats[j] = 0;
 		}
 	}
+
+	for (i = 0; (i < NSS_CONNMGR_IPV4_DEBUG_STATS_MAX); i++) {
+		nss_connmgr_ipv4.debug_stats[i] = 0;
+	}
+
 	spin_unlock_bh(&nss_connmgr_ipv4.lock);
 
 	return;
@@ -2319,6 +2324,12 @@ static ssize_t nss_connmgr_ipv4_read_conn_stats(struct file *fp, char __user *ub
 	 */
 	uint64_t stats[8][NSS_CONNMGR_IPV4_STATS_MAX];
 	nss_connmgr_ipv4_conn_state_t  state[8];
+	uint32_t src_addr[8];
+	int32_t  src_port[8];
+	uint32_t dest_addr[8];
+	int32_t  dest_port[8];
+	uint8_t  protocol[8];
+
 
 	char *lbuf = kzalloc(size_al, GFP_KERNEL);
 	if (unlikely(lbuf == NULL)) {
@@ -2340,6 +2351,12 @@ static ssize_t nss_connmgr_ipv4_read_conn_stats(struct file *fp, char __user *ub
 		/* 2. Copy stats for 8 connections into local buffer */
 		for (j = 0; j < 8; j++) {
 			state[j] = nss_connmgr_ipv4.connection[i+j].state;
+			src_addr[j] = nss_connmgr_ipv4.connection[i+j].src_addr;
+			src_port[j] = nss_connmgr_ipv4.connection[i+j].src_port;
+			dest_addr[j] = nss_connmgr_ipv4.connection[i+j].dest_addr;
+			dest_port[j] = nss_connmgr_ipv4.connection[i+j].dest_port;
+			protocol[j] = nss_connmgr_ipv4.connection[i+j].protocol;
+
 			for (k = 0; (k < NSS_CONNMGR_IPV4_STATS_MAX); k++) {
 				stats[j][k] = nss_connmgr_ipv4.connection[i+j].stats[k];
 			}
@@ -2351,9 +2368,28 @@ static ssize_t nss_connmgr_ipv4_read_conn_stats(struct file *fp, char __user *ub
 		/* 4. Print stats for 8 connections */
 		for (j = 0; (j < 8); j++)
 		{
+			if (state[j] != NSS_CONNMGR_IPV4_STATE_ESTABLISHED) {
+				continue;
+			}
+
+			src_addr[j] = ntohl(src_addr[j]);
+			dest_addr[j] = ntohl(dest_addr[j]);
+
+			size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "---------------------------- \n");
+
+			if (protocol[j] == IPPROTO_TCP) {
+				size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "tcp ");
+			} else if (protocol[j] == IPPROTO_UDP) {
+				size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "udp ");
+			} else {
+				size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "proto=%d ", protocol[j]);
+			}
+
 			size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
-					"------------  Connection %d ( %s )---------------\n",
-					(i+j), nss_connmgr_ipv4_conn_state_str[state[j]]);
+					"src: %pI4:%d\n"
+					"dest: %pI4:%d\n",
+					&(src_addr[j]), (int)ntohs(src_port[j]),
+					&(dest_addr[j]), (int)ntohs(dest_port[j]));
 
 			for (k = 0; (k < NSS_CONNMGR_IPV4_STATS_MAX); k++) {
 				size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
