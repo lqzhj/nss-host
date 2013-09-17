@@ -35,7 +35,6 @@
 #include <nss_crypto_if.h>
 #include <nss_crypto_hw.h>
 #include <nss_crypto_ctrl.h>
-#include <nss_crypto_data.h>
 
 
 #define REG(off)	(MSM_CLK_CTL_BASE + (off))

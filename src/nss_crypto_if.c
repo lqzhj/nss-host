@@ -18,24 +18,14 @@
 #include <nss_crypto_hlos.h>
 #include <nss_crypto_if.h>
 #include <nss_crypto_ctrl.h>
-#include <nss_crypto_data.h>
+#include <nss_api_if.h>
 
 /*
  * global control component
  */
 extern struct nss_crypto_ctrl gbl_crypto_ctrl;
 
-#if defined (CONFIG_NSS_CRYPTO_OFFLOAD)
-#include <nss_api_if.h>
 void *nss_drv_hdl;
-#else /* !CONFIG_NSS_CRYPTO_OFFLOAD */
-
-/*
- * global data component
- */
-extern struct nss_crypto_data gbl_crypto_data;
-#endif
-
 /*
  * internal structure for a buffer node
  */
@@ -202,8 +192,6 @@ void nss_crypto_buf_free(nss_crypto_handle_t hdl, struct nss_crypto_buf *buf)
 }
 EXPORT_SYMBOL(nss_crypto_buf_free);
 
-#if defined (CONFIG_NSS_CRYPTO_OFFLOAD)
-
 /*
  * nss_crypto_transform_done()
  * 	completion callback for NSS HLOS driver when it receives a crypto buffer
@@ -296,61 +284,5 @@ void nss_crypto_engine_init(uint32_t eng_count)
 	nss_tx_crypto_if_open(nss_drv_hdl, (uint8_t *)&open, sizeof(struct nss_crypto_open_eng));
 }
 
-#else
-
-/*
- * nss_crypto_transform_payload()
- * 	wrapper function to call the crypto_data components buf_enqueue
- *
- * this will be removed in future
- */
-nss_crypto_status_t nss_crypto_transform_payload(nss_crypto_handle_t hdl, struct nss_crypto_buf *buf)
-{
-	return nss_crypto_buf_enqueue(buf);
-}
-EXPORT_SYMBOL(nss_crypto_transform_payload);
-
-/*
- * nss_crypto_init()
- * 	initialize the crypto driver
- *
- */
-void nss_crypto_init(void)
-{
-	nss_crypto_ctrl_init();
-	nss_crypto_data_init();
-
-	nss_crypto_info("%s():initialized\n", __func__);
-}
-
-/*
- * nss_crypto_engine_init()
- * 	initialize the crypto interface for each engine
- *
- * this will do the following
- * - initialize the control component for all pipes in that engine
- * - initialize the data component for all pipes in that engine
- */
-void nss_crypto_engine_init(uint32_t eng_count)
-{
-	struct nss_crypto_data_eng *e_data;
-	struct nss_crypto_ctrl_eng *e_ctrl;
-	uint32_t desc_paddr[NSS_CRYPTO_BAM_PP];
-	int i;
-
-	gbl_crypto_data.num_eng = eng_count;
-
-	e_ctrl = &gbl_crypto_ctrl.eng[eng_count];
-	e_data = &gbl_crypto_data.eng[eng_count];
-
-	e_data->bam_base = e_ctrl->bam_base;
-
-	for (i = 0; i < NSS_CRYPTO_BAM_PP; i++) {
-		nss_crypto_pipe_init(e_ctrl, i, &desc_paddr[i], &e_ctrl->hw_desc[i]);
-		e_data->pipe[i].desc = e_ctrl->hw_desc[i];
-	}
-
-}
-#endif
 
 

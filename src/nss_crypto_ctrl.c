@@ -20,7 +20,6 @@
 #include <nss_crypto_if.h>
 #include <nss_crypto_hw.h>
 #include <nss_crypto_ctrl.h>
-#include <nss_crypto_data.h>
 
 struct nss_crypto_ctrl gbl_crypto_ctrl = {0};
 
@@ -284,7 +283,7 @@ nss_crypto_pipe_init(struct nss_crypto_ctrl_eng *eng, uint32_t idx, uint32_t *de
 		desc->in[i].data.flags = (CRYPTO_BAM_DESC_EOT|CRYPTO_BAM_DESC_NWD);
 
 		/*
-		 * program CM3 (unlock)
+		 * program CMD3 (unlock)
 		 */
 		desc->in[i].cmd3_unlock.data_len = unlock_sz;
 		desc->in[i].cmd3_unlock.data_start = cblk_start + cmd0_sz + cmd1_sz;
@@ -477,7 +476,8 @@ nss_crypto_status_t nss_crypto_validate_auth(struct nss_crypto_key *auth, uint32
  * - write new keys to the cipher/auth registers
  *
  */
-nss_crypto_status_t nss_crypto_key_update(struct nss_crypto_ctrl_eng *eng, uint32_t idx, struct nss_crypto_key *cipher, struct nss_crypto_key *auth)
+nss_crypto_status_t nss_crypto_key_update(struct nss_crypto_ctrl_eng *eng, uint32_t idx, struct nss_crypto_key *cipher,
+						struct nss_crypto_key *auth)
 {
 	struct nss_crypto_desc *desc;
 	uint32_t key_sz;

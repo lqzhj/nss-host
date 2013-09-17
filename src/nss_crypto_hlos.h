@@ -37,9 +37,6 @@
 #include <linux/llist.h>
 #include <linux/vmalloc.h>
 
-#define __MSEC2NSEC(x)			(x * NSEC_PER_MSEC)
-#define __USEC2NSEC(x)			(x * NSEC_PER_USEC)
-
 #define nss_crypto_info(fmt, arg...)	printk(KERN_INFO "<NSS-CRYPTO>:" fmt, ## arg)
 #define nss_crypto_err(fmt, arg...)	printk(KERN_ERR "<NSS-CRYPTO>:" fmt, ## arg)
 #define nss_crypto_dbg(fmt, arg...)	printk(KERN_DEBUG fmt, ## arg)
