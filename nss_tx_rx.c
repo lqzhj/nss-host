@@ -30,6 +30,12 @@
  */
 extern struct nss_top_instance nss_top_main;
 extern struct nss_frequency_statistics nss_freq_stat;
+extern struct nss_runtime_sampling nss_runtime_samples;
+extern struct nss_cmd_buffer nss_cmd_buf;
+
+extern struct workqueue_struct *nss_wq;
+extern nss_work_t *nss_work;
+extern void *nss_freq_change_context;
 
 #define NSS_ACK_STARTED 0
 #define NSS_ACK_FINISHED 1
@@ -62,24 +68,21 @@ static inline void nss_verify_init_done(struct nss_ctx_instance *nss_ctx)
  */
 static void nss_rx_metadata_nss_freq_ack(struct nss_ctx_instance *nss_ctx, struct nss_freq_ack *nfa)
 {
-	void *ubicom_na_nss_context = nss_register_ipv4_mgr(NULL);
-
 	if (nfa->ack_status == NSS_ACK_STARTED) {
 
 		/*
 		 * NSS finished start noficiation - HW change clocks and send end notification
 		 */
 
-		nss_info("%p: NSS ACK Received: %d - Change HW CLK/Send Finish to NSS\n", nss_ctx, nfa->ack);
-		nss_freq_change(ubicom_na_nss_context, nfa->freq_current, 1);
+		nss_info("%p: NSS ACK Received: %d - Change HW CLK/Send Finish to NSS\n", nss_ctx, nfa->ack_status);
+		nss_freq_change(nss_freq_change_context, nfa->freq_current, 1);
 
 	} else if (nfa->ack_status == NSS_ACK_FINISHED) {
 
 		/*
 		 * NSS finished end notification - Done
 		 */
-		nss_info("%p: NSS Finish End Notification ACK: %d - Running: %dmhz\n", nss_ctx, nfa->ack, nfa->freq_current);
-
+		nss_info("%p: NSS Finish End Notification ACK: %d - Running: %dmhz\n", nss_ctx, nfa->ack_status, nfa->freq_current);
 	} else {
 		nss_info("%p: NSS had an error - Running: %dmhz\n", nss_ctx, nfa->freq_current);
 	}
@@ -674,6 +677,99 @@ static void nss_rx_metadata_profiler_sync(struct nss_ctx_instance *nss_ctx, stru
 }
 
 /*
+ * nss_frequency_workqueue()
+ *	Queue Work to the NSS Workqueue based on Current index.
+ */
+static void nss_frequency_workqueue(void)
+{
+	BUG_ON(!nss_wq);
+
+	nss_cmd_buf.current_freq = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].frequency;
+
+	nss_work = (nss_work_t *)kmalloc(sizeof(nss_work_t), GFP_KERNEL);
+	if (!nss_work) {
+		nss_info("NSS FREQ WQ kmalloc fail");
+		return;
+	}
+
+	INIT_WORK((struct work_struct *)nss_work, nss_wq_function);
+	nss_work->frequency = nss_cmd_buf.current_freq;
+	nss_work->divider = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].divider;
+	nss_work->turbo = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].turbo;
+	queue_work(nss_wq, (struct work_struct *)nss_work);
+}
+
+
+/*
+ *  nss_rx_metadata_nss_core_stats()
+ *	Handle the core stats
+ */
+static void nss_rx_metadata_nss_core_stats(struct nss_ctx_instance *nss_ctx, struct nss_core_stats *core_stats)
+{
+	uint32_t b_index;
+	uint32_t minimum;
+	uint32_t maximum;
+
+	/*
+	 * Delete Current Index Value, Add New Value, Recalculate new Sum, Shift Index
+	 */
+	b_index = nss_runtime_samples.buffer_index;
+
+	nss_runtime_samples.sum = nss_runtime_samples.sum - nss_runtime_samples.buffer[b_index];
+	nss_runtime_samples.buffer[b_index] = core_stats->inst_cnt_total;
+	nss_runtime_samples.sum = nss_runtime_samples.sum + nss_runtime_samples.buffer[b_index];
+	nss_runtime_samples.buffer_index = (b_index + 1) & NSS_SAMPLE_BUFFER_MASK;
+
+	if (nss_runtime_samples.sample_count < NSS_SAMPLE_BUFFER_SIZE) {
+		nss_runtime_samples.sample_count++;
+	}
+
+	nss_runtime_samples.average = nss_runtime_samples.sum / nss_runtime_samples.sample_count;
+
+	/*
+	 * Print out statistics every 10 seconds
+	 */
+	if (nss_runtime_samples.message_rate_limit == NSS_MESSAGE_RATE_LIMIT) {
+		nss_info("%p: Running AVG:%x Sample:%x Divider:%d\n", nss_ctx, nss_runtime_samples.average, core_stats->inst_cnt_total, nss_runtime_samples.sample_count);
+		nss_info("%p: Current Frequency Index:%d\n", nss_ctx, nss_runtime_samples.freq_scale_index);
+		nss_info("%p: Auto Scale:%d Auto Scale Ready:%d\n", nss_ctx, nss_runtime_samples.freq_scale_ready, nss_cmd_buf.auto_scale);
+		nss_info("%p: Current Rate:%x\n", nss_ctx, nss_runtime_samples.average);
+
+		nss_runtime_samples.message_rate_limit = 0;
+	}
+
+	/*
+	 * Scale Algorithmn
+	 */
+	if (nss_runtime_samples.freq_scale_rate_limit == NSS_FREQUENCY_SCALE_RATE_LIMIT) {
+		if ((nss_runtime_samples.freq_scale_ready == 1) && (nss_cmd_buf.auto_scale == 1)) {
+
+			nss_info("%p: Preparing Switch Inst_Cnt Avg:%x\n", nss_ctx, nss_runtime_samples.average);
+
+			minimum = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].minimum;
+			maximum = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].maximum;
+
+			if ((nss_runtime_samples.average > maximum) && (nss_runtime_samples.freq_scale_index < (NSS_MAX_CPU_SCALES - 1))) {
+				nss_runtime_samples.freq_scale_index++;
+				nss_frequency_workqueue();
+
+			} else if ((nss_runtime_samples.average < minimum) && (nss_runtime_samples.freq_scale_index > 0)) {
+				nss_runtime_samples.freq_scale_index--;
+				nss_frequency_workqueue();
+
+			} else {
+				nss_info("%p: No Change at Min or Max\n", nss_ctx);
+			}
+		}
+
+		nss_runtime_samples.freq_scale_rate_limit = 0;
+	}
+
+	nss_runtime_samples.freq_scale_rate_limit++;
+	nss_runtime_samples.message_rate_limit++;
+}
+
+/*
  * nss_rx_handle_status_pkt()
  *	Handle the metadata/status packet.
  */
@@ -725,6 +821,10 @@ void nss_rx_handle_status_pkt(struct nss_ctx_instance *nss_ctx, struct sk_buff *
 
 	case NSS_RX_METADATA_TYPE_FREQ_ACK:
 		nss_rx_metadata_nss_freq_ack(nss_ctx, &nrmo->sub.freq_ack);
+		break;
+
+	case NSS_RX_METADATA_TYPE_CORE_STATS:
+		nss_rx_metadata_nss_core_stats(nss_ctx, &nrmo->sub.core_stats);
 		break;
 
 	default:
@@ -1940,6 +2040,14 @@ nss_state_t nss_get_state(void *ctx)
 	spin_unlock_bh(&nss_top_main.lock);
 
 	return state;
+}
+
+/*
+ * nss_get_frequency_mgr()
+ */
+void *nss_get_frequency_mgr(void)
+{
+	return (void *)&nss_top_main.nss[nss_top_main.frequency_handler_id];
 }
 
 /*

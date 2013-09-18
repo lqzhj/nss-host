@@ -807,6 +807,13 @@ struct nss_profiler_sync {
 };
 
 /*
+ * NSS core stats
+ */
+struct nss_core_stats {
+	uint32_t inst_cnt_total;
+};
+
+/*
  * Types of RX metadata.
  */
 enum nss_rx_metadata_types {
@@ -823,6 +830,7 @@ enum nss_rx_metadata_types {
 	NSS_RX_METADATA_TYPE_PPPOE_RULE_CREATE_SUCCESS,
 	NSS_RX_METADATA_TYPE_PROFILER_SYNC,
 	NSS_RX_METADATA_TYPE_FREQ_ACK,
+	NSS_RX_METADATA_TYPE_CORE_STATS,
 };
 
 /*
@@ -844,6 +852,7 @@ struct nss_rx_metadata_object {
 		struct nss_pppoe_rule_create_success pppoe_rule_create_success;
 		struct nss_profiler_sync profiler_sync;
 		struct nss_freq_ack freq_ack;
+		struct nss_core_stats core_stats;
 	} sub;
 };
 

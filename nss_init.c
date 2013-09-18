@@ -77,10 +77,22 @@ MODULE_PARM_DESC(string1, "NSS Core 1 identification string");
 struct regulator *nss0_vreg;
 
 /*
+ * Handler to send NSS messages
+ */
+void *nss_freq_change_context;
+
+/*
  * Top level nss context structure
  */
 struct nss_top_instance nss_top_main;
 struct nss_cmd_buffer nss_cmd_buf;
+struct nss_runtime_sampling nss_runtime_samples;
+struct workqueue_struct *nss_wq;
+
+/*
+ * Work Queue to handle messages to Kernel
+ */
+nss_work_t *nss_work;
 
 /*
  * File local/Static variables/functions
@@ -95,7 +107,7 @@ static const struct ethtool_ops nss_ethtool_ops;
  */
 static void nss_dummy_netdev_setup(struct net_device *ndev)
 {
-	return;
+
 }
 
 /*
@@ -338,6 +350,8 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 		nss_top->phys_if_handler_id[3] = nss_dev->id;
 	}
 
+	nss_top->frequency_handler_id = nss_dev->id;
+
 	spin_unlock_bh(&(nss_top->lock));
 
 	/*
@@ -441,108 +455,134 @@ struct platform_driver nss_driver = {
 };
 
 /*
+ ***************************************************************************************************
+ * nss_wq_function() is used to queue up requests to change NSS frequencies. The frequency
+ * changes may be nominal or turbo and is determined by the turbo value. The functions
+ * nss_change_frequency_turbo() or nss_change_frequency_nominal() are used. The auto rate algorithmn
+ * will queue up requests or the procfs may also queue up these requests.
+ ***************************************************************************************************
+ */
+
+/*
+ * nss_wq_function()
+ *	Added to Handle BH requests to kernel
+ */
+void nss_wq_function (struct work_struct *work)
+{
+	nss_work_t *my_work = (nss_work_t *)work;
+
+	if (my_work->turbo) {
+		nss_change_frequency_turbo(my_work->frequency, my_work->divider);
+	} else {
+		nss_change_frequency_nominal(my_work->frequency, my_work->divider);
+	}
+
+	kfree((void *)work);
+}
+
+/*
+ * nss_change_frequency_turbo()
+ *	Change the 733mhz clock by 1 divider
+ */
+void nss_change_frequency_turbo (uint32_t frequency, uint32_t frequency_divider)
+{
+	int ret;
+
+	ret = regulator_set_voltage(nss0_vreg, NSS_TURB_VCC, NSS_TURB_VCC);
+	if (ret) {
+		nss_info("Regulator set voltage failed, err=%d\n", ret);
+	}
+
+	nss_freq_change(nss_freq_change_context, 533000000, 0);
+	nss_hal_pvt_pll_change(11);
+
+	nss_hal_pvt_enable_pll18(1466);
+	ret = nss_hal_pvt_divide_pll18(0, frequency_divider);
+	if (!ret) {
+		nss_info("PLL Divide failed, err=%d\n", ret);
+	}
+
+	nss_freq_change(nss_freq_change_context, frequency, 0);
+	nss_hal_pvt_pll_change(18);
+}
+
+/*
+ * nss_change_frequency_nominal()
+ *	Change the 550mhz clock by 1/2/5 divider
+ */
+void nss_change_frequency_nominal (uint32_t frequency, uint32_t frequency_divider)
+{
+	int ret;
+
+	nss_freq_change(nss_freq_change_context, 533000000, 0);
+	nss_hal_pvt_pll_change(11);
+
+	nss_hal_pvt_enable_pll18(1100);
+	ret = nss_hal_pvt_divide_pll18(0, frequency_divider);
+	if (!ret) {
+		nss_info("PLL Divide failed, err=%d\n", ret);
+	}
+
+	nss_freq_change(nss_freq_change_context, frequency, 0);
+	nss_hal_pvt_pll_change(18);
+
+	ret = regulator_set_voltage(nss0_vreg, NSS_NOM_VCC, NSS_NOM_VCC);
+	if (ret) {
+		nss_info("Regulator set voltage failed, err=%d\n", ret);
+	}
+}
+
+/*
  * nss_current_freq_handler()
  *	Handle Userspace Frequency Change Requests
  */
 static int nss_current_freq_handler (ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
 {
-	void *ubicom_na_nss_context = NULL;
 	int ret;
-	int vret;
+	uint32_t turbo;
+	uint32_t divider;
+
+	BUG_ON(!nss_wq);
 
 	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
 
 	if (!write) {
+		printk("Frequency Set to %d\n", nss_cmd_buf.current_freq);
 		return ret;
 	}
 
-	ubicom_na_nss_context = nss_register_ipv4_mgr(NULL);
-	nss_info("Frequency Set to %d\n", nss_cmd_buf.current_freq);
+	/* Turn off Auto Scale */
+	nss_cmd_buf.auto_scale = 0;
+	nss_runtime_samples.freq_scale_ready = 0;
 
 	/* If support NSS freq is in the table send the new frequency request to NSS */
-
-	if (nss_cmd_buf.current_freq == 110000000) {
-
-		nss_freq_change(ubicom_na_nss_context, 533000000, 0);
-		nss_hal_pvt_pll_change(11);
-
-		nss_hal_pvt_enable_pll18(1100);
-		ret = nss_hal_pvt_divide_pll18(0, 5);
-		if (!ret) {
-			return 0;
-		}
-
-		nss_freq_change(ubicom_na_nss_context, nss_cmd_buf.current_freq, 0);
-		nss_hal_pvt_pll_change(18);
-
-		vret = regulator_set_voltage(nss0_vreg, NSS_NOM_VCC, NSS_NOM_VCC);
-		if (vret) {
-			nss_info("Regulator set voltage failed, err=%d\n", vret);
-			return ret;
-		}
-
-	} else if (nss_cmd_buf.current_freq == 275000000) {
-
-		nss_freq_change(ubicom_na_nss_context, 533000000, 0);
-		nss_hal_pvt_pll_change(11);
-
-		nss_hal_pvt_enable_pll18(1100);
-		ret = nss_hal_pvt_divide_pll18(0, 2);
-		if (!ret) {
-			return ret;
-		}
-
-		nss_freq_change(ubicom_na_nss_context, nss_cmd_buf.current_freq, 0);
-		nss_hal_pvt_pll_change(11);
-
-		vret = regulator_set_voltage(nss0_vreg, NSS_NOM_VCC, NSS_NOM_VCC);
-		if (vret) {
-			nss_info("Regulator set voltage failed, err=%d\n", vret);
-			return ret;
-		}
-
-	} else if (nss_cmd_buf.current_freq == 550000000) {
-
-		nss_freq_change(ubicom_na_nss_context, 533000000, 0);
-		nss_hal_pvt_pll_change(11);
-
-		nss_hal_pvt_enable_pll18(1100);
-		ret = nss_hal_pvt_divide_pll18(0, 1);
-		if (!ret) {
-			return ret;
-		}
-
-		nss_freq_change(ubicom_na_nss_context, nss_cmd_buf.current_freq, 0);
-		nss_hal_pvt_pll_change(18);
-
-		vret = regulator_set_voltage(nss0_vreg, NSS_NOM_VCC, NSS_NOM_VCC);
-		if (vret) {
-			nss_info("Regulator set voltage failed, err=%d\n", vret);
-			return ret;
-		}
-
-	} else if (nss_cmd_buf.current_freq == 733000000) {
-		vret = regulator_set_voltage(nss0_vreg, NSS_TURB_VCC, NSS_TURB_VCC);
-		if (vret) {
-			nss_info("Regulator set voltage failed, err=%d\n", vret);
-			return ret;
-		}
-
-		nss_freq_change(ubicom_na_nss_context, 533000000, 0);
-		nss_hal_pvt_pll_change(11);
-
-		nss_hal_pvt_enable_pll18(1466);
-		ret = nss_hal_pvt_divide_pll18(0, 1);
-		if (!ret) {
-			return ret;
-		}
-
-		nss_freq_change(ubicom_na_nss_context, nss_cmd_buf.current_freq, 0);
-		nss_hal_pvt_pll_change(18);
-
+	if (nss_cmd_buf.current_freq == NSS_FREQ_110) {
+		divider = 5;
+		turbo = 0;
+	} else if (nss_cmd_buf.current_freq == NSS_FREQ_275) {
+		divider = 2;
+		turbo = 0;
+	} else if (nss_cmd_buf.current_freq == NSS_FREQ_550) {
+		divider = 1;
+		turbo = 0;
+	} else if (nss_cmd_buf.current_freq == NSS_FREQ_733) {
+		divider = 1;
+		turbo = 1;
 	} else {
 		nss_info("Frequency not found. Please check Frequency Table\n");
+		return ret;
 	}
+
+	nss_work = (nss_work_t *)kmalloc(sizeof(nss_work_t), GFP_KERNEL);
+	if (!nss_work) {
+		nss_info("NSS Freq WQ kmalloc fail");
+		return ret;
+	}
+	INIT_WORK((struct work_struct *)nss_work, nss_wq_function);
+	nss_work->frequency = nss_cmd_buf.current_freq;
+	nss_work->divider = divider;
+	nss_work->turbo = turbo;
+	queue_work(nss_wq, (struct work_struct *)nss_work);
 
 	return ret;
 }
@@ -557,7 +597,37 @@ static int nss_auto_scale_handler (ctl_table *ctl, int write, void __user *buffe
 
 	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
 
-	printk("Not Supported\n");
+	if (!write) {
+		return ret;
+	}
+
+	if (nss_cmd_buf.auto_scale == 1) {
+		/*
+		 * Auto Scaling is already being done
+		 */
+		if (nss_runtime_samples.freq_scale_ready == 1) {
+			return ret;
+		}
+
+		/*
+		 * Setup default values - Middle of Freq Scale Band
+		 */
+		nss_runtime_samples.freq_scale_index = 1;
+		nss_cmd_buf.current_freq = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].frequency;
+		nss_change_frequency_nominal(nss_cmd_buf.current_freq, 1);
+
+		nss_runtime_samples.freq_scale_ready = 1;
+
+	} else {
+		/*
+		 * Auto Scaling is already disabled
+		 */
+		if ( nss_runtime_samples.freq_scale_ready == 0) {
+			return ret;
+		}
+
+		nss_runtime_samples.freq_scale_ready = 0;
+	}
 
 	return ret;
 }
@@ -572,7 +642,7 @@ static int nss_get_freq_table_handler (ctl_table *ctl, int write, void __user *b
 
 	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
 
-	printk("Frequency Supported - 110Mhz 225Mhz 550Mhz 733Mhz \n");
+	printk("Frequency Supported - 110Mhz 275Mhz 550Mhz 733Mhz \n");
 	printk("Ex. To Change Frequency - echo 110000000 > current_freq \n");
 
 	return ret;
@@ -643,6 +713,8 @@ static int __init nss_init(void)
 {
 	nss_info("Init NSS driver");
 
+	nss_freq_change_context = nss_get_frequency_mgr();
+
 	/*
 	 * Perform clock init common to all NSS cores
 	 */
@@ -669,6 +741,38 @@ static int __init nss_init(void)
 	 * Register sysctl table.
 	 */
 	nss_dev_header = register_sysctl_table(nss_root);
+
+	/*
+	 * Setup Runtime Sample values
+	 */
+	nss_runtime_samples.freq_scale[0].frequency = 	NSS_FREQ_110;
+	nss_runtime_samples.freq_scale[0].divider = 	NSS_FREQ_110_DVDR;
+	nss_runtime_samples.freq_scale[0].minimum =	NSS_FREQ_110_MIN;
+	nss_runtime_samples.freq_scale[0].maximum = 	NSS_FREQ_110_MAX;
+	nss_runtime_samples.freq_scale[0].turbo = 	NSS_FREQ_110_TURBO;
+	nss_runtime_samples.freq_scale[1].frequency = 	NSS_FREQ_550;
+	nss_runtime_samples.freq_scale[1].divider = 	NSS_FREQ_550_DVDR;
+	nss_runtime_samples.freq_scale[1].minimum = 	NSS_FREQ_550_MIN;
+	nss_runtime_samples.freq_scale[1].maximum = 	NSS_FREQ_550_MAX;
+	nss_runtime_samples.freq_scale[1].turbo = 	NSS_FREQ_550_TURBO;
+	nss_runtime_samples.freq_scale[2].frequency = 	NSS_FREQ_733;
+	nss_runtime_samples.freq_scale[2].divider = 	NSS_FREQ_733_DVDR;
+	nss_runtime_samples.freq_scale[2].minimum = 	NSS_FREQ_733_MIN;
+	nss_runtime_samples.freq_scale[2].maximum = 	NSS_FREQ_733_MAX;
+	nss_runtime_samples.freq_scale[2].turbo = 	NSS_FREQ_733_TURBO;
+	nss_runtime_samples.freq_scale_index = 1;
+	nss_runtime_samples.freq_scale_ready = 0;
+	nss_runtime_samples.freq_scale_rate_limit = 0;
+	nss_runtime_samples.buffer_index = 0;
+	nss_runtime_samples.sum = 0;
+	nss_runtime_samples.sample_count = 0;
+	nss_runtime_samples.average = 0;
+	nss_runtime_samples.message_rate_limit = 0;
+
+	/*
+	 * Initial Workqueue
+	 */
+	nss_wq = create_workqueue("nss_freq_queue");
 
 	/*
 	 * Register platform_driver

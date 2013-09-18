@@ -30,6 +30,7 @@
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
 #include <linux/debugfs.h>
+#include <linux/workqueue.h>
 
 #include "nss_hlos_if.h"
 #include "nss_api_if.h"
@@ -134,6 +135,30 @@
 					/* Number of maximum simultaneous PPPoE sessions per physical interface */
 #define NSS_PPPOE_NUM_SESSION_TOTAL (NSS_MAX_PHYSICAL_INTERFACES * NSS_PPPOE_NUM_SESSION_PER_INTERFACE)
 					/* Number of total PPPoE sessions */
+
+
+/*
+ * NSS Frequency Defines and Values
+ */
+#define NSS_FREQ_110		110000000
+#define NSS_FREQ_110_DVDR	5
+#define NSS_FREQ_110_MIN	0x03000
+#define NSS_FREQ_110_MAX	0x14000
+#define NSS_FREQ_110_TURBO	0
+
+#define NSS_FREQ_275		275000000
+
+#define NSS_FREQ_550		550000000
+#define NSS_FREQ_550_DVDR	1
+#define NSS_FREQ_550_MIN	0x14000
+#define NSS_FREQ_550_MAX	0x40000
+#define NSS_FREQ_550_TURBO	0
+
+#define NSS_FREQ_733		733000000
+#define NSS_FREQ_733_DVDR	1
+#define NSS_FREQ_733_MIN	0x40000
+#define NSS_FREQ_733_MAX	0x50000
+#define NSS_FREQ_733_TURBO	1
 
 /*
  * IPV4 node statistics
@@ -495,6 +520,7 @@ struct nss_top_instance {
 	uint8_t tun6rd_handler_id;
 	uint8_t tunipip6_handler_id;
 	uint8_t phys_if_handler_id[4];
+	uint8_t frequency_handler_id;
 	nss_ipv4_callback_t ipv4_callback;
 					/* IPv4 sync/establish callback function */
 	nss_ipv6_callback_t ipv6_callback;
@@ -573,12 +599,65 @@ static inline void nss_pkt_stats_increment(struct nss_ctx_instance *nss_ctx, uin
  * NSS Statistics and Data for User Space
  */
 struct nss_cmd_buffer {
-	int32_t current_freq;
+	uint32_t current_freq;
 	int32_t auto_scale;
 	int32_t max_freq;
 	uint32_t register_addr;
 	uint32_t register_data;
 };
+
+/*
+ * NSS Core Statistics and Frequencies
+ */
+#define NSS_SAMPLE_BUFFER_SIZE 64	/* Ring Buffer should be a Size of two */
+#define NSS_SAMPLE_BUFFER_MASK (NSS_SAMPLE_BUFFER_SIZE - 1)
+#define NSS_MAX_CPU_SCALES 3			/* Max Number of Frequencies */
+#define NSS_FREQUENCY_SCALE_RATE_LIMIT 1500	/* Adjust the Rate of Frequency Switching */
+#define NSS_MESSAGE_RATE_LIMIT 15000		/* Adjust the Rate of Displaying Statistic Messages */
+
+
+/*
+ * NSS Frequency Scale Info
+ *
+ * INFO: Contains the Scale information per Frequency
+ * 	Per Scale information needed to Program PLL and make switching decisions
+ */
+struct nss_scale_info {
+	uint32_t frequency;	/* Frequency in Mhz */
+	uint32_t divider;	/* Dividing the PLL Freq */
+	uint32_t turbo;		/* Flag to indicate turbo mode for hv */
+	uint32_t minimum;	/* Minimum INST_CNT per Sec */
+	uint32_t maximum;	/* Maximum INST_CNT per Sec */
+};
+
+/*
+ * NSS Runtime Sample Structure
+ *
+ * INFO: Contains the runtime statistic of the NSS core
+ * 	Also contains the per frequency scale array
+ */
+struct nss_runtime_sampling {
+	struct nss_scale_info freq_scale[NSS_MAX_CPU_SCALES];	/* NSS Scale Per Freq */
+	uint32_t freq_scale_index;				/* Current Freq Index */
+	uint32_t freq_scale_ready;				/* Allow Freq Scaling */
+	uint32_t freq_scale_rate_limit;				/* Scaling Change Rate Limit */
+	uint32_t buffer[NSS_SAMPLE_BUFFER_SIZE];		/* Sample Ring Buffer */
+	uint32_t buffer_index;					/* Running Buffer Index */
+	uint32_t sum;						/* Total INST_CNT SUM */
+	uint32_t sample_count;					/* Number of Samples stored in Ring Buffer */
+	uint32_t average;					/* Average of INST_CNT */
+	uint32_t message_rate_limit;				/* Debug Message Rate Limit */
+};
+
+/*
+ * NSS workqueue to change frequencies
+ */
+typedef struct {
+	struct work_struct my_work;	/* Work Structure */
+	uint32_t frequency;		/* Frequency To Change */
+	uint32_t divider;		/* Divider To Achieve Change */
+	uint32_t turbo;			/* Flag to indicate turbo */
+} nss_work_t;
 
 /*
  * APIs provided by nss_core.c
@@ -588,6 +667,9 @@ extern int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t i
 					struct sk_buff *nbuf, uint16_t qid,
 					uint8_t buffer_type, uint16_t flags);
 extern int32_t nss_core_send_crypto(struct nss_ctx_instance *nss_ctx, void *buf, uint32_t buf_paddr, uint16_t len);
+extern void nss_change_frequency_nominal(uint32_t frequency, uint32_t frequency_divider);
+extern void nss_change_frequency_turbo(uint32_t frequency, uint32_t frequency_divider);
+extern void nss_wq_function( struct work_struct *work);
 
 /*
  * APIs provided by nss_tx_rx.c

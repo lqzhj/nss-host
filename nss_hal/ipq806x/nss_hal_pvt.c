@@ -23,6 +23,7 @@
 #include <linux/err.h>
 #include "nss_hal_pvt.h"
 #include "nss_clocks.h"
+#include "nss_core.h"
 
 /*
  * clk_reg_write_32()
@@ -57,7 +58,7 @@ void nss_hal_pvt_pll_change(uint32_t pll)
 	uint32_t pll_cl_mask = 0x1;
 
 
-	printk("Picking PLL%d\n", pll);
+	nss_trace("Picking PLL%d\n", pll);
 
 	if (pll == 11) {
 
@@ -112,29 +113,28 @@ uint32_t nss_hal_pvt_divide_pll18(uint32_t core_id, uint32_t divider)
 	uint32_t md_reg0;
 	uint32_t md_reg1;
 
-#if (NSS_DEBUG_LEVEL > 0)
-	printk("NSSFB0_CLK_SRC_CTL  : %x\n", clk_reg_read_32(NSSFB0_CLK_SRC_CTL));
-	printk("NSSFB1_CLK_SRC_CTL  : %x\n", clk_reg_read_32(NSSFB1_CLK_SRC_CTL));
-	printk("NSSFB0_CLK_SRC0_NS  : %x\n", clk_reg_read_32(NSSFB0_CLK_SRC0_NS));
-	printk("NSSFB0_CLK_SRC1_NS  : %x\n", clk_reg_read_32(NSSFB0_CLK_SRC1_NS));
-	printk("NSSFB1_CLK_SRC0_NS  : %x\n", clk_reg_read_32(NSSFB1_CLK_SRC0_NS));
-	printk("NSSFB1_CLK_SRC1_NS  : %x\n", clk_reg_read_32(NSSFB1_CLK_SRC1_NS));
-	printk("PLL_ENA_NSS	    : %x\n", clk_reg_read_32(PLL_ENA_NSS));
-	printk("\n");
-	printk("PLL18_L_VAL  : %x\n", clk_reg_read_32(PLL18_L_VAL));
-	printk("PLL18_M_VAL  : %x\n", clk_reg_read_32(PLL18_M_VAL));
-	printk("PLL18_N_VAL  : %x\n", clk_reg_read_32(PLL18_N_VAL));
-	printk("PLL18_CONFIG : %x\n", clk_reg_read_32(PLL18_CONFIG));
-	printk("PLL18_TEST_CTL: %x\n", clk_reg_read_32(PLL18_TEST_CTL));
-	printk("\n");
-	printk("UBI32_COREn_CLK_SRC0_CTL Core 0: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC_CTL(0)));
-	printk("UBI32_COREn_CLK_SRC0_CTL Core 1: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC_CTL(1)));
-	printk("UBI32_COREn_CLK_SRC0_NS Core 0: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC0_NS(0)));
-	printk("UBI32_COREn_CLK_SRC0_NS Core 1: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC0_NS(1)));
-	printk("UBI32_COREn_CLK_SRC0_MD Core 0: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC0_MD(0)));
-	printk("UBI32_COREn_CLK_SRC0_MD Core 1: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC0_MD(1)));
-	printk("\n\n\n");
-#endif
+	nss_trace("NSSFB0_CLK_SRC_CTL  : %x\n", clk_reg_read_32(NSSFB0_CLK_SRC_CTL));
+	nss_trace("NSSFB1_CLK_SRC_CTL  : %x\n", clk_reg_read_32(NSSFB1_CLK_SRC_CTL));
+	nss_trace("NSSFB0_CLK_SRC0_NS  : %x\n", clk_reg_read_32(NSSFB0_CLK_SRC0_NS));
+	nss_trace("NSSFB0_CLK_SRC1_NS  : %x\n", clk_reg_read_32(NSSFB0_CLK_SRC1_NS));
+	nss_trace("NSSFB1_CLK_SRC0_NS  : %x\n", clk_reg_read_32(NSSFB1_CLK_SRC0_NS));
+	nss_trace("NSSFB1_CLK_SRC1_NS  : %x\n", clk_reg_read_32(NSSFB1_CLK_SRC1_NS));
+	nss_trace("PLL_ENA_NSS	    : %x\n", clk_reg_read_32(PLL_ENA_NSS));
+	nss_trace("\n");
+	nss_trace("PLL18_L_VAL  : %x\n", clk_reg_read_32(PLL18_L_VAL));
+	nss_trace("PLL18_M_VAL  : %x\n", clk_reg_read_32(PLL18_M_VAL));
+	nss_trace("PLL18_N_VAL  : %x\n", clk_reg_read_32(PLL18_N_VAL));
+	nss_trace("PLL18_CONFIG : %x\n", clk_reg_read_32(PLL18_CONFIG));
+	nss_trace("PLL18_TEST_CTL: %x\n", clk_reg_read_32(PLL18_TEST_CTL));
+	nss_trace("\n");
+	nss_trace("UBI32_COREn_CLK_SRC0_CTL Core 0: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC_CTL(0)));
+	nss_trace("UBI32_COREn_CLK_SRC0_CTL Core 1: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC_CTL(1)));
+	nss_trace("UBI32_COREn_CLK_SRC0_NS Core 0: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC0_NS(0)));
+	nss_trace("UBI32_COREn_CLK_SRC0_NS Core 1: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC0_NS(1)));
+	nss_trace("UBI32_COREn_CLK_SRC0_MD Core 0: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC0_MD(0)));
+	nss_trace("UBI32_COREn_CLK_SRC0_MD Core 1: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC0_MD(1)));
+	nss_trace("\n\n\n");
+
 
 	md_reg0 = clk_reg_read_32(UBI32_COREn_CLK_SRC0_MD(0));
 	md_reg1 = clk_reg_read_32(UBI32_COREn_CLK_SRC0_MD(1));
@@ -145,7 +145,7 @@ uint32_t nss_hal_pvt_divide_pll18(uint32_t core_id, uint32_t divider)
 	 * Bypass
 	 */
 	if (divider == 1) {
-		printk("Bypass PLL Output\n");
+		nss_trace("Bypass PLL Output\n");
 
 		/*
 		 * Clear M and D ( Not2*D ) and Set Bits
@@ -164,8 +164,7 @@ uint32_t nss_hal_pvt_divide_pll18(uint32_t core_id, uint32_t divider)
 		ns_reg0 |= ns_mask_1;
 		ns_reg1 |= ns_mask_1;
 	} else if (divider == 2) {
-
-		printk("Divide PLL Output by 2\n");
+		nss_trace("Divide PLL Output by 2\n");
 
 		/*
 		 * Clear M and D ( Not2*D ) and Set Bits
@@ -187,8 +186,7 @@ uint32_t nss_hal_pvt_divide_pll18(uint32_t core_id, uint32_t divider)
 		ns_reg0 |= ns_mask_2;
 		ns_reg1 |= ns_mask_2;
 	} else if (divider == 5) {
-
-		printk("Divide PLL Output by 5\n");
+		nss_trace("Divide PLL Output by 5\n");
 
 		/*
 		 * Clear M and D ( Not2*D ) and Set Bits
@@ -218,14 +216,12 @@ uint32_t nss_hal_pvt_divide_pll18(uint32_t core_id, uint32_t divider)
 	clk_reg_write_32(UBI32_COREn_CLK_SRC0_NS(0), ns_reg0);
 	clk_reg_write_32(UBI32_COREn_CLK_SRC0_NS(1), ns_reg1);
 
-#if (NSS_DEBUG_LEVEL > 0)
-	printk("UBI32_COREn_CLK_SRC0_CTL Core 0: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC_CTL(0)));
-	printk("UBI32_COREn_CLK_SRC0_CTL Core 1: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC_CTL(1)));
-	printk("UBI32_COREn_CLK_SRC0_NS Core 0: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC0_NS(0)));
-	printk("UBI32_COREn_CLK_SRC0_NS Core 1: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC0_NS(1)));
-	printk("UBI32_COREn_CLK_SRC0_MD Core 0: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC0_MD(0)));
-	printk("UBI32_COREn_CLK_SRC0_MD Core 1: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC0_MD(1)));
-#endif
+	nss_trace("UBI32_COREn_CLK_SRC0_CTL Core 0: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC_CTL(0)));
+	nss_trace("UBI32_COREn_CLK_SRC0_CTL Core 1: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC_CTL(1)));
+	nss_trace("UBI32_COREn_CLK_SRC0_NS Core 0: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC0_NS(0)));
+	nss_trace("UBI32_COREn_CLK_SRC0_NS Core 1: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC0_NS(1)));
+	nss_trace("UBI32_COREn_CLK_SRC0_MD Core 0: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC0_MD(0)));
+	nss_trace("UBI32_COREn_CLK_SRC0_MD Core 1: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC0_MD(1)));
 
 	return 1;
 }
@@ -430,7 +426,7 @@ void __nss_hal_common_reset(uint32_t *clk_src)
 		/*
 		 * Select alternate good source (Src1/pll0)
 		 */
-		printk("Enable PLL18 Failed, Using Alternate");
+		nss_trace("Enable PLL18 Failed, Using Alternate");
 		*clk_src = NSS_REGS_CLK_SRC_ALTERNATE;
 	} else {
 
