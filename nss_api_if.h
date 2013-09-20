@@ -651,6 +651,13 @@ typedef void (*nss_ipv4_callback_t)(struct nss_ipv4_cb_params *nicb);
 extern void *nss_register_ipv4_mgr(nss_ipv4_callback_t event_callback);
 
 /**
+ * @brief API to get NSS context for IPv4 Connection manager
+ *
+ * @return void* NSS context to be provided with every IPv4 rule.
+ */
+extern void *nss_get_ipv4_mgr_ctx(void);
+
+/**
  * @brief Unregister for sending/receiving IPv4 messages
  */
 extern void nss_unregister_ipv4_mgr(void);

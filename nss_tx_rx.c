@@ -1711,6 +1711,14 @@ void nss_unregister_ipv4_mgr(void)
 }
 
 /*
+ * nss_get_ipv4_mgr_ctx()
+ */
+void *nss_get_ipv4_mgr_ctx(void)
+{
+	return (void *)&nss_top_main.nss[nss_top_main.ipv4_handler_id];
+}
+
+/*
  * nss_register_ipv6_mgr()
  *	Called to register an IPv6 connection manager with this driver
  */
@@ -2048,5 +2056,7 @@ EXPORT_SYMBOL(nss_unregister_tunipip6_if);
 EXPORT_SYMBOL(nss_register_profiler_if);
 EXPORT_SYMBOL(nss_unregister_profiler_if);
 EXPORT_SYMBOL(nss_tx_profiler_if_buf);
+
+EXPORT_SYMBOL(nss_get_ipv4_mgr_ctx);
 
 EXPORT_SYMBOL(nss_tx_generic_if_buf);

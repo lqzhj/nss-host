@@ -174,7 +174,7 @@ typedef uint32_t ipv4_addr_t;
 /*
  * Virtual Interface Number for IPSec Tunnel
  */
-#define NSS_IPSEC_ENCAP_INTERFACE 8
+#define NSS_C2C_TX_INTERFACE 28
 
 /*
  * Device Type for IPSec Tunnel devices
@@ -1483,7 +1483,7 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 	 * Only devices that are NSS devices, or IPSec tunnel devices are accelerated.
 	 */
 	if (src_dev->type == ARPHRD_IPSEC_TUNNEL_TYPE) {
-		unic.src_interface_num = NSS_IPSEC_ENCAP_INTERFACE;
+		unic.src_interface_num = NSS_C2C_TX_INTERFACE;
 	} else {
 		unic.src_interface_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, src_dev);
 		if (unic.src_interface_num < 0) {
@@ -1508,7 +1508,7 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 	}
 
 	if (dest_dev->type == ARPHRD_IPSEC_TUNNEL_TYPE) {
-		unic.dest_interface_num = NSS_IPSEC_ENCAP_INTERFACE;
+		unic.dest_interface_num = NSS_C2C_TX_INTERFACE;
 	} else {
 
 		unic.dest_interface_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, dest_dev);
@@ -1843,8 +1843,8 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 	}
 
 	/* For ipsec tunnel interfaces (virtual interface) , no arp processing is required */
-	if ((connection->src_interface == NSS_IPSEC_ENCAP_INTERFACE) ||
-			(connection->dest_interface ==  NSS_IPSEC_ENCAP_INTERFACE)) {
+	if ((connection->src_interface == NSS_C2C_TX_INTERFACE) ||
+			(connection->dest_interface ==  NSS_C2C_TX_INTERFACE)) {
 		goto out;
 	}
 
