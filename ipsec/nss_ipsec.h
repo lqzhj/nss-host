@@ -22,10 +22,12 @@
 #define NSS_IPSEC_MAX_IV_LEN		16
 #define NSS_IPSEC_ENCAP_RULE_SZ		sizeof(struct nss_ipsec_encap_rule)
 #define NSS_IPSEC_DECAP_RULE_SZ		sizeof(struct nss_ipsec_decap_rule)
-#define NSS_IPSEC_IPHDR_SZ		sizeof(struct nss_ipsec_ipv4_hdr)
-#define NSS_IPSEC_ESPHDR_SZ		sizeof(struct nss_ipsec_esp_hdr)
+#define NSS_IPSEC_IPHDR_SZ			sizeof(struct nss_ipsec_ipv4_hdr)
+#define NSS_IPSEC_ESPHDR_SZ			sizeof(struct nss_ipsec_esp_hdr)
 #define NSS_IPSEC0_ENCAP_INTERFACE	8
 #define NSS_IPSEC0_DECAP_INTERFACE	9
+#define NSS_C2C_TX_INTERFACE		28
+#define NSS_C2C_RX_INTERFACE		29
 
 /**
  * @brief IPsec rule types

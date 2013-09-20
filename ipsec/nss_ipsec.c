@@ -46,7 +46,6 @@
 
 #define nss_ipsec_skb_tunnel_dev(skb) 	(((struct nss_ipsec_skb_cb *)skb->cb)->tunnel_dev)
 #define nss_ipsec_skb_eth_dev(skb) 	(((struct nss_ipsec_skb_cb *)skb->cb)->eth_dev)
-
 /*
  * This is used by KLIPS for communicate the device along with the
  * packet. We need this to derive the mapping of the incoming flow
@@ -288,8 +287,6 @@ static void nss_ipsec_except(void *ctx, void *buf)
 	struct sk_buff *skb = (struct sk_buff *)buf;
 	struct nss_ipsec_ipv4_hdr *inner_ip;
 
-	nss_cfi_info("%s:received - %d bytes\n", __func__, skb->len);
-
 	inner_ip = (struct nss_ipsec_ipv4_hdr *)skb->data;
 
 	nss_cfi_dbg_skb(skb, NSS_IPSEC_DBG_DUMP_LIMIT);
@@ -328,9 +325,7 @@ static struct nss_ipsec_tunnel* nss_ipsec_get_tunnel(struct net_device *dev, str
 
 	idx = nss_ipsec_get_if_idx(dev->name);
 	if (idx < 0) {
-		/* XXX: also check if index number is within supported range */
-		nss_cfi_err("unable to get num from - (%s) where base is (%s)\n",
-				dev->name, ifname_base);
+		nss_cfi_err("unable to get num from - (%s) where base is (%s)\n", dev->name, ifname_base);
 		return NULL;
 	}
 
@@ -368,15 +363,26 @@ static struct nss_ipsec_tunnel* nss_ipsec_get_tunnel(struct net_device *dev, str
  * nss_ipsec_encap_ipv4_rule()
  * 	insert a ESP rule for NSS to process outgoing IPsec packets
  */
-static void nss_ipsec_encap_ipv4_rule(struct nss_ipsec_tunnel *tunnel, struct nss_ipsec_ipv4_hdr *ip)
+static int32_t nss_ipsec_encap_ipv4_rule(struct nss_ipsec_tunnel *tunnel, struct nss_ipsec_ipv4_hdr *ip)
 {
 	struct nss_ipv4_create esp_rule = {0};
 	nss_tx_status_t status;
 	uint32_t eth_ifnum;
+	void *ipv4_mgr_ctx;
+
+	/*
+	 * gbl_nss_ctx is for pushing IPsec rules on NSS core 1.
+	 * ipv4_mgr_ctx is for pushing IPv4 rules on NSS core 0.
+	 */
+	ipv4_mgr_ctx = nss_get_ipv4_mgr_ctx();
+	if (ipv4_mgr_ctx == NULL) {
+		nss_cfi_err("IPv4 connection manager ctx is NULL, not pushing IPv4 rule\n");
+		goto fail;
+	}
 
 	eth_ifnum = nss_get_interface_number(gbl_nss_ctx, tunnel->eth_dev);
 
-	esp_rule.src_interface_num  = NSS_IPSEC0_DECAP_INTERFACE;
+	esp_rule.src_interface_num  = NSS_C2C_TX_INTERFACE;
 	esp_rule.dest_interface_num = eth_ifnum;
 
 	esp_rule.protocol = IPPROTO_ESP;
@@ -402,33 +408,48 @@ static void nss_ipsec_encap_ipv4_rule(struct nss_ipsec_tunnel *tunnel, struct ns
 
 	if (nss_ipsec_get_mac_addr(esp_rule.dest_ip, esp_rule.dest_mac) < 0) {
 		nss_cfi_err("error retriving the MAC address for ip = 0x%x\n", ip->dst_ip);
-		return;
+		goto fail;
 	}
 
 	nss_cfi_dbg("dest ip %x dest_mac ",esp_rule.dest_ip);
 	nss_cfi_dbg_data(esp_rule.dest_mac, ETH_ALEN, ':');
 
-	status = nss_tx_create_ipv4_rule(gbl_nss_ctx, &esp_rule);
+	status = nss_tx_create_ipv4_rule(ipv4_mgr_ctx, &esp_rule);
 	if (status != NSS_TX_SUCCESS) {
 		nss_cfi_err("unable to create ESP rule for encap - %d\n", status);
+		goto fail;
 	}
 
+	return 0;
+fail:
+	return -EINVAL;
 }
 
 /*
  * nss_ipsec_decap_ipv4_rule()
  * 	insert a ESP rule for NSS to process incoming IPsec packets
  */
-static void nss_ipsec_decap_ipv4_rule(struct nss_ipsec_tunnel *tunnel, struct nss_ipsec_ipv4_hdr *ip)
+static int32_t nss_ipsec_decap_ipv4_rule(struct nss_ipsec_tunnel *tunnel, struct nss_ipsec_ipv4_hdr *ip)
 {
 	struct nss_ipv4_create esp_rule = {0};
 	nss_tx_status_t status;
 	uint32_t eth_ifnum;
+	void *ipv4_mgr_ctx;
+
+	/*
+	 * gbl_nss_ctx is for pushing IPsec rules on NSS core 1.
+	 * ipv4_mgr_ctx is for pushing IPv4 rules on NSS core 0.
+	 */
+	ipv4_mgr_ctx = nss_get_ipv4_mgr_ctx();
+	if (ipv4_mgr_ctx == NULL) {
+		nss_cfi_err("IPv4 connection manager ctx is NULL, not pushing IPv4 rule\n");
+		goto fail;
+	}
 
 	eth_ifnum = nss_get_interface_number(gbl_nss_ctx, tunnel->eth_dev);
 
 	esp_rule.src_interface_num  = eth_ifnum;
-	esp_rule.dest_interface_num = NSS_IPSEC0_DECAP_INTERFACE;
+	esp_rule.dest_interface_num = NSS_C2C_TX_INTERFACE;
 
 	esp_rule.protocol = IPPROTO_ESP;
 
@@ -453,16 +474,21 @@ static void nss_ipsec_decap_ipv4_rule(struct nss_ipsec_tunnel *tunnel, struct ns
 
 	if (nss_ipsec_get_mac_addr(esp_rule.src_ip, esp_rule.src_mac) < 0) {
 		nss_cfi_err("error retriving the MAC address for ip = 0x%x\n", ip->src_ip);
-		return;
+		goto fail;
 	}
 
 	nss_cfi_dbg("src ip %x src_mac ", esp_rule.src_ip);
 	nss_cfi_dbg_data(esp_rule.src_mac, ETH_ALEN, ':');
 
-	status = nss_tx_create_ipv4_rule(gbl_nss_ctx, &esp_rule);
+	status = nss_tx_create_ipv4_rule(ipv4_mgr_ctx, &esp_rule);
 	if (status != NSS_TX_SUCCESS) {
 		nss_cfi_err("unable to create ESP rule for decap - %d\n", status);
+		goto fail;
 	}
+
+	return 0;
+fail:
+	return -EINVAL;
 }
 
 /*
@@ -500,7 +526,7 @@ static int32_t nss_ipsec_encap_rule_insert(struct sk_buff *skb, uint32_t crypto_
 	if (nss_ipsec_check_outer_ip(outer_ip) < 0) {
 		nss_cfi_dbg_skb(skb, NSS_IPSEC_DBG_DUMP_LIMIT);
 		nss_cfi_dbg("unsupported outer IP protocol (%d)\n", outer_ip->protocol);
-		return 0;
+		goto fail;
 	}
 
 	inner_ip = (struct nss_ipsec_ipv4_hdr *)(skb->data + NSS_IPSEC_IPHDR_SZ + NSS_IPSEC_ESPHDR_SZ);
@@ -513,12 +539,13 @@ static int32_t nss_ipsec_encap_rule_insert(struct sk_buff *skb, uint32_t crypto_
 	if (nss_ipsec_check_inner_ip(inner_ip) < 0) {
 		nss_cfi_dbg_skb(skb, NSS_IPSEC_DBG_DUMP_LIMIT);
 		nss_cfi_dbg("unsupported inner IP protocol (%d)\n", inner_ip->protocol);
-		return 0;
+		goto fail;
 	}
 
 	tunnel = nss_ipsec_get_tunnel(dev, eth_dev);
 	if (!tunnel) {
 		nss_cfi_err("unable to register a new tunnel\n");
+		goto fail;
 	}
 
 	inner_next_sz = nss_ipsec_get_next_hdr(inner_ip, &inner_next);
@@ -541,17 +568,25 @@ static int32_t nss_ipsec_encap_rule_insert(struct sk_buff *skb, uint32_t crypto_
 	 */
 	rule.crypto_sid = crypto_sid;
 
-	status = nss_tx_ipsec_rule(gbl_nss_ctx, NSS_IPSEC0_ENCAP_INTERFACE, NSS_IPSEC_RULE_TYPE_ENCAP_INSERT,
-			(uint8_t *)&rule, NSS_IPSEC_ENCAP_RULE_SZ);
+	status = nss_tx_ipsec_rule(gbl_nss_ctx, /* nss context */
+					NSS_IPSEC0_ENCAP_INTERFACE, /* interface number */
+					NSS_IPSEC_RULE_TYPE_ENCAP_INSERT, /* rule type */
+					(uint8_t *)&rule, /* rule object */
+					NSS_IPSEC_ENCAP_RULE_SZ); /* rule size */
 	if (status != NSS_TX_SUCCESS) {
 		nss_cfi_err("unable to create SA rule for encap - %d\n", status);
+		goto fail;
 	}
 
-	nss_ipsec_encap_ipv4_rule(tunnel, outer_ip);
-
-	nss_cfi_dbg("rule insertion complete\n");
+	status = nss_ipsec_encap_ipv4_rule(tunnel, outer_ip);
+	if (status < 0) {
+		nss_cfi_err("unable to create ESP rule\n");
+		goto fail;
+	}
 
 	return 0;
+fail:
+	return -EINVAL;
 }
 
 /*
@@ -589,7 +624,7 @@ static int32_t nss_ipsec_decap_rule_insert(struct sk_buff *skb, uint32_t crypto_
 	if (nss_ipsec_check_outer_ip(outer_ip) < 0) {
 		nss_cfi_dbg_skb(skb, NSS_IPSEC_DBG_DUMP_LIMIT);
 		nss_cfi_dbg("unsupported outer IP protocol (%d)\n", outer_ip->protocol);
-		return 0;
+		goto fail;
 	}
 
 	/**
@@ -605,12 +640,13 @@ static int32_t nss_ipsec_decap_rule_insert(struct sk_buff *skb, uint32_t crypto_
 	if (nss_ipsec_check_inner_ip(inner_ip) < 0) {
 		nss_cfi_dbg_skb(skb, NSS_IPSEC_DBG_DUMP_LIMIT);
 		nss_cfi_dbg("unsupported inner IP protocol (%d)\n", inner_ip->protocol);
-		return 0;
+		goto fail;
 	}
 
 	tunnel = nss_ipsec_get_tunnel(dev, eth_dev);
 	if (!tunnel) {
 		nss_cfi_err("unable to register a new tunnel\n");
+		goto fail;
 	}
 
 	skb->skb_iif = tunnel->dev->ifindex;
@@ -623,24 +659,37 @@ static int32_t nss_ipsec_decap_rule_insert(struct sk_buff *skb, uint32_t crypto_
 	/* crypto session id to use with this rule */
 	rule.crypto_sid = crypto_sid;
 
-	status = nss_tx_ipsec_rule(gbl_nss_ctx, NSS_IPSEC0_DECAP_INTERFACE, NSS_IPSEC_RULE_TYPE_DECAP_INSERT,
-					(uint8_t *)&rule, NSS_IPSEC_DECAP_RULE_SZ);
+	status = nss_tx_ipsec_rule(gbl_nss_ctx,	/* nss context */
+					NSS_IPSEC0_DECAP_INTERFACE,	/* interface number */
+					NSS_IPSEC_RULE_TYPE_DECAP_INSERT, /* rule type */
+					(uint8_t *)&rule, /* rule object */
+					NSS_IPSEC_DECAP_RULE_SZ); /* rule size */
 	if (status != NSS_TX_SUCCESS) {
 		nss_cfi_err("unable to create SA rule for decap - %d\n", status);
+		goto fail;
 	}
 
-	nss_ipsec_decap_ipv4_rule(tunnel, outer_ip);
-
-	nss_cfi_dbg("rule insertion complete\n");
+	status = nss_ipsec_decap_ipv4_rule(tunnel, outer_ip);
+	if (status < 0) {
+		nss_cfi_err("unable to create pre-routing rule\n");
+		goto fail;
+	}
 
 	return 0;
+fail:
+	return -EINVAL;
 }
 
 int __init nss_ipsec_init_module(void)
 {
 	nss_cfi_info("NSS IPsec (platform - IPQ806x , Build - %s:%s) loaded\n", __DATE__, __TIME__);
 
-	gbl_nss_ctx = nss_register_ipsec_if(NSS_IPSEC0_ENCAP_INTERFACE, nss_ipsec_except, &tunnel_head);
+	gbl_nss_ctx = nss_register_ipsec_if(NSS_C2C_TX_INTERFACE, nss_ipsec_except, &tunnel_head);
+	if (gbl_nss_ctx == NULL) {
+		nss_cfi_err("Unable to register IPsec with NSS driver\n");
+		return -1;
+	}
+
 	nss_cfi_ocf_register_ipsec(nss_ipsec_encap_rule_insert, nss_ipsec_decap_rule_insert);
 
 	return 0;
@@ -648,7 +697,7 @@ int __init nss_ipsec_init_module(void)
 
 void __exit nss_ipsec_exit_module(void)
 {
-	nss_unregister_ipsec_if(NSS_IPSEC0_ENCAP_INTERFACE);
+	nss_unregister_ipsec_if(NSS_C2C_TX_INTERFACE);
 	nss_cfi_info("module unloaded\n");
 }
 

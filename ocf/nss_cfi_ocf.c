@@ -144,7 +144,7 @@ static int nss_cfi_ocf_newsession(device_t dev, uint32_t *sidp, struct cryptoini
 		break;
 
 	case NSS_CFI_OCF_ALGO_TYPE_IS_CIPHER:
-		cip_ini  = cri;
+		cip_ini = cri;
 		auth_ini = cri->cri_next;
 
 		/* Only have cipher, no auth algorithm. */
@@ -319,7 +319,10 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 	buf = nss_crypto_buf_alloc(sc->crypto);
 	if (buf == NULL) {
 		nss_cfi_err("not able to allocate crypto buffer\n");
-		return ERESTART;
+		crp->crp_etype = ENOENT;
+		crypto_done(crp);
+
+		return 0;
 	}
 
 	/*
@@ -348,9 +351,9 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 			flag = NSS_CRYPTO_BUF_REQ_ENCRYPT;
 		}
 
-		buf->cipher_len  = cip_crd->crd_len;
+		buf->cipher_len = cip_crd->crd_len;
 		buf->cipher_skip = cip_crd->crd_skip;
-		buf->iv_offset   = cip_crd->crd_inject;
+		buf->iv_offset = cip_crd->crd_inject;
 
 		nss_cfi_dbg("cipher len %d cipher skip %d iv_offset %d\n",
 				buf->cipher_len, buf->cipher_skip, buf->iv_offset);
@@ -362,8 +365,8 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 		buf->hash_len = (auth_crd->crd_mlen == 0) ?
 				cfi_algo[auth_crd->crd_alg].max_hashlen : auth_crd->crd_mlen;
 
-		buf->auth_len    = auth_crd->crd_len;
-		buf->auth_skip   = auth_crd->crd_skip;
+		buf->auth_len = auth_crd->crd_len;
+		buf->auth_skip = auth_crd->crd_skip;
 		buf->hash_offset = auth_crd->crd_inject;
 
 		nss_cfi_dbg("auth len %d auth skip %d hash_offset %d\n",
@@ -374,7 +377,7 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 
 	buf->req_type = flag;
 	buf->data_len = len;
-	buf->data     = data;
+	buf->data = data;
 
 	/*
 	 *  Send the buffer to CORE layer for processing
@@ -383,7 +386,8 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 		nss_cfi_err("Not enough resources with driver\n");
 		nss_crypto_buf_free(sc->crypto, buf);
 
-		return ERESTART;
+		crp->crp_etype = ENOENT;
+		crypto_done(crp);
 	}
 
 	return 0;
