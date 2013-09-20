@@ -95,6 +95,63 @@ static const struct nss_gmac_ethtool_stats gmac_gstrings_stats[] = {
 #define NSS_GMAC_STATS_LEN	ARRAY_SIZE(gmac_gstrings_stats)
 
 
+/*
+ * Convert NSS GMAC speed id to ethtool id.
+ * @param[in] nss gmac specific speed
+ * @return Returns ethtool speed
+ */
+static int32_t nss_gmac_to_ethtool_speed(int32_t speed)
+{
+	int32_t ret;
+
+	switch (speed) {
+	case SPEED10:
+		ret = SPEED_10;
+		break;
+
+	case SPEED100:
+		ret = SPEED_100;
+		break;
+
+	case SPEED1000:
+		ret = SPEED_1000;
+		break;
+
+	default:
+		ret = SPEED_UNKNOWN;
+		break;
+	}
+
+	return ret;
+}
+
+/*
+ * Convert NSS GMAC duplex id to ethtool id.
+ * @param[in] nss gmac specific duplex value
+ * @return Returns ethtool duplex value
+ */
+static int32_t nss_gmac_to_ethtool_duplex(int32_t duplex)
+{
+	int32_t ret;
+
+	switch (duplex) {
+	case HALFDUPLEX:
+		ret = DUPLEX_HALF;
+		break;
+
+	case FULLDUPLEX:
+		ret = DUPLEX_FULL;
+		break;
+
+	default:
+		ret = DUPLEX_UNKNOWN;
+		break;
+	}
+
+	return ret;
+}
+
+
 /**
  * @brief Get number of strings that describe requested objects.
  * @param[in] pointer to struct net_device.
@@ -314,44 +371,68 @@ static int32_t nss_gmac_get_settings(struct net_device *netdev,
 	ecmd->autoneg = phydev->autoneg;
 	ethtool_cmd_speed_set(ecmd, phydev->speed);
 	ecmd->duplex = phydev->duplex;
+
+	/*
+	 * If the speed/duplex for this GMAC is forced and we are not
+	 * polling for link state changes, return the values as specified by
+	 * platform. This will be true for GMACs connected to switch.
+	 */
+	if (gmacdev->forced_speed != SPEED_UNKNOWN
+	    && !test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
+		ethtool_cmd_speed_set(ecmd, nss_gmac_to_ethtool_speed(gmacdev->forced_speed));
+		ecmd->duplex = nss_gmac_to_ethtool_duplex(gmacdev->forced_duplex);
+	}
+
+	if (gmacdev->link_state == LINKDOWN) {
+		ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
+		ecmd->duplex = DUPLEX_UNKNOWN;
+	}
+
 	ecmd->port = PORT_TP;
 	ecmd->phy_address = gmacdev->phy_base;
 	ecmd->transceiver = XCVR_EXTERNAL;
-	ecmd->mdio_support = ETH_MDIO_SUPPORTS_C22;
 
-	/* Populate capabilities advertised by link partner */
-	phyreg = nss_gmac_mii_rd_reg(gmacdev, gmacdev->phy_base, MII_LPA);
-	if (phyreg & LPA_10HALF) {
-		ecmd->lp_advertising |= ADVERTISED_10baseT_Half;
-	}
+	if (gmacdev->forced_speed != SPEED_UNKNOWN
+	    && !test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
+		ecmd->mdio_support = 0;
+		ecmd->lp_advertising = 0;
+	} else {
+		ecmd->mdio_support = ETH_MDIO_SUPPORTS_C22;
 
-	if (phyreg & LPA_10FULL) {
-		ecmd->lp_advertising |= ADVERTISED_10baseT_Full;
-	}
+		/* Populate capabilities advertised by link partner */
+		phyreg = nss_gmac_mii_rd_reg(gmacdev, gmacdev->phy_base, MII_LPA);
+		if (phyreg & LPA_10HALF) {
+			ecmd->lp_advertising |= ADVERTISED_10baseT_Half;
+		}
 
-	if (phyreg & LPA_100HALF) {
-		ecmd->lp_advertising |= ADVERTISED_100baseT_Half;
-	}
+		if (phyreg & LPA_10FULL) {
+			ecmd->lp_advertising |= ADVERTISED_10baseT_Full;
+		}
 
-	if (phyreg & LPA_100FULL) {
-		ecmd->lp_advertising |= ADVERTISED_100baseT_Full;
-	}
+		if (phyreg & LPA_100HALF) {
+			ecmd->lp_advertising |= ADVERTISED_100baseT_Half;
+		}
 
-	if (phyreg & LPA_PAUSE_CAP) {
-		ecmd->lp_advertising |= ADVERTISED_Pause;
-	}
+		if (phyreg & LPA_100FULL) {
+			ecmd->lp_advertising |= ADVERTISED_100baseT_Full;
+		}
 
-	if (phyreg & LPA_PAUSE_ASYM) {
-		ecmd->lp_advertising |= ADVERTISED_Asym_Pause;
-	}
+		if (phyreg & LPA_PAUSE_CAP) {
+			ecmd->lp_advertising |= ADVERTISED_Pause;
+		}
 
-	phyreg = nss_gmac_mii_rd_reg(gmacdev, gmacdev->phy_base, MII_STAT1000);
-	if (phyreg & LPA_1000HALF) {
-		ecmd->lp_advertising |= ADVERTISED_1000baseT_Half;
-	}
+		if (phyreg & LPA_PAUSE_ASYM) {
+			ecmd->lp_advertising |= ADVERTISED_Asym_Pause;
+		}
 
-	if (phyreg & LPA_1000FULL) {
-		ecmd->lp_advertising |= ADVERTISED_1000baseT_Full;
+		phyreg = nss_gmac_mii_rd_reg(gmacdev, gmacdev->phy_base, MII_STAT1000);
+		if (phyreg & LPA_1000HALF) {
+			ecmd->lp_advertising |= ADVERTISED_1000baseT_Half;
+		}
+
+		if (phyreg & LPA_1000FULL) {
+			ecmd->lp_advertising |= ADVERTISED_1000baseT_Full;
+		}
 	}
 
 	return 0;
@@ -367,10 +448,18 @@ static int32_t nss_gmac_set_settings(struct net_device *netdev,
 {
 	nss_gmac_dev *gmacdev = NULL;
 	struct phy_device *phydev = NULL;
-	uint32_t speed;
 
 	gmacdev = (nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
+
+	/*
+	 * If the speed for this GMAC is forced,
+	 * do not proceed with the changes below. This would be true
+	 * for GMACs connected to switch.
+	 */
+	if (gmacdev->forced_speed != SPEED_UNKNOWN) {
+		return -EPERM;
+	}
 
 	phydev = gmacdev->phydev;
 
@@ -379,8 +468,7 @@ static int32_t nss_gmac_set_settings(struct net_device *netdev,
 	phydev->advertising = ecmd->advertising;
 	phydev->autoneg = ecmd->autoneg;
 
-	speed = ethtool_cmd_speed(ecmd);
-	phydev->speed = ecmd->speed;
+	phydev->speed = ethtool_cmd_speed(ecmd);
 	phydev->duplex = ecmd->duplex;
 
 	if (ecmd->autoneg == AUTONEG_ENABLE) {
