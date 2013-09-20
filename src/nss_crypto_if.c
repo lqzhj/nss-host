@@ -224,7 +224,7 @@ nss_crypto_status_t nss_crypto_transform_payload(nss_crypto_handle_t crypto, str
 
 	nss_status = nss_tx_crypto_if_buf(nss_drv_hdl, buf, paddr, sizeof(struct nss_crypto_buf));
 
-	return (nss_status == NSS_TX_FAILURE) ? NSS_CRYPTO_STATUS_ERESTART : NSS_CRYPTO_STATUS_OK;
+	return (nss_status == NSS_TX_FAILURE) ? NSS_CRYPTO_STATUS_FAIL : NSS_CRYPTO_STATUS_OK;
 }
 EXPORT_SYMBOL(nss_crypto_transform_payload);
 
