@@ -984,7 +984,7 @@ void nss_stats_init(void)
 	}
 
 	nss_top_main.stats_dentry = debugfs_create_dir("stats", nss_top_main.top_dentry);
-	if (unlikely(nss_top_main.top_dentry == NULL)) {
+	if (unlikely(nss_top_main.stats_dentry == NULL)) {
 		nss_warning("Failed to create qca-nss-drv directory in debugfs");
 
 		/*
@@ -1004,7 +1004,7 @@ void nss_stats_init(void)
 	nss_top_main.ipv4_dentry = debugfs_create_file("ipv4", 0400,
 						nss_top_main.stats_dentry, &nss_top_main, &nss_stats_ipv4_ops);
 	if (unlikely(nss_top_main.ipv4_dentry == NULL)) {
-		nss_warning("Failed to create qca-nss-drv/stats/ipv4 directory in debugfs");
+		nss_warning("Failed to create qca-nss-drv/stats/ipv4 file in debugfs");
 		return;
 	}
 
@@ -1014,7 +1014,7 @@ void nss_stats_init(void)
 	nss_top_main.ipv6_dentry = debugfs_create_file("ipv6", 0400,
 						nss_top_main.stats_dentry, &nss_top_main, &nss_stats_ipv6_ops);
 	if (unlikely(nss_top_main.ipv6_dentry == NULL)) {
-		nss_warning("Failed to create qca-nss-drv/stats/ipv6 directory in debugfs");
+		nss_warning("Failed to create qca-nss-drv/stats/ipv6 file in debugfs");
 		return;
 	}
 
@@ -1024,7 +1024,7 @@ void nss_stats_init(void)
 	nss_top_main.pbuf_dentry = debugfs_create_file("pbuf_mgr", 0400,
 						nss_top_main.stats_dentry, &nss_top_main, &nss_stats_pbuf_ops);
 	if (unlikely(nss_top_main.pbuf_dentry == NULL)) {
-		nss_warning("Failed to create qca-nss-drv/stats/pbuf directory in debugfs");
+		nss_warning("Failed to create qca-nss-drv/stats/pbuf file in debugfs");
 		return;
 	}
 
@@ -1054,7 +1054,7 @@ void nss_stats_init(void)
 	nss_top_main.ethbr_dentry = debugfs_create_file("eth_br", 0400,
 						nss_top_main.stats_dentry, &nss_top_main, &nss_stats_ethbr_ops);
 	if (unlikely(nss_top_main.ethbr_dentry == NULL)) {
-		nss_warning("Failed to create qca-nss-drv/stats/ethbr directory in debugfs");
+		nss_warning("Failed to create qca-nss-drv/stats/ethbr file in debugfs");
 		return;
 	}
 
@@ -1064,7 +1064,7 @@ void nss_stats_init(void)
 	nss_top_main.pppoe_dentry = debugfs_create_file("pppoe", 0400,
 						nss_top_main.stats_dentry, &nss_top_main, &nss_stats_pppoe_ops);
 	if (unlikely(nss_top_main.pppoe_dentry == NULL)) {
-		nss_warning("Failed to create qca-nss-drv/stats/pppoe directory in debugfs");
+		nss_warning("Failed to create qca-nss-drv/stats/pppoe file in debugfs");
 		return;
 	}
 
@@ -1074,7 +1074,7 @@ void nss_stats_init(void)
 	nss_top_main.gmac_dentry = debugfs_create_file("gmac", 0400,
 						nss_top_main.stats_dentry, &nss_top_main, &nss_stats_gmac_ops);
 	if (unlikely(nss_top_main.gmac_dentry == NULL)) {
-		nss_warning("Failed to create qca-nss-drv/stats/gmac directory in debugfs");
+		nss_warning("Failed to create qca-nss-drv/stats/gmac file in debugfs");
 		return;
 	}
 
@@ -1084,7 +1084,7 @@ void nss_stats_init(void)
 	nss_top_main.if_dentry = debugfs_create_file("interface", 0400,
 						nss_top_main.stats_dentry, &nss_top_main, &nss_stats_if_ops);
 	if (unlikely(nss_top_main.if_dentry == NULL)) {
-		nss_warning("Failed to create qca-nss-drv/stats/interface directory in debugfs");
+		nss_warning("Failed to create qca-nss-drv/stats/interface file in debugfs");
 		return;
 	}
 }

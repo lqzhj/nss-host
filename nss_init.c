@@ -105,11 +105,13 @@ static void nss_dummy_netdev_setup(struct net_device *ndev)
 static irqreturn_t nss_handle_irq (int irq, void *ctx)
 {
 	struct int_ctx_instance *int_ctx = (struct int_ctx_instance *) ctx;
+	struct nss_ctx_instance *nss_ctx = int_ctx->nss_ctx;
 
 	/*
-	 * Disable IRQ until our bottom half re-enables it
+	 * Mask interrupt until our bottom half re-enables it
 	 */
-	disable_irq_nosync(irq);
+	nss_hal_disable_interrupt(nss_ctx->nmap, int_ctx->irq,
+			int_ctx->shift_factor, NSS_HAL_SUPPORTED_INTERRUPTS);
 
 	/*
 	 * Schedule tasklet to process interrupt cause

@@ -515,6 +515,9 @@ typedef enum {
 	NSS_TX_FAILURE_QUEUE,	/**< Command failure due to descriptor not available */
 	NSS_TX_FAILURE_NOT_READY,	/**< Command failure due to NSS state uninitialized */
 	NSS_TX_FAILURE_TOO_LARGE,	/**< Command is too large to fit in one message */
+	NSS_TX_FAILURE_TOO_SHORT,	/**< Command/Packet is shorter than expected size */
+	NSS_TX_FAILURE_NOT_SUPPORTED,	/**< Command/Packet not accepted for forwarding */
+	NSS_TX_FAILURE_BAD_PARAM,	/**< Command failure due to bad parameters */
 } nss_tx_status_t;
 
 /**
@@ -861,7 +864,7 @@ typedef void (*nss_phys_if_rx_callback_t)(void *if_ctx, void *os_buf);
  * @return void* NSS context
  */
 extern void *nss_register_phys_if(uint32_t if_num, nss_phys_if_rx_callback_t rx_callback,
-					nss_phys_if_event_callback_t event_callback, void *if_ctx);
+					nss_phys_if_event_callback_t event_callback, struct net_device *if_ctx);
 
 /**
  * @brief Unregister GMAC handlers with NSS driver
@@ -947,20 +950,37 @@ extern nss_tx_status_t nss_tx_phys_if_change_mtu(void *nss_ctx, uint32_t mtu, ui
 extern nss_tx_status_t nss_tx_phys_if_get_napi_ctx(void *nss_ctx, struct napi_struct **napi_ctx);
 
 /**
- * Methods provided by NSS driver for use by Virtual interfaces
+ * Methods provided by NSS driver for use by virtual interfaces (VAPs)
  */
 
 /**
- * @brief Register to send/receive Virtual interface packets
+ * @brief Create virtual interface (VAPs)
  *
- * @param if_num Virtual i/f number
- * @param if_ctx Interface context provided in callback
- *		(must be OS network device context pointer e.g.
- *		struct net_device * in Linux)
+ * @param if_ctx Interface context
+ *		(struct net_device * in Linux)
  *
- * @return void* NSS context
+ * @return void* context
  */
-extern void *nss_register_virt_if(uint32_t if_num, void *if_ctx);
+extern void *nss_create_virt_if(struct net_device *if_ctx);
+
+/**
+ * @brief Destroy virtual interface (VAPs)
+ *
+ * @param ctx Context provided by NSS driver during registration
+ *
+ * @return None
+ */
+extern nss_tx_status_t nss_destroy_virt_if(void *ctx);
+
+/**
+ * @brief Forward virtual interface packets
+ *
+ * @param nss_ctx NSS context (provided during registeration)
+ * @param os_buf OS buffer (e.g. skbuff)
+ *
+ * @return nss_tx_status_t Tx status
+ */
+extern nss_tx_status_t nss_tx_virt_if_rxbuf(void *nss_ctx, struct sk_buff *os_buf);
 
 /**
  * Methods provided by NSS driver for use by IPsec stack

@@ -869,6 +869,8 @@ struct nss_rx_metadata_object {
 #define H2N_BIT_FLAG_SEGMENT_TSO		0x0200
 #define H2N_BIT_FLAG_SEGMENT_UFO		0x0400
 #define H2N_BIT_FLAG_SEGMENT_TSO6		0x0800
+#define H2N_BIT_FLAG_VIRTUAL_BUFFER		0x2000
+#define H2N_BIT_BUFFER_REUSE			0x8000
 
 /*
  * HLOS to NSS descriptor structure.
@@ -921,6 +923,7 @@ struct h2n_descriptor {
 #define N2H_BIT_FLAG_IP_TRANSPORT_CHECKSUM_VALID	0x0002
 #define N2H_BIT_FLAG_FIRST_SEGMENT			0x0004
 #define N2H_BIT_FLAG_LAST_SEGMENT			0x0008
+#define N2H_BIT_FLAG_VIRTUAL_BUFFER			0x2000
 
 /*
  * NSS to HLOS descriptor structure

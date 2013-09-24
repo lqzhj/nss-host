@@ -88,7 +88,7 @@ static inline uint16_t nss_core_cause_to_queue(uint16_t cause)
  * nss_core_handle_cause_queue()
  *	Handle interrupt cause related to N2H/H2N queues
  */
-static int32_t nss_core_handle_cause_queue(struct nss_ctx_instance *nss_ctx, uint16_t cause, int16_t weight)
+static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uint16_t cause, int16_t weight)
 {
 	void *ctx;
 	nss_phys_if_rx_callback_t cb;
@@ -100,6 +100,7 @@ static int32_t nss_core_handle_cause_queue(struct nss_ctx_instance *nss_ctx, uin
 	struct n2h_desc_if_instance *desc_if;
 	struct n2h_descriptor *desc;
 	uint32_t nr_frags;
+	struct nss_ctx_instance *nss_ctx = int_ctx->nss_ctx;
 	struct nss_if_mem_map *if_map = (struct nss_if_mem_map *)(nss_ctx->vmap);
 
 	qid = nss_core_cause_to_queue(cause);
@@ -180,9 +181,6 @@ static int32_t nss_core_handle_cause_queue(struct nss_ctx_instance *nss_ctx, uin
 			 * scattered segments and the first segment of SKB
 			 */
 
-			/*
-			 * TODO: Unmap data buffer area for scatter-gather
-			 */
 			switch (desc->buffer_type) {
 			case N2H_BUFFER_PACKET_VIRTUAL:
 				NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_RX_VIRTUAL]);
@@ -234,7 +232,45 @@ static int32_t nss_core_handle_cause_queue(struct nss_ctx_instance *nss_ctx, uin
 				ctx = nss_ctx->nss_top->if_ctx[desc->interface_num];
 				cb = nss_ctx->nss_top->if_rx_callback[desc->interface_num];
 				if (likely(cb) && likely(ctx)) {
+					/*
+					 * Packet was received on Physical interface
+					 */
 					cb(ctx, (void *)nbuf);
+				} else if (NSS_IS_VIRTUAL_INTERFACE(desc->interface_num)) {
+					/*
+					 * Packet was received on Virtual interface
+					 */
+
+					/*
+					 * Reset MAC header
+					 *
+					 * NOTE: This may or may not be required depending
+					 *	on whether alignment WAR is enabled on WLAN
+					 */
+					skb_reset_mac_header(nbuf);
+
+					/*
+					 * Pull inline as stack expects us to point
+					 * to next layer header
+					 */
+					skb_pull_inline(nbuf, ETH_HLEN);
+
+					/*
+					 * Give the packet to stack
+					 *
+					 * TODO: Change to gro receive later
+					 */
+					ctx = nss_ctx->nss_top->if_ctx[desc->interface_num];
+					if (ctx) {
+						dev_hold(ctx);
+						netif_receive_skb(nbuf);
+						dev_put(ctx);
+					} else {
+						/*
+						 * Interface has gone down
+						 */
+						dev_kfree_skb_any(nbuf);
+					}
 				} else {
 					dev_kfree_skb_any(nbuf);
 				}
@@ -318,8 +354,9 @@ static void nss_core_init_nss(struct nss_ctx_instance *nss_ctx, struct nss_if_me
  * nss_core_handle_cause_nonqueue()
  *	Handle non-queue interrupt causes (e.g. empty buffer SOS, Tx unblocked)
  */
-static int32_t nss_core_handle_cause_nonqueue (struct nss_ctx_instance *nss_ctx, uint32_t cause, int16_t weight)
+static int32_t nss_core_handle_cause_nonqueue (struct int_ctx_instance *int_ctx, uint32_t cause, int16_t weight)
 {
+	struct nss_ctx_instance *nss_ctx = int_ctx->nss_ctx;
 	struct nss_if_mem_map *if_map = (struct nss_if_mem_map *)(nss_ctx->vmap);
 	int32_t i;
 
@@ -535,11 +572,11 @@ int nss_core_handle_napi(struct napi_struct *napi, int budget)
 			processed = 0;
 			switch (cause_type) {
 			case NSS_INTR_CAUSE_QUEUE:
-				processed = nss_core_handle_cause_queue(nss_ctx, prio_cause, weight);
+				processed = nss_core_handle_cause_queue(int_ctx, prio_cause, weight);
 				break;
 
 			case NSS_INTR_CAUSE_NON_QUEUE:
-				processed = nss_core_handle_cause_nonqueue(nss_ctx, prio_cause, weight);
+				processed = nss_core_handle_cause_nonqueue(int_ctx, prio_cause, weight);
 
 				/*
 				 * Buffer replenish should also be considered in NAPI weight
@@ -578,11 +615,6 @@ int nss_core_handle_napi(struct napi_struct *napi, int budget)
 		 * Re-enable any further interrupt from this IRQ
 		 */
 		nss_hal_enable_interrupt(nss_ctx->nmap, int_ctx->irq, int_ctx->shift_factor, NSS_HAL_SUPPORTED_INTERRUPTS);
-
-		/*
-		 * WARNING: This code should be removed after UBI32 IRQ mask issue is resolved in hardware
-		 */
-		enable_irq(int_ctx->irq);
 	}
 
 	return count;
@@ -644,14 +676,6 @@ int32_t nss_core_send_crypto(struct nss_ctx_instance *nss_ctx, void *buf, uint32
 	 */
 	if_map->h2n_hlos_index[NSS_IF_DATA_QUEUE] = (hlos_index + 1) & (size - 1);
 	spin_unlock_bh(&nss_ctx->h2n_desc_rings[NSS_IF_DATA_QUEUE].lock);
-
-	/*
-	 * Memory barrier to ensure all writes have been successful
-	 * NOTE: NOCs have internal buffer and hence race condition may occur between NOC
-	 *	and register write for interrupt
-	 * TODO: Verify and remove if not required
-	 */
-	wmb();
 	return NSS_CORE_STATUS_SUCCESS;
 }
 
@@ -715,7 +739,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	 */
 	if (likely(nr_frags == 0)) {
 		desc->buffer_type = buffer_type;
-		desc->bit_flags = flags | H2N_BIT_FLAG_FIRST_SEGMENT | H2N_BIT_FLAG_LAST_SEGMENT;
+		desc->bit_flags = flags | H2N_BIT_FLAG_FIRST_SEGMENT | H2N_BIT_FLAG_LAST_SEGMENT | H2N_BIT_BUFFER_REUSE;
 
 		if (likely(nbuf->ip_summed == CHECKSUM_PARTIAL)) {
 			desc->bit_flags |= H2N_BIT_FLAG_GEN_IP_TRANSPORT_CHECKSUM;
@@ -726,6 +750,11 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		desc->payload_offs = (uint16_t) (nbuf->data - nbuf->head);
 		desc->payload_len = nbuf->len;
 		desc->buffer_len = (uint16_t)(nbuf->end - nbuf->head);
+
+		if (unlikely(skb_shared(nbuf) || skb_cloned(nbuf) || (desc->buffer_len < NSS_NBUF_PAYLOAD_SIZE))) {
+			desc->bit_flags &= ~H2N_BIT_BUFFER_REUSE;
+		}
+
 		desc->buffer = (uint32_t)dma_map_single(NULL, nbuf->head, (nbuf->tail - nbuf->head), DMA_TO_DEVICE);
 		if (unlikely(dma_mapping_error(NULL, desc->buffer))) {
 			spin_unlock_bh(&nss_ctx->h2n_desc_rings[qid].lock);
@@ -834,13 +863,5 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	 */
 	if_map->h2n_hlos_index[qid] = (hlos_index + 1) & (mask);
 	spin_unlock_bh(&nss_ctx->h2n_desc_rings[qid].lock);
-
-	/*
-	 * Memory barrier to ensure all writes have been successful
-	 * NOTE: NOCs have internal buffer and hence race condition may occur between NOC
-	 *	and register write for interrupt
-	 * TODO: Verify and remove if not required
-	 */
-	wmb();
 	return NSS_CORE_STATUS_SUCCESS;
 }
