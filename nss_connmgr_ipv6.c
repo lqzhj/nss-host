@@ -965,7 +965,7 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 		return NF_ACCEPT;
 	}
 
-	if ((out->addr_len != 6) && (out->type != ARPHRD_SIT) && (in->type != ARPHRD_TUNNEL6)) {
+	if ((out->addr_len != 6) && (out->type != ARPHRD_SIT) && (out->type != ARPHRD_TUNNEL6)) {
 		dev_put(in);
 		NSS_CONNMGR_DEBUG_TRACE("out device (%s) not 802.3 hw addr len (%u), ignoring: %p\n", out->name, (unsigned)out->addr_len, skb);
 		return NF_ACCEPT;
