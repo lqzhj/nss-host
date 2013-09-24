@@ -19,8 +19,9 @@
  *	NSS init APIs
  *
  */
-
 #include "nss_core.h"
+#include "nss_pm.h"
+
 #include <nss_hal.h>
 #include <nss_clocks.h>
 
@@ -691,6 +692,11 @@ static int __init nss_init(void)
 	 * Initial Workqueue
 	 */
 	nss_wq = create_workqueue("nss_freq_queue");
+
+	/*
+	 * Initialize NSS Bus PM module
+	 */
+	nss_pm_init();
 
 	/*
 	 * Register platform_driver

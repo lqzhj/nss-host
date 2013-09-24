@@ -94,6 +94,28 @@ struct nss_lag_state_change {
 	uint32_t event;			/* NSS_LAG_{RELEASE/ENSLAVE} */
 };
 
+/*
+ * @brief NSS PM Clients
+ * NSS clients that can request for Bus/Clock performance levels
+ **/
+typedef enum nss_pm_client {
+	NSS_PM_CLIENT_GMAC,
+	NSS_PM_CLIENT_CRYPTO,
+	NSS_PM_CLIENT_NETAP,
+	NSS_PM_MAX_CLIENTS,
+} nss_pm_client_t;
+
+/**
+ * @brief NSS Performance Levels
+ * This is passed as parameter to NSS PM perf level requests
+ */
+typedef enum nss_pm_perf_level {
+	NSS_PM_PERF_LEVEL_SUSPEND = 0,
+	NSS_PM_PERF_LEVEL_IDLE,
+	NSS_PM_PERF_LEVEL_NOMINAL,
+	NSS_PM_PERF_LEVEL_TURBO,
+	NSS_PM_PERF_MAX_LEVELS,
+} nss_pm_perf_level_t;
 
 /**
  * IPv4 rule sync reasons.
@@ -509,6 +531,14 @@ typedef enum {
 	NSS_CB_UNREGISTER_SUCCESS = 0,	/**< Callback unregister successful */
 	NSS_CB_UNREGISTER_FAILED,		/**< Callback unregister failed */
 } nss_cb_unregister_status_t;
+
+/**
+ * PM Client interface status
+ */
+typedef enum {
+	NSS_PM_API_SUCCESS = 0,
+	NSS_PM_API_FAILED,
+} nss_pm_interface_status_t;
 
 /**
  * NSS GMAC event type
@@ -1046,6 +1076,32 @@ extern void nss_unregister_tunipip6_if(uint32_t if_num);
  * @return nss_tx_status_t Tx Status
  */
 nss_tx_status_t nss_freq_change(void *ctx, uint32_t eng, uint32_t start_or_end);
+
+/**
+ * @brief Register PM Driver Client
+ *
+ * @param client_id Identifies the Client driver registering with PM driver
+ *
+ * @return
+ */
+extern void *nss_pm_client_register(nss_pm_client_t client_id);
+
+/**
+ * @brief Unregister PM Driver Client
+ *
+ * @param client_id Identifies the Client driver registering with PM driver
+ *
+ * @return
+ */
+int nss_pm_client_unregister(nss_pm_client_t client_id);
+
+/**
+ * @brief Update Bus Bandwidth level for a client
+ *
+ * @param handle - Client Handle
+ * @param lvl - Perf Level
+ */
+extern nss_pm_interface_status_t nss_pm_set_perf_level(void *handle, nss_pm_perf_level_t lvl);
 
 /**@}*/
 #endif /** __NSS_API_IF_H */
