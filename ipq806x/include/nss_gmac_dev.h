@@ -192,7 +192,7 @@ typedef struct _nss_gmac_dev {
 	struct net_device *netdev;
 	struct platform_device *pdev;
 	struct delayed_work gmacwork;
-	struct napi_struct napi;
+	struct napi_struct *napi;
 	struct rtnl_link_stats64 stats;	/* statistics counters                  */
 	spinlock_t stats_lock;		/* Lock to retrieve stats atomically    */
 	spinlock_t slock;		/* Lock to protect datapath		*/

@@ -671,7 +671,7 @@ static int32_t nss_gmac_set_features(struct net_device *netdev,
 	BUG_ON(gmacdev == NULL);
 
 	changed = features ^ netdev->features;
-	if (!(changed & (NETIF_F_RXCSUM | NETIF_F_HW_CSUM))) {
+	if (!(changed & (NETIF_F_RXCSUM | NETIF_F_HW_CSUM | NETIF_F_GRO))) {
 		return 0;
 	}
 
@@ -682,6 +682,12 @@ static int32_t nss_gmac_set_features(struct net_device *netdev,
 			test_and_clear_bit(__NSS_GMAC_RXCSUM, &gmacdev->flags);
 		}
 		nss_gmac_ipc_offload_init(gmacdev);
+	}
+
+	if (changed & NETIF_F_GRO) {
+		if (!(features & NETIF_F_GRO)) {
+			napi_gro_flush(gmacdev->napi);
+		}
 	}
 
 	return 0;
@@ -827,7 +833,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	/* Register the interface to the NSS driver */
 	gmacdev->nss_gmac_ctx = nss_register_phys_if(pdev->id, nss_gmac_receive,
 						     nss_gmac_event_receive,
-						     (void *)netdev);
+						     netdev);
 
 	if (gmacdev->nss_gmac_ctx == NULL) {
 		nss_gmac_info(gmacdev,
@@ -1001,6 +1007,13 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 		ret = -EFAULT;
 		goto nss_gmac_reg_fail;
 	}
+
+	/* GRO disabled by default */
+	rtnl_lock();
+	netdev->features &= ~NETIF_F_GRO;
+	netdev->wanted_features &= ~NETIF_F_GRO;
+	netdev_change_features(netdev);
+	rtnl_unlock();
 
 	nss_gmac_info(gmacdev,
 		      "Initialized NSS GMAC%d interface %s: (base = 0x%lx, "

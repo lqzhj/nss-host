@@ -186,7 +186,7 @@ void nss_gmac_receive(void *if_ctx, void *os_buf)
 		      "%s: Rx on gmac%d, packet len %d, CSUM %d",
 		      __FUNCTION__, gmacdev->macid, skb->len, skb->ip_summed);
 
-	netif_receive_skb(skb);
+	napi_gro_receive(gmacdev->napi, skb);
 }
 
 
@@ -379,6 +379,8 @@ void nss_gmac_work(struct work_struct *work)
 					(uint8_t *)
 					gmacdev->netdev->dev_addr,
 					gmacdev->macid);
+
+		nss_tx_phys_if_get_napi_ctx(gmacdev->nss_gmac_ctx, &gmacdev->napi);
 
 		if (!IS_ERR_OR_NULL(gmacdev->phydev)) {
 			if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
