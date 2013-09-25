@@ -937,6 +937,16 @@ extern nss_tx_status_t nss_tx_phys_if_mac_addr(void *nss_ctx, uint8_t *addr, uin
 extern nss_tx_status_t nss_tx_phys_if_change_mtu(void *nss_ctx, uint32_t mtu, uint32_t if_num);
 
 /**
+ * @brief Get NAPI context
+ *
+ * @param nss_ctx NSS context
+ * @param napi_ctx Pointer to address to return NAPI context
+ *
+ * @return nss_tx_status_t Tx status
+ */
+extern nss_tx_status_t nss_tx_phys_if_get_napi_ctx(void *nss_ctx, struct napi_struct **napi_ctx);
+
+/**
  * Methods provided by NSS driver for use by Virtual interfaces
  */
 

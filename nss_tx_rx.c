@@ -1540,6 +1540,26 @@ nss_tx_status_t nss_tx_phys_if_change_mtu(void *ctx, uint32_t mtu, uint32_t if_n
 }
 
 /*
+ * nss_tx_phys_if_get_napi_ctx()
+ *	Get napi context
+ */
+nss_tx_status_t nss_tx_phys_if_get_napi_ctx(void *ctx, struct napi_struct **napi_ctx)
+{
+	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) ctx;
+
+	nss_info("%p: Get interrupt context, GMAC%d\n", nss_ctx, if_num);
+
+	NSS_VERIFY_CTX_MAGIC(nss_ctx);
+	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
+		return NSS_TX_FAILURE_NOT_READY;
+	}
+
+	*napi_ctx = &nss_ctx->int_ctx[0].napi;
+
+	return NSS_TX_SUCCESS;
+}
+
+/*
  * nss_tx_crypto_if_open()
  *	NSS crypto open API. Opens a crypto session.
  */
@@ -2204,6 +2224,7 @@ EXPORT_SYMBOL(nss_tx_phys_if_close);
 EXPORT_SYMBOL(nss_tx_phys_if_link_state);
 EXPORT_SYMBOL(nss_tx_phys_if_change_mtu);
 EXPORT_SYMBOL(nss_tx_phys_if_mac_addr);
+EXPORT_SYMBOL(nss_tx_phys_if_get_napi_ctx);
 
 EXPORT_SYMBOL(nss_register_virt_if);
 EXPORT_SYMBOL(nss_unregister_virt_if);
