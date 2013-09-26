@@ -423,9 +423,10 @@ static void crypto_bench_flush(void)
 		kmem_cache_free(crypto_op_zone, op);
 	}
 
-	nss_crypto_session_free(crypto_hdl, session_idx);
-
-	session_idx = 0;
+	if (session_idx >= 0) {
+		nss_crypto_session_free(crypto_hdl, session_idx);
+		session_idx = -1;
+	}
 
 	kthread_stop(tx_thread);
 
