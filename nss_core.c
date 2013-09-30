@@ -195,7 +195,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 				 */
 				ndev = (struct net_device *)nss_ctx->nss_top->if_ctx[desc->interface_num];
 				if (unlikely(ndev == NULL)) {
-					nss_warning("%p: Received packet for unregistered virtual interface %d",
+					nss_warning("%p: Received packet for bad virtual interface %d",
 							nss_ctx, desc->interface_num);
 
 					/*
@@ -214,7 +214,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 				/*
 				 * Send the packet to virtual interface
 				 */
-				dev_queue_xmit(nbuf);
+				ndev->netdev_ops->ndo_start_xmit(nbuf, ndev);
 				dev_put(ndev);
 				break;
 
@@ -269,6 +269,8 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 						/*
 						 * Interface has gone down
 						 */
+						nss_warning("%p: Received exception packet from bad virtual interface %d",
+								nss_ctx, desc->interface_num);
 						dev_kfree_skb_any(nbuf);
 					}
 				} else {
