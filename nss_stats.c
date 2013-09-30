@@ -119,32 +119,6 @@ static int8_t *nss_stats_str_drv[NSS_STATS_DRV_MAX] = {
 };
 
 /*
- * nss_stats_str_ethbr
- *	Eth bridge stats strings
- */
-static int8_t *nss_stats_str_ethbr[NSS_STATS_ETHBR_MAX] = {
-	"rx_pkts",
-	"rx_bytes",
-	"virtual_rx_pkts",
-	"virtual_rx_bytes",
-	"physical_rx_pkts",
-	"physical_rx_bytes",
-	"create_requests",
-	"create_collisions",
-	"create_invalid_interface",
-	"destroy_requests",
-	"destroy_misses",
-	"hash_hits",
-	"hash_reorders",
-	"flushes",
-	"evictions",
-	"queue_dropped",
-	"ticks",
-	"worst_ticks",
-	"iterations"
-};
-
-/*
  * nss_stats_str_pppoe
  *	PPPoE stats strings
  */
@@ -546,56 +520,6 @@ static ssize_t nss_stats_drv_read(struct file *fp, char __user *ubuf, size_t sz,
 }
 
 /*
- * nss_stats_ethbr_read()
- *	Read ETH_BR stats
- */
-static ssize_t nss_stats_ethbr_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
-{
-	int32_t i;
-
-	/*
-	 * max output lines = #stats + start tag line + end tag line + three blank lines
-	 */
-	uint32_t max_output_lines = NSS_STATS_ETHBR_MAX + 5;
-	size_t size_al = NSS_STATS_MAX_STR_LENGTH * max_output_lines;
-	size_t size_wr = 0;
-	ssize_t bytes_read = 0;
-	uint64_t *stats_shadow;
-
-	char *lbuf = kzalloc(size_al, GFP_KERNEL);
-	if (unlikely(lbuf == NULL)) {
-		nss_warning("Could not allocate memory for local statistics buffer");
-		return 0;
-	}
-
-	stats_shadow = kzalloc(NSS_STATS_ETHBR_MAX * 8, GFP_KERNEL);
-	if (unlikely(stats_shadow == NULL)) {
-		nss_warning("Could not allocate memory for local shadow buffer");
-		return 0;
-	}
-
-	size_wr = scnprintf(lbuf, size_al, "eth_br stats start:\n\n");
-	spin_lock_bh(&nss_top_main.stats_lock);
-	for (i = 0; (i < NSS_STATS_ETHBR_MAX); i++) {
-		stats_shadow[i] = nss_top_main.stats_ethbr[i];
-	}
-
-	spin_unlock_bh(&nss_top_main.stats_lock);
-
-	for (i = 0; (i < NSS_STATS_ETHBR_MAX); i++) {
-		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
-					"%s = %llu\n", nss_stats_str_ethbr[i], stats_shadow[i]);
-	}
-
-	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\neth_br stats end\n\n");
-	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, strlen(lbuf));
-	kfree(lbuf);
-	kfree(stats_shadow);
-
-	return bytes_read;
-}
-
-/*
  * nss_stats_pppoe_read()
  *	Read PPPoE stats
  */
@@ -944,11 +868,6 @@ NSS_STATS_DECLARE_FILE_OPERATIONS(n2h)
 NSS_STATS_DECLARE_FILE_OPERATIONS(drv)
 
 /*
- * ethbr_stats_ops
- */
-NSS_STATS_DECLARE_FILE_OPERATIONS(ethbr)
-
-/*
  * pppoe_stats_ops
  */
 NSS_STATS_DECLARE_FILE_OPERATIONS(pppoe)
@@ -1045,16 +964,6 @@ void nss_stats_init(void)
 						nss_top_main.stats_dentry, &nss_top_main, &nss_stats_drv_ops);
 	if (unlikely(nss_top_main.drv_dentry == NULL)) {
 		nss_warning("Failed to create qca-nss-drv/stats/drv directory in debugfs");
-		return;
-	}
-
-	/*
-	 * ethbr_stats
-	 */
-	nss_top_main.ethbr_dentry = debugfs_create_file("eth_br", 0400,
-						nss_top_main.stats_dentry, &nss_top_main, &nss_stats_ethbr_ops);
-	if (unlikely(nss_top_main.ethbr_dentry == NULL)) {
-		nss_warning("Failed to create qca-nss-drv/stats/ethbr file in debugfs");
 		return;
 	}
 

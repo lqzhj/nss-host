@@ -284,45 +284,6 @@ enum nss_stats_drv {
 };
 
 /*
- * Eth bridge statistics
- *
- * WARNING: There is a 1:1 mapping between values below and corresponding
- *	stats string array in nss_stats.c
- */
-enum nss_stats_ethbr {
-	NSS_STATS_ETHBR_RX_PKT_COUNT = 0,
-					/* Number of packets RX'd */
-	NSS_STATS_ETHBR_RX_BYTE_COUNT,	/* Number of bytes RX'd */
-	NSS_STATS_ETHBR_VIRT_RX_PKT_COUNT,
-					/* Number of packets RX'd from virtual hosts */
-	NSS_STATS_ETHBR_VIRT_RX_BYTE_COUNT,
-					/* Number of bytes RX'd from virtual hosts */
-	NSS_STATS_ETHBR_PHYS_RX_PKT_COUNT,
-					/* Number of packets RX'd from physical hosts */
-	NSS_STATS_ETHBR_PHYS_RX_BYTE_COUNT,
-					/* Number of bytes RX'd from physical hosts */
-	NSS_STATS_ETHBR_CREATE_REQUESTS,
-					/* Number of l2 switch entry create requests */
-	NSS_STATS_ETHBR_CREATE_COLLISIONS,
-					/* Number of l2 switch entry create requests that collided with existing entries */
-	NSS_STATS_ETHBR_CREATE_INVALID_INTERFACE,
-					/* Number of l2 switch entry create requests that had invalid interface */
-	NSS_STATS_ETHBR_DESTROY_REQUESTS,
-					/* Number of l2 switch entry destroy requests */
-	NSS_STATS_ETHBR_DESTROY_MISSES,	/* Number of l2 switch entry destroy requests that missed the cache */
-	NSS_STATS_ETHBR_HASH_HITS,	/* Number of l2 switch entry hash hits */
-	NSS_STATS_ETHBR_HASH_REORDERS,	/* Number of l2 switch entry hash reorders */
-	NSS_STATS_ETHBR_FLUSHES,	/* Number of l2 switch entry flushes */
-	NSS_STATS_ETHBR_EVICTIONS,	/* Number of l2 switch entry evictions */
-	NSS_STATS_ETHBR_QUEUE_DROPPED,	/* Number of packets dropped because the L2 switch queue is too full */
-	NSS_STATS_ETHBR_TOTAL_TICKS,	/* Total clock ticks spend inside the L2 switch */
-	NSS_STATS_ETHBR_WORST_CASE_TICKS,
-					/* Worst case iteration of the L2 switch in ticks */
-	NSS_STATS_ETHBR_ITERATIONS,	/* Number of iterations around the L2 switch */
-	NSS_STATS_ETHBR_MAX,
-};
-
-/*
  * PPPoE statistics
  *
  * WARNING: There is a 1:1 mapping between values below and corresponding
@@ -502,7 +463,6 @@ struct nss_top_instance {
 	struct dentry *pbuf_dentry;	/* Pbuf stats dentry */
 	struct dentry *n2h_dentry;	/* N2H stats dentry */
 	struct dentry *drv_dentry;	/* HLOS driver stats dentry */
-	struct dentry *ethbr_dentry;	/* ETH_BR stats dentry */
 	struct dentry *pppoe_dentry;	/* PPPOE stats dentry */
 	struct dentry *gmac_dentry;	/* GMAC ethnode stats dentry */
 	struct dentry *if_dentry;	/* Interface pnode stats dentry */
@@ -513,7 +473,6 @@ struct nss_top_instance {
 	 */
 	uint8_t ipv4_handler_id;
 	uint8_t ipv6_handler_id;
-	uint8_t l2switch_handler_id;
 	uint8_t crypto_handler_id;
 	uint8_t ipsec_handler_id;
 	uint8_t wlan_handler_id;
@@ -525,8 +484,6 @@ struct nss_top_instance {
 					/* IPv4 sync/establish callback function */
 	nss_ipv6_callback_t ipv6_callback;
 					/* IPv6 sync/establish callback function */
-	nss_l2switch_sync_callback_t l2switch_sync;
-					/* L2switch sync callback function */
 	nss_connection_expire_all_callback_t conn_expire;
 					/* Connection all expire callback function */
 	nss_crypto_callback_t crypto_callback;
@@ -552,8 +509,6 @@ struct nss_top_instance {
 					/* N2H statistics */
 	uint64_t stats_drv[NSS_STATS_DRV_MAX];
 					/* Hlos driver statistics */
-	uint64_t stats_ethbr[NSS_STATS_ETHBR_MAX];
-					/* Eth bridge statistics */
 	uint64_t stats_pppoe[NSS_STATS_PPPOE_MAX];
 					/* PPPoE statistics */
 	uint64_t stats_gmac[NSS_MAX_PHYSICAL_INTERFACES][NSS_STATS_GMAC_MAX];

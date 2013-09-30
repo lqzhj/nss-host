@@ -480,25 +480,6 @@ static void nss_rx_metadata_nss_stats_sync(struct nss_ctx_instance *nss_ctx, str
 	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_EVICTIONS] += nnss->ipv6_connection_evictions;
 
 	/*
-	 * eth_br stats
-	 */
-	nss_top->stats_ethbr[NSS_STATS_ETHBR_CREATE_REQUESTS] += nnss->l2switch_create_requests;
-	nss_top->stats_ethbr[NSS_STATS_ETHBR_CREATE_COLLISIONS] += nnss->l2switch_create_collisions;
-	nss_top->stats_ethbr[NSS_STATS_ETHBR_CREATE_INVALID_INTERFACE] += nnss->l2switch_create_invalid_interface;
-	nss_top->stats_ethbr[NSS_STATS_ETHBR_DESTROY_REQUESTS] += nnss->l2switch_destroy_requests;
-	nss_top->stats_ethbr[NSS_STATS_ETHBR_DESTROY_MISSES] += nnss->l2switch_destroy_misses;
-	nss_top->stats_ethbr[NSS_STATS_ETHBR_HASH_HITS] += nnss->l2switch_hash_hits;
-	nss_top->stats_ethbr[NSS_STATS_ETHBR_HASH_REORDERS] += nnss->l2switch_hash_reorders;
-	nss_top->stats_ethbr[NSS_STATS_ETHBR_FLUSHES] += nnss->l2switch_flushes;
-	nss_top->stats_ethbr[NSS_STATS_ETHBR_EVICTIONS] += nnss->l2switch_evictions;
-	nss_top->stats_ethbr[NSS_STATS_ETHBR_QUEUE_DROPPED] += nnss->l2switch_queue_dropped;
-	nss_top->stats_ethbr[NSS_STATS_ETHBR_TOTAL_TICKS] += nnss->l2switch_total_ticks;
-	if (unlikely(nss_top->stats_ethbr[NSS_STATS_ETHBR_WORST_CASE_TICKS] < nnss->l2switch_worst_case_ticks)) {
-		nss_top->stats_ethbr[NSS_STATS_ETHBR_WORST_CASE_TICKS] = nnss->l2switch_worst_case_ticks;
-	}
-	nss_top->stats_ethbr[NSS_STATS_ETHBR_ITERATIONS] += nnss->l2switch_iterations;
-
-	/*
 	 * pppoe stats
 	 */
 	nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_CREATE_REQUESTS] += nnss->pppoe_session_create_requests;
@@ -1146,157 +1127,6 @@ nss_tx_status_t nss_tx_destroy_ipv6_rule(void *ctx, struct nss_ipv6_destroy *uni
 
 	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
 								NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
-
-	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_CMD_REQ]);
-	return NSS_TX_SUCCESS;
-}
-
-/*
- * nss_tx_create_l2switch_rule()
- *	Create a NSS entry to accelerate the given connection
- */
-nss_tx_status_t nss_tx_create_l2switch_rule(void *ctx, struct nss_l2switch_create *unlc)
-{
-	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) ctx;
-	struct sk_buff *nbuf;
-	int32_t status;
-	struct nss_tx_metadata_object *ntmo;
-	struct nss_l2switch_rule_create *nlrc;
-
-	nss_info("%p: Create L2switch rule, addr=%p\n", nss_ctx, unlc->addr);
-
-	NSS_VERIFY_CTX_MAGIC(nss_ctx);
-	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
-		nss_warning("%p: 'Create L2switch' rule dropped as core not ready", nss_ctx);
-		return NSS_TX_FAILURE_NOT_READY;
-	}
-
-	nbuf = __dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE, GFP_ATOMIC | __GFP_NOWARN);
-	if (unlikely(!nbuf)) {
-		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
-		spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_warning("%p: 'Create L2switch' rule dropped as command allocation failed", nss_ctx);
-		return NSS_TX_FAILURE;
-	}
-
-	ntmo = (struct nss_tx_metadata_object *)skb_put(nbuf, sizeof(struct nss_tx_metadata_object));
-	ntmo->type = NSS_TX_METADATA_TYPE_L2SWITCH_RULE_CREATE;
-
-	nlrc = &ntmo->sub.l2switch_rule_create;
-	nlrc->addr[0] = unlc->addr[0];
-	nlrc->addr[1] = unlc->addr[1];
-	nlrc->addr[2] = unlc->addr[2];
-	nlrc->interface_num = unlc->interface_num;
-	nlrc->state = unlc->state;
-	nlrc->priority =  unlc->priority;
-
-	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
-	if (status != NSS_CORE_STATUS_SUCCESS) {
-		dev_kfree_skb_any(nbuf);
-		nss_warning("%p: Unable to enqueue 'Create L2switch' rule\n", nss_ctx);
-		return NSS_TX_FAILURE;
-	}
-
-	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
-								NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
-
-	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_CMD_REQ]);
-	return NSS_TX_SUCCESS;
-}
-
-/*
- * nss_tx_destroy_l2switch_rule()
- *	Destroy the given connection in the NSS
- */
-nss_tx_status_t nss_tx_destroy_l2switch_rule(void *ctx, struct nss_l2switch_destroy *unld)
-{
-	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) ctx;
-	struct sk_buff *nbuf;
-	int32_t status;
-	struct nss_tx_metadata_object *ntmo;
-	struct nss_l2switch_rule_destroy *nlrd;
-
-	nss_info("%p: L2switch destroy rule, addr=%p\n", nss_ctx, unld->addr);
-
-	NSS_VERIFY_CTX_MAGIC(nss_ctx);
-	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
-		nss_warning("%p: 'Destroy L2switch' rule dropped as core not ready", nss_ctx);
-		return NSS_TX_FAILURE_NOT_READY;
-	}
-
-	nbuf = __dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE, GFP_ATOMIC | __GFP_NOWARN);
-	if (unlikely(!nbuf)) {
-		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
-		spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_warning("%p: 'Destroy L2switch' rule dropped as command allocation failed", nss_ctx);
-		return NSS_TX_FAILURE;
-	}
-
-	ntmo = (struct nss_tx_metadata_object *)skb_put(nbuf, sizeof(struct nss_tx_metadata_object));
-	ntmo->type = NSS_TX_METADATA_TYPE_L2SWITCH_RULE_DESTROY;
-
-	nlrd = &ntmo->sub.l2switch_rule_destroy;
-	nlrd->mac_addr[0] = unld->addr[0];
-	nlrd->mac_addr[1] = unld->addr[1];
-	nlrd->mac_addr[2] = unld->addr[2];
-	nlrd->interface_num = unld->interface_num;
-
-	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
-	if (status != NSS_CORE_STATUS_SUCCESS) {
-		dev_kfree_skb_any(nbuf);
-		nss_warning("%p: Unable to enqueue 'Destroy L2switch'\n", nss_ctx);
-		return NSS_TX_FAILURE;
-	}
-
-	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
-									NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
-
-	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_CMD_REQ]);
-	return NSS_TX_SUCCESS;
-}
-
-/*
- * nss_tx_destroy_all_l2switch_rules
- *	Destroy all L2 switch rules in NSS.
- */
-nss_tx_status_t nss_tx_destroy_all_l2switch_rules(void *ctx)
-{
-	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) ctx;
-	struct sk_buff *nbuf;
-	int32_t status;
-	struct nss_tx_metadata_object *ntmo;
-
-	nss_info("%p: L2switch destroy all rules", nss_ctx);
-
-	NSS_VERIFY_CTX_MAGIC(nss_ctx);
-	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
-		nss_warning("%p: 'Destroy all L2switch' rule dropped as core not ready", nss_ctx);
-		return NSS_TX_FAILURE_NOT_READY;
-	}
-
-	nbuf = __dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE, GFP_ATOMIC | __GFP_NOWARN);
-	if (unlikely(!nbuf)) {
-		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
-		spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_warning("%p: 'Destroy all L2switch' rule dropped as command allocation failed", nss_ctx);
-		return NSS_TX_FAILURE;
-	}
-
-	ntmo = (struct nss_tx_metadata_object *)skb_put(nbuf, sizeof(struct nss_tx_metadata_object));
-	ntmo->type = NSS_TX_METADATA_TYPE_DESTROY_ALL_L2SWITCH_RULES;
-
-	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
-	if (status != NSS_CORE_STATUS_SUCCESS) {
-		dev_kfree_skb_any(nbuf);
-		nss_warning("%p: Unable to enqueue 'Destroy all L2switch' rule\n", nss_ctx);
-		return NSS_TX_FAILURE;
-	}
-
-	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
-									NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
 
 	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_CMD_REQ]);
 	return NSS_TX_SUCCESS;
@@ -2095,23 +1925,6 @@ void nss_unregister_ipv6_mgr(void)
 }
 
 /*
- * nss_register_l2switch_mgr()
- */
-void *nss_register_l2switch_mgr(nss_l2switch_sync_callback_t event_callback)
-{
-	nss_top_main.l2switch_sync = event_callback;
-	return (void *)&nss_top_main.nss[nss_top_main.l2switch_handler_id];
-}
-
-/*
- * nss_unregister_l2switch_mgr()
- */
-void nss_unregister_l2switch_mgr(void)
-{
-	nss_top_main.l2switch_sync = NULL;
-}
-
-/*
  * nss_register_connection_expire_all()
  */
 void nss_register_connection_expire_all(nss_connection_expire_all_callback_t event_callback)
@@ -2485,12 +2298,6 @@ EXPORT_SYMBOL(nss_register_ipv6_mgr);
 EXPORT_SYMBOL(nss_unregister_ipv6_mgr);
 EXPORT_SYMBOL(nss_tx_create_ipv6_rule);
 EXPORT_SYMBOL(nss_tx_destroy_ipv6_rule);
-
-EXPORT_SYMBOL(nss_register_l2switch_mgr);
-EXPORT_SYMBOL(nss_unregister_l2switch_mgr);
-EXPORT_SYMBOL(nss_tx_create_l2switch_rule);
-EXPORT_SYMBOL(nss_tx_destroy_l2switch_rule);
-EXPORT_SYMBOL(nss_tx_destroy_all_l2switch_rules);
 
 EXPORT_SYMBOL(nss_register_crypto_if);
 EXPORT_SYMBOL(nss_unregister_crypto_if);

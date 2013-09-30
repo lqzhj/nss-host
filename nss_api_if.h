@@ -250,38 +250,6 @@ struct nss_ipv6_destroy {
 };
 
 /**
- * L2 switch rule sync reasons.
- */
-#define NSS_L2SWITCH_RULE_SYNC_REASON_STATS 0
-					/**< Sync is to synchronize stats */
-#define NSS_L2SWITCH_RULE_SYNC_REASON_FLUSH 1
-					/**< Sync is to flush a cache entry */
-#define NSS_L2SWITCH_RULE_SYNC_REASON_EVICT 2
-					/**< Sync is to evict a cache entry */
-#define NSS_L2SWITCH_RULE_SYNC_REASON_DESTROY 3
-					/**< Sync is to destroy a cache entry (requested by host OS) */
-
-/**
- * Structure to be used while sending L2 switch flow creation rule.
- */
-struct nss_l2switch_create {
-	uint16_t addr[3];		/**< Destination MAC address */
-	uint8_t state;			/**< State */
-	uint8_t priority;		/**< Priority of the flow */
-	int32_t interface_num;		/**< Interface number */
-	uint16_t port_no;		/**< Port number */
-	uint16_t port_id;		/**< Port ID */
-};
-
-/**
- * Structure to be used while sending L2 switch flow destruction rule.
- */
-struct nss_l2switch_destroy {
-	int32_t interface_num;		/**< Interface number */
-	uint16_t addr[3];		/**< Destination MAC address */
-};
-
-/**
  * Structure to define packet stats (bytes / packets seen over a connection) and also keep alive.
  *
  * NOTE: The addresses here are NON-NAT addresses, i.e. the true endpoint addressing.
@@ -439,18 +407,6 @@ struct nss_ipv6_cb_params {
 		struct nss_ipv6_establish establish;
 					/**< establish parameters */
 	} params;
-};
-
-/**
- * struct nss_l2switch_sync
- *	Update packet stats (bytes / packets seen over a connection) and also keep alive.
- */
-struct nss_l2switch_sync {
-	uint16_t addr[3];		/**< MAC address */
-	uint8_t reason;			/**< Reason of synchronization */
-	void *dev;			/**< Netdevice */
-	unsigned long int delta_jiffies;
-					/**< Time in Linux jiffies to be added to the current timeout to keep the connection alive */
 };
 
 /*
@@ -733,58 +689,6 @@ extern nss_tx_status_t nss_tx_create_ipv6_rule(void *nss_ctx, struct nss_ipv6_cr
  * @return nss_tx_status_t Tx status
  */
 extern nss_tx_status_t nss_tx_destroy_ipv6_rule(void *nss_ctx, struct nss_ipv6_destroy *unid);
-
-/**
- * Methods provided by NSS device driver for use by connection tracking logic for l2 switch.
- */
-
-/**
- * Callback for L2switch sync messages
- */
-typedef void (*nss_l2switch_sync_callback_t)(struct nss_l2switch_sync *unls);
-
-/**
- * @brief Register for sending/receiving L2switch messages
- *
- * @param event_callback Callback
- *
- * @return void* NSS context to be provided with every message
- */
-extern void *nss_register_l2switch_mgr(nss_l2switch_sync_callback_t event_callback);
-
-/**
- * @brief Unregister for sending/receiving L2switch messages
- */
-extern void nss_unregister_l2switch_mgr(void);
-
-/**
- * @brief Send L2switch flow setup rule
- *
- * @param nss_ctx NSS context
- * @param unlc Rule parameters
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_create_l2switch_rule(void *nss_ctx, struct nss_l2switch_create *unlc);
-
-/**
- * @brief Send L2switch flow destroy rule
- *
- * @param nss_ctx NSS context
- * @param unld Rule parameters
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_destroy_l2switch_rule(void *nss_ctx, struct nss_l2switch_destroy *unld);
-
-/**
- * @brief Send L2switch destroy all flows rule
- *
- * @param nss_ctx NSS context
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_destroy_all_l2switch_rules(void *nss_ctx);
 
 /**
  * Methods provided by NSS device driver for use by crypto driver

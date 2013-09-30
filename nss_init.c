@@ -310,10 +310,6 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 		nss_top->ipv6_handler_id = nss_dev->id;
 	}
 
-	if (npd->l2switch_enabled == NSS_FEATURE_ENABLED) {
-		nss_top->l2switch_handler_id = nss_dev->id;
-	}
-
 	if (npd->crypto_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->crypto_handler_id = nss_dev->id;
 	}
