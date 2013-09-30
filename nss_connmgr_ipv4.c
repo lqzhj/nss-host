@@ -61,6 +61,7 @@
 #include <net/netfilter/ipv4/nf_defrag_ipv4.h>
 
 #include <net/arp.h>
+#include <net/neighbour.h>
 
 #include "nss_api_if.h"
 #include <linux/../../net/8021q/vlan.h>
@@ -273,8 +274,12 @@ struct nss_connmgr_ipv4_connection {
 	int32_t  dest_port;		/* Non-NAT destination port */
 	uint32_t dest_addr_xlate;	/* NAT translated destination address, i.e. the to whom the connection was created */
 	int32_t  dest_port_xlate;	/* NAT translated destination port */
+	struct neighbour *src_neigh;
+					/* Neighbour reference of source */
+	struct neighbour *dest_neigh;
+					/* Neighbour reference of dest */
 	uint64_t stats[NSS_CONNMGR_IPV4_STATS_MAX];
-					/* Connection statistics */
+	/* Connection statistics */
 	uint32_t last_sync;		/* Last sync time as jiffies */
 };
 
@@ -287,7 +292,7 @@ struct nss_connmgr_ipv4_instance {
 	int32_t stopped;		/* General operational control.When non-zero further traffic will not be processed */
 	int32_t terminate;		/* Signal to tell the control thread to terminate */
 	struct task_struct *thread;
-					/* Control thread */
+	/* Control thread */
 	void *nss_context;		/* Registration context used to identify the manager in calls to the NSS driver */
 	struct nf_ct_event_notifier conntrack_notifier;
 					/* NF conntrack event system to monitor connection tracking changes */
@@ -405,15 +410,11 @@ extern struct net_device *bond_get_tx_dev(struct sk_buff *skb, uint8_t *src_mac,
  */
 
 /*
- * nss_connmgr_ipv4_mac_addr_get()
- *	Return the hardware (MAC) address of the given IPv4 address, if any.
+ * nss_connmgr_ipv4_neigh_get()
+ * 	Returns neighbour reference for a given IP address
  *
- * Returns 0 on success or a negative result on failure.
- * We look up the rtable entry for the address and,
- * from its neighbour structure,obtain the hardware address.
- * This means we will also work if the neighbours are routers too.
  */
-static int nss_connmgr_ipv4_mac_addr_get(ipv4_addr_t addr, mac_addr_t mac_addr)
+static struct neighbour *nss_connmgr_ipv4_neigh_get(ipv4_addr_t addr)
 {
 	struct neighbour *neigh;
 	struct rtable *rt;
@@ -426,32 +427,60 @@ static int nss_connmgr_ipv4_mac_addr_get(ipv4_addr_t addr, mac_addr_t mac_addr)
 	 */
 	rt = ip_route_output(&init_net, addr, 0, 0, 0);
 	if (IS_ERR(rt)) {
-		return -1;
+		return NULL;
 	}
 
 	dst = (struct dst_entry *)rt;
 
-	rcu_read_lock();
 	neigh = dst_get_neighbour_noref(dst);
+
 	if (!neigh) {
-		rcu_read_unlock();
-		dst_release(dst);
-		return -2;
+		neigh = neigh_lookup(&arp_tbl, &addr, dst->dev);
 	}
-	if (!(neigh->nud_state & NUD_VALID)) {
-		rcu_read_unlock();
-		dst_release(dst);
-		return -3;
-	}
-	if (!neigh->dev) {
-		rcu_read_unlock();
-		dst_release(dst);
-		return -4;
-	}
-	memcpy(mac_addr, neigh->ha, (size_t)neigh->dev->addr_len);
-	rcu_read_unlock();
 
 	dst_release(dst);
+
+	return neigh;
+}
+
+/*
+ * nss_connmgr_ipv4_mac_addr_get()
+ *	Return the hardware (MAC) address of the given IPv4 address, if any.
+ *
+ * Returns 0 on success or a negative result on failure.
+ * We look up the rtable entry for the address and,
+ * from its neighbour structure,obtain the hardware address.
+ * This means we will also work if the neighbours are routers too.
+ */
+static int nss_connmgr_ipv4_mac_addr_get(ipv4_addr_t addr, mac_addr_t mac_addr)
+{
+	struct neighbour *neigh;
+
+	rcu_read_lock();
+
+	neigh = nss_connmgr_ipv4_neigh_get(addr);
+
+	if (!neigh) {
+		rcu_read_unlock();
+		NSS_CONNMGR_DEBUG_WARN("Error: No neigh reference \n");
+		return -1;
+	}
+
+	if (!(neigh->nud_state & NUD_VALID)) {
+		rcu_read_unlock();
+		NSS_CONNMGR_DEBUG_WARN("NUD Invalid \n");
+		return -2;
+	}
+
+	if (!neigh->dev) {
+		rcu_read_unlock();
+		NSS_CONNMGR_DEBUG_WARN("Neigh Dev Invalid \n");
+		return -3;
+	}
+
+	memcpy(mac_addr, neigh->ha, (size_t)neigh->dev->addr_len);
+
+	rcu_read_unlock();
 
 	/*
 	 * If this mac looks like a multicast then it MAY be either truly multicast or it could be broadcast
@@ -459,7 +488,7 @@ static int nss_connmgr_ipv4_mac_addr_get(ipv4_addr_t addr, mac_addr_t mac_addr)
 	 */
 	if (is_multicast_ether_addr(mac_addr)) {
 		NSS_CONNMGR_DEBUG_TRACE("Mac is multicast / broadcast - ignoring\n");
-		return -5;
+		return -4;
 	}
 
 	return 0;
@@ -469,6 +498,7 @@ static struct net_device *nss_connmgr_get_dev_from_ip_address(ipv4_addr_t addr)
 {
 	struct rtable *rt;
 	struct dst_entry *dst;
+	struct net_device *dev;
 
 	rt = ip_route_output(&init_net, addr, 0, 0, 0);
 	if (IS_ERR(rt)) {
@@ -477,8 +507,10 @@ static struct net_device *nss_connmgr_get_dev_from_ip_address(ipv4_addr_t addr)
 	}
 
 	dst = (struct dst_entry *)rt;
+	dev = dst->dev;
+	dst_release(dst);
 
-	return dst->dev;
+	return dev;
 }
 
 /*
@@ -1236,6 +1268,14 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 	}
 
 	/*
+	 * If egress interface is a bridge,ignore; the rule will be added by bridge post-routing hook
+	 */
+	if (is_bridge_device(out)) {
+		NSS_CONNMGR_DEBUG_TRACE("ignoring bridge device in post-routing hook: %p\n", skb);
+		goto out;
+	}
+
+	/*
 	 * Only process packets that are also tracked by conntrack
 	 */
 	ct = nf_ct_get(skb, &ctinfo);
@@ -1764,16 +1804,13 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 	struct nf_conn *ct;
 	struct nf_conn_counter *acct;
 	struct nss_connmgr_ipv4_connection *connection;
-	struct neighbour *neigh;
 
 	struct nss_ipv4_sync *sync;
 	struct nss_ipv4_establish *establish;
 
+	struct neighbour *neigh;
 	struct net_device *flow_dev;
 	struct net_device *return_dev;
-
-	uint32_t arp_key;
-
 
 	switch (nicp->reason)
 	{
@@ -1823,6 +1860,18 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 			connection->dest_addr_xlate = establish->return_ip_xlate;
 			connection->dest_port_xlate = establish->return_ident_xlate;
 
+			connection->src_neigh = nss_connmgr_ipv4_neigh_get(ntohl(connection->src_addr));
+
+			if (connection->src_neigh) {
+				neigh_hold(connection->src_neigh);
+			}
+
+			connection->dest_neigh = nss_connmgr_ipv4_neigh_get(ntohl(connection->dest_addr));
+
+			if (connection->dest_neigh) {
+				neigh_hold(connection->dest_neigh);
+			}
+
 			memset(connection->stats, 0, (8*NSS_CONNMGR_IPV4_STATS_MAX));
 
 			spin_unlock_bh(&nss_connmgr_ipv4.lock);
@@ -1863,6 +1912,14 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 					connection->state = NSS_CONNMGR_IPV4_STATE_INACTIVE;
 					nss_connmgr_ipv4.debug_stats[NSS_CONNMGR_IPV4_ACTIVE_CONN]--;
 					spin_unlock_bh(&nss_connmgr_ipv4.lock);
+
+					if (connection->src_neigh) {
+						neigh_release(connection->src_neigh);
+					}
+
+					if (connection->dest_neigh) {
+						neigh_release(connection->dest_neigh);
+					}
 					/* Fall through to increment stats */
 
 				case NSS_IPV4_SYNC_REASON_STATS:
@@ -1994,34 +2051,15 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 		return_dev = return_dev->master;
 	}
 
-	/*
-	 * Hold the net_device references
-	 */
-	dev_hold(flow_dev);
-	dev_hold(return_dev);
-
-	/*
-	 * Update ARP table.
-	 */
-	arp_key = ntohl(connection->src_addr);
-	neigh = neigh_lookup(&arp_tbl, &arp_key, flow_dev);
+	neigh = connection->src_neigh;
 	if (neigh) {
 		neigh_update(neigh, NULL, neigh->nud_state, NEIGH_UPDATE_F_WEAK_OVERRIDE);
-		neigh_release(neigh);
 	}
 
-	arp_key = ntohl(connection->dest_addr);
-	neigh = neigh_lookup(&arp_tbl, &arp_key, return_dev);
+	neigh = connection->dest_neigh;
 	if (neigh) {
 		neigh_update(neigh, NULL, neigh->nud_state, NEIGH_UPDATE_F_WEAK_OVERRIDE);
-		neigh_release(neigh);
 	}
-
-	/*
-	 * Release the net_device references
-	 */
-	dev_put(flow_dev);
-	dev_put(return_dev);
 
 out:
 	/*

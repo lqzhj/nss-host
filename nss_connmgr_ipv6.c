@@ -63,6 +63,7 @@
 #include <net/netfilter/ipv6/nf_defrag_ipv6.h>
 
 #include <net/arp.h>
+#include <net/neighbour.h>
 
 #include "nss_api_if.h"
 #include <linux/../../net/8021q/vlan.h>
@@ -278,6 +279,10 @@ struct nss_connmgr_ipv6_connection {
 	uint64_t stats[NSS_CONNMGR_IPV6_STATS_MAX];
 				/* Connection statistics */
 	uint32_t last_sync;	/* Last sync time as jiffies */
+	struct neighbour *src_neigh;
+				/* Ingress routed interface */
+	struct neighbour *dest_neigh;
+				/* Egress routed interface */
 };
 
 /*
@@ -404,29 +409,21 @@ static const struct file_operations nss_connmgr_ipv6_clear_stats_ops = {
  * NOTE: IPx is considered to be IP addressing, protocol and port information combined.
  */
 
-/*
- * nss_connmgr_ipv6_mac_addr_get()
- *	Return the hardware (MAC) address of the given ipv6 address, if any.
- *
- * Returns 0 on success or a negative result on failure.
- * We look up the rtable entry for the address and, from its neighbour structure, obtain the hardware address.
- * This means we will also work if the neighbours are routers too.
- */
-static int nss_connmgr_ipv6_mac_addr_get(struct net *net, int oif, ipv6_addr_t addr, mac_addr_t mac_addr)
-{
-	struct neighbour *neigh;
-	struct rt6_info *rt6i;
+static struct neighbour *nss_connmgr_ipv6_neigh_get(ipv6_addr_t addr) {
+
 	struct dst_entry *dst;
 	struct in6_addr daddr;
+	struct rt6_info *rt6i;
+	struct neighbour *neigh;
 
 	/*
 	 * Look up the route to this address
 	 */
 	IPV6_ADDR_TO_IN6_ADDR(daddr, addr);
-	rt6i = rt6_lookup(net, &daddr, NULL, oif, 0);
+	rt6i = rt6_lookup(&init_net, &daddr, NULL, 0, 0);
 	if (!rt6i) {
 		NSS_CONNMGR_DEBUG_TRACE("rt6_lookup failed for: " IPV6_ADDR_OCTAL_FMT "\n", IPV6_ADDR_TO_OCTAL(addr));
-		return -1;
+		return NULL;
 	}
 
 	/*
@@ -434,43 +431,66 @@ static int nss_connmgr_ipv6_mac_addr_get(struct net *net, int oif, ipv6_addr_t a
 	 */
 	dst = (struct dst_entry *)rt6i;
 
-	rcu_read_lock();
-
 	/*
 	 * Get the neighbour to which this destination is pointing
 	 */
 	neigh = dst_get_neighbour_noref(dst);
+
+	if (!neigh) {
+		neigh = neigh_lookup(&nd_tbl, &daddr, dst->dev);
+	}
+
+	/* Release dst reference */
+	dst_release(dst);
+
+	return neigh;
+}
+
+/*
+ * nss_connmgr_ipv6_mac_addr_get()
+ *	Return the hardware (MAC) address of the given ipv6 address, if any.
+ *
+ * Returns 0 on success or a negative result on failure.
+ * We first look up for an entry in the neighbour discovery table, if entry is not found,
+ * We look up the rtable entry for the address and, from its neighbour structure, obtain the hardware address.
+ * This means we will also work if the neighbours are routers too.
+ */
+static int nss_connmgr_ipv6_mac_addr_get(ipv6_addr_t addr, mac_addr_t mac_addr)
+{
+	struct neighbour *neigh;
+
+	rcu_read_lock();
+
+	neigh = nss_connmgr_ipv6_neigh_get(addr);
+
 	if (!neigh) {
 		rcu_read_unlock();
-		dst_release(dst);
-		NSS_CONNMGR_DEBUG_TRACE("Error: No DST reference");
-		return -2;
+		NSS_CONNMGR_DEBUG_WARN("Error: No neigh reference \n");
+		return -1;
 	}
 
 	if (!(neigh->nud_state & NUD_VALID)) {
 		rcu_read_unlock();
-		dst_release(dst);
-		NSS_CONNMGR_DEBUG_TRACE("NUD Invalid");
-		return -3;
+		NSS_CONNMGR_DEBUG_WARN("NUD Invalid \n");
+		return -2;
 	}
+
 	if (!neigh->dev) {
 		rcu_read_unlock();
-		dst_release(dst);
-		NSS_CONNMGR_DEBUG_TRACE("Neigh Dev Invalid");
-		return -4;
+		NSS_CONNMGR_DEBUG_WARN("Neigh Dev Invalid \n");
+		return -3;
 	}
+
 	memcpy(mac_addr, neigh->ha, (size_t)neigh->dev->addr_len);
 	rcu_read_unlock();
-
-	dst_release(dst);
 
 	/*
 	 * If this mac looks like a multicast then it MAY be either truly multicast or it could be broadcast
 	 * Either way we fail!  We don't want to deal with multicasts or any sort because the NSS cannot deal with them.
 	 */
 	if (is_multicast_ether_addr(mac_addr)) {
-		NSS_CONNMGR_DEBUG_TRACE("Mac is multicast / broadcast - ignoring\n");
-		return -5;
+		NSS_CONNMGR_DEBUG_TRACE("Mac is multicast / broadcast - ignoring \n");
+		return -4;
 	}
 
 	return 0;
@@ -480,6 +500,7 @@ static struct net_device *nss_connmgr_get_dev_from_ipv6_address(struct net *net,
 {
 	struct rt6_info *rt6i;
 	struct dst_entry *dst;
+	struct net_device *dev;
 
 	/*
 	 * Look up the route to this address
@@ -491,8 +512,10 @@ static struct net_device *nss_connmgr_get_dev_from_ipv6_address(struct net *net,
 	}
 
 	dst = (struct dst_entry *)rt6i;
+	dev = dst->dev;
+	dst_release(dst);
 
-	return dst->dev;
+	return dev;
 }
 
 /*
@@ -793,7 +816,7 @@ static unsigned int nss_connmgr_ipv6_bridge_post_routing_hook(unsigned int hookn
 		/*
 		 * Get the MAC addresses that correspond to source and destination host addresses.
 		 */
-		if (nss_connmgr_ipv6_mac_addr_get(dev_net(src_dev), src_dev->ifindex, unic.src_ip, unic.src_mac)) {
+		if (nss_connmgr_ipv6_mac_addr_get(unic.src_ip, unic.src_mac)) {
 			dev_put(in);
 			NSS_CONNMGR_DEBUG_TRACE("%p: Failed to find MAC address for src IP: %pI6\n", ct, &unic.src_ip);
 			return NF_ACCEPT;
@@ -802,7 +825,7 @@ static unsigned int nss_connmgr_ipv6_bridge_post_routing_hook(unsigned int hookn
 		/*
 		 * Do dest now
 		 */
-		if (nss_connmgr_ipv6_mac_addr_get(dev_net(dest_dev), dest_dev->ifindex, unic.dest_ip, unic.dest_mac)) {
+		if (nss_connmgr_ipv6_mac_addr_get(unic.dest_ip, unic.dest_mac)) {
 			dev_put(in);
 			NSS_CONNMGR_DEBUG_TRACE("%p: Failed to find MAC address for dest IP: %pI6\n", ct, &unic.dest_ip);
 			return NF_ACCEPT;
@@ -874,6 +897,7 @@ static unsigned int nss_connmgr_ipv6_bridge_post_routing_hook(unsigned int hookn
 	IPV6_ADDR_NTOH(unic.dest_ip, unic.dest_ip);
 	unic.src_port = ntohs(unic.src_port);
 	unic.dest_port = ntohs(unic.dest_port);
+
 	/*
 	 * If operations have stopped then do not process packets
 	 */
@@ -974,6 +998,14 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 	 */
 	if ((in->addr_len != 6) && (in->type != ARPHRD_SIT) && (in->type != ARPHRD_TUNNEL6)) {
 		NSS_CONNMGR_DEBUG_TRACE("in device (%s) not 802.3 hw addr len (%u), ignoring: %p\n", in->name, (unsigned)in->addr_len, skb);
+		goto out;
+	}
+
+	/*
+	 * If egress interface is a bridge,ignore; the rule will be added by bridge post-routing hook
+	 */
+	if (is_bridge_device(out)) {
+		NSS_CONNMGR_DEBUG_TRACE("ignoring bridge device in post-routing hook: %p\n", skb);
 		goto out;
 	}
 
@@ -1209,7 +1241,7 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 		unic.flow_pppoe_session_id = (uint16_t)ppp_get_session_id(ppp_src);
 		memcpy(unic.flow_pppoe_remote_mac, (uint8_t *)ppp_get_remote_mac(ppp_src), ETH_ALEN);
 	} else {
-		if (nss_connmgr_ipv6_mac_addr_get(dev_net(src_dev), src_dev->ifindex, unic.src_ip, unic.src_mac)) {
+		if (nss_connmgr_ipv6_mac_addr_get(unic.src_ip, unic.src_mac)) {
 			NSS_CONNMGR_DEBUG_TRACE("%p: Failed to find MAC address for src IP: %pI6\n", ct, &unic.src_ip);
 			goto out;
 		}
@@ -1229,7 +1261,7 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 		unic.return_pppoe_session_id = (uint16_t)ppp_get_session_id(ppp_dest);
 		memcpy(unic.return_pppoe_remote_mac, (uint8_t *)ppp_get_remote_mac(ppp_dest), ETH_ALEN);
 	} else {
-		if (nss_connmgr_ipv6_mac_addr_get(dev_net(dest_dev), dest_dev->ifindex, unic.dest_ip, unic.dest_mac)) {
+		if (nss_connmgr_ipv6_mac_addr_get(unic.dest_ip, unic.dest_mac)) {
 			NSS_CONNMGR_DEBUG_TRACE("%p: Failed to find MAC address for dest IP: %pI6\n", ct, &unic.dest_ip);
 			goto out;
 		}
@@ -1372,6 +1404,7 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 	IPV6_ADDR_NTOH(unic.dest_ip, unic.dest_ip);
 	unic.src_port = ntohs(unic.src_port);
 	unic.dest_port = ntohs(unic.dest_port);
+
 	/*
 	 * If operations have stopped then do not process packets
 	 */
@@ -1397,7 +1430,6 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 		nss_connmgr_ipv6.debug_stats[NSS_CONNMGR_IPV6_CREATE_FAIL]++;
 		spin_unlock_bh(&nss_connmgr_ipv6.lock);
 	}
-
 out:
 	/*
 	 * Release the interface on which this skb arrived
@@ -1442,15 +1474,10 @@ static void nss_connmgr_ipv6_net_dev_callback(struct nss_ipv6_cb_params *nicp)
 	struct nf_conn_counter *acct;
 	struct nss_connmgr_ipv6_connection *connection;
 
-	struct neighbour *neigh;
-
 	struct nss_ipv6_sync *sync;
 	struct nss_ipv6_establish *establish;
 
-	struct net_device *flow_dev;
-	struct net_device *return_dev;
-
-	uint32_t nd_key[4];
+	ipv6_addr_t daddr;
 
 	switch(nicp->reason)
 	{
@@ -1494,6 +1521,18 @@ static void nss_connmgr_ipv6_net_dev_callback(struct nss_ipv6_cb_params *nicp)
 			connection->stats[NSS_CONNMGR_IPV6_ACCELERATED_RX_BYTES] = 0;
 			connection->stats[NSS_CONNMGR_IPV6_ACCELERATED_TX_PKTS] = 0;
 			connection->stats[NSS_CONNMGR_IPV6_ACCELERATED_TX_BYTES] = 0;
+
+			IPV6_ADDR_NTOH(daddr, connection->src_addr);
+			connection->src_neigh = nss_connmgr_ipv6_neigh_get(daddr);
+			if (connection->src_neigh) {
+				neigh_hold(connection->src_neigh);
+			}
+
+			IPV6_ADDR_NTOH(daddr, connection->dest_addr);
+			connection->dest_neigh = nss_connmgr_ipv6_neigh_get(daddr);
+			if (connection->dest_neigh) {
+				neigh_hold(connection->dest_neigh);
+			}
 
 			spin_unlock_bh(&nss_connmgr_ipv6.lock);
 
@@ -1617,53 +1656,30 @@ static void nss_connmgr_ipv6_net_dev_callback(struct nss_ipv6_cb_params *nicp)
 		break;
 	}
 
-	flow_dev = nss_get_interface_dev(nss_connmgr_ipv6.nss_context, connection->src_interface);
-	if (unlikely(!flow_dev)) {
-		NSS_CONNMGR_DEBUG_WARN("Invalid src dev reference from NSS \n");
-		goto out;
-	}
-
-	return_dev = nss_get_interface_dev(nss_connmgr_ipv6.nss_context, connection->dest_interface);
-	if (unlikely(!return_dev)) {
-		NSS_CONNMGR_DEBUG_WARN("Invalid dest dev reference from NSS \n");
-		goto out;
-	}
-
-	/*
-	 * Hold the net_device references
-	 */
-	dev_hold(flow_dev);
-	dev_hold(return_dev);
-
 	/*
 	 * Update ND table.
 	 */
-	IPV6_ADDR_NTOH(nd_key, connection->src_addr);
-	neigh = neigh_lookup(&nd_tbl, &nd_key, flow_dev);
-	if (neigh) {
-		neigh_update(neigh, NULL, neigh->nud_state, NEIGH_UPDATE_F_WEAK_OVERRIDE);
-		neigh_release(neigh);
+	if (connection->src_neigh) {
+		if (sync->final_sync) {
+			neigh_release(connection->src_neigh);
+		} else {
+			neigh_update(connection->src_neigh, NULL, connection->src_neigh->nud_state, NEIGH_UPDATE_F_WEAK_OVERRIDE);
+		}
 	} else {
-		NSS_CONNMGR_DEBUG_TRACE("Neighbour entry could not be found for flow_dev\n");
+		NSS_CONNMGR_DEBUG_TRACE("Neighbour entry could not be found for onward flow\n");
 	}
 
-	IPV6_ADDR_NTOH(nd_key, connection->dest_addr);
-	neigh = neigh_lookup(&nd_tbl, &nd_key, return_dev);
-	if (neigh) {
-		neigh_update(neigh, NULL, neigh->nud_state, NEIGH_UPDATE_F_WEAK_OVERRIDE);
-		neigh_release(neigh);
+	if (connection->dest_neigh) {
+		if (sync->final_sync) {
+			neigh_release(connection->dest_neigh);
+		} else {
+			neigh_update(connection->dest_neigh, NULL, connection->dest_neigh->nud_state, NEIGH_UPDATE_F_WEAK_OVERRIDE);
+		}
 	} else {
-		NSS_CONNMGR_DEBUG_TRACE("Neighbour entry could not be found for return_dev\n");
+		NSS_CONNMGR_DEBUG_TRACE("Neighbour entry could not be found for return flow\n");
 	}
 
-	/*
-	 * Release the net_device references
-	 */
-	dev_put(flow_dev);
-	dev_put(return_dev);
-
-out:
-	/*
+		/*
 	 * Release connection
 	 */
 	nf_ct_put(ct);
@@ -2096,10 +2112,10 @@ static ssize_t nss_connmgr_ipv6_read_stats(struct file *fp, char __user *ubuf, s
 			}
 
 			size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
-					"src: " IPV6_ADDR_OCTAL_FMT ":%d\n"
-					"dest: " IPV6_ADDR_OCTAL_FMT ":%d\n",
-					IPV6_ADDR_TO_OCTAL(src_addr[j]), (int)ntohs(src_port[j]),
-					IPV6_ADDR_TO_OCTAL(dest_addr[j]), (int)ntohs(dest_port[j]));
+					"src_addr: %pI6:%d\n"
+					"dest_addr: %pI6:%d\n",
+					&(src_addr[j]), (int)ntohs(src_port[j]),
+					&(dest_addr[j]), (int)ntohs(dest_port[j]));
 
 			for (k = 0; (k < NSS_CONNMGR_IPV6_STATS_MAX); k++) {
 				size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
