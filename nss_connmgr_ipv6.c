@@ -302,6 +302,7 @@ struct nss_connmgr_ipv6_instance {
 				/* Registration context used to identify the manager in calls to the NSS driver */
 	struct nss_connmgr_ipv6_connection connection[NSS_CONNMGR_IPV6_CONN_MAX];
 				/* Connection Table */
+	struct notifier_block netdev_notifier;
 	struct dentry *dent;	/* Debugfs directory */
 	uint32_t debug_stats[NSS_CONNMGR_IPV6_DEBUG_STATS_MAX];
 				/* Debug statistics */
@@ -517,6 +518,104 @@ static struct net_device *nss_connmgr_get_dev_from_ipv6_address(struct net *net,
 
 	return dev;
 }
+
+/*
+ * nss_connmgr_destroy_ipv6_rule()
+ *     Destroy an ipv6 rule. Called with nss_connmgr_ipv6.lock held.
+ */
+static int32_t nss_connmgr_destroy_ipv6_rule(struct nss_connmgr_ipv6_connection *connection)
+{
+	struct nss_ipv6_destroy unid;
+	nss_tx_status_t nss_tx_status;
+
+	unid.protocol = connection->protocol;
+	memcpy(unid.src_ip, connection->src_addr, sizeof(unid.src_ip));
+	memcpy(unid.dest_ip, connection->dest_addr, sizeof(unid.src_ip));
+	unid.src_port = connection->src_port;
+	unid.dest_port = connection->dest_port;
+
+	nss_tx_status = nss_tx_destroy_ipv6_rule(nss_connmgr_ipv6.nss_context, &unid);
+	if (nss_tx_status != NSS_TX_SUCCESS) {
+		NSS_CONNMGR_DEBUG_ERROR("Unable to destroy IPv6 rule."
+					"src " IPV6_ADDR_OCTAL_FMT ":%d dst "
+					IPV6_ADDR_OCTAL_FMT ":%d proto %d\n",
+					IPV6_ADDR_TO_OCTAL(unid.src_ip), unid.src_port,
+					IPV6_ADDR_TO_OCTAL(unid.dest_ip), unid.dest_port,
+					unid.protocol);
+		return -EIO;
+	}
+
+	return 0;
+}
+
+
+/*
+ * nss_connmgr_link_down()
+ *	Handle a link down on an interface.
+ *	Only handles interfaces used by NSS.
+ */
+static void nss_connmgr_link_down(struct net_device *dev)
+{
+	uint32_t if_num = 0;
+	uint32_t i = 0;
+	int32_t if_src = 0;
+	int32_t if_dst = 0;
+	struct nss_connmgr_ipv6_connection *connection = NULL;
+	nss_connmgr_ipv6_conn_state_t cstate;
+
+	if_num = nss_get_interface_number(nss_connmgr_ipv6.nss_context, dev);
+	if (if_num < 0) {
+		NSS_CONNMGR_DEBUG_WARN("Cannot find NSS if num for dev %s\n", dev->name);
+		return;
+	}
+
+	for (i = 0; i < NSS_CONNMGR_IPV6_CONN_MAX; i++) {
+		spin_lock_bh(&nss_connmgr_ipv6.lock);
+		connection = &nss_connmgr_ipv6.connection[i];
+		cstate = connection->state;
+		if_src = connection->src_interface;
+		if_dst = connection->dest_interface;
+
+		if (cstate != NSS_CONNMGR_IPV6_STATE_ESTABLISHED) {
+			spin_unlock_bh(&nss_connmgr_ipv6.lock);
+			continue;
+		}
+
+		if (if_num == if_src
+			|| if_num == if_dst) {
+			NSS_CONNMGR_DEBUG_INFO("destroy NSS rule at index %d\n", i);
+			nss_connmgr_destroy_ipv6_rule(connection);
+		}
+		spin_unlock_bh(&nss_connmgr_ipv6.lock);
+	}
+}
+
+
+/*
+ * nss_connmgr_netdev_notifier_cb
+ *      Netdevice notifier callback
+ */
+static int nss_connmgr_netdev_notifier_cb(struct notifier_block *this,
+					  unsigned long event, void *ptr)
+{
+	struct net_device *event_dev = (struct net_device *)ptr;
+
+	switch (event) {
+	case NETDEV_DOWN:
+		nss_connmgr_link_down(event_dev);
+		break;
+
+	case NETDEV_CHANGE:
+		if (!netif_carrier_ok(event_dev)) {
+			nss_connmgr_link_down(event_dev);
+		}
+
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
+
 
 /*
  * nss_connmgr_ipv6_bridge_post_routing_hook()
@@ -1985,6 +2084,13 @@ static int nss_connmgr_ipv6_thread_fn(void *arg)
 	nss_connmgr_ipv4_register_conntrack_event_cb(nss_connmgr_ipv6_conntrack_event);
 #endif
 
+	nss_connmgr_ipv6.netdev_notifier.notifier_call = nss_connmgr_netdev_notifier_cb;
+	result = register_netdevice_notifier(&nss_connmgr_ipv6.netdev_notifier);
+	if (result != 0) {
+		NSS_CONNMGR_DEBUG_ERROR("Can't register ipv6 netdevice notifier %d\n", result);
+		goto task_cleanup_5;
+	}
+
 	/*
 	 * Register this module with the Linux NSS driver (net_device)
 	 */
@@ -2015,6 +2121,8 @@ static int nss_connmgr_ipv6_thread_fn(void *arg)
 
 	nss_unregister_ipv6_mgr();
 
+	unregister_netdevice_notifier(&nss_connmgr_ipv6.netdev_notifier);
+task_cleanup_5:
 #ifdef CONFIG_NF_CONNTRACK_EVENTS
 	nss_connmgr_ipv4_unregister_conntrack_event_cb();
 #endif

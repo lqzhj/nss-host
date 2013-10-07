@@ -115,6 +115,10 @@ typedef uint32_t ipv4_addr_t;
 
 #define is_bridge_port(dev) (dev->priv_flags & IFF_BRIDGE_PORT)
 #define is_bridge_device(dev) (dev->priv_flags & IFF_EBRIDGE)
+#define is_lag_master(dev)	((dev->flags & IFF_MASTER)		\
+				 && (dev->priv_flags & IFF_BONDING))
+#define is_lag_slave(dev)	((dev->flags & IFF_SLAVE)		\
+				 && (dev->priv_flags & IFF_BONDING))
 
 /*
  * Tuple Match
@@ -298,6 +302,7 @@ struct nss_connmgr_ipv4_instance {
 					/* NF conntrack event system to monitor connection tracking changes */
 	int (*conntrack_event_cb) (struct nf_conn *ct);
 					/* conntrack event callback to propagate events to other clients (ipv6) */
+	struct notifier_block netdev_notifier;
 	struct nss_connmgr_ipv4_connection connection[NSS_CONNMGR_IPV4_CONN_MAX];
 					/* Connection Table */
 	struct dentry *dent;		/* Debugfs directory */
@@ -1010,12 +1015,13 @@ static int32_t nss_connmgr_destroy_ipv4_rule(struct nss_connmgr_ipv4_connection 
 	return 0;
 }
 
+
 /*
- * nss_connmgr_bond_link_down()
- *     Callback used to signal a link down on an interface
- *     that is part of a link aggregation.
+ * nss_connmgr_link_down()
+ * 	Handle a link down event on an interface.
+ *	Only handles interfaces used by NSS.
  */
-static void nss_connmgr_bond_link_down(struct net_device *slave_dev)
+static void nss_connmgr_link_down(struct net_device *dev)
 {
 	uint32_t if_num = 0;
 	uint32_t i = 0;
@@ -1024,9 +1030,9 @@ static void nss_connmgr_bond_link_down(struct net_device *slave_dev)
 	struct nss_connmgr_ipv4_connection *connection = NULL;
 	nss_connmgr_ipv4_conn_state_t cstate;
 
-	if_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, slave_dev);
+	if_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, dev);
 	if (if_num < 0) {
-		NSS_CONNMGR_DEBUG_ERROR("Cannot find NSS if num for slave dev %s\n", slave_dev->name);
+		NSS_CONNMGR_DEBUG_WARN("Cannot find NSS if num for dev %s\n", dev->name);
 		return;
 	}
 
@@ -1036,24 +1042,18 @@ static void nss_connmgr_bond_link_down(struct net_device *slave_dev)
 		cstate = connection->state;
 		if_src = connection->src_interface;
 		if_dst = connection->dest_interface;
-		spin_unlock_bh(&nss_connmgr_ipv4.lock);
 
 		if (cstate != NSS_CONNMGR_IPV4_STATE_ESTABLISHED) {
+			spin_unlock_bh(&nss_connmgr_ipv4.lock);
 			continue;
 		}
 
 		if (if_num == if_src
 		    || if_num == if_dst) {
-			spin_lock_bh(&nss_connmgr_ipv4.lock);
-			if (connection->state != NSS_CONNMGR_IPV4_STATE_ESTABLISHED) {
-				spin_unlock_bh(&nss_connmgr_ipv4.lock);
-				continue;
-			}
-
-			NSS_CONNMGR_DEBUG_INFO("destroying NSS rule at index %d\n", i);
+			NSS_CONNMGR_DEBUG_INFO("destroy NSS rule at index %d\n", i);
 			nss_connmgr_destroy_ipv4_rule(connection);
-			spin_unlock_bh(&nss_connmgr_ipv4.lock);
 		}
+		spin_unlock_bh(&nss_connmgr_ipv4.lock);
 	}
 }
 
@@ -2238,6 +2238,61 @@ void nss_connmgr_ipv4_unregister_conntrack_event_cb(void)
 EXPORT_SYMBOL(nss_connmgr_ipv4_unregister_conntrack_event_cb);
 #endif
 
+
+/*
+ * nss_connmgr_bond_down
+ * 	LAG master closed
+ */
+static void nss_connmgr_bond_down(struct net_device *bond_dev)
+{
+	struct net_device *dev = NULL;
+	struct net *net = NULL;
+
+	net = dev_net(bond_dev);
+	if (!net) {
+		NSS_CONNMGR_DEBUG_WARN("Unable to get network namespace "
+				       "for %s\n", bond_dev->name);
+		return;
+	}
+
+	read_lock_bh(&dev_base_lock);
+	for_each_netdev_rcu(net, dev) {
+		if (is_lag_slave(dev) && (dev->master == bond_dev)) {
+			nss_connmgr_link_down(dev);
+		}
+	}
+	read_unlock_bh(&dev_base_lock);
+}
+
+/*
+ * nss_connmgr_netdev_notifier_cb
+ * 	Netdevice notifier callback
+ */
+static int nss_connmgr_netdev_notifier_cb(struct notifier_block *this,
+					  unsigned long event, void *ptr)
+{
+	struct net_device *event_dev = (struct net_device *)ptr;
+
+	switch (event) {
+	case NETDEV_DOWN:
+		if (is_lag_master(event_dev)) {
+			nss_connmgr_bond_down(event_dev);
+		} else {
+			nss_connmgr_link_down(event_dev);
+		}
+		break;
+
+	case NETDEV_CHANGE:
+		if (!netif_carrier_ok(event_dev)) {
+			nss_connmgr_link_down(event_dev);
+		}
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
+
+
 /*
  * nss_connmgr_ipv4_init_connection_table()
  *	initialize connection table
@@ -2429,6 +2484,13 @@ static int nss_connmgr_ipv4_thread_fn(void *arg)
 	}
 #endif
 
+	nss_connmgr_ipv4.netdev_notifier.notifier_call = nss_connmgr_netdev_notifier_cb;
+	result = register_netdevice_notifier(&nss_connmgr_ipv4.netdev_notifier);
+	if (result != 0) {
+		NSS_CONNMGR_DEBUG_ERROR("Can't register netdevice notifier %d\n", result);
+		goto task_cleanup_6;
+	}
+
 	/*
 	 * Register this module with the Linux NSS driver (net_device)
 	 */
@@ -2467,6 +2529,8 @@ static int nss_connmgr_ipv4_thread_fn(void *arg)
 
 	nss_unregister_ipv4_mgr();
 
+	unregister_netdevice_notifier(&nss_connmgr_ipv4.netdev_notifier);
+task_cleanup_6:
 #ifdef CONFIG_NF_CONNTRACK_EVENTS
 	nf_conntrack_unregister_notifier(&init_net, &nss_connmgr_ipv4.conntrack_notifier);
 task_cleanup_5:
@@ -2744,7 +2808,6 @@ static int __init nss_connmgr_ipv4_init(void)
 	/*
 	 * Register Link Aggregation callbacks
 	 */
-	nss_connmgr_bond_cb.bond_cb_link_down = nss_connmgr_bond_link_down;
 	nss_connmgr_bond_cb.bond_cb_link_up = nss_connmgr_bond_link_up;
 	nss_connmgr_bond_cb.bond_cb_release = nss_connmgr_bond_release;
 	nss_connmgr_bond_cb.bond_cb_enslave = nss_connmgr_bond_enslave;
