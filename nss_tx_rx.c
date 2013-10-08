@@ -703,6 +703,14 @@ static void nss_rx_metadata_nss_core_stats(struct nss_ctx_instance *nss_ctx, str
 
 	if (nss_runtime_samples.sample_count < NSS_SAMPLE_BUFFER_SIZE) {
 		nss_runtime_samples.sample_count++;
+
+		/*
+		 * Samples Are All Ready, Start Auto Scale
+		 */
+		if (nss_runtime_samples.sample_count == NSS_SAMPLE_BUFFER_SIZE ) {
+			nss_cmd_buf.auto_scale = 1;
+			nss_runtime_samples.freq_scale_ready = 1;
+		}
 	}
 
 	nss_runtime_samples.average = nss_runtime_samples.sum / nss_runtime_samples.sample_count;
