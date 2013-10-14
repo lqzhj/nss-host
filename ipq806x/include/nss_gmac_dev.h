@@ -223,6 +223,7 @@ struct nss_gmac_global_ctx {
 					   global interface registers		*/
 	uint32_t *qsgmii_base;
 	nss_gmac_dev *nss_gmac[NSS_MAX_GMACS];
+	void *pm_client;
 };
 
 

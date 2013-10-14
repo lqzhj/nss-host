@@ -106,7 +106,7 @@ static void nss_gmac_rumi_qsgmii_init(nss_gmac_dev *gmacdev)
 		      nss_gmac_read_reg((uint32_t *)nss_base, NSS_ETH_SPARE_CTL));
 
 	nss_gmac_info(gmac1_dev, "%s: GMAC1's MACBASE = 0x%x",__FUNCTION__, gmac1_dev->mac_base);
-	
+
 	/* Put PHY in SGMII Mode */
 	nss_gmac_write_reg(qsgmii_base, QSGMII_PHY_MODE_CTL, 0x0);
 
@@ -439,6 +439,16 @@ int32_t nss_gmac_common_init(struct nss_gmac_global_ctx *ctx)
 		iounmap(msm_tcsr_base);
 	}
 
+	ctx->pm_client = nss_pm_client_register(NSS_PM_CLIENT_GMAC);
+	if (!ctx->pm_client) {
+		nss_gmac_early_dbg("Error registering with PM driver");
+		iounmap(ctx->nss_base);
+		iounmap(ctx->qsgmii_base);
+		ctx->nss_base = NULL;
+		ctx->qsgmii_base = NULL;
+		return -EIO;
+	}
+
 	return 0;
 }
 
@@ -649,7 +659,7 @@ void nss_gmac_dev_init(nss_gmac_dev *gmacdev)
 	uint32_t id = gmacdev->macid;
 	uint32_t *nss_base = (uint32_t *)(gmacdev->ctx->nss_base);
 
-	/* 
+	/*
 	 * Initialize wake and sleep counter values of
 	 * GMAC memory footswitch control.
 	 */
