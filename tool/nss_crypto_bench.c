@@ -441,6 +441,7 @@ static int32_t crypto_bench_prep_op(void)
 	struct nss_crypto_key c_key = {0};
 	struct nss_crypto_key a_key = {0};
 	struct crypto_op *op = NULL;
+	nss_crypto_status_t status;
 	uint32_t iv_hash_len;
 	int i = 0;
 
@@ -460,8 +461,8 @@ static int32_t crypto_bench_prep_op(void)
 		a_key.key_len = NSS_CRYPTO_MAX_KEYLEN_SHA1;
 	}
 
-	session_idx = nss_crypto_session_alloc(crypto_hdl, &c_key, &a_key);
-	CRYPTO_BENCH_ASSERT(session_idx >= 0);
+	status = nss_crypto_session_alloc(crypto_hdl, &c_key, &a_key, &session_idx);
+	CRYPTO_BENCH_ASSERT(status == NSS_CRYPTO_STATUS_OK);
 
 	crypto_bench_info("preparing crypto bench\n");
 

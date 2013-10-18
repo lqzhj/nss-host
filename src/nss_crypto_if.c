@@ -17,6 +17,7 @@
  */
 #include <nss_crypto_hlos.h>
 #include <nss_crypto_if.h>
+#include <nss_crypto_hw.h>
 #include <nss_crypto_ctrl.h>
 #include <nss_api_if.h>
 
@@ -216,8 +217,14 @@ void nss_crypto_transform_done(void *ctx, void *buffer, uint32_t paddr, uint16_t
  */
 nss_crypto_status_t nss_crypto_transform_payload(nss_crypto_handle_t crypto, struct nss_crypto_buf *buf)
 {
+	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
 	nss_tx_status_t nss_status;
 	uint32_t paddr;
+
+	if (!nss_crypto_check_idx_state(ctrl->idx_state_bitmap, buf->session_idx)) {
+		nss_crypto_session_update(ctrl, buf);
+		nss_crypto_set_idx_state(&ctrl->idx_state_bitmap, buf->session_idx);
+	}
 
 	buf->data_paddr = dma_map_single(NULL, buf->data, buf->data_len, DMA_TO_DEVICE);
 	paddr = dma_map_single(NULL, buf, sizeof(struct nss_crypto_buf), DMA_TO_DEVICE);
@@ -276,6 +283,11 @@ void nss_crypto_engine_init(uint32_t eng_count)
 
 	for (i = 0; i < NSS_CRYPTO_BAM_PP; i++) {
 		nss_crypto_pipe_init(e_ctrl, i, &open.desc_paddr[i], &e_ctrl->hw_desc[i]);
+	}
+
+	if (nss_crypto_idx_init(e_ctrl, open.idx) != NSS_CRYPTO_STATUS_OK) {
+		nss_crypto_err("failed to initiallize\n");
+		return;
 	}
 
 	/*

@@ -25,6 +25,8 @@
 #define NSS_CRYPTO_BITS2BYTES(x)	(x / 8)	/**< Bits to Bytes */
 #define NSS_CRYPTO_BYTES2BITS(x)	(x * 8)	/**< Bytes to bits */
 #define NSS_CRYPTO_MAX_QDEPTH		256	/**< H/W queue depth per pipe */
+#define NSS_CRYPTO_MAX_IDXS		16	/**< Max supported sessions */
+#define NSS_CRYPTO_MAX_CACHED_IDXS	4	/**< Max supported sessions */
 #define NSS_CRYPTO_ENGINES		4	/**< Max engines available */
 #define NSS_CRYPTO_BAM_PP		4 	/**< BAM Pipe Pairs */
 
@@ -38,6 +40,7 @@ typedef enum nss_crypto_status {
 	NSS_CRYPTO_STATUS_EBUSY,	/**< resource unavailable */
 	NSS_CRYPTO_STATUS_ERESTART,	/**< resource unavailable, defer the operation */
 	NSS_CRYPTO_STATUS_ENOMEM,	/**< out of memory */
+	NSS_CRYPTO_STATUS_ENOSUPP,	/**< unsupported configuration */
 } nss_crypto_status_t;
 
 /**
@@ -85,8 +88,8 @@ enum nss_crypto_auth {
  * @brief crypto buffer request type
  */
 enum nss_crypto_buf_req_type {
-	NSS_CRYPTO_BUF_REQ_DECRYPT = 0x0001,	/**< decryption request*/
-	NSS_CRYPTO_BUF_REQ_ENCRYPT = 0x0002,	/**< encryption request*/
+	NSS_CRYPTO_BUF_REQ_DECRYPT = 0x0001,		/**< decryption request*/
+	NSS_CRYPTO_BUF_REQ_ENCRYPT = 0x0002,		/**< encryption request*/
 	NSS_CRYPTO_BUF_REQ_AUTH = 0x0004,		/**< authentication request */
 	NSS_CRYPTO_BUF_REQ_HOST = 0x0100,		/**< request originated from host */
 	NSS_CRYPTO_BUF_REQ_IPSEC = 0x0200		/**< request originates from IPsec fast path */
@@ -108,13 +111,23 @@ struct nss_crypto_key {
 };
 
 /**
+ * @brief crypto session index type
+ */
+struct nss_crypto_idx {
+	uint16_t pp_num; 		/**< pipe pair index number */
+	uint16_t cmd0_len;		/**< cmd0 block length, as this varies per session */
+	uint32_t cblk_paddr;		/**< cmd block phy_addr */
+};
+
+/**
  * @brief open engine message sent to NSS when each is probed
  */
 struct nss_crypto_open_eng {
-	uint32_t eng_id;						/**< engine number to open */
-	uint32_t bam_pbase;						/**< BAM base addr (physical) */
-	uint32_t crypto_pbase;					/**< Crypto base addr (physical) */
-	uint32_t desc_paddr[NSS_CRYPTO_BAM_PP];	/**< pipe desc addr (physical) */
+	uint32_t eng_id;				/**< engine number to open */
+	uint32_t bam_pbase;				/**< BAM base addr (physical) */
+	uint32_t crypto_pbase;				/**< Crypto base addr (physical) */
+	uint32_t desc_paddr[NSS_CRYPTO_BAM_PP];		/**< pipe desc addr (physical) */
+	struct nss_crypto_idx idx[NSS_CRYPTO_MAX_IDXS];	/**< allocated ession indexes */
 };
 
 /**
@@ -259,11 +272,16 @@ void nss_crypto_buf_free(nss_crypto_handle_t crypto, struct nss_crypto_buf *buf)
  * @param crypto[IN] crypto device handle
  * @param cipher[IN] cipher specific elements {cipher_algo, key & key_length}
  * @param auth[IN] auth specific elememts {auth_algo, key & key_length}
+ * @param session_idx[OUT] session index for the crypto transform
  *
- * @return negative index indicates session allocation failure
+ * @return status of the call
+ *
+ * ENOMEM implies out of index
+ * ENOSUPP implies unsupported configuration
  *
  */
-int32_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct nss_crypto_key *cipher, struct nss_crypto_key *auth);
+nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct nss_crypto_key *cipher, struct nss_crypto_key *auth,
+						uint32_t *session_idx);
 
 /**
  * @brief Free an existing session, this flushes all state related to the session
@@ -272,11 +290,13 @@ int32_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct nss_crypto_k
  * @param crypto[IN] crypto device handle
  * @param session_idx[IN] session index to free
  *
+ * @return status of the call
+ *
  * @note When changing/altering the configuration of a session such as new keys,
  *       algorithm etc. the procedure should be to free the older session and
  *       then allocate a newer session with the new parameters
  */
-void nss_crypto_session_free(nss_crypto_handle_t crypto, uint32_t session_idx);
+nss_crypto_status_t nss_crypto_session_free(nss_crypto_handle_t crypto, uint32_t session_idx);
 
 /**
  * @brief Apply cipher (as in encrypt or decrypt) and or authenticate the given

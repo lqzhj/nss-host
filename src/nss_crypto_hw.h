@@ -48,10 +48,10 @@
 #define CRYPTO_ENCR_SEG_CFG_MODE_XTS		(0x3 << 6)
 #define CRYPTO_ENCR_SEG_CFG_MODE_CCM		(0x4 << 6)
 #define CRYPTO_ENCR_SEG_CFG_ENC			(0x1 << 10)
-#define CRYPTO_ENCR_SEG_CFG_ENC_SHFT		10
+#define CRYPTO_ENCR_SEG_CFG_PIPE_KEYS		(0x1 << 15)
+
 #define CRYPTO_SET_ENCRYPT(cfg)			((cfg) |= CRYPTO_ENCR_SEG_CFG_ENC)
 #define CRYPTO_SET_DECRYPT(cfg)			((cfg) &= ~CRYPTO_ENCR_SEG_CFG_ENC)
-#define CRYPTO_ENCR_SEG_CFG_PIPE_KEYS		(0x1 << 15)
 
 #define CRYPTO_GOPROC_SET			0x1
 #define CRYPTO_GOPROC_CLR_CNTXT			(0x1 << 1)
@@ -98,7 +98,8 @@
 #define CRYPTO_AUTH_SEG_START		(CRYPTO_BASE + 0X308)
 #define CRYPTO_AUTH_IVn(n)		(CRYPTO_BASE + 0x310 + (0x4 * n))
 #define CRYPTO_CONFIG			(CRYPTO_BASE + 0x400)
-#define CRYPTO_ENCR_KEY(n)		(CRYPTO_BASE + 0x3000 + (0x4 * n))
+#define CRYPTO_ENCR_KEYn(n)		(CRYPTO_BASE + 0x3000 + (0x4 * n))
+#define CRYPTO_AUTH_KEYn(n)		(CRYPTO_BASE + 0x3040 + (0x4 * n))
 #define CRYPTO_ENCR_PIPEm_KEYn(m, n)	(CRYPTO_BASE + 0x4000 + (0x20 * m) + (0x4 * n))
 #define CRYPTO_AUTH_PIPEm_KEYn(m, n)	(CRYPTO_BASE + 0x4800 + (0x80 * m) + (0x4 * n))
 #define CRYPTO_STATUS			(CRYPTO_BASE + 0x100)
@@ -123,14 +124,17 @@
 /**
  * H/W specific information
  */
-#define NSS_CRYPTO_CIV_REGS		4 /**< IV key regs*/
+#define NSS_CRYPTO_CIPHER_IV_REGS	4 /**< IV key regs*/
+#define NSS_CRYPTO_AUTH_IV_REGS		6
+
 #define NSS_CRYPTO_CKEY_REGS		8 /**< cipher key regs*/
 #define NSS_CRYPTO_AKEY_REGS		8 /**< auth key regs*/
-#define NSS_CRYPTO_AIV_REGS		6
+
 #define NSS_CRYPTO_BCNT_REGS		2
 
-#define NSS_CRYPTO_CACHE_CBLK_SZ	sizeof(struct nss_crypto_cache_cmdblk)
-#define NSS_CRYPTO_UCACHE_CBLK_SZ	sizeof(struct nss_crypto_ucache_cmdblk)
+#define NSS_CRYPTO_CKEY_SZ		(NSS_CRYPTO_CKEY_REGS * sizeof(uint32_t))
+#define NSS_CRYPTO_AKEY_SZ		(NSS_CRYPTO_AKEY_REGS * sizeof(uint32_t))
+
 #define NSS_CRYPTO_RESULTS_SZ		sizeof(struct nss_crypto_res_dump)
 #define NSS_CRYPTO_INDESC_SZ		sizeof(struct nss_crypto_in_trans)
 #define NSS_CRYPTO_OUTDESC_SZ		sizeof(struct nss_crypto_out_trans)
@@ -138,10 +142,13 @@
 #define NSS_CRYPTO_BAM_CMD_SZ		sizeof(struct nss_crypto_bam_cmd)
 #define NSS_CRYPTO_DESC_SZ		sizeof(struct nss_crypto_desc)
 #define NSS_CRYPTO_DESC_ALIGN		8
+#define NSS_CRYPTO_CACHE_CMD_SZ		offsetof(struct nss_crypto_cmd_config, keys)
+#define NSS_CRYPTO_UNCACHE_CMD_SZ	sizeof(struct nss_crypto_cmd_config)
+#define NSS_CRYPTO_CMD_REQ_SZ		offsetof(struct nss_crypto_cmd_request, unlock)
+#define NSS_CRYPTO_CMD_UNLOCK_SZ	NSS_CRYPTO_BAM_CMD_SZ
 
 #define NSS_CRYPTO_NUM_INDESC		(NSS_CRYPTO_INDESC_SZ / NSS_CRYPTO_BAM_DESC_SZ)
 #define NSS_CRYPTO_NUM_OUTDESC		(NSS_CRYPTO_OUTDESC_SZ / NSS_CRYPTO_BAM_DESC_SZ)
-#define NSS_CRYPTO_NUM_CMDBLK		(NSS_CRYPTO_CACHE_CBLK_SZ / NSS_CRYPTO_BAM_CMD_SZ)
 #define NSS_CRYPTO_NUM_AUTH_IV		16
 #define NSS_CRYPTO_NUM_AUTH_BYTECNT	4
 #define NSS_CRYPTO_NUM_ENCR_CTR		4
@@ -186,52 +193,57 @@ struct nss_crypto_bam_cmd {
 };
 
 /**
- * @brief command block for cached keys
+ * @brief keys command block, both encryption and authentication keys
+ * 	  are kept for uncached mode
  */
-struct nss_crypto_cache_cmdblk {
-	struct nss_crypto_bam_cmd config_0;			/**< config */
-	struct nss_crypto_bam_cmd seg_size;			/**< total segment size */
-
-	struct nss_crypto_bam_cmd encr_seg_cfg;			/**< encryption config */
-	struct nss_crypto_bam_cmd encr_seg_size;		/**< encryption size */
-	struct nss_crypto_bam_cmd encr_seg_start;		/**< encryption start offset */
-	struct nss_crypto_bam_cmd encr_iv[NSS_CRYPTO_CIV_REGS];	/**< encryption IVs */
-	struct nss_crypto_bam_cmd encr_ctr_msk;			/**< encryption counter mask */
-
-	struct nss_crypto_bam_cmd auth_seg_cfg;			/**< authentication config */
-	struct nss_crypto_bam_cmd auth_seg_size;		/**< authentication size */
-	struct nss_crypto_bam_cmd auth_seg_start;		/**< authentication start offset */
-	struct nss_crypto_bam_cmd auth_iv[NSS_CRYPTO_AIV_REGS];	/**< authentication IVs */
-
-	struct nss_crypto_bam_cmd config_1;			/**< config, used to switch into little endian */
-	struct nss_crypto_bam_cmd go_proc;			/**< crypto trigger, marking config loaded */
-	struct nss_crypto_bam_cmd unlock;			/**< dummy write for unlock*/
+struct nss_crypto_cmd_keys {
+	struct nss_crypto_bam_cmd encr[NSS_CRYPTO_CKEY_REGS];	/**< encryption keys */
+	struct nss_crypto_bam_cmd auth[NSS_CRYPTO_AKEY_REGS];	/**< authentication keys */
 };
 
 /**
- * @brief command block for uncached key programming
+ * @brief common configuration command block
  */
-struct nss_crypto_ucache_cmdblk {
+struct nss_crypto_cmd_config {
 	struct nss_crypto_bam_cmd config_0;				/**< config */
-	struct nss_crypto_bam_cmd seg_size;				/**< total segment size */
 
 	struct nss_crypto_bam_cmd encr_seg_cfg;				/**< encryption config */
-	struct nss_crypto_bam_cmd encr_seg_size;			/**< encryption size */
-	struct nss_crypto_bam_cmd encr_seg_start;			/**< encryption start offset */
-	struct nss_crypto_bam_cmd encr_iv[NSS_CRYPTO_CIV_REGS];		/**< encryption IVs */
-	struct nss_crypto_bam_cmd encr_keys[NSS_CRYPTO_CKEY_REGS];	/**< encryption keys */
-	struct nss_crypto_bam_cmd encr_ctr_msk;				/**< encryption counter mask */
-
 	struct nss_crypto_bam_cmd auth_seg_cfg;				/**< authentication config */
-	struct nss_crypto_bam_cmd auth_seg_size;			/**< authentication size */
-	struct nss_crypto_bam_cmd auth_seg_start;			/**< authentication offset */
-	struct nss_crypto_bam_cmd auth_iv[NSS_CRYPTO_AIV_REGS];		/**< authentication IV */
-	struct nss_crypto_bam_cmd auth_keys[NSS_CRYPTO_AKEY_REGS];	/**< authentication keys */
 
-	struct nss_crypto_bam_cmd config_1;				/**< config, used to switch into litte endian */
-	struct nss_crypto_bam_cmd go_proc;				/**< crypto trigger, marking config loaded */
-	struct nss_crypto_bam_cmd unlock; 				/**< dummy write for unlock*/
+	struct nss_crypto_bam_cmd encr_seg_start;			/**< encryption start offset */
+	struct nss_crypto_bam_cmd auth_seg_start;			/**< authentication start offset */
+
+	struct nss_crypto_bam_cmd encr_ctr_msk;				/**< encryption counter mask */
+	struct nss_crypto_bam_cmd auth_iv[NSS_CRYPTO_AUTH_IV_REGS];	/**< authentication IVs */
+
+	struct nss_crypto_cmd_keys keys;				/**< cipher & auth keys for uncached */
 };
+
+/**
+ * @brief per request configuration command block
+ */
+struct nss_crypto_cmd_request {
+	struct nss_crypto_bam_cmd seg_size;				/**< total segment size */
+	struct nss_crypto_bam_cmd encr_seg_size;			/**< encryption size */
+	struct nss_crypto_bam_cmd auth_seg_size;			/**< authentication size */
+
+	struct nss_crypto_bam_cmd encr_iv[NSS_CRYPTO_CIPHER_IV_REGS];	/**< encryption IVs */
+
+	struct nss_crypto_bam_cmd config_1;				/**< config, used to switch into little endian */
+	struct nss_crypto_bam_cmd go_proc;				/**< crypto trigger, marking config loaded */
+	struct nss_crypto_bam_cmd unlock;				/**< dummy write for unlock*/
+};
+
+/**
+ * @brief crypto command block structure, there is '1' instance of common configuration as it
+ * 	  doesn't change per request and there is 'n' request command blocks that change on
+ * 	  each request
+ */
+struct nss_crypto_cmd_block {
+	struct nss_crypto_cmd_config cfg;
+	struct nss_crypto_cmd_request req[NSS_CRYPTO_MAX_QDEPTH];
+};
+
 
 /**
  * @brief results dump format, generated at the end of the operation
@@ -253,7 +265,7 @@ struct nss_crypto_in_trans {
 	struct nss_crypto_bam_desc cmd0_lock;	/**< main cmds & lock pipe*/
 	struct nss_crypto_bam_desc cmd1;	/**< secondary commands */
 	struct nss_crypto_bam_desc data;	/**< data*/
-	struct nss_crypto_bam_desc cmd3_unlock;	/**< unlock pipe */
+	struct nss_crypto_bam_desc cmd2_unlock;	/**< unlock pipe */
 };
 
 /**
@@ -273,9 +285,7 @@ struct nss_crypto_out_trans {
 struct nss_crypto_desc {
 	struct nss_crypto_in_trans in[NSS_CRYPTO_MAX_QDEPTH];
 	struct nss_crypto_out_trans out[NSS_CRYPTO_MAX_QDEPTH];
-	struct nss_crypto_cache_cmdblk cblk[NSS_CRYPTO_MAX_QDEPTH];
 };
-
 
 #define nss_crypto_idx_to_inpipe(_idx)		((_idx) << 1)
 #define nss_crypto_idx_to_outpipe(_idx)		(((_idx) << 1) + 1)

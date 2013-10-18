@@ -26,48 +26,54 @@ struct nss_crypto_ctrl gbl_crypto_ctrl = {0};
 /*
  * Standard initialization vector for SHA-1, source: FIPS 180-2
  */
-const uint32_t nss_crypto_fips_sha1_iv[] = {
+static const uint32_t fips_sha1_iv[NSS_CRYPTO_AUTH_IV_REGS] = {
 	0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0
 };
 
 /*
- * NULL keys
+ * NULL IV
  */
-static const uint8_t null_ckey[NSS_CRYPTO_MAX_KEYLEN_AES];
-static const uint8_t null_akey[NSS_CRYPTO_MAX_KEYLEN_SHA1];
-
-#define NSS_CRYPTO_FIPS_SHA1_IV_REGS (sizeof(nss_crypto_fips_sha1_iv)/sizeof(nss_crypto_fips_sha1_iv[0]))
+static const uint32_t null_iv[NSS_CRYPTO_AUTH_IV_REGS] = {0};
 
 /*
- * nss_crypto_reset_cblk()
+ * NULL keys
+ */
+static const uint8_t null_ckey[NSS_CRYPTO_CKEY_SZ] = {0};
+static const uint8_t null_akey[NSS_CRYPTO_AKEY_SZ] = {0};
+
+/*
+ * nss_crypto_write_cblk()
  * 	load CMD block with data
  *
  * it will load
  * - crypto register offsets
  * - crypto register values
  */
-static inline void nss_crypto_reset_cblk(struct nss_crypto_bam_cmd *cmd, uint32_t addr, uint32_t value)
+static inline void nss_crypto_write_cblk(struct nss_crypto_bam_cmd *cmd, uint32_t addr, uint32_t value)
 {
 	cmd->addr = CRYPTO_CMD_ADDR(addr);
 	cmd->value = value;
 	cmd->mask = CRYPTO_MASK_ALL;
 }
-/*
- * nss_crypto_setup_cmn_cblk()
- * 	this setups the common parts of command block
- *
- * The command block constitutes of common portion applicable for encryption & authentication.
- * This routine setups the common portion like configs, go_proc etc.
- */
-static void nss_crypto_setup_cmn_cblk(uint32_t base_addr, struct nss_crypto_cache_cmdblk *cmd, uint32_t idx)
-{
-	uint32_t cfg_value = 0;
-	uint32_t beat;
 
-	/*
-	 * setup pipe unlock descriptor
-	 */
-	nss_crypto_reset_cblk(&cmd->unlock, CRYPTO_DEBUG_ENABLE + base_addr, 0x1);
+/*
+ * nss_crypto_read_cblk()
+ * 	read CMD block data
+ */
+static inline uint32_t nss_crypto_read_cblk(struct nss_crypto_bam_cmd *cmd)
+{
+	return (cmd->value & cmd->mask);
+}
+/*
+ * nss_crypto_setup_cmd_config()
+ * 	setup the common command block, 1 per session
+ */
+static void nss_crypto_setup_cmd_config(struct nss_crypto_cmd_config *cfg, uint32_t base_addr, uint16_t pp_num,
+					struct nss_crypto_encr_cfg *encr, struct nss_crypto_auth_cfg *auth)
+{
+	uint32_t *key_ptr, key_val;
+	uint32_t cfg_value, beat;
+	int i;
 
 	/*
 	 * Configuration programming
@@ -76,90 +82,131 @@ static void nss_crypto_setup_cmn_cblk(uint32_t base_addr, struct nss_crypto_cach
 	 * - pipe number for the crypto transaction
 	 */
 	beat = CRYPTO_BURST2BEATS(CRYPTO_MAX_BURST);
-	cfg_value = (CRYPTO_CONFIG_DOP_INTR | CRYPTO_CONFIG_DIN_INTR |
-			CRYPTO_CONFIG_DOUT_INTR | CRYPTO_CONFIG_PIPE_SEL(idx) |
-			CRYPTO_CONFIG_REQ_SIZE(beat));
+
+	cfg_value = 0;
+	cfg_value |= CRYPTO_CONFIG_DOP_INTR; /* operation interrupt */
+	cfg_value |= CRYPTO_CONFIG_DIN_INTR; /* input interrupt */
+	cfg_value |= CRYPTO_CONFIG_DOUT_INTR; /* output interrupt */
+	cfg_value |= CRYPTO_CONFIG_PIPE_SEL(pp_num); /* pipe pair number to use */
+	cfg_value |= CRYPTO_CONFIG_REQ_SIZE(beat); /* BAM DMA maximum beat size */
+
+	nss_crypto_write_cblk(&cfg->config_0, CRYPTO_CONFIG + base_addr, cfg_value);
+	nss_crypto_write_cblk(&cfg->encr_seg_cfg, CRYPTO_ENCR_SEG_CFG + base_addr, encr->cfg);
+	nss_crypto_write_cblk(&cfg->auth_seg_cfg, CRYPTO_AUTH_SEG_CFG + base_addr, auth->cfg);
+	nss_crypto_write_cblk(&cfg->encr_ctr_msk, CRYPTO_ENCR_CNTR_MASK + base_addr, 0xffffffff);
 
 	/*
-	 * The below programming pre-fills the crypto register offset
-	 * addresses and the bitmask for the value to be pushed through
-	 * the command block. The bitmask is used by the BAM to identify
-	 * how many bits are valid in the 'value' of the command block,
-	 * it uses that mask to only program the bits that are valid.
+	 * auth IV update
 	 */
-	nss_crypto_reset_cblk(&cmd->config_0, CRYPTO_CONFIG + base_addr, cfg_value);
-	nss_crypto_reset_cblk(&cmd->seg_size, CRYPTO_SEG_SIZE + base_addr, 0);
-	nss_crypto_reset_cblk(&cmd->config_1, CRYPTO_CONFIG + base_addr, (cfg_value | CRYPTO_CONFIG_LITTLE_ENDIAN));
-	nss_crypto_reset_cblk(&cmd->go_proc, CRYPTO_GO_PROC + base_addr, (CRYPTO_GOPROC_SET | CRYPTO_GOPROC_RESULTS_DUMP));
+	for (i = 0; i < NSS_CRYPTO_AUTH_IV_REGS; i++) {
+		nss_crypto_write_cblk(&cfg->auth_iv[i], CRYPTO_AUTH_IVn(i) + base_addr, auth->iv[i]);
+	}
+
+	/*
+	 * cipher key update
+	 */
+	for (i = 0; i < NSS_CRYPTO_CKEY_REGS; i++) {
+		key_ptr = (uint32_t *)&encr->key[i * 4];
+		key_val = cpu_to_be32(*key_ptr);
+
+		nss_crypto_write_cblk(&cfg->keys.encr[i], CRYPTO_ENCR_KEYn(i) + base_addr, key_val);
+	}
+
+	/*
+	 * auth key update
+	 */
+	for (i = 0; i < NSS_CRYPTO_AKEY_REGS; i++) {
+		key_ptr = (uint32_t *)&auth->key[i * 4];
+		key_val = cpu_to_be32(*key_ptr);
+
+		nss_crypto_write_cblk(&cfg->keys.auth[i], CRYPTO_AUTH_KEYn(i) + base_addr, key_val);
+	}
+
 }
 
 /*
- * nss_crypto_setup_cipher_cblk()
- * 	this routine setups the cipher specific command block
- *
- * this routine will do the following
- * - cipher segment configuration
- * - cipher segment size
- * - cipher segment address
- * - cipher iv
- * - cipher counter mask
+ * nss_crypto_setup_cmd_request()
+ * 	setup the per request command block
  */
-static void nss_crypto_setup_cipher_cblk(uint32_t base_addr, struct nss_crypto_cache_cmdblk *cmd, uint32_t val)
+static void nss_crypto_setup_cmd_request(struct nss_crypto_cmd_request *req, uint32_t base_addr, uint16_t pp_num)
 {
+	uint32_t cfg_value;
+	uint32_t beat;
 	int i;
 
-	nss_crypto_reset_cblk(&cmd->encr_seg_cfg, CRYPTO_ENCR_SEG_CFG + base_addr, val);
-	nss_crypto_reset_cblk(&cmd->encr_seg_size, CRYPTO_ENCR_SEG_SIZE + base_addr, 0);
-	nss_crypto_reset_cblk(&cmd->encr_seg_start, CRYPTO_ENCR_SEG_START + base_addr, 0);
-	nss_crypto_reset_cblk(&cmd->encr_ctr_msk, CRYPTO_ENCR_CNTR_MASK + base_addr, 0xffffffff);
+	nss_crypto_write_cblk(&req->seg_size, CRYPTO_SEG_SIZE + base_addr, 0);
+	nss_crypto_write_cblk(&req->encr_seg_size, CRYPTO_ENCR_SEG_SIZE + base_addr, 0);
+	nss_crypto_write_cblk(&req->auth_seg_size, CRYPTO_AUTH_SEG_SIZE + base_addr, 0);
 
-	for (i = 0; i < NSS_CRYPTO_CIV_REGS; i++) {
-		nss_crypto_reset_cblk(&cmd->encr_iv[i], CRYPTO_ENCR_IVn(i) + base_addr, 0);
+	/*
+	 * cipher IV reset
+	 */
+	for (i = 0; i < NSS_CRYPTO_CIPHER_IV_REGS; i++) {
+		nss_crypto_write_cblk(&req->encr_iv[i], CRYPTO_ENCR_IVn(i) + base_addr, 0);
 	}
-}
 
-/*
- * nss_crypto_setup_auth_cblk()
- * 	this will program the authentication specific command block portions
- *
- * this routine will do the following
- * - auth segment configuration
- * - auth segment size
- * - auth iv
- */
-static inline void nss_crypto_setup_auth_cblk(uint32_t base_addr, struct nss_crypto_cache_cmdblk *cmd, uint32_t val, uint32_t *iv, uint32_t iv_regs)
-{
-	uint32_t iv_val;
-	int i;
+	/*
+	 * Configuration programming
+	 * - beats
+	 * - interrupts
+	 * - pipe number for the crypto transaction
+	 */
+	beat = CRYPTO_BURST2BEATS(CRYPTO_MAX_BURST);
 
-	nss_crypto_reset_cblk(&cmd->auth_seg_cfg, CRYPTO_AUTH_SEG_CFG + base_addr, val);
-	nss_crypto_reset_cblk(&cmd->auth_seg_size, CRYPTO_AUTH_SEG_SIZE + base_addr, 0);
-	nss_crypto_reset_cblk(&cmd->auth_seg_start, CRYPTO_AUTH_SEG_START + base_addr, 0);
+	cfg_value = 0;
+	cfg_value |= CRYPTO_CONFIG_DOP_INTR; /* operation interrupt */
+	cfg_value |= CRYPTO_CONFIG_DIN_INTR; /* input interrupt */
+	cfg_value |= CRYPTO_CONFIG_DOUT_INTR; /* output interrupt */
+	cfg_value |= CRYPTO_CONFIG_PIPE_SEL(pp_num); /* pipe pair number to use */
+	cfg_value |= CRYPTO_CONFIG_REQ_SIZE(beat); /* BAM DMA maximum beat size */
+	cfg_value |= CRYPTO_CONFIG_LITTLE_ENDIAN; /* switch to little endian mode */
 
-	nss_crypto_assert(iv_regs <= NSS_CRYPTO_AIV_REGS);
+	nss_crypto_write_cblk(&req->config_1, CRYPTO_CONFIG + base_addr, cfg_value);
 
-	for (i = 0; i < NSS_CRYPTO_AIV_REGS; i++) {
-		iv_val = (i < iv_regs) ? iv[i] : 0;
-		nss_crypto_reset_cblk(&cmd->auth_iv[i], CRYPTO_AUTH_IVn(i) + base_addr, iv_val);
-	}
+	/*
+	 * go_proc or crypto trigger programming
+	 */
+	cfg_value = 0;
+	cfg_value |= CRYPTO_GOPROC_SET; /* go proc */
+	cfg_value |= CRYPTO_GOPROC_RESULTS_DUMP; /* generate results dump */
+
+	nss_crypto_write_cblk(&req->go_proc, CRYPTO_GO_PROC + base_addr, cfg_value);
+
+	/*
+	 * unlock cmd using dummy debug register enable
+	 */
+	nss_crypto_write_cblk(&req->unlock, CRYPTO_DEBUG_ENABLE + base_addr, 0x1);
 }
 
 /*
  * nss_crypto_bam_init()
  * 	initialize  the BAM pipe; pull it out reset and load its configuration
  */
-int nss_crypto_bam_pipe_init(struct nss_crypto_ctrl_eng *ctrl, uint32_t pipe)
+static int nss_crypto_bam_pipe_init(struct nss_crypto_ctrl_eng *ctrl, uint32_t pipe)
 {
 	uint32_t cfg;
-
-	cfg = (CRYPTO_BAM_P_CTRL_DIRECTION(pipe) | CRYPTO_BAM_P_CTRL_SYS_MODE |
-		CRYPTO_BAM_P_CTRL_LOCK_GROUP(NSS_CRYPTO_INPIPE(pipe)));
+	uint32_t in_pipe;
 
 	/*
 	 * Put and Pull BAM pipe from reset
 	 */
 	iowrite32(0x1, ctrl->bam_base + CRYPTO_BAM_P_RST(pipe));
 	iowrite32(0x0, ctrl->bam_base + CRYPTO_BAM_P_RST(pipe));
+
+	in_pipe = NSS_CRYPTO_INPIPE(pipe);
+
+	/*
+	 * set the following
+	 * - direction IN or OUT
+	 * - BAM mode is system
+	 * - enable the pipe
+	 * - BAM pipe lock group common for IN & OUT
+	 */
+	cfg = 0;
+	cfg |= CRYPTO_BAM_P_CTRL_DIRECTION(pipe);
+	cfg |= CRYPTO_BAM_P_CTRL_SYS_MODE;
+	cfg |= CRYPTO_BAM_P_CTRL_EN;
+	cfg |= CRYPTO_BAM_P_CTRL_LOCK_GROUP(in_pipe);
 
 	iowrite32(cfg, ctrl->bam_base + CRYPTO_BAM_P_CTRL(pipe));
 
@@ -175,14 +222,14 @@ int nss_crypto_bam_pipe_init(struct nss_crypto_ctrl_eng *ctrl, uint32_t pipe)
  * this allocates coherent memory for crypto descriptors, the pipe initialization should
  * tell the size
  */
-void *nss_crypto_desc_alloc(uint32_t *paddr, uint32_t size)
+static void *nss_crypto_desc_alloc(struct device *dev, uint32_t *paddr, uint32_t size)
 {
 	uint32_t new_size;
 	void *ret_addr;
 
 	new_size = size + NSS_CRYPTO_DESC_ALIGN;
 
-	ret_addr = dma_alloc_coherent(NULL, new_size, paddr, GFP_DMA);
+	ret_addr = dma_alloc_coherent(dev, new_size, paddr, GFP_DMA);
 	if (!ret_addr) {
 		nss_crypto_err("OOM: unable to allocate coherent memory of size(%dKB)\n", (new_size/1000));
 		return NULL;
@@ -205,15 +252,12 @@ void *nss_crypto_desc_alloc(uint32_t *paddr, uint32_t size)
  * - program the BAM descriptors with the command blocks (lock/unlock)
  * - update the BAM registers for the ring locations
  */
-void
-nss_crypto_pipe_init(struct nss_crypto_ctrl_eng *eng, uint32_t idx, uint32_t *desc_paddr, struct nss_crypto_desc **desc_vaddr)
+void nss_crypto_pipe_init(struct nss_crypto_ctrl_eng *eng, uint32_t idx, uint32_t *desc_paddr, struct nss_crypto_desc **desc_vaddr)
 {
 	struct nss_crypto_desc *desc;
 	uint32_t in_pipe, out_pipe;
 	uint32_t in_pipe_sz, out_pipe_sz;
-	uint32_t unlock_sz, cmd0_sz, cmd1_sz;
 	uint32_t paddr;
-	uint32_t cblk_start;
 	int i;
 
 	/*
@@ -231,7 +275,7 @@ nss_crypto_pipe_init(struct nss_crypto_ctrl_eng *eng, uint32_t idx, uint32_t *de
 	/*
 	 * Allocate descriptors
 	 */
-	desc = nss_crypto_desc_alloc(&paddr, NSS_CRYPTO_DESC_SZ);
+	desc = nss_crypto_desc_alloc(eng->dev, &paddr, NSS_CRYPTO_DESC_SZ);
 
 	*desc_paddr = paddr;
 	*desc_vaddr = desc;
@@ -249,45 +293,34 @@ nss_crypto_pipe_init(struct nss_crypto_ctrl_eng *eng, uint32_t idx, uint32_t *de
 	iowrite32(out_pipe_sz, eng->bam_base + CRYPTO_BAM_P_FIFO_SIZES(out_pipe));
 
 	/*
-	 * we are done with input and output rings, move the cursor to the command block
-	 */
-	paddr = paddr + in_pipe_sz + out_pipe_sz;
-
-	/*
 	 * this loop pre-fills the pipe rings with the command blocks, the data path will
 	 * no longer need to write the command block locations when sending the packets for
 	 * encryption/decryption. The idea header is to avoid as much as possible the writes
 	 * to the uncached locations.
 	 */
-	unlock_sz = NSS_CRYPTO_BAM_CMD_SZ;
-	cmd0_sz = offsetof(struct nss_crypto_cache_cmdblk, config_1);
-	cmd1_sz = NSS_CRYPTO_CACHE_CBLK_SZ - cmd0_sz - unlock_sz;
-
 	for (i = 0; i < NSS_CRYPTO_MAX_QDEPTH; i++) {
-		cblk_start = paddr + (NSS_CRYPTO_CACHE_CBLK_SZ * i);
-
 		/*
 		 * program CMD0 (encr configs & auth configs)
 		 */
-		desc->in[i].cmd0_lock.data_len = cmd0_sz;
-		desc->in[i].cmd0_lock.data_start = cblk_start;
+		desc->in[i].cmd0_lock.data_len = 0;
+		desc->in[i].cmd0_lock.data_start = 0x0;
 		desc->in[i].cmd0_lock.flags = (CRYPTO_BAM_DESC_CMD | CRYPTO_BAM_DESC_LOCK);
 
 		/*
 		 * program CMD1 (config & go_proc)
 		 */
-		desc->in[i].cmd1.data_len = cmd1_sz;
-		desc->in[i].cmd1.data_start = cblk_start + cmd0_sz;
+		desc->in[i].cmd1.data_len = NSS_CRYPTO_CMD_REQ_SZ;
+		desc->in[i].cmd1.data_start = 0x0;
 		desc->in[i].cmd1.flags = CRYPTO_BAM_DESC_CMD;
 
-		desc->in[i].data.flags = (CRYPTO_BAM_DESC_EOT|CRYPTO_BAM_DESC_NWD);
+		desc->in[i].data.flags = (CRYPTO_BAM_DESC_EOT | CRYPTO_BAM_DESC_NWD);
 
 		/*
-		 * program CMD3 (unlock)
+		 * program CMD2 (unlock)
 		 */
-		desc->in[i].cmd3_unlock.data_len = unlock_sz;
-		desc->in[i].cmd3_unlock.data_start = cblk_start + cmd0_sz + cmd1_sz;
-		desc->in[i].cmd3_unlock.flags = (CRYPTO_BAM_DESC_CMD | CRYPTO_BAM_DESC_UNLOCK);
+		desc->in[i].cmd2_unlock.data_len = NSS_CRYPTO_CMD_UNLOCK_SZ;
+		desc->in[i].cmd2_unlock.data_start = 0x0;
+		desc->in[i].cmd2_unlock.flags = (CRYPTO_BAM_DESC_CMD | CRYPTO_BAM_DESC_UNLOCK);
 
 		desc->out[i].data.flags = 0;
 
@@ -298,8 +331,9 @@ nss_crypto_pipe_init(struct nss_crypto_ctrl_eng *eng, uint32_t idx, uint32_t *de
 	}
 
 	nss_crypto_info("init completed for Pipe Pair[%d]\n", idx);
-	nss_crypto_dbg("total size - %d, qdepth - %d, in_sz - %d, out_sz - %d, cmd_sz - %d\n", NSS_CRYPTO_DESC_SZ, NSS_CRYPTO_MAX_QDEPTH,
-			in_pipe_sz, out_pipe_sz, (cmd0_sz + cmd1_sz + unlock_sz));
+	nss_crypto_dbg("total size - %d, qdepth - %d, in_sz - %d, out_sz - %d\n",
+			NSS_CRYPTO_DESC_SZ, NSS_CRYPTO_MAX_QDEPTH,
+			in_pipe_sz, out_pipe_sz);
 
 }
 
@@ -307,38 +341,45 @@ nss_crypto_pipe_init(struct nss_crypto_ctrl_eng *eng, uint32_t idx, uint32_t *de
  * nss_crypto_program_ckeys()
  * 	this will program cipher key registers with new keys
  */
-void nss_crypto_program_ckeys(uint8_t *base, uint32_t idx, uint8_t *key, uint32_t key_sz)
+static void nss_crypto_write_ckey_regs(uint8_t *base, uint16_t pp_num, struct nss_crypto_encr_cfg *encr)
 {
 	uint32_t key_val, *key_ptr;
 	int i;
 
-	for (i = 0; i < (key_sz / sizeof(uint32_t)) ; i++) {
-		key_ptr = (uint32_t *)&key[i * 4];
+	nss_crypto_info("updating cached cipher keys\n");
+
+	for (i = 0; i < NSS_CRYPTO_CKEY_REGS ; i++) {
+		key_ptr = (uint32_t *)&encr->key[i * 4];
 		key_val = cpu_to_be32(*key_ptr);
 
-		iowrite32(key_val, base + CRYPTO_ENCR_PIPEm_KEYn(idx, i));
+		if (!key_val) {
+			break;
+		}
 
-		nss_crypto_dbg("creg[%d] = 0x%02x ", i, key_val);
+		iowrite32(key_val, CRYPTO_ENCR_PIPEm_KEYn(pp_num, i) + base);
 	}
-
 }
 
 /*
  * nss_crypto_program_akeys()
  * 	this will program authentication key registers with new keys
  */
-void nss_crypto_program_akeys(uint8_t *base, uint32_t idx, uint8_t *key, uint32_t key_sz)
+static void nss_crypto_write_akey_regs(uint8_t *base, uint16_t pp_num, struct nss_crypto_auth_cfg *auth)
 {
 	uint32_t key_val, *key_ptr;
 	int i;
 
-	for (i = 0; i < (key_sz / sizeof(uint32_t)); i++) {
-		key_ptr = (uint32_t *)&key[i * 4];
+	nss_crypto_info("updating cached auth keys\n");
+
+	for (i = 0; i < NSS_CRYPTO_AKEY_REGS; i++) {
+		key_ptr = (uint32_t *)&auth->key[i * 4];
 		key_val = cpu_to_be32(*key_ptr);
 
-		iowrite32(key_val, base + CRYPTO_AUTH_PIPEm_KEYn(idx, i));
+		if (!key_val) {
+			break;
+		}
 
-		nss_crypto_dbg("areg[%d] = 0x%02x ", i, key_val);
+		iowrite32(key_val, CRYPTO_AUTH_PIPEm_KEYn(pp_num, i) + base);
 	}
 }
 
@@ -350,63 +391,48 @@ void nss_crypto_program_akeys(uint8_t *base, uint32_t idx, uint8_t *key, uint32_
  * - that the algorithm is supported
  * - that key size is supported
  */
-nss_crypto_status_t nss_crypto_validate_cipher(struct nss_crypto_key *cipher, uint32_t *mask, uint32_t *key_sz)
+static nss_crypto_status_t nss_crypto_validate_cipher(struct nss_crypto_key *cipher, struct nss_crypto_encr_cfg *encr_cfg)
 {
-	switch (cipher->algo) {
-	case NSS_CRYPTO_CIPHER_AES:
-		nss_crypto_assert(cipher->key_len <= NSS_CRYPTO_MAX_KEYLEN_AES);
+	encr_cfg->cfg = 0;
 
-		switch (cipher->key_len) {
-		case NSS_CRYPTO_KEYLEN_AES128:
-			*mask = (CRYPTO_ENCR_SEG_CFG_ALG_AES | CRYPTO_ENCR_SEG_CFG_MODE_CBC);
-			*mask |= CRYPTO_ENCR_SEG_CFG_KEY_AES128;
-			/*
-			 * XXX: this needs to be flexible such that uncached keys can also
-			 * be sent on the same pipe
-			 */
-			*mask |= CRYPTO_ENCR_SEG_CFG_PIPE_KEYS;
-			*key_sz = NSS_CRYPTO_KEYLEN_AES128;
+	/*
+	 * NONE, always the first check
+	 */
+	if (cipher == NULL) {
+		memcpy(encr_cfg->key, null_ckey, NSS_CRYPTO_CKEY_SZ);
 
-			break;
-
-		case NSS_CRYPTO_KEYLEN_AES256:
-			*mask = (CRYPTO_ENCR_SEG_CFG_ALG_AES | CRYPTO_ENCR_SEG_CFG_MODE_CBC);
-			*mask |= CRYPTO_ENCR_SEG_CFG_KEY_AES256;
-			*mask |= CRYPTO_ENCR_SEG_CFG_PIPE_KEYS;
-			*key_sz = NSS_CRYPTO_KEYLEN_AES256;
-			break;
-
-		default:
-			/*
-			 * we don't support zero key length programming
-			 */
-			*mask = 0;
-			*key_sz = 0;
-
-			nss_crypto_err("invalid AES key length (%d)\n", cipher->key_len);
-			return NSS_CRYPTO_STATUS_EINVAL;
-		}
-
-		break;
-
-	case NSS_CRYPTO_CIPHER_NONE:
-		/*
-		 * no cipher will be used for flushing out older key entries
-		 */
-		*mask = 0;
-		*key_sz = NSS_CRYPTO_MAX_KEYLEN_AES;
-
-		break;
-
-	default:
-		*mask = 0;
-		*key_sz = 0;
-
-		nss_crypto_err("unsupported cipher algorithm = %d\n", cipher->algo);
-		return NSS_CRYPTO_STATUS_EINVAL;
+		return NSS_CRYPTO_STATUS_OK;
 	}
 
-	return NSS_CRYPTO_STATUS_OK;
+	nss_crypto_err("validating cipher (algo = %d, key_len = %d)\n", cipher->algo, cipher->key_len);
+
+	/*
+	 * AES-128
+	 */
+	if ((cipher->algo == NSS_CRYPTO_CIPHER_AES) && (cipher->key_len == NSS_CRYPTO_KEYLEN_AES128)) {
+		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_KEY_AES128;
+		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_ALG_AES;
+		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_MODE_CBC;
+
+		memcpy(encr_cfg->key, cipher->key, NSS_CRYPTO_KEYLEN_AES128);
+
+		return NSS_CRYPTO_STATUS_OK;
+	}
+
+	/*
+	 * AES-256
+	 */
+	if ((cipher->algo == NSS_CRYPTO_CIPHER_AES) && (cipher->key_len == NSS_CRYPTO_KEYLEN_AES256)) {
+		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_KEY_AES256;
+		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_ALG_AES;
+		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_MODE_CBC;
+
+		memcpy(encr_cfg->key, cipher->key, NSS_CRYPTO_KEYLEN_AES256);
+
+		return NSS_CRYPTO_STATUS_OK;
+	}
+
+	return NSS_CRYPTO_STATUS_ENOSUPP;
 }
 
 /*
@@ -417,54 +443,40 @@ nss_crypto_status_t nss_crypto_validate_cipher(struct nss_crypto_key *cipher, ui
  * - that the algorithm is supported
  * - that key size is supported
  */
-nss_crypto_status_t nss_crypto_validate_auth(struct nss_crypto_key *auth, uint32_t *mask, uint32_t *key_sz, uint32_t **iv, uint32_t *iv_regs)
+static nss_crypto_status_t nss_crypto_validate_auth(struct nss_crypto_key *auth, struct nss_crypto_auth_cfg *auth_cfg)
 {
-	switch (auth->algo) {
-	case NSS_CRYPTO_AUTH_SHA1_HMAC:
+	auth_cfg->iv = NULL;
+	auth_cfg->cfg = 0;
 
-		if (auth->key_len != NSS_CRYPTO_KEYLEN_SHA1HMAC) {
-			return NSS_CRYPTO_STATUS_EINVAL;
-		}
+	/*
+	 * NONE, always the first check
+	 */
+	if (auth == NULL) {
+		auth_cfg->iv = (uint32_t *)&null_iv[0];
 
-		*iv = (uint32_t *)&nss_crypto_fips_sha1_iv[0];
-		*iv_regs = NSS_CRYPTO_FIPS_SHA1_IV_REGS;
+		memcpy(auth_cfg->key, null_akey, NSS_CRYPTO_AKEY_SZ);
 
-		*mask = CRYPTO_AUTH_SEG_CFG_MODE_HMAC;
-		*mask |= (CRYPTO_AUTH_SEG_CFG_ALG_SHA | CRYPTO_AUTH_SEG_CFG_SIZE_SHA1);
-		*mask |= (CRYPTO_AUTH_SEG_CFG_FIRST | CRYPTO_AUTH_SEG_CFG_LAST);
-		/*
-		 * XXX: this needs to be flexible such that uncached keys can also
-		 * be sent on the same pipe
-		 */
-		*mask |= CRYPTO_AUTH_SEG_CFG_PIPE_KEYS;
-
-		*key_sz = NSS_CRYPTO_KEYLEN_SHA1HMAC;
-
-		break;
-
-	case NSS_CRYPTO_AUTH_NONE:
-		/*
-		 * no auth will be used for flushing out older key entries
-		 */
-		*iv = NULL;
-		*iv_regs = 0;
-		*mask = 0;
-		*key_sz = NSS_CRYPTO_MAX_KEYLEN_SHA1;
-
-		break;
-
-	default:
-		*iv = NULL;
-		*iv_regs = 0;
-		*mask = 0;
-		*key_sz = 0;
-
-		nss_crypto_err("unsupported auth algorithm = %d\n", auth->algo);
-
-		return NSS_CRYPTO_STATUS_EINVAL;
+		return NSS_CRYPTO_STATUS_OK;
 	}
 
-	return NSS_CRYPTO_STATUS_OK;
+	nss_crypto_info("validating auth (algo = %d, key_len = %d)\n", auth->algo, auth->key_len);
+
+	/*
+	 * SHA1-HMAC
+	 */
+	if ((auth->algo == NSS_CRYPTO_AUTH_SHA1_HMAC) && (auth->key_len == NSS_CRYPTO_KEYLEN_SHA1HMAC)) {
+		auth_cfg->iv = (uint32_t *)&fips_sha1_iv[0];
+
+		auth_cfg->cfg |= CRYPTO_AUTH_SEG_CFG_MODE_HMAC;
+		auth_cfg->cfg |= (CRYPTO_AUTH_SEG_CFG_ALG_SHA | CRYPTO_AUTH_SEG_CFG_SIZE_SHA1);
+		auth_cfg->cfg |= (CRYPTO_AUTH_SEG_CFG_FIRST | CRYPTO_AUTH_SEG_CFG_LAST);
+
+		memcpy(auth_cfg->key, auth->key, NSS_CRYPTO_KEYLEN_SHA1HMAC);
+
+		return NSS_CRYPTO_STATUS_OK;
+	}
+
+	return NSS_CRYPTO_STATUS_ENOSUPP;
 }
 
 /*
@@ -476,153 +488,173 @@ nss_crypto_status_t nss_crypto_validate_auth(struct nss_crypto_key *auth, uint32
  * - write new keys to the cipher/auth registers
  *
  */
-nss_crypto_status_t nss_crypto_key_update(struct nss_crypto_ctrl_eng *eng, uint32_t idx, struct nss_crypto_key *cipher,
-						struct nss_crypto_key *auth)
+static void nss_crypto_key_update(struct nss_crypto_ctrl_eng *eng, uint32_t idx, struct nss_crypto_encr_cfg *encr_cfg,
+					struct nss_crypto_auth_cfg *auth_cfg)
 {
-	struct nss_crypto_desc *desc;
-	uint32_t key_sz;
-	uint32_t mask;
-	nss_crypto_status_t status;
-	uint32_t *iv, iv_regs;
+	struct nss_crypto_ctrl_idx *ctrl_idx;
+	struct nss_crypto_cmd_block *cblk;
+	uint16_t pp_num;
 	int i = 0;
 
-	desc = eng->hw_desc[idx];
+	ctrl_idx = &eng->idx_tbl[idx];
+	pp_num = ctrl_idx->idx.pp_num;
+	cblk = ctrl_idx->cblk;
 
 	/*
-	 * common setup
+	 * if the indexes are within cached range and force uncached is not set,
+	 * then program the registers
 	 */
-	nss_crypto_info("key update for cipher_algo = %d, auth_algo = %d \n", cipher->algo, auth->algo);
+	if ((idx < NSS_CRYPTO_MAX_CACHED_IDXS) && !CONFIG_NSS_CRYPTO_FORCE_UNCACHE) {
+		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_PIPE_KEYS;
+		auth_cfg->cfg |= CRYPTO_AUTH_SEG_CFG_PIPE_KEYS;
 
-	for (i = 0; i < NSS_CRYPTO_MAX_QDEPTH; i++) {
-		nss_crypto_setup_cmn_cblk(eng->cmd_base, &desc->cblk[i], idx);
-
+		nss_crypto_write_ckey_regs(eng->crypto_base, pp_num, encr_cfg);
+		nss_crypto_write_akey_regs(eng->crypto_base, pp_num, auth_cfg);
 	}
 
 	/*
-	 * cipher setup
+	 * configuration command setup, this is 1 per session
 	 */
-	status = nss_crypto_validate_cipher(cipher, &mask, &key_sz);
-	if (status != NSS_CRYPTO_STATUS_OK) {
-		return status;
-	}
-
-	nss_crypto_dbg("cipher key\n");
-
-	nss_crypto_program_ckeys(eng->crypto_base, idx, cipher->key, key_sz);
-
-	nss_crypto_dbg("\n");
+	nss_crypto_setup_cmd_config(&cblk->cfg, eng->cmd_base, pp_num, encr_cfg, auth_cfg);
 
 	/*
-	 * initialize the command blocks with new cipher data
+	 * request command setup, these are 'n' per session; where n = MAX_QDEPTH
 	 */
 	for (i = 0; i < NSS_CRYPTO_MAX_QDEPTH; i++) {
-		nss_crypto_setup_cipher_cblk(eng->cmd_base, &desc->cblk[i], mask);
-
+		nss_crypto_setup_cmd_request(&cblk->req[i], eng->cmd_base, pp_num);
 	}
-
-	/**
-	 * Authentication setup
-	 */
-	status = nss_crypto_validate_auth(auth, &mask, &key_sz, &iv, &iv_regs);
-	if (status != NSS_CRYPTO_STATUS_OK) {
-		return status;
-	}
-
-	nss_crypto_program_akeys(eng->crypto_base, idx, auth->key, key_sz);
-
-	for (i = 0; i < NSS_CRYPTO_MAX_QDEPTH; i++) {
-		nss_crypto_setup_auth_cblk(eng->cmd_base, &desc->cblk[i], mask, iv, iv_regs);
-	}
-
-	return status;
 }
 
 /*
- * nss_crypto_bam_pipe_enable()
- * 	enable the crypto BAM pipe for crypto operations
- *
- * Usually required to turn on the pipes which will be used
+ * nss_crypto_cblk_update()
+ * 	update the configuration command block using buffer informantion
  */
-static void nss_crypto_bam_pipe_enable(struct nss_crypto_ctrl_eng *ctrl, uint32_t pipe)
+static inline void nss_crypto_cblk_update(struct nss_crypto_ctrl_eng *eng, struct nss_crypto_cmd_block *cblk, struct nss_crypto_buf *buf)
 {
-	uint32_t ctrl_reg;
+	struct nss_crypto_cmd_config *cfg;
+	uint32_t base_addr = eng->cmd_base;
+	uint32_t encr_cfg = 0, auth_cfg = 0;
+	const uint16_t req_mask = (NSS_CRYPTO_BUF_REQ_DECRYPT | NSS_CRYPTO_BUF_REQ_ENCRYPT);
 
-	ctrl_reg = ioread32(ctrl->bam_base + CRYPTO_BAM_P_CTRL(pipe));
-	ctrl_reg |= CRYPTO_BAM_P_CTRL_EN;
-	iowrite32(ctrl_reg, ctrl->bam_base + CRYPTO_BAM_P_CTRL(pipe));
+	cfg = &cblk->cfg;
+
+	/*
+	 * update the skip values as the assumption is that it remains constant for a session
+	 */
+	nss_crypto_write_cblk(&cfg->encr_seg_start, CRYPTO_ENCR_SEG_START + base_addr, buf->cipher_skip);
+	nss_crypto_write_cblk(&cfg->auth_seg_start, CRYPTO_AUTH_SEG_START + base_addr, buf->auth_skip);
+
+	/*
+	 * update the segment configuration for encrypt or decrypt type
+	 */
+	encr_cfg = nss_crypto_read_cblk(&cfg->encr_seg_cfg);
+	auth_cfg = nss_crypto_read_cblk(&cfg->auth_seg_cfg);
+
+        switch (buf->req_type & req_mask) {
+        case NSS_CRYPTO_BUF_REQ_ENCRYPT:
+                encr_cfg |= CRYPTO_ENCR_SEG_CFG_ENC;
+                auth_cfg |= CRYPTO_AUTH_SEG_CFG_POS_AFTER;
+                break;
+
+        case NSS_CRYPTO_BUF_REQ_DECRYPT:
+                encr_cfg &= ~CRYPTO_ENCR_SEG_CFG_ENC;
+                auth_cfg |= CRYPTO_AUTH_SEG_CFG_POS_BEFORE;
+                break;
+
+        default:
+		nss_crypto_err("unknown request type\n");
+                return;
+        }
+
+	nss_crypto_write_cblk(&cfg->encr_seg_cfg, CRYPTO_ENCR_SEG_CFG + base_addr, encr_cfg);
+	nss_crypto_write_cblk(&cfg->auth_seg_cfg, CRYPTO_AUTH_SEG_CFG + base_addr, auth_cfg);
 }
 
-/*
- * nss_crypto_bam_pipe_disable()
- * 	disable the crypto BAM pipe for crypto operations
- *
- * Usually required to turn off the pipes which will not be used
- */
-static void nss_crypto_bam_pipe_disable(struct nss_crypto_ctrl_eng *ctrl, uint32_t pipe)
+void nss_crypto_session_update(struct nss_crypto_ctrl *ctrl, struct nss_crypto_buf *buf)
 {
-	uint32_t ctrl_reg;
+	struct nss_crypto_ctrl_eng *e_ctrl = &ctrl->eng[0];
+	struct nss_crypto_ctrl_idx *ctrl_idx;
+	uint32_t idx = buf->session_idx;
+	int i = 0;
 
-	ctrl_reg = ioread32(ctrl->bam_base + CRYPTO_BAM_P_CTRL(pipe));
-	ctrl_reg &= ~CRYPTO_BAM_P_CTRL_EN;
-	iowrite32(ctrl_reg, ctrl->bam_base + CRYPTO_BAM_P_CTRL(pipe));
+	for (i = 0; i < NSS_CRYPTO_ENGINES; i++, e_ctrl++) {
+		ctrl_idx = &e_ctrl->idx_tbl[idx];
+
+		nss_crypto_cblk_update(e_ctrl, ctrl_idx->cblk, buf);
+	}
 }
 
 /*
  * nss_crypto_session_alloc()
  * 	allocate a new crypto session for operation
  */
-int32_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct nss_crypto_key *cipher, struct nss_crypto_key *auth)
+nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct nss_crypto_key *cipher, struct nss_crypto_key *auth,
+						uint32_t *session_idx)
 {
 	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
-	struct nss_crypto_key null_cipher = {0}, null_auth = {0};
-	int32_t idx;
+	struct nss_crypto_encr_cfg encr_cfg;
+	struct nss_crypto_auth_cfg auth_cfg;
+	nss_crypto_status_t status;
+	uint32_t idx;
 	int i;
 
-
+	memset(&encr_cfg, 0, sizeof(struct nss_crypto_encr_cfg));
+	memset(&auth_cfg, 0, sizeof(struct nss_crypto_auth_cfg));
 
 	spin_lock_bh(&ctrl->lock); /* index lock*/
 
-	if (ctrl->num_idxs >= NSS_CRYPTO_MAX_IDX) {
+	if (ctrl->num_idxs == NSS_CRYPTO_MAX_IDXS) {
 		spin_unlock_bh(&ctrl->lock); /* index unlock*/
-		nss_crypto_err("crypto index table full\n");
-		return -1;
+		nss_crypto_err("index table full\n");
+		return NSS_CRYPTO_STATUS_ENOMEM;
 	}
 
+	nss_crypto_assert(ctrl->num_idxs <= NSS_CRYPTO_MAX_IDXS);
+
+	/*
+	 * validate cipher
+	 */
+	status = nss_crypto_validate_cipher(cipher, &encr_cfg);
+	if (status != NSS_CRYPTO_STATUS_OK) {
+		spin_unlock_bh(&ctrl->lock); /* index unlock*/
+		nss_crypto_err("invalid cipher configuration\n");
+		return status;
+	}
+
+	/*
+	 * validate authentication
+	 */
+	status = nss_crypto_validate_auth(auth, &auth_cfg);
+	if (status != NSS_CRYPTO_STATUS_OK) {
+		spin_unlock_bh(&ctrl->lock); /* index unlock*/
+		nss_crypto_err("invalid auth configuration\n");
+		return status;
+	}
+
+	/*
+	 * search a free index and allocate it
+	 */
 	idx = ffz(ctrl->idx_bitmap);
 	ctrl->num_idxs++;
 	ctrl->idx_bitmap |= (0x1 << idx);
 
-	/*
-	 * We need to handle cases when pure cipher or pure auth is programmed
-	 * in any of these cases the other one will need to have zero keys
-	 */
-	if (!cipher) {
-		null_cipher.algo = NSS_CRYPTO_CIPHER_NONE;
-		null_cipher.key  = (uint8_t *)&null_ckey[0];
-		cipher = &null_cipher;
-	}
-
-	if (!auth) {
-		null_auth.algo = NSS_CRYPTO_AUTH_NONE;
-		null_auth.key  = (uint8_t *)&null_akey[0];
-		auth = &null_auth;
-	}
+	nss_crypto_clear_idx_state(&ctrl->idx_state_bitmap, idx);
 
 	/*
 	 * program keys for all the engines for the given pipe pair (index)
 	 */
 	for (i = 0; i < ctrl->num_eng; i++) {
-		nss_crypto_key_update(&ctrl->eng[i], idx, cipher, auth);
-		nss_crypto_bam_pipe_enable(&ctrl->eng[i], nss_crypto_idx_to_inpipe(idx));
-		nss_crypto_bam_pipe_enable(&ctrl->eng[i], nss_crypto_idx_to_outpipe(idx));
+		nss_crypto_key_update(&ctrl->eng[i], idx, &encr_cfg, &auth_cfg);
 	}
+
+	*session_idx = idx;
 
 	spin_unlock_bh(&ctrl->lock); /* index unlock*/
 
-	nss_crypto_info("allocated new index (used - %d, max - %d)\n", ctrl->num_idxs, NSS_CRYPTO_MAX_IDX);
+	nss_crypto_info("new index (used - %d, max - %d)\n", ctrl->num_idxs, NSS_CRYPTO_MAX_IDXS);
 	nss_crypto_dbg("index bitmap = 0x%x, index assigned = %d\n", ctrl->idx_bitmap, idx);
 
-	return idx;
+	return NSS_CRYPTO_STATUS_OK;
 }
 EXPORT_SYMBOL(nss_crypto_session_alloc);
 
@@ -630,50 +662,105 @@ EXPORT_SYMBOL(nss_crypto_session_alloc);
  * nss_crypto_session_free()
  * 	free the crypto session, that was previously allocated
  */
-void nss_crypto_session_free(nss_crypto_handle_t crypto, uint32_t idx)
+nss_crypto_status_t nss_crypto_session_free(nss_crypto_handle_t crypto, uint32_t session_idx)
 {
 	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
-	struct nss_crypto_key null_cipher = {0}, null_auth = {0};
-	uint32_t idx_map;
+	struct nss_crypto_encr_cfg encr_cfg;
+	struct nss_crypto_auth_cfg auth_cfg;
+	uint32_t idx_mask;
 	int i;
 
-	idx_map = (0x1 << idx);
+	idx_mask = (0x1 << session_idx);
 
-	/*
-	 * the only way to flush the keys from H/W is to load it
-	 * with zeros
-	 */
-	null_cipher.algo = NSS_CRYPTO_CIPHER_NONE;
-	null_cipher.key  = (uint8_t *)&null_ckey[0];
-
-	null_auth.algo = NSS_CRYPTO_AUTH_NONE;
-	null_auth.key  = (uint8_t *)&null_akey[0];
+	memset(&encr_cfg, 0, sizeof(struct nss_crypto_encr_cfg));
+	memset(&auth_cfg, 0, sizeof(struct nss_crypto_auth_cfg));
 
 	spin_lock_bh(&ctrl->lock); /* index lock*/
 
-	if (!ctrl->num_idxs || ((ctrl->idx_bitmap & idx_map) != idx_map)) {
+	if (!ctrl->num_idxs || ((ctrl->idx_bitmap & idx_mask) != idx_mask)) {
 		spin_unlock_bh(&ctrl->lock);
-		nss_crypto_err("crypto index(%d) is invalid\n", idx);
-		return;
+		nss_crypto_err("crypto index(%d) is invalid\n", session_idx);
+		return NSS_CRYPTO_STATUS_EINVAL;
 	}
+
+	/*
+	 * NULL configuration
+	 */
+	encr_cfg.cfg = 0;
+	auth_cfg.cfg = 0;
+	auth_cfg.iv = (uint32_t *)&null_iv[0];
+
+	memcpy(encr_cfg.key, null_ckey, NSS_CRYPTO_CKEY_SZ);
+	memcpy(auth_cfg.key, null_akey, NSS_CRYPTO_AKEY_SZ);
+
 	/*
 	 * program keys for all the engines for the given pipe pair (index)
 	 */
 	for (i = 0; i < ctrl->num_eng; i++) {
-		nss_crypto_key_update(&ctrl->eng[i], idx, &null_cipher, &null_auth);
-		nss_crypto_bam_pipe_disable(&ctrl->eng[i], idx * 2);
-		nss_crypto_bam_pipe_disable(&ctrl->eng[i], (idx * 2) + 1);
+		nss_crypto_key_update(&ctrl->eng[i], session_idx, &encr_cfg, &auth_cfg);
 	}
 
-	ctrl->idx_bitmap &= ~(0x1 << idx);
+	ctrl->idx_bitmap &= ~idx_mask;
 	ctrl->num_idxs--;
 
 	spin_unlock_bh(&ctrl->lock); /* index unlock*/
 
-	nss_crypto_info("deallocated index (used - %d, max - %d)\n", ctrl->num_idxs, NSS_CRYPTO_MAX_IDX);
-	nss_crypto_info("index freed  = 0x%x, index = %d\n", ctrl->idx_bitmap, idx);
+	nss_crypto_info("deallocated index (used - %d, max - %d)\n", ctrl->num_idxs, NSS_CRYPTO_MAX_IDXS);
+	nss_crypto_dbg("index freed  = 0x%x, index = %d\n", ctrl->idx_bitmap, session_idx);
+
+	return NSS_CRYPTO_STATUS_OK;
 }
 EXPORT_SYMBOL(nss_crypto_session_free);
+
+/*
+ * nss_crypto_idx_init()
+ * 	initialize the index table
+ *
+ * note: this also allocates the command blocks and copies the allocated indexes
+ * into a message so that it can be sent to NSS
+ */
+nss_crypto_status_t nss_crypto_idx_init(struct nss_crypto_ctrl_eng *eng, struct nss_crypto_idx msg[])
+{
+	struct nss_crypto_ctrl_idx *ctrl_idx;
+	struct nss_crypto_idx *idx;
+	uint32_t paddr;
+	int i;
+
+	for (i = 0; i < NSS_CRYPTO_MAX_IDXS; i++) {
+		ctrl_idx = &eng->idx_tbl[i];
+		idx = &ctrl_idx->idx;
+		paddr = 0;
+
+		/*
+		 * allocate the command block
+		 */
+		ctrl_idx->cblk = nss_crypto_desc_alloc(eng->dev, &paddr, sizeof(struct nss_crypto_cmd_block));
+		if (ctrl_idx->cblk == NULL) {
+			nss_crypto_err("unable to allocate session table: idx no failed = %d\n", i);
+			return NSS_CRYPTO_STATUS_ENOMEM;
+		}
+
+
+		idx->pp_num = (i % NSS_CRYPTO_BAM_PP);
+		idx->cmd0_len = NSS_CRYPTO_CACHE_CMD_SZ;
+
+		/*
+		 * for indexes beyond MAX_CACHED switch to uncached mode
+		 */
+		if ((i >= NSS_CRYPTO_MAX_CACHED_IDXS) || CONFIG_NSS_CRYPTO_FORCE_UNCACHE) {
+			idx->cmd0_len = NSS_CRYPTO_UNCACHE_CMD_SZ;
+		}
+
+		idx->cblk_paddr = paddr;
+
+		/*
+		 * finally update the index info into the message
+		 */
+		memcpy(&msg[i], idx, sizeof(struct nss_crypto_idx));
+	}
+
+	return NSS_CRYPTO_STATUS_OK;
+}
 
 /*
  * nss_crypto_ctrl_init()
@@ -681,9 +768,11 @@ EXPORT_SYMBOL(nss_crypto_session_free);
  */
 void nss_crypto_ctrl_init(void)
 {
-	spin_lock_init(&gbl_crypto_ctrl.lock);
+	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
 
-	gbl_crypto_ctrl.idx_bitmap = 0;
-	gbl_crypto_ctrl.num_eng = 0;
-	gbl_crypto_ctrl.num_idxs = 0;
+	spin_lock_init(&ctrl->lock);
+
+	ctrl->idx_bitmap = 0;
+	ctrl->num_eng = 0;
+	ctrl->num_idxs = 0;
 }

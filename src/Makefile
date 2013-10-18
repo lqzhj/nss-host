@@ -15,9 +15,8 @@
 
 NSS_CRYPTO_MOD_NAME=qca-nss-crypto
 
-ccflags-y += -DCONFIG_NSS_CRYPTO_CACHED_KEYS
-ccflags-y += -DCONFIG_NSS_CRYPTO_AUTH -DCONFIG_NSS_CRYPTO_IDXWAR
 #ccflags-y += -DCONFIG_NSS_CRYPTO_DBG
+ccflags-y += -DCONFIG_NSS_CRYPTO_FORCE_UNCACHE=1
 
 obj-m += $(NSS_CRYPTO_MOD_NAME).o
 $(NSS_CRYPTO_MOD_NAME)-objs = nss_crypto_ipq806x.o
