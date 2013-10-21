@@ -279,10 +279,6 @@ struct nss_connmgr_ipv6_connection {
 	uint64_t stats[NSS_CONNMGR_IPV6_STATS_MAX];
 				/* Connection statistics */
 	uint32_t last_sync;	/* Last sync time as jiffies */
-	struct neighbour *src_neigh;
-				/* Ingress routed interface */
-	struct neighbour *dest_neigh;
-				/* Egress routed interface */
 };
 
 /*
@@ -1579,6 +1575,7 @@ static void nss_connmgr_ipv6_net_dev_callback(struct nss_ipv6_cb_params *nicp)
 
 	struct nss_ipv6_sync *sync;
 	struct nss_ipv6_establish *establish;
+	struct neighbour *neigh;
 
 	ipv6_addr_t daddr;
 
@@ -1624,18 +1621,6 @@ static void nss_connmgr_ipv6_net_dev_callback(struct nss_ipv6_cb_params *nicp)
 			connection->stats[NSS_CONNMGR_IPV6_ACCELERATED_RX_BYTES] = 0;
 			connection->stats[NSS_CONNMGR_IPV6_ACCELERATED_TX_PKTS] = 0;
 			connection->stats[NSS_CONNMGR_IPV6_ACCELERATED_TX_BYTES] = 0;
-
-			IPV6_ADDR_NTOH(daddr, connection->src_addr);
-			connection->src_neigh = nss_connmgr_ipv6_neigh_get(daddr);
-			if (connection->src_neigh) {
-				neigh_hold(connection->src_neigh);
-			}
-
-			IPV6_ADDR_NTOH(daddr, connection->dest_addr);
-			connection->dest_neigh = nss_connmgr_ipv6_neigh_get(daddr);
-			if (connection->dest_neigh) {
-				neigh_hold(connection->dest_neigh);
-			}
 
 			spin_unlock_bh(&nss_connmgr_ipv6.lock);
 
@@ -1760,29 +1745,34 @@ static void nss_connmgr_ipv6_net_dev_callback(struct nss_ipv6_cb_params *nicp)
 	}
 
 	/*
-	 * Update ND table.
+	 * Update neighbour entry for source IP address.
 	 */
-	if (connection->src_neigh) {
-		if (sync->final_sync) {
-			neigh_release(connection->src_neigh);
-		} else {
-			neigh_update(connection->src_neigh, NULL, connection->src_neigh->nud_state, NEIGH_UPDATE_F_WEAK_OVERRIDE);
+	IPV6_ADDR_NTOH(daddr, connection->src_addr);
+	neigh = nss_connmgr_ipv6_neigh_get(daddr);
+
+	if (neigh) {
+		if (!sync->final_sync) {
+			neigh_update(neigh, NULL, neigh->nud_state, NEIGH_UPDATE_F_WEAK_OVERRIDE);
 		}
 	} else {
 		NSS_CONNMGR_DEBUG_TRACE("Neighbour entry could not be found for onward flow\n");
 	}
 
-	if (connection->dest_neigh) {
-		if (sync->final_sync) {
-			neigh_release(connection->dest_neigh);
-		} else {
-			neigh_update(connection->dest_neigh, NULL, connection->dest_neigh->nud_state, NEIGH_UPDATE_F_WEAK_OVERRIDE);
+	/*
+	 * Update neighbour entry for destination IP address.
+	 */
+	IPV6_ADDR_NTOH(daddr, connection->dest_addr);
+	neigh = nss_connmgr_ipv6_neigh_get(daddr);
+
+	if (neigh) {
+		if (!sync->final_sync) {
+			neigh_update(neigh, NULL, neigh->nud_state, NEIGH_UPDATE_F_WEAK_OVERRIDE);
 		}
 	} else {
 		NSS_CONNMGR_DEBUG_TRACE("Neighbour entry could not be found for return flow\n");
 	}
 
-		/*
+	/*
 	 * Release connection
 	 */
 	nf_ct_put(ct);

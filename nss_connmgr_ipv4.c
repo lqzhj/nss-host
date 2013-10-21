@@ -278,10 +278,6 @@ struct nss_connmgr_ipv4_connection {
 	int32_t  dest_port;		/* Non-NAT destination port */
 	uint32_t dest_addr_xlate;	/* NAT translated destination address, i.e. the to whom the connection was created */
 	int32_t  dest_port_xlate;	/* NAT translated destination port */
-	struct neighbour *src_neigh;
-					/* Neighbour reference of source */
-	struct neighbour *dest_neigh;
-					/* Neighbour reference of dest */
 	uint64_t stats[NSS_CONNMGR_IPV4_STATS_MAX];
 	/* Connection statistics */
 	uint32_t last_sync;		/* Last sync time as jiffies */
@@ -1811,6 +1807,7 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 	struct neighbour *neigh;
 	struct net_device *flow_dev;
 	struct net_device *return_dev;
+	uint32_t final_sync = 0;
 
 	switch (nicp->reason)
 	{
@@ -1860,18 +1857,6 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 			connection->dest_addr_xlate = establish->return_ip_xlate;
 			connection->dest_port_xlate = establish->return_ident_xlate;
 
-			connection->src_neigh = nss_connmgr_ipv4_neigh_get(ntohl(connection->src_addr));
-
-			if (connection->src_neigh) {
-				neigh_hold(connection->src_neigh);
-			}
-
-			connection->dest_neigh = nss_connmgr_ipv4_neigh_get(ntohl(connection->dest_addr));
-
-			if (connection->dest_neigh) {
-				neigh_hold(connection->dest_neigh);
-			}
-
 			memset(connection->stats, 0, (8*NSS_CONNMGR_IPV4_STATS_MAX));
 
 			spin_unlock_bh(&nss_connmgr_ipv4.lock);
@@ -1912,14 +1897,7 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 					connection->state = NSS_CONNMGR_IPV4_STATE_INACTIVE;
 					nss_connmgr_ipv4.debug_stats[NSS_CONNMGR_IPV4_ACTIVE_CONN]--;
 					spin_unlock_bh(&nss_connmgr_ipv4.lock);
-
-					if (connection->src_neigh) {
-						neigh_release(connection->src_neigh);
-					}
-
-					if (connection->dest_neigh) {
-						neigh_release(connection->dest_neigh);
-					}
+					final_sync = 1;
 					/* Fall through to increment stats */
 
 				case NSS_IPV4_SYNC_REASON_STATS:
@@ -2051,16 +2029,29 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 		return_dev = return_dev->master;
 	}
 
-	neigh = connection->src_neigh;
+	/*
+	 * Update the neighbour entry for source IP address
+	 */
+	neigh = nss_connmgr_ipv4_neigh_get(ntohl(connection->src_addr));
 	if (neigh) {
-		neigh_update(neigh, NULL, neigh->nud_state, NEIGH_UPDATE_F_WEAK_OVERRIDE);
+		if (!final_sync) {
+			neigh_update(neigh, NULL, neigh->nud_state, NEIGH_UPDATE_F_WEAK_OVERRIDE);
+		}
+	} else {
+		NSS_CONNMGR_DEBUG_TRACE("Neighbour entry could not be found for onward flow\n");
 	}
 
-	neigh = connection->dest_neigh;
+	/*
+	 * Update the neighbour entry for destination IP address
+	 */
+	neigh = nss_connmgr_ipv4_neigh_get(ntohl(connection->dest_addr));
 	if (neigh) {
-		neigh_update(neigh, NULL, neigh->nud_state, NEIGH_UPDATE_F_WEAK_OVERRIDE);
+		if (!final_sync) {
+			neigh_update(neigh, NULL, neigh->nud_state, NEIGH_UPDATE_F_WEAK_OVERRIDE);
+		}
+	} else {
+		NSS_CONNMGR_DEBUG_TRACE("Neighbour entry could not be found for return flow\n");
 	}
-
 out:
 	/*
 	 * Release connection
