@@ -75,5 +75,6 @@ extern void __nss_hal_common_reset(uint32_t *clk_src);
 extern uint32_t nss_hal_pvt_divide_pll18(uint32_t core_id, uint32_t divider);
 extern void nss_hal_pvt_pll_change(uint32_t pll);
 extern uint32_t nss_hal_pvt_enable_pll18(uint32_t speed);
+extern void nss_hal_pvt_register_dump(void);
 
 #endif /* __NSS_HAL_PVT_H */

@@ -139,26 +139,23 @@
 
 /*
  * NSS Frequency Defines and Values
+ *
+ * INFO: The LOW and MAX value together describe the "performance" band that we should operate the frequency at.
+ *
  */
-#define NSS_FREQ_110		110000000
-#define NSS_FREQ_110_DVDR	5
-#define NSS_FREQ_110_MIN	0x03000
-#define NSS_FREQ_110_MAX	0x14000
-#define NSS_FREQ_110_TURBO	0
+#define NSS_FREQ_110		110000000	/* Frequency in hz */
+#define NSS_FREQ_110_MIN	0x03000		/* Instructions Per ms Min */
+#define NSS_FREQ_110_MAX	0x14000		/* Instructions Per ms Max */
 
-#define NSS_FREQ_275		275000000
+#define NSS_FREQ_275		275000000	/* Frequency in hz */
 
-#define NSS_FREQ_550		550000000
-#define NSS_FREQ_550_DVDR	1
-#define NSS_FREQ_550_MIN	0x14000
-#define NSS_FREQ_550_MAX	0x40000
-#define NSS_FREQ_550_TURBO	0
+#define NSS_FREQ_550		550000000	/* Frequency in hz */
+#define NSS_FREQ_550_MIN	0x14000		/* Instructions Per ms Min */
+#define NSS_FREQ_550_MAX	0x40000		/* Instructions Per ms Max */
 
-#define NSS_FREQ_733		733000000
-#define NSS_FREQ_733_DVDR	1
-#define NSS_FREQ_733_MIN	0x40000
-#define NSS_FREQ_733_MAX	0x50000
-#define NSS_FREQ_733_TURBO	1
+#define NSS_FREQ_733		733000000	/* Frequency in hz */
+#define NSS_FREQ_733_MIN	0x40000		/* Instructions Per ms Min */
+#define NSS_FREQ_733_MAX	0x50000		/* Instructions Per ms Max */
 
 /*
  * IPV4 node statistics
@@ -579,8 +576,6 @@ struct nss_cmd_buffer {
  */
 struct nss_scale_info {
 	uint32_t frequency;	/* Frequency in Mhz */
-	uint32_t divider;	/* Dividing the PLL Freq */
-	uint32_t turbo;		/* Flag to indicate turbo mode for hv */
 	uint32_t minimum;	/* Minimum INST_CNT per Sec */
 	uint32_t maximum;	/* Maximum INST_CNT per Sec */
 };
@@ -610,8 +605,6 @@ struct nss_runtime_sampling {
 typedef struct {
 	struct work_struct my_work;	/* Work Structure */
 	uint32_t frequency;		/* Frequency To Change */
-	uint32_t divider;		/* Divider To Achieve Change */
-	uint32_t turbo;			/* Flag to indicate turbo */
 } nss_work_t;
 
 /*
@@ -622,8 +615,6 @@ extern int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t i
 					struct sk_buff *nbuf, uint16_t qid,
 					uint8_t buffer_type, uint16_t flags);
 extern int32_t nss_core_send_crypto(struct nss_ctx_instance *nss_ctx, void *buf, uint32_t buf_paddr, uint16_t len);
-extern void nss_change_frequency_nominal(uint32_t frequency, uint32_t frequency_divider);
-extern void nss_change_frequency_turbo(uint32_t frequency, uint32_t frequency_divider);
 extern void nss_wq_function( struct work_struct *work);
 
 /*

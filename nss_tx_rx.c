@@ -64,28 +64,29 @@ static inline void nss_verify_init_done(struct nss_ctx_instance *nss_ctx)
 
 /*
  * nss_rx_metadata_nss_freq_ack()
- *     Handle the nss ack of frequency change.
+ *	Handle the nss ack of frequency change.
  */
 static void nss_rx_metadata_nss_freq_ack(struct nss_ctx_instance *nss_ctx, struct nss_freq_ack *nfa)
 {
 	if (nfa->ack_status == NSS_ACK_STARTED) {
-
 		/*
 		 * NSS finished start noficiation - HW change clocks and send end notification
 		 */
-
 		nss_info("%p: NSS ACK Received: %d - Change HW CLK/Send Finish to NSS\n", nss_ctx, nfa->ack_status);
-		nss_freq_change(nss_freq_change_context, nfa->freq_current, 1);
 
-	} else if (nfa->ack_status == NSS_ACK_FINISHED) {
+		return;
+	}
 
+	if (nfa->ack_status == NSS_ACK_FINISHED) {
 		/*
 		 * NSS finished end notification - Done
 		 */
-		nss_info("%p: NSS Finish End Notification ACK: %d - Running: %dmhz\n", nss_ctx, nfa->ack_status, nfa->freq_current);
-	} else {
-		nss_info("%p: NSS had an error - Running: %dmhz\n", nss_ctx, nfa->freq_current);
+		nss_info("%p: NSS ACK Received: %d - End Notification ACK - Running: %dmhz\n", nss_ctx, nfa->ack_status, nfa->freq_current);
+
+		return;
 	}
+
+	nss_info("%p: NSS had an error - Running: %dmhz\n", nss_ctx, nfa->freq_current);
 }
 
 /*
@@ -675,8 +676,6 @@ static void nss_frequency_workqueue(void)
 
 	INIT_WORK((struct work_struct *)nss_work, nss_wq_function);
 	nss_work->frequency = nss_cmd_buf.current_freq;
-	nss_work->divider = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].divider;
-	nss_work->turbo = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].turbo;
 	queue_work(nss_wq, (struct work_struct *)nss_work);
 }
 

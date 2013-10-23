@@ -95,6 +95,34 @@ void nss_hal_pvt_pll_change(uint32_t pll)
 }
 
 /*
+ * nss_hal_pvt_register_dump
+ *	Dump Registers Regarding NSS
+ */
+void nss_hal_pvt_register_dump(void) {
+	nss_trace("NSSFB0_CLK_SRC_CTL	: %x\n", clk_reg_read_32(NSSFB0_CLK_SRC_CTL));
+	nss_trace("NSSFB1_CLK_SRC_CTL	: %x\n", clk_reg_read_32(NSSFB1_CLK_SRC_CTL));
+	nss_trace("NSSFB0_CLK_SRC0_NS	: %x\n", clk_reg_read_32(NSSFB0_CLK_SRC0_NS));
+	nss_trace("NSSFB0_CLK_SRC1_NS	: %x\n", clk_reg_read_32(NSSFB0_CLK_SRC1_NS));
+	nss_trace("NSSFB1_CLK_SRC0_NS	: %x\n", clk_reg_read_32(NSSFB1_CLK_SRC0_NS));
+	nss_trace("NSSFB1_CLK_SRC1_NS	: %x\n", clk_reg_read_32(NSSFB1_CLK_SRC1_NS));
+	nss_trace("\n");
+	nss_trace("PLL_ENA_NSS	: %x\n", clk_reg_read_32(PLL_ENA_NSS));
+	nss_trace("PLL18_L_VAL	: %x\n", clk_reg_read_32(PLL18_L_VAL));
+	nss_trace("PLL18_M_VAL	: %x\n", clk_reg_read_32(PLL18_M_VAL));
+	nss_trace("PLL18_N_VAL	: %x\n", clk_reg_read_32(PLL18_N_VAL));
+	nss_trace("PLL18_CONFIG	: %x\n", clk_reg_read_32(PLL18_CONFIG));
+	nss_trace("PLL18_TEST_CTL: %x\n", clk_reg_read_32(PLL18_TEST_CTL));
+	nss_trace("\n");
+	nss_trace("UBI32_COREn_CLK_SRC0_CTL Core 0: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC_CTL(0)));
+	nss_trace("UBI32_COREn_CLK_SRC0_CTL Core 1: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC_CTL(1)));
+	nss_trace("UBI32_COREn_CLK_SRC0_NS Core 0: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC0_NS(0)));
+	nss_trace("UBI32_COREn_CLK_SRC0_NS Core 1: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC0_NS(1)));
+	nss_trace("UBI32_COREn_CLK_SRC0_MD Core 0: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC0_MD(0)));
+	nss_trace("UBI32_COREn_CLK_SRC0_MD Core 1: %x\n", clk_reg_read_32(UBI32_COREn_CLK_SRC0_MD(1)));
+	nss_trace("\n\n\n");
+}
+
+/*
  * nss_hal_pvt_divide_pll
  *	Divide PLL by int val
  */
@@ -119,8 +147,8 @@ uint32_t nss_hal_pvt_divide_pll18(uint32_t core_id, uint32_t divider)
 	nss_trace("NSSFB0_CLK_SRC1_NS  : %x\n", clk_reg_read_32(NSSFB0_CLK_SRC1_NS));
 	nss_trace("NSSFB1_CLK_SRC0_NS  : %x\n", clk_reg_read_32(NSSFB1_CLK_SRC0_NS));
 	nss_trace("NSSFB1_CLK_SRC1_NS  : %x\n", clk_reg_read_32(NSSFB1_CLK_SRC1_NS));
-	nss_trace("PLL_ENA_NSS	    : %x\n", clk_reg_read_32(PLL_ENA_NSS));
 	nss_trace("\n");
+	nss_trace("PLL_ENA_NSS	: %x\n", clk_reg_read_32(PLL_ENA_NSS));
 	nss_trace("PLL18_L_VAL  : %x\n", clk_reg_read_32(PLL18_L_VAL));
 	nss_trace("PLL18_M_VAL  : %x\n", clk_reg_read_32(PLL18_M_VAL));
 	nss_trace("PLL18_N_VAL  : %x\n", clk_reg_read_32(PLL18_N_VAL));
