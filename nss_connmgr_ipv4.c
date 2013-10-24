@@ -2152,6 +2152,11 @@ static int nss_connmgr_ipv4_conntrack_event(unsigned int events, struct nf_ct_ev
 		unid.dest_port = (int32_t)orig_tuple.dst.u.udp.port;
 		break;
 
+	case IPPROTO_IPV6:
+		unid.src_port = 0;
+		unid.dest_port = 0;
+		break;
+
 	default:
 		/*
 		 * Streamengine compatibility - database stores non-ported protocols with port numbers equal to negative protocol number
@@ -2163,9 +2168,9 @@ static int nss_connmgr_ipv4_conntrack_event(unsigned int events, struct nf_ct_ev
 	}
 
 	/*
-	 * Only deal with TCP or UDP
+	 * Only deal with TCP or UDP or V6 over V4 Tunnel
 	 */
-	if ((unid.protocol != IPPROTO_TCP) && (unid.protocol != IPPROTO_UDP)) {
+	if ((unid.protocol != IPPROTO_TCP) && (unid.protocol != IPPROTO_UDP) && (unid.protocol != IPPROTO_IPV6)) {
 		return NOTIFY_DONE;
 	}
 

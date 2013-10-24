@@ -1838,6 +1838,11 @@ static int nss_connmgr_ipv6_conntrack_event(struct nf_conn *ct)
 		unid.dest_port = (int32_t)orig_tuple.dst.u.udp.port;
 		break;
 
+	case IPPROTO_IPIP:
+		unid.src_port = 0;
+		unid.dest_port = 0;
+		break;
+
 	default:
 		/*
 		 * Database stores non-ported protocols with port numbers equal to negative protocol number
@@ -1849,9 +1854,9 @@ static int nss_connmgr_ipv6_conntrack_event(struct nf_conn *ct)
 	}
 
 	/*
-	 * Only deal with TCP or UDP
+	 * Only deal with TCP or UDP or IP Tunnel
 	 */
-	if ((unid.protocol != IPPROTO_TCP) && (unid.protocol != IPPROTO_UDP)) {
+	if ((unid.protocol != IPPROTO_TCP) && (unid.protocol != IPPROTO_UDP) && (unid.protocol !=  IPPROTO_IPIP)) {
 		return NOTIFY_DONE;
 	}
 
