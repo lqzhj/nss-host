@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, Qualcomm Atheros Inc. */
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.*/
 /*
  * @file
  * This file defines the function prototypes for the NSS GMAC device.
@@ -74,7 +74,7 @@ const static uint8_t nss_gmac_driver_string[] =
     "NSS GMAC Driver for RTL v" NSS_GMAC_RTL_VER;
 const static uint8_t nss_gmac_driver_version[] = "1.0";
 const static uint8_t nss_gmac_copyright[] =
-    "Copyright (c) 2013 Qualcomm Atheros, Inc.";
+    "Copyright (c) 2013 The Linux Foundation. All rights reserved.";
 
 /**
  * @brief DMA Descriptor Structure

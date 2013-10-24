@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, Qualcomm Atheros Inc. */
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.*/
 /*
  * @file
  * This is the network dependent layer to handle network related functionality.
