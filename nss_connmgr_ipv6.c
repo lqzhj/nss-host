@@ -611,6 +611,10 @@ static int nss_connmgr_netdev_notifier_cb(struct notifier_block *this,
 		}
 
 		break;
+
+	case NETDEV_CHANGEMTU:
+		nss_connmgr_link_down(event_dev);
+		break;
 	}
 
 	return NOTIFY_DONE;
