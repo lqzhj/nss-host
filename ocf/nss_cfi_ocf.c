@@ -100,8 +100,8 @@ static int nss_cfi_ocf_newsession(device_t dev, uint32_t *sidp, struct cryptoini
 	struct nss_crypto_key *auth_ptr = NULL;
 	struct cryptoini *cip_ini = NULL;
 	struct cryptoini *auth_ini = NULL;
+	nss_crypto_status_t status;
 	int alg;
-	int sid = 0;
 
 	nss_cfi_assert(sidp != NULL);
 	nss_cfi_assert(cri != NULL);
@@ -191,13 +191,11 @@ static int nss_cfi_ocf_newsession(device_t dev, uint32_t *sidp, struct cryptoini
 		nss_cfi_info("auth algo received %d, sent %d\n",auth_ini->cri_alg, auth.algo);
 	}
 
-	sid = nss_crypto_session_alloc(sc->crypto, cip_ptr, auth_ptr);
-	if (sid < 0) {
-		nss_cfi_err("Not able to allocate session\n");
+	status = nss_crypto_session_alloc(sc->crypto, cip_ptr, auth_ptr, sidp);
+	if (status != NSS_CRYPTO_STATUS_OK) {
+		nss_cfi_err("unable to allocate session: status %d\n", status);
 		return EINVAL;
 	}
-
-	*sidp = sid;
 
 	return 0;
 }
@@ -209,10 +207,15 @@ static int nss_cfi_ocf_freesession(device_t dev, uint64_t tid)
 {
 	struct nss_cfi_ocf *sc = device_get_softc(dev);
 	uint32_t sid = ((uint32_t) tid) & NSS_CFI_OCF_SES_MASK;
+	nss_crypto_status_t status;
 
 	nss_cfi_info("freeing index %d\n",sid);
 
-	nss_crypto_session_free(sc->crypto, sid);
+	status = nss_crypto_session_free(sc->crypto, sid);
+	if (status != NSS_CRYPTO_STATUS_OK) {
+		nss_cfi_err("unable to free session: idx %d\n", sid);
+		return EINVAL;
+	}
 
 	return 0;
 }
