@@ -577,10 +577,9 @@ void __nss_hal_core_reset(uint32_t core_id, uint32_t map, uint32_t addr, uint32_
 	nss_write_32(map, NSS_REGS_CORE_BOOT_ADDR_OFFSET, addr);
 
 	/*
-	 * Crypto, GMAC and C2C interrupts are level sensitive
+	 * C2C interrupts are level sensitive
 	 */
 	nss_write_32(map, NSS_REGS_CORE_INT_STAT2_TYPE_OFFSET, 0xFFFF);
-	nss_write_32(map, NSS_REGS_CORE_INT_STAT3_TYPE_OFFSET, 0x3FC000);
 
 	/*
 	 * Set IF check value
