@@ -35,6 +35,7 @@
 
 #include <linux/if_ether.h>
 #include <linux/skbuff.h>
+#include <linux/netdevice.h>
 
 /**
  * This macro converts format for IPv6 address (from Linux to NSS)
