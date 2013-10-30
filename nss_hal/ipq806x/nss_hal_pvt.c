@@ -336,7 +336,6 @@ uint32_t nss_hal_pvt_enable_pll18(uint32_t speed)
 void __nss_hal_common_reset(uint32_t *clk_src)
 {
 	uint32_t i;
-	uint32_t pll18_status;
 
 #if defined(NSS_ENABLE_CLK)
 
@@ -448,22 +447,6 @@ void __nss_hal_common_reset(uint32_t *clk_src)
 	 */
 	*clk_src = NSS_REGS_CLK_SRC_DEFAULT;
 #endif
-	pll18_status = nss_hal_pvt_enable_pll18(1100);
-
-	if (!pll18_status) {
-		/*
-		 * Select alternate good source (Src1/pll0)
-		 */
-		nss_trace("Enable PLL18 Failed, Using Alternate");
-		*clk_src = NSS_REGS_CLK_SRC_ALTERNATE;
-	} else {
-
-		/*
-		 * Src0 is PLL18 Src1 is pll0 - setup
-		 */
-		clk_reg_write_32(UBI32_COREn_CLK_SRC1_NS(0), 0xff000b);
-		clk_reg_write_32(UBI32_COREn_CLK_SRC1_NS(1), 0xff000b);
-	}
 
 	/*
 	 * Attach debug interface to TLMM
