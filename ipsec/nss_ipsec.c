@@ -211,70 +211,6 @@ static int32_t nss_ipsec_get_if_idx(uint8_t *ifname)
 }
 
 /*
- * nss_ipsec_get_mac_addr()
- * 	return mac address for a given IP address
- *
- * NOTE: this uses neighbour table lookups
- *
- */
-static int nss_ipsec_get_mac_addr(uint32_t ip_addr, uint8_t *mac_addr)
-{
-	struct neighbour *neigh;
-	struct rtable *rt;
-	struct dst_entry *dst;
-
-	/*
-	 * Get the MAC addresses that correspond to source and destination host addresses.
-	 * We look up the rtable entries and, from its neighbour structure, obtain the hardware address.
-	 * This means we will also work if the neighbours are routers too.
-	 */
-	rt = ip_route_output(&init_net, htonl(ip_addr), 0, 0, 0);
-	if (IS_ERR(rt)) {
-		nss_cfi_err("get_mac_addr: route entry missing\n");
-		goto fail;
-	}
-
-	dst = (struct dst_entry *)rt;
-
-	rcu_read_lock();
-	neigh = dst_get_neighbour_noref(dst);
-	if (!neigh) {
-		rcu_read_unlock();
-		dst_release(dst);
-		nss_cfi_err("get_mac_addr: neighbour entry missing\n");
-		goto fail;
-	}
-	if (!(neigh->nud_state & NUD_VALID)) {
-		rcu_read_unlock();
-		dst_release(dst);
-		nss_cfi_err("get_mac_addr: neighbour state not valid - 0x%x\n", neigh->nud_state);
-		goto fail;
-	}
-
-	if (!neigh->dev) {
-		rcu_read_unlock();
-		dst_release(dst);
-		nss_cfi_err("get_mac_addr: neighbour device missing\n");
-		goto fail;
-	 }
-
-	memcpy(mac_addr, neigh->ha, (size_t)neigh->dev->addr_len);
-	rcu_read_unlock();
-
-	dst_release(dst);
-
-	if (is_multicast_ether_addr(mac_addr)) {
-		nss_cfi_dbg("MAC address is multicast/broadcast - ignoring\n");
-		goto fail;
-	}
-
-	return 0;
-
-fail:
-	return -1;
-}
-
-/*
  * nss_ipsec_except()
  * 	ipsec exception routine for handling exceptions from NSS IPsec package
  *
@@ -357,138 +293,6 @@ static struct nss_ipsec_tunnel* nss_ipsec_get_tunnel(struct net_device *dev, str
 	nss_cfi_info("registered tunnel for %s\n", tunnel->name);
 
 	return tunnel;
-}
-
-/*
- * nss_ipsec_encap_ipv4_rule()
- * 	insert a ESP rule for NSS to process outgoing IPsec packets
- */
-static int32_t nss_ipsec_encap_ipv4_rule(struct nss_ipsec_tunnel *tunnel, struct nss_ipsec_ipv4_hdr *ip)
-{
-	struct nss_ipv4_create esp_rule = {0};
-	nss_tx_status_t status;
-	uint32_t eth_ifnum;
-	void *ipv4_mgr_ctx;
-
-	/*
-	 * gbl_nss_ctx is for pushing IPsec rules on NSS core 1.
-	 * ipv4_mgr_ctx is for pushing IPv4 rules on NSS core 0.
-	 */
-	ipv4_mgr_ctx = nss_get_ipv4_mgr_ctx();
-	if (ipv4_mgr_ctx == NULL) {
-		nss_cfi_err("IPv4 connection manager ctx is NULL, not pushing IPv4 rule\n");
-		goto fail;
-	}
-
-	eth_ifnum = nss_get_interface_number(gbl_nss_ctx, tunnel->eth_dev);
-
-	esp_rule.src_interface_num  = NSS_C2C_TX_INTERFACE;
-	esp_rule.dest_interface_num = eth_ifnum;
-
-	esp_rule.protocol = IPPROTO_ESP;
-
-	esp_rule.from_mtu = tunnel->dev->mtu;
-	esp_rule.to_mtu = tunnel->eth_dev->mtu;
-
-	esp_rule.src_ip = ntohl(ip->src_ip);
-	esp_rule.src_ip_xlate = ntohl(ip->src_ip);
-
-	esp_rule.dest_ip = ntohl(ip->dst_ip);
-	esp_rule.dest_ip_xlate = ntohl(ip->dst_ip);
-
-	esp_rule.src_port = 0;
-	esp_rule.src_port_xlate = 0;
-	esp_rule.dest_port = 0;
-	esp_rule.dest_port_xlate = 0;
-
-	memcpy(esp_rule.src_mac, tunnel->dev->dev_addr, ETH_ALEN);
-
-	nss_cfi_dbg("src ip %x src_mac ", esp_rule.src_ip);
-	nss_cfi_dbg_data(esp_rule.src_mac, ETH_ALEN, ':');
-
-	if (nss_ipsec_get_mac_addr(esp_rule.dest_ip, esp_rule.dest_mac) < 0) {
-		nss_cfi_err("error retriving the MAC address for ip = 0x%x\n", ip->dst_ip);
-		goto fail;
-	}
-
-	nss_cfi_dbg("dest ip %x dest_mac ",esp_rule.dest_ip);
-	nss_cfi_dbg_data(esp_rule.dest_mac, ETH_ALEN, ':');
-
-	status = nss_tx_create_ipv4_rule(ipv4_mgr_ctx, &esp_rule);
-	if (status != NSS_TX_SUCCESS) {
-		nss_cfi_err("unable to create ESP rule for encap - %d\n", status);
-		goto fail;
-	}
-
-	return 0;
-fail:
-	return -EINVAL;
-}
-
-/*
- * nss_ipsec_decap_ipv4_rule()
- * 	insert a ESP rule for NSS to process incoming IPsec packets
- */
-static int32_t nss_ipsec_decap_ipv4_rule(struct nss_ipsec_tunnel *tunnel, struct nss_ipsec_ipv4_hdr *ip)
-{
-	struct nss_ipv4_create esp_rule = {0};
-	nss_tx_status_t status;
-	uint32_t eth_ifnum;
-	void *ipv4_mgr_ctx;
-
-	/*
-	 * gbl_nss_ctx is for pushing IPsec rules on NSS core 1.
-	 * ipv4_mgr_ctx is for pushing IPv4 rules on NSS core 0.
-	 */
-	ipv4_mgr_ctx = nss_get_ipv4_mgr_ctx();
-	if (ipv4_mgr_ctx == NULL) {
-		nss_cfi_err("IPv4 connection manager ctx is NULL, not pushing IPv4 rule\n");
-		goto fail;
-	}
-
-	eth_ifnum = nss_get_interface_number(gbl_nss_ctx, tunnel->eth_dev);
-
-	esp_rule.src_interface_num  = eth_ifnum;
-	esp_rule.dest_interface_num = NSS_C2C_TX_INTERFACE;
-
-	esp_rule.protocol = IPPROTO_ESP;
-
-	esp_rule.from_mtu = tunnel->dev->mtu;
-	esp_rule.to_mtu = tunnel->eth_dev->mtu;
-
-	esp_rule.src_ip = ntohl(ip->src_ip);
-	esp_rule.src_ip_xlate = ntohl(ip->src_ip);
-
-	esp_rule.dest_ip = ntohl(ip->dst_ip);
-	esp_rule.dest_ip_xlate = ntohl(ip->dst_ip);
-
-	esp_rule.src_port = 0;
-	esp_rule.src_port_xlate = 0;
-	esp_rule.dest_port = 0;
-	esp_rule.dest_port_xlate = 0;
-
-	memcpy(esp_rule.dest_mac, tunnel->dev->dev_addr, ETH_ALEN);
-
-	nss_cfi_dbg("dest ip %x dest_mac ",esp_rule.dest_ip);
-	nss_cfi_dbg_data(esp_rule.dest_mac, ETH_ALEN, ':');
-
-	if (nss_ipsec_get_mac_addr(esp_rule.src_ip, esp_rule.src_mac) < 0) {
-		nss_cfi_err("error retriving the MAC address for ip = 0x%x\n", ip->src_ip);
-		goto fail;
-	}
-
-	nss_cfi_dbg("src ip %x src_mac ", esp_rule.src_ip);
-	nss_cfi_dbg_data(esp_rule.src_mac, ETH_ALEN, ':');
-
-	status = nss_tx_create_ipv4_rule(ipv4_mgr_ctx, &esp_rule);
-	if (status != NSS_TX_SUCCESS) {
-		nss_cfi_err("unable to create ESP rule for decap - %d\n", status);
-		goto fail;
-	}
-
-	return 0;
-fail:
-	return -EINVAL;
 }
 
 /*
@@ -578,12 +382,6 @@ static int32_t nss_ipsec_encap_rule_insert(struct sk_buff *skb, uint32_t crypto_
 		goto fail;
 	}
 
-	status = nss_ipsec_encap_ipv4_rule(tunnel, outer_ip);
-	if (status < 0) {
-		nss_cfi_err("unable to create ESP rule\n");
-		goto fail;
-	}
-
 	return 0;
 fail:
 	return -EINVAL;
@@ -666,12 +464,6 @@ static int32_t nss_ipsec_decap_rule_insert(struct sk_buff *skb, uint32_t crypto_
 					NSS_IPSEC_DECAP_RULE_SZ); /* rule size */
 	if (status != NSS_TX_SUCCESS) {
 		nss_cfi_err("unable to create SA rule for decap - %d\n", status);
-		goto fail;
-	}
-
-	status = nss_ipsec_decap_ipv4_rule(tunnel, outer_ip);
-	if (status < 0) {
-		nss_cfi_err("unable to create pre-routing rule\n");
 		goto fail;
 	}
 
