@@ -1471,6 +1471,13 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 		unic.dest_port_xlate = 0;
 		break;
 
+	case IPPROTO_ESP:
+		unic.src_port = 0;
+		unic.dest_port = 0;
+		unic.src_port_xlate = 0;
+		unic.dest_port_xlate = 0;
+		break;
+
 	default:
 		/*
 		 * Streamengine compatibility - database stores non-ported protocols with port numbers equal to negative protocol number
@@ -1637,7 +1644,8 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 	/*
 	 * Only devices that are NSS devices, or IPSec tunnel devices are accelerated.
 	 */
-	if (src_dev->type == ARPHRD_IPSEC_TUNNEL_TYPE) {
+	if ((src_dev->type == ARPHRD_IPSEC_TUNNEL_TYPE) ||
+		((unic.protocol == IPPROTO_ESP) && (ctinfo < IP_CT_IS_REPLY))) {
 		unic.src_interface_num = NSS_C2C_TX_INTERFACE;
 	} else {
 		unic.src_interface_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, src_dev);
@@ -1665,7 +1673,8 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 		dest_dev = dest_slave;
 	}
 
-	if (dest_dev->type == ARPHRD_IPSEC_TUNNEL_TYPE) {
+	if ((dest_dev->type == ARPHRD_IPSEC_TUNNEL_TYPE) ||
+		((unic.protocol == IPPROTO_ESP) && (ctinfo >= IP_CT_IS_REPLY))) {
 		unic.dest_interface_num = NSS_C2C_TX_INTERFACE;
 	} else {
 
@@ -1708,9 +1717,9 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 			"dir: %s\n"
 			"Protocol: %d\n"
 			"src_ip: " IPV4_ADDR_FMT ":%d\n"
-			"dest_ip: " IPV4_ADDR_FMT "%d"
-			"src_ip_xlate: " IPV4_ADDR_FMT "%d\n"
-			"dest_ip_xlate: " IPV4_ADDR_FMT "%d\n"
+			"dest_ip: " IPV4_ADDR_FMT ":%d\n"
+			"src_ip_xlate: " IPV4_ADDR_FMT ":%d\n"
+			"dest_ip_xlate: " IPV4_ADDR_FMT ":%d\n"
 			"src_mac: " MAC_FMT "\n"
 			"dest_mac: " MAC_FMT "\n"
 			"src_mac_xlate: " MAC_FMT "\n"
@@ -2163,6 +2172,11 @@ static int nss_connmgr_ipv4_conntrack_event(unsigned int events, struct nf_ct_ev
 		unid.dest_port = 0;
 		break;
 
+	case IPPROTO_ESP:
+		unid.src_port = 0;
+		unid.dest_port = 0;
+		break;
+
 	default:
 		/*
 		 * Streamengine compatibility - database stores non-ported protocols with port numbers equal to negative protocol number
@@ -2176,7 +2190,8 @@ static int nss_connmgr_ipv4_conntrack_event(unsigned int events, struct nf_ct_ev
 	/*
 	 * Only deal with TCP or UDP or V6 over V4 Tunnel
 	 */
-	if ((unid.protocol != IPPROTO_TCP) && (unid.protocol != IPPROTO_UDP) && (unid.protocol != IPPROTO_IPV6)) {
+	if ((unid.protocol != IPPROTO_TCP) && (unid.protocol != IPPROTO_UDP) &&
+		(unid.protocol != IPPROTO_IPV6) && (unid.protocol != IPPROTO_ESP)) {
 		return NOTIFY_DONE;
 	}
 
