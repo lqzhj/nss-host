@@ -21,7 +21,7 @@
 
 #include "nss_core.h"
 #include <nss_hal.h>
-#include <asm/barrier.h>
+#include <net/dst.h>
 
 /*
  * nss_send_c2c_map()
@@ -741,7 +741,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	 */
 	if (likely(nr_frags == 0)) {
 		desc->buffer_type = buffer_type;
-		desc->bit_flags = flags | H2N_BIT_FLAG_FIRST_SEGMENT | H2N_BIT_FLAG_LAST_SEGMENT | H2N_BIT_BUFFER_REUSE;
+		desc->bit_flags = flags | H2N_BIT_FLAG_FIRST_SEGMENT | H2N_BIT_FLAG_LAST_SEGMENT;
 
 		if (likely(nbuf->ip_summed == CHECKSUM_PARTIAL)) {
 			desc->bit_flags |= H2N_BIT_FLAG_GEN_IP_TRANSPORT_CHECKSUM;
@@ -752,16 +752,17 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		desc->payload_offs = (uint16_t) (nbuf->data - nbuf->head);
 		desc->payload_len = nbuf->len;
 		desc->buffer_len = (uint16_t)(nbuf->end - nbuf->head);
-
-		if (unlikely(skb_shared(nbuf) || skb_cloned(nbuf) || (desc->buffer_len < NSS_NBUF_PAYLOAD_SIZE))) {
-			desc->bit_flags &= ~H2N_BIT_BUFFER_REUSE;
-		}
-
 		desc->buffer = (uint32_t)dma_map_single(NULL, nbuf->head, (nbuf->tail - nbuf->head), DMA_TO_DEVICE);
 		if (unlikely(dma_mapping_error(NULL, desc->buffer))) {
 			spin_unlock_bh(&nss_ctx->h2n_desc_rings[qid].lock);
 			nss_warning("%p: DMA mapping failed for virtual address = %x", nss_ctx, desc->buffer);
 			return NSS_CORE_STATUS_FAILURE;
+		}
+
+		if (likely(nbuf->destructor == NULL)) {
+			if (likely(skb_recycle_check(nbuf, NSS_NBUF_PAYLOAD_SIZE))) {
+				desc->bit_flags |= H2N_BIT_BUFFER_REUSE;
+			}
 		}
 	} else {
 		/*
