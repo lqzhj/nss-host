@@ -866,15 +866,25 @@ static unsigned int nss_connmgr_ipv4_bridge_post_routing_hook(unsigned int hookn
 	/*
 	 * Handle Link Aggregation master
 	 */
-	if ((dest_dev->priv_flags & IFF_BONDING) && (dest_dev->flags & IFF_MASTER)) {
+	if (is_lag_master(dest_dev)) {
 		struct net_device *dest_slave = NULL;
+		uint8_t *lag_smac;
 
-		dest_slave = bond_get_tx_dev(skb, NULL, NULL, NULL, NULL, 0, dest_dev);
+		if (unic.flags & NSS_IPV4_CREATE_FLAG_BRIDGE_FLOW) {
+			lag_smac = unic.src_mac;
+		} else {
+			lag_smac = dest_dev->master->dev_addr;
+		}
+
+		dest_slave = bond_get_tx_dev(NULL, lag_smac,
+					     unic.dest_mac_xlate,
+					     (void *)&unic.src_ip_xlate,
+					     (void *)&unic.dest_ip_xlate,
+					     skb->protocol, dest_dev);
 		if (dest_slave == NULL) {
 			dev_put(in);
 			return NF_ACCEPT;
 		}
-
 		dest_dev = dest_slave;
 	}
 
@@ -1639,10 +1649,15 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 	/*
 	 * Handle Link Aggregation master
 	 */
-	if ((dest_dev->priv_flags & IFF_BONDING) && (dest_dev->flags & IFF_MASTER)) {
+	if (is_lag_master(dest_dev)) {
 		struct net_device *dest_slave = NULL;
 
-		dest_slave = bond_get_tx_dev(skb, NULL, NULL, NULL, NULL, 0, dest_dev);
+		dest_slave = bond_get_tx_dev(NULL,
+					     (uint8_t *)dest_dev->dev_addr,
+					     unic.dest_mac_xlate,
+					     (void *)&unic.src_ip,
+					     (void *)&unic.dest_ip,
+					     skb->protocol, dest_dev);
 		if (dest_slave == NULL) {
 			goto out;
 		}
