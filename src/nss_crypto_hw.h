@@ -124,8 +124,8 @@
 /**
  * H/W specific information
  */
-#define NSS_CRYPTO_CIPHER_IV_REGS	4 /**< IV key regs*/
-#define NSS_CRYPTO_AUTH_IV_REGS		6
+#define NSS_CRYPTO_CIPHER_IV_REGS	4 /**< cipher IV regs*/
+#define NSS_CRYPTO_AUTH_IV_REGS		8 /**< auth IV regs*/
 
 #define NSS_CRYPTO_CKEY_REGS		8 /**< cipher key regs*/
 #define NSS_CRYPTO_AKEY_REGS		8 /**< auth key regs*/

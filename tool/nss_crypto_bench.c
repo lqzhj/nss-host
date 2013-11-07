@@ -81,7 +81,7 @@ static const uint8_t *help = "bench mcmp flush start";
 
 static uint32_t tx_reqs;
 
-static uint8_t auth_key[NSS_CRYPTO_MAX_KEYLEN_SHA1]= {
+static uint8_t auth_key[NSS_CRYPTO_MAX_KEYLEN_SHA256]= {
 	0x01, 0x02, 0x03, 0x04,
 	0x05, 0x06, 0x07, 0x08,
 	0x09, 0x0a, 0x0b, 0x0c,
@@ -147,7 +147,7 @@ static uint8_t encr_text[__ENCR_MEMCMP_SZ] = {
 	0xda, 0x6c, 0x19, 0x07,
 	0x8c, 0x6a, 0x9d, 0x1b
 };
-static uint8_t sha1_hash[NSS_CRYPTO_MAX_HASHLEN_SHA1] = {
+static uint8_t sha1_hash[NSS_CRYPTO_MAX_KEYLEN_SHA1] = {
 	0xc9, 0xdd, 0x94, 0xfb,
 	0xc8, 0x9f, 0x81, 0x12,
 	0x68, 0x1b, 0x8f, 0xfb,
@@ -225,7 +225,7 @@ static uint8_t encr_text[__ENCR_MEMCMP_SZ] = {
 	0xbf, 0x3c, 0xef, 0x9c,
 };
 
-static uint8_t sha1_hash[NSS_CRYPTO_MAX_HASHLEN_SHA1] = {
+static uint8_t sha1_hash[NSS_CRYPTO_MAX_KEYLEN_SHA1] = {
 	0xf1, 0x71, 0x4b, 0xb9,
 	0xeb, 0x76, 0x21, 0x47,
 	0x9e, 0xa0, 0x90, 0x7f,
@@ -456,9 +456,23 @@ static int32_t crypto_bench_prep_op(void)
 	c_key.key_len   = param.key_len;
 
 	if (param.auth_op) {
-		a_key.algo    = NSS_CRYPTO_AUTH_SHA1_HMAC;
-		a_key.key     = &auth_key[0];
-		a_key.key_len = NSS_CRYPTO_MAX_KEYLEN_SHA1;
+		a_key.key = &auth_key[0];
+
+		switch(param.auth_op) {
+		case 1:
+			a_key.algo    = NSS_CRYPTO_AUTH_SHA1_HMAC;
+			a_key.key_len = NSS_CRYPTO_MAX_KEYLEN_SHA1;
+			break;
+		case 2:
+			a_key.algo    = NSS_CRYPTO_AUTH_SHA256_HMAC;
+			a_key.key_len = NSS_CRYPTO_MAX_KEYLEN_SHA256;
+			break;
+		default:
+			crypto_bench_error("auth algo not supported, reseting to default\n");
+			a_key.algo    = NSS_CRYPTO_AUTH_SHA1_HMAC;
+			a_key.key_len = NSS_CRYPTO_MAX_KEYLEN_SHA1;
+			break;
+		}
 	}
 
 	status = nss_crypto_session_alloc(crypto_hdl, &c_key, &a_key, &session_idx);

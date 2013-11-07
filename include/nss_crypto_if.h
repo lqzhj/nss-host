@@ -47,23 +47,35 @@ typedef enum nss_crypto_status {
  * @brief max key lengths for supported algorithms
  */
 enum nss_crypto_max_keylen {
-	NSS_CRYPTO_MAX_KEYLEN_AES = 32,	/**< max key size for AES (bytes) */
-	NSS_CRYPTO_MAX_KEYLEN_SHA1 = 20,/**< max key size for SHA1 (bytes) */
+	NSS_CRYPTO_MAX_KEYLEN_AES = 32,		/**< max key size for AES (bytes) */
+	NSS_CRYPTO_MAX_KEYLEN_SHA1 = 20,	/**< max key size for SHA1 (bytes) */
+	NSS_CRYPTO_MAX_KEYLEN_SHA256 = 32,	/**< max key size for SHA256 (bytes) */
 };
 
 /**
  * @brief max IV lengths for algorithms supported by the H/W
  */
 enum nss_crypto_max_ivlen {
-	NSS_CRYPTO_MAX_IVLEN_DES = 8,	/**< max IV size for DES (bytes) */
-	NSS_CRYPTO_MAX_IVLEN_AES = 16,	/**< max IV size for AES (bytes) */
+	NSS_CRYPTO_MAX_IVLEN_DES = 8,		/**< max IV size for DES (bytes) */
+	NSS_CRYPTO_MAX_IVLEN_AES = 16,		/**< max IV size for AES (bytes) */
 };
 
 /**
- * @brief max hash lengths supported by the H/W
+ * @brief max hash generated for a HMAC algorithm.
  */
 enum nss_crypto_max_hashlen {
 	NSS_CRYPTO_MAX_HASHLEN_SHA1 = 20,	/**< max hash size for SHA1 (bytes) */
+	NSS_CRYPTO_MAX_HASHLEN_SHA256 = 32,	/**< max hash size for SHA256 (bytes) */
+};
+
+/**
+ * @brief hash sizes supported by H/W.
+ */
+enum nss_crypto_hash {
+	NSS_CRYPTO_HASH_SHA96 = 12,		/**< 96-bit hash size */
+	NSS_CRYPTO_HASH_SHA128 = 16,		/**< 128-bit hash size */
+	NSS_CRYPTO_HASH_SHA160 = 20,		/**< 160-bit hash size */
+	NSS_CRYPTO_HASH_SHA256 = 32		/**< 256-bit hash size */
 };
 
 /**
@@ -81,6 +93,7 @@ enum nss_crypto_cipher {
 enum nss_crypto_auth {
 	NSS_CRYPTO_AUTH_NONE = 0,		/**< Authentication not required*/
 	NSS_CRYPTO_AUTH_SHA1_HMAC,		/**< SHA1_HMAC,160-bit key*/
+	NSS_CRYPTO_AUTH_SHA256_HMAC,		/**< SHA256_HMAC,256-bit key*/
 	NSS_CRYPTO_AUTH_MAX
 };
 

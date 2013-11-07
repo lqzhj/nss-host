@@ -31,6 +31,14 @@ static const uint32_t fips_sha1_iv[NSS_CRYPTO_AUTH_IV_REGS] = {
 };
 
 /*
+ * Standard initialization vector for SHA-256, source: FIPS 180-2
+ */
+static uint32_t fips_sha256_iv[NSS_CRYPTO_AUTH_IV_REGS] = {
+	0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A,
+	0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19
+};
+
+/*
  * NULL IV
  */
 static const uint32_t null_iv[NSS_CRYPTO_AUTH_IV_REGS] = {0};
@@ -472,6 +480,22 @@ static nss_crypto_status_t nss_crypto_validate_auth(struct nss_crypto_key *auth,
 		auth_cfg->cfg |= (CRYPTO_AUTH_SEG_CFG_FIRST | CRYPTO_AUTH_SEG_CFG_LAST);
 
 		memcpy(auth_cfg->key, auth->key, NSS_CRYPTO_KEYLEN_SHA1HMAC);
+
+		return NSS_CRYPTO_STATUS_OK;
+	}
+
+	/*
+	 * SHA256-HMAC
+	 */
+	if ((auth->algo == NSS_CRYPTO_AUTH_SHA256_HMAC) && (auth->key_len == NSS_CRYPTO_KEYLEN_SHA256HMAC)) {
+
+		auth_cfg->iv = (uint32_t *)&fips_sha256_iv[0];
+
+		auth_cfg->cfg |= CRYPTO_AUTH_SEG_CFG_MODE_HMAC;
+		auth_cfg->cfg |= (CRYPTO_AUTH_SEG_CFG_ALG_SHA | CRYPTO_AUTH_SEG_CFG_SIZE_SHA2);
+		auth_cfg->cfg |= (CRYPTO_AUTH_SEG_CFG_FIRST | CRYPTO_AUTH_SEG_CFG_LAST);
+
+		memcpy(auth_cfg->key, auth->key, NSS_CRYPTO_KEYLEN_SHA256HMAC);
 
 		return NSS_CRYPTO_STATUS_OK;
 	}
