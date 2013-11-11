@@ -540,6 +540,9 @@ static unsigned int nss_connmgr_ipv4_bridge_post_routing_hook(unsigned int hookn
 	struct nf_conntrack_tuple orig_tuple;
 	struct nf_conntrack_tuple reply_tuple;
 	struct ethhdr *eh;
+	uint8_t *lag_smac = NULL;
+	struct net_device *dest_slave = NULL;
+	struct net_device *src_slave = NULL;
 	nss_tx_status_t	nss_tx_status;
 
 	/*
@@ -860,6 +863,123 @@ static unsigned int nss_connmgr_ipv4_bridge_post_routing_hook(unsigned int hookn
 	}
 
 	/*
+	 * Handle Link Aggregation
+	 */
+	if (ctinfo < IP_CT_IS_REPLY) {
+		/*
+		 * If ingress interface is a lag slave, we cannot assume that
+		 * reply packets will use this interface for egress; call
+		 * bonding driver API to find the egress interface
+		 * for reply packets.
+		 */
+		if (is_lag_slave(src_dev)) {
+			if (unic.flags & NSS_IPV4_CREATE_FLAG_BRIDGE_FLOW) {
+				lag_smac = unic.dest_mac_xlate;
+			} else {
+				lag_smac = (uint8_t *)src_dev->master->dev_addr;
+			}
+
+			src_slave = bond_get_tx_dev(NULL, lag_smac,
+						    unic.src_mac,
+						    (void *)&unic.dest_ip_xlate,
+						    (void *)&unic.src_ip_xlate,
+						    skb->protocol,
+						    src_dev->master);
+			if (src_slave == NULL
+			    || !netif_carrier_ok(src_slave)) {
+				dev_put(in);
+				return NF_ACCEPT;
+			}
+
+			src_dev = src_slave;
+		}
+
+		/*
+		 * Determine egress LAG slave interface
+		 * for packet in original direction.
+		 */
+		if (is_lag_master(dest_dev)) {
+			if (unic.flags & NSS_IPV4_CREATE_FLAG_BRIDGE_FLOW) {
+				lag_smac = unic.src_mac;
+			} else {
+				lag_smac = (uint8_t *)dest_dev->dev_addr;
+			}
+
+			dest_slave = bond_get_tx_dev(NULL, lag_smac,
+						     unic.dest_mac_xlate,
+						     (void *)&unic.src_ip_xlate,
+						     (void *)&unic.dest_ip_xlate,
+						     skb->protocol, dest_dev);
+
+			if (dest_slave == NULL
+			    || !netif_carrier_ok(dest_slave)) {
+				dev_put(in);
+				return NF_ACCEPT;
+			}
+
+			dest_dev = dest_slave;
+		}
+	} else {
+		/*
+		 * At this point, src_dev points to ingress IF and and dest_dev
+		 * points to egress 'physical' IF, both in original direction.
+		 */
+
+		/*
+		 * If, in original direction, the ingress [virtual] IF was a
+		 * LAG master, then we must determine the egress LAG slave for
+		 * reply packets (such as the current packet).
+		 */
+		if (is_lag_master(src_dev)) {
+			if (unic.flags & NSS_IPV4_CREATE_FLAG_BRIDGE_FLOW) {
+				lag_smac = unic.dest_mac_xlate;
+			} else {
+				lag_smac = src_dev->dev_addr;
+			}
+
+			src_slave = bond_get_tx_dev(NULL, lag_smac,
+						    unic.src_mac,
+						    (void *)&unic.dest_ip_xlate,
+						    (void *)&unic.src_ip_xlate,
+						    skb->protocol, src_dev);
+			if (src_slave == NULL || !netif_carrier_ok(src_slave)) {
+				dev_put(in);
+				return NF_ACCEPT;
+			}
+
+			src_dev = src_slave;
+		}
+
+		/*
+		 * If, in original direction, the egress IF was a LAG slave
+		 * then we must determine the correct egress LAG slave, for
+		 * packets in original direction.
+		 */
+		if (is_lag_slave(dest_dev)) {
+			if (unic.flags & NSS_IPV4_CREATE_FLAG_BRIDGE_FLOW) {
+				lag_smac = unic.src_mac;
+			} else {
+				lag_smac = (uint8_t *)dest_dev->master->dev_addr;
+			}
+
+			dest_slave = bond_get_tx_dev(NULL, lag_smac,
+						     unic.dest_mac_xlate,
+						     (void *)&unic.src_ip_xlate,
+						     (void *)&unic.dest_ip_xlate,
+						     skb->protocol,
+						     dest_dev->master);
+			if (dest_slave == NULL || !netif_carrier_ok(dest_slave)) {
+				dev_put(in);
+				return NF_ACCEPT;
+			}
+
+			dest_dev = dest_slave;
+		}
+	}
+
+
+
+	/*
 	 * Only devices that are NSS devices may be accelerated.
 	 */
 	unic.src_interface_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, src_dev);
@@ -867,31 +987,6 @@ static unsigned int nss_connmgr_ipv4_bridge_post_routing_hook(unsigned int hookn
 		dev_put(in);
 		NSS_CONNMGR_DEBUG_INFO("Source Interface %s NOT owned by NSS\n",src_dev->name);
 		return NF_ACCEPT;
-	}
-
-	/*
-	 * Handle Link Aggregation master
-	 */
-	if (is_lag_master(dest_dev)) {
-		struct net_device *dest_slave = NULL;
-		uint8_t *lag_smac;
-
-		if (unic.flags & NSS_IPV4_CREATE_FLAG_BRIDGE_FLOW) {
-			lag_smac = unic.src_mac;
-		} else {
-			lag_smac = dest_dev->master->dev_addr;
-		}
-
-		dest_slave = bond_get_tx_dev(NULL, lag_smac,
-					     unic.dest_mac_xlate,
-					     (void *)&unic.src_ip_xlate,
-					     (void *)&unic.dest_ip_xlate,
-					     skb->protocol, dest_dev);
-		if (dest_slave == NULL) {
-			dev_put(in);
-			return NF_ACCEPT;
-		}
-		dest_dev = dest_slave;
 	}
 
 	unic.dest_interface_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, dest_dev);
@@ -1238,6 +1333,7 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 	struct net_device *rt_dev, *br_port_dev;
 	struct nf_conntrack_tuple orig_tuple;
 	struct nf_conntrack_tuple reply_tuple;
+	struct iphdr *iph;
 
 	nss_tx_status_t nss_tx_status;
 
@@ -1252,6 +1348,13 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 	bool is_flow_pppoe = false;
 	bool is_return_pppoe = false;
 	bool is_tmp_pppoe = false;
+
+	/*
+	 * Variables needed for LAG
+	 */
+	struct net_device *dest_slave = NULL;
+	struct net_device *src_slave = NULL;
+
 
 	/*
 	 * Don't process broadcast or multicast
@@ -1652,6 +1755,102 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 		}
 	}
 
+	iph = ip_hdr(skb);
+
+	/*
+	 * Handle Link Aggregation
+	 */
+	if (ctinfo < IP_CT_IS_REPLY) {
+		/*
+		 * If ingress interface is a lag slave, we cannot assume that
+		 * reply packets will use this interface for egress; call
+		 * bonding driver API to find the egress interface
+		 * for reply packets.
+		 */
+		if (is_lag_slave(src_dev)) {
+			src_slave = bond_get_tx_dev(NULL,
+						    (uint8_t *)src_dev->master->dev_addr,
+						    unic.src_mac,
+						    (void *)&unic.dest_ip_xlate,
+						    (void *)&unic.src_ip_xlate,
+						    skb->protocol,
+						    src_dev->master);
+			if (src_slave == NULL
+			    || !netif_carrier_ok(src_slave)) {
+				dev_put(in);
+				return NF_ACCEPT;
+			}
+
+			src_dev = src_slave;
+		}
+
+		/*
+		 * Determine egress LAG slave interface
+		 * for packet in original direction.
+		 */
+		if (is_lag_master(dest_dev)) {
+			dest_slave = bond_get_tx_dev(NULL,
+						     (uint8_t *)dest_dev->dev_addr,
+						     unic.dest_mac_xlate,
+						     (void *)&unic.src_ip_xlate,
+						     (void *)&unic.dest_ip_xlate,
+						     skb->protocol, dest_dev);
+			if (dest_slave == NULL
+			    || !netif_carrier_ok(dest_slave)) {
+				goto out;
+			}
+
+			dest_dev = dest_slave;
+		}
+	} else {
+		/*
+		 * At this point, src_dev points to ingress IF and and dest_dev
+		 * points to egress 'physical' IF, both in original direction.
+		 */
+
+		/*
+		 * If, in original direction, the ingress [virtual] IF was a
+		 * LAG master, then we must determine the egress LAG slave for
+		 * reply packets (such as the current packet).
+		 */
+		if (is_lag_master(src_dev)) {
+			src_slave = bond_get_tx_dev(NULL,
+						    (uint8_t *)src_dev->dev_addr,
+						    unic.src_mac,
+						    (void *)&unic.dest_ip_xlate,
+						    (void *)&unic.src_ip_xlate,
+						    skb->protocol, src_dev);
+			if (src_slave == NULL
+			    || !netif_carrier_ok(src_slave)) {
+				dev_put(in);
+				return NF_ACCEPT;
+			}
+			src_dev = src_slave;
+		}
+
+		/*
+		 * If, in original direction, the egress IF was a LAG slave,
+		 * then we must determine the correct egress LAG slave, for
+		 * packets in original direction.
+		 */
+		if (is_lag_slave(dest_dev)) {
+			dest_slave = bond_get_tx_dev(NULL,
+						     (uint8_t *)dest_dev->master->dev_addr,
+						     unic.dest_mac_xlate,
+						     (void *)&unic.src_ip_xlate,
+						     (void *)&unic.dest_ip_xlate,
+						     skb->protocol,
+						     dest_dev->master);
+			if (dest_slave == NULL
+			    || !netif_carrier_ok(dest_slave)) {
+				dev_put(in);
+				return NF_ACCEPT;
+			}
+
+			dest_dev = dest_slave;
+		}
+	}
+
 	/*
 	 * Only devices that are NSS devices, or IPSec tunnel devices are accelerated.
 	 */
@@ -1663,25 +1862,6 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 		if (unic.src_interface_num < 0) {
 			goto out;
 		}
-	}
-
-	/*
-	 * Handle Link Aggregation master
-	 */
-	if (is_lag_master(dest_dev)) {
-		struct net_device *dest_slave = NULL;
-
-		dest_slave = bond_get_tx_dev(NULL,
-					     (uint8_t *)dest_dev->dev_addr,
-					     unic.dest_mac_xlate,
-					     (void *)&unic.src_ip,
-					     (void *)&unic.dest_ip,
-					     skb->protocol, dest_dev);
-		if (dest_slave == NULL) {
-			goto out;
-		}
-
-		dest_dev = dest_slave;
 	}
 
 	if ((dest_dev->type == ARPHRD_IPSEC_TUNNEL_TYPE) ||
