@@ -710,6 +710,8 @@ static void nss_rx_metadata_nss_core_stats(struct nss_ctx_instance *nss_ctx, str
 			nss_cmd_buf.auto_scale = 1;
 			nss_runtime_samples.freq_scale_ready = 1;
 		}
+
+		return;
 	}
 
 	nss_runtime_samples.average = nss_runtime_samples.sum / nss_runtime_samples.sample_count;
@@ -724,37 +726,49 @@ static void nss_rx_metadata_nss_core_stats(struct nss_ctx_instance *nss_ctx, str
 		nss_info("%p: Current Rate:%x\n", nss_ctx, nss_runtime_samples.average);
 
 		nss_runtime_samples.message_rate_limit = 0;
+	} else {
+		nss_runtime_samples.message_rate_limit++;
 	}
 
 	/*
-	 * Scale Algorithmn
+	 * Scale Algorithmn UP and DOWN
 	 */
-	if (nss_runtime_samples.freq_scale_rate_limit == NSS_FREQUENCY_SCALE_RATE_LIMIT) {
-		if ((nss_runtime_samples.freq_scale_ready == 1) && (nss_cmd_buf.auto_scale == 1)) {
-
+	if ((nss_runtime_samples.freq_scale_ready == 1) && (nss_cmd_buf.auto_scale == 1)) {
+		if (nss_runtime_samples.freq_scale_rate_limit_up == NSS_FREQUENCY_SCALE_RATE_LIMIT_UP) {
 			nss_info("%p: Preparing Switch Inst_Cnt Avg:%x\n", nss_ctx, nss_runtime_samples.average);
 
-			minimum = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].minimum;
 			maximum = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].maximum;
 
 			if ((nss_runtime_samples.average > maximum) && (nss_runtime_samples.freq_scale_index < (NSS_MAX_CPU_SCALES - 1))) {
 				nss_runtime_samples.freq_scale_index++;
 				nss_frequency_workqueue();
+			} else {
+				nss_info("%p: No Change at Max\n", nss_ctx);
+			}
+			nss_runtime_samples.freq_scale_rate_limit_up = 0;
+			return;
 
-			} else if ((nss_runtime_samples.average < minimum) && (nss_runtime_samples.freq_scale_index > 0)) {
+		} else {
+			nss_runtime_samples.freq_scale_rate_limit_up++;
+		}
+		if (nss_runtime_samples.freq_scale_rate_limit_down == NSS_FREQUENCY_SCALE_RATE_LIMIT_DOWN) {
+			nss_info("%p: Preparing Switch Inst_Cnt Avg:%x\n", nss_ctx, nss_runtime_samples.average);
+
+			minimum = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].minimum;
+
+			if ((nss_runtime_samples.average < minimum) && (nss_runtime_samples.freq_scale_index > 0)) {
 				nss_runtime_samples.freq_scale_index--;
 				nss_frequency_workqueue();
-
 			} else {
-				nss_info("%p: No Change at Min or Max\n", nss_ctx);
+				nss_info("%p: No Change at Min\n", nss_ctx);
 			}
+			nss_runtime_samples.freq_scale_rate_limit_down = 0;
+			return;
+
+		} else {
+			nss_runtime_samples.freq_scale_rate_limit_down++;
 		}
-
-		nss_runtime_samples.freq_scale_rate_limit = 0;
 	}
-
-	nss_runtime_samples.freq_scale_rate_limit++;
-	nss_runtime_samples.message_rate_limit++;
 }
 
 /*

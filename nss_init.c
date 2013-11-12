@@ -661,7 +661,8 @@ static int __init nss_init(void)
 	nss_runtime_samples.freq_scale[2].maximum = 	NSS_FREQ_733_MAX;
 	nss_runtime_samples.freq_scale_index = 1;
 	nss_runtime_samples.freq_scale_ready = 0;
-	nss_runtime_samples.freq_scale_rate_limit = 0;
+	nss_runtime_samples.freq_scale_rate_limit_up = 0;
+	nss_runtime_samples.freq_scale_rate_limit_down = 0;
 	nss_runtime_samples.buffer_index = 0;
 	nss_runtime_samples.sum = 0;
 	nss_runtime_samples.sample_count = 0;

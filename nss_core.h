@@ -145,16 +145,16 @@
  */
 #define NSS_FREQ_110		110000000	/* Frequency in hz */
 #define NSS_FREQ_110_MIN	0x03000		/* Instructions Per ms Min */
-#define NSS_FREQ_110_MAX	0x14000		/* Instructions Per ms Max */
+#define NSS_FREQ_110_MAX	0x05000		/* Instructions Per ms Max */
 
 #define NSS_FREQ_275		275000000	/* Frequency in hz */
 
 #define NSS_FREQ_550		550000000	/* Frequency in hz */
-#define NSS_FREQ_550_MIN	0x14000		/* Instructions Per ms Min */
-#define NSS_FREQ_550_MAX	0x40000		/* Instructions Per ms Max */
+#define NSS_FREQ_550_MIN	0x04000		/* Instructions Per ms Min */
+#define NSS_FREQ_550_MAX	0x16000		/* Instructions Per ms Max */
 
 #define NSS_FREQ_733		733000000	/* Frequency in hz */
-#define NSS_FREQ_733_MIN	0x40000		/* Instructions Per ms Min */
+#define NSS_FREQ_733_MIN	0x10000		/* Instructions Per ms Min */
 #define NSS_FREQ_733_MAX	0x50000		/* Instructions Per ms Max */
 
 /*
@@ -561,12 +561,12 @@ struct nss_cmd_buffer {
 /*
  * NSS Core Statistics and Frequencies
  */
-#define NSS_SAMPLE_BUFFER_SIZE 64	/* Ring Buffer should be a Size of two */
+#define NSS_SAMPLE_BUFFER_SIZE 32	/* Ring Buffer should be a Size of two */
 #define NSS_SAMPLE_BUFFER_MASK (NSS_SAMPLE_BUFFER_SIZE - 1)
 #define NSS_MAX_CPU_SCALES 3			/* Max Number of Frequencies */
-#define NSS_FREQUENCY_SCALE_RATE_LIMIT 1500	/* Adjust the Rate of Frequency Switching */
+#define NSS_FREQUENCY_SCALE_RATE_LIMIT_UP 2	/* Adjust the Rate of Frequency Switching Up */
+#define NSS_FREQUENCY_SCALE_RATE_LIMIT_DOWN 500	/* Adjust the Rate of Frequency Switching Down */
 #define NSS_MESSAGE_RATE_LIMIT 15000		/* Adjust the Rate of Displaying Statistic Messages */
-
 
 /*
  * NSS Frequency Scale Info
@@ -590,7 +590,8 @@ struct nss_runtime_sampling {
 	struct nss_scale_info freq_scale[NSS_MAX_CPU_SCALES];	/* NSS Scale Per Freq */
 	uint32_t freq_scale_index;				/* Current Freq Index */
 	uint32_t freq_scale_ready;				/* Allow Freq Scaling */
-	uint32_t freq_scale_rate_limit;				/* Scaling Change Rate Limit */
+	uint32_t freq_scale_rate_limit_up;			/* Scaling Change Rate Limit */
+	uint32_t freq_scale_rate_limit_down;			/* Scaling Change Rate Limit */
 	uint32_t buffer[NSS_SAMPLE_BUFFER_SIZE];		/* Sample Ring Buffer */
 	uint32_t buffer_index;					/* Running Buffer Index */
 	uint32_t sum;						/* Total INST_CNT SUM */
