@@ -759,9 +759,11 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 			return NSS_CORE_STATUS_FAILURE;
 		}
 
-		if (likely(nbuf->destructor == NULL)) {
-			if (likely(skb_recycle_check(nbuf, NSS_NBUF_PAYLOAD_SIZE))) {
-				desc->bit_flags |= H2N_BIT_BUFFER_REUSE;
+		if (!NSS_IS_VIRTUAL_INTERFACE(if_num)) {
+			if (likely(nbuf->destructor == NULL)) {
+				if (likely(skb_recycle_check(nbuf, NSS_NBUF_PAYLOAD_SIZE))) {
+					desc->bit_flags |= H2N_BIT_BUFFER_REUSE;
+				}
 			}
 		}
 	} else {
