@@ -336,6 +336,9 @@ uint32_t nss_hal_pvt_enable_pll18(uint32_t speed)
 void __nss_hal_common_reset(uint32_t *clk_src)
 {
 	uint32_t i;
+	uint32_t value;
+	uint32_t status_mask = 0x1;
+	uint32_t wait_cycles = 100;
 
 #if defined(NSS_ENABLE_CLK)
 
@@ -452,6 +455,38 @@ void __nss_hal_common_reset(uint32_t *clk_src)
 	 * Attach debug interface to TLMM
 	 */
 	nss_write_32((uint32_t)MSM_NSS_FPB_BASE, NSS_REGS_FPB_CSR_CFG_OFFSET, 0x360);
+
+	/*
+	 * NSS TCM CLOCK
+	 */
+
+	/*
+	 * Enable NSS TCM clock root source - SRC1.
+	 *
+	 */
+	clk_reg_write_32(NSSTCM_CLK_SRC_CTL, 0x3);
+
+	/* Enable PLL Voting for 0 */
+	clk_reg_write_32(PLL_ENA_NSS, (clk_reg_read_32(PLL_ENA_NSS) | 0x1));
+	do {
+		value = clk_reg_read_32(PLL_LOCK_DET_STATUS);
+		if (value & status_mask) {
+			break;
+		}
+		mdelay(1);
+	} while (wait_cycles-- > 0);
+
+	/*
+	 * PLL0 (800 MHZ) and div is set to 2/4.
+	 * Effective frequency = 200/400 Mhz for SRC0/1
+	 */
+	clk_reg_write_32(NSSTCM_CLK_SRC0_NS, 0x1a);
+	clk_reg_write_32(NSSTCM_CLK_SRC1_NS, 0xa);
+
+	/*
+	 * NSS TCM Branch enable and fabric clock gating enabled.
+	 */
+	clk_reg_write_32(NSSTCM_CLK_CTL, 0x50);
 
 	/*
 	 * Clear TCM memory
