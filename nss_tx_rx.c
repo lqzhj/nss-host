@@ -32,6 +32,7 @@ extern struct nss_top_instance nss_top_main;
 extern struct nss_frequency_statistics nss_freq_stat;
 extern struct nss_runtime_sampling nss_runtime_samples;
 extern struct nss_cmd_buffer nss_cmd_buf;
+extern int nss_ctl_redirect;
 
 extern struct workqueue_struct *nss_wq;
 extern nss_work_t *nss_work;
@@ -1764,6 +1765,10 @@ nss_tx_status_t nss_tx_virt_if_rxbuf(void *ctx, struct sk_buff *os_buf)
 	int32_t status;
 	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[nss_top_main.ipv4_handler_id];
 	int32_t if_num = (int32_t)ctx;
+
+	if (unlikely(nss_ctl_redirect == 0)) {
+		return NSS_TX_FAILURE_NOT_SUPPORTED;
+	}
 
 	nss_assert(NSS_IS_VIRTUAL_INTERFACE(if_num));
 	nss_trace("%p: Virtual Rx packet, if_num:%d, skb:%p", nss_ctx, if_num, os_buf);

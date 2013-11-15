@@ -65,6 +65,8 @@ MODULE_PARM_DESC(string1, "NSS Core 1 identification string");
 /*
  * Global declarations
  */
+int nss_ctl_redirect __read_mostly = 0;
+
 
 /*
  * Handler to send NSS messages
@@ -581,11 +583,27 @@ static ctl_table nss_freq_table[] = {
 	{ }
 };
 
+static ctl_table nss_general_table[] = {
+	{
+		.procname               = "redirect",
+		.data                   = &nss_ctl_redirect,
+		.maxlen                 = sizeof(int),
+		.mode                   = 0644,
+		.proc_handler   = proc_dointvec,
+	},
+	{ }
+};
+
 static ctl_table nss_clock_dir[] = {
 	{
-		.procname		= "clock",
-		.mode			= 0555,
-		.child			= nss_freq_table,
+		.procname               = "clock",
+		.mode                   = 0555,
+		.child                  = nss_freq_table,
+	},
+	{
+		.procname               = "general",
+		.mode                   = 0555,
+		.child                  = nss_general_table,
 	},
 	{ }
 };
