@@ -161,6 +161,12 @@ typedef uint32_t ipv6_addr_t[4];
 
 #define is_bridge_port(dev) (dev->priv_flags & IFF_BRIDGE_PORT)
 #define is_bridge_device(dev) (dev->priv_flags & IFF_EBRIDGE)
+#define is_lag_master(dev)	((dev->flags & IFF_MASTER)		\
+				 && (dev->priv_flags & IFF_BONDING))
+#define is_lag_slave(dev)	((dev->flags & IFF_SLAVE)		\
+				 && (dev->priv_flags & IFF_BONDING))
+
+
 
 /*
  * Displaying addresses
@@ -331,6 +337,12 @@ static struct nss_connmgr_ipv6_instance nss_connmgr_ipv6 = {
 	.nss_context = NULL,
 };
 
+extern struct net_device *bond_get_tx_dev(struct sk_buff *skb,
+					  uint8_t *src_mac, uint8_t *dst_mac,
+					  void *src, void *dst,
+					  uint16_t protocol,
+					  struct net_device *bond_dev);
+
 /*
  * nss_connmgr_ipv6_ops_post_routing[]
  *
@@ -372,6 +384,9 @@ extern int nf_ct_tcp_no_window_check;
 extern void nss_connmgr_ipv4_register_conntrack_event_cb(int (*event_cb)(struct nf_conn *));
 extern void nss_connmgr_ipv4_unregister_conntrack_event_cb(void);
 #endif
+
+extern void nss_connmgr_ipv4_register_bond_slave_linkup_cb(void (*event_cb)(struct net_device *));
+extern void nss_connmgr_ipv4_unregister_bond_slave_linkup_cb(void);
 
 static const struct file_operations nss_connmgr_ipv6_show_stats_ops = {
 	.open = simple_open,
@@ -588,6 +603,102 @@ static void nss_connmgr_link_down(struct net_device *dev)
 
 
 /*
+ * nss_connmgr_bond_link_up()
+ *	Callback used to signal a link up on an interface
+ *	that is part of a link aggregation.
+ */
+static void nss_connmgr_bond_link_up(struct net_device *slave_dev)
+{
+	uint32_t if_num = 0;
+	uint32_t i = 0;
+	struct nss_connmgr_ipv6_connection *connection = NULL;
+	struct net_device *dest_dev = NULL;
+	uint8_t src_mac[ETH_ALEN];
+	uint8_t dst_mac[ETH_ALEN];
+	uint32_t src[4];
+	uint32_t dst[4];
+	uint16_t proto;
+	nss_connmgr_ipv6_conn_state_t cstate;
+
+	if_num = nss_get_interface_number(nss_connmgr_ipv6.nss_context, slave_dev);
+	if (if_num < 0) {
+		NSS_CONNMGR_DEBUG_ERROR("Cannot find NSS if num for slave dev %s\n", slave_dev->name);
+		return;
+	}
+
+	for (i = 0; i < NSS_CONNMGR_IPV6_CONN_MAX; i++)
+	{
+		spin_lock_bh(&nss_connmgr_ipv6.lock);
+		connection = &nss_connmgr_ipv6.connection[i];
+		cstate = connection->state;
+		IPV6_ADDR_NTOH(src, connection->src_addr);
+		IPV6_ADDR_NTOH(dst, connection->dest_addr);
+		proto = connection->protocol;
+		spin_unlock_bh(&nss_connmgr_ipv6.lock);
+
+		if (cstate != NSS_CONNMGR_IPV6_STATE_ESTABLISHED) {
+			continue;
+		}
+
+		if (nss_connmgr_ipv6_mac_addr_get(src, src_mac)) {
+			NSS_CONNMGR_DEBUG_INFO("Unable to get src mac addr, index %d \n", i);
+			continue;
+		}
+
+		if (nss_connmgr_ipv6_mac_addr_get(dst, dst_mac)) {
+			NSS_CONNMGR_DEBUG_INFO("Unable to get dst mac addr, index %d \n", i);
+			continue;
+		}
+
+		/* get egress interface for this flow */
+		dest_dev = bond_get_tx_dev(NULL, src_mac, dst_mac, (void *)src,
+					   (void *)dst, proto,
+					   slave_dev->master);
+		if (!dest_dev) {
+			continue;
+		}
+
+		if (slave_dev == dest_dev) {
+			spin_lock_bh(&nss_connmgr_ipv6.lock);
+			if (connection->state != NSS_CONNMGR_IPV6_STATE_ESTABLISHED) {
+				spin_unlock_bh(&nss_connmgr_ipv6.lock);
+				continue;
+			}
+
+			NSS_CONNMGR_DEBUG_INFO("destroying NSS rule at index %d\n", i);
+			nss_connmgr_destroy_ipv6_rule(connection);
+			spin_unlock_bh(&nss_connmgr_ipv6.lock);
+		}
+	}
+}
+
+
+/*
+ * nss_connmgr_bond_down
+ *      LAG master closed
+ */
+static void nss_connmgr_bond_down(struct net_device *bond_dev)
+{
+	struct net_device *dev = NULL;
+	struct net *net = NULL;
+
+	net = dev_net(bond_dev);
+	if (!net) {
+		NSS_CONNMGR_DEBUG_WARN("Unable to get network namespace "
+				       "for %s\n", bond_dev->name);
+		return;
+	}
+
+	read_lock_bh(&dev_base_lock);
+	for_each_netdev_rcu(net, dev) {
+		if (is_lag_slave(dev) && (dev->master == bond_dev)) {
+			nss_connmgr_link_down(dev);
+		}
+	}
+	read_unlock_bh(&dev_base_lock);
+}
+
+/*
  * nss_connmgr_netdev_notifier_cb
  *      Netdevice notifier callback
  */
@@ -598,7 +709,11 @@ static int nss_connmgr_netdev_notifier_cb(struct notifier_block *this,
 
 	switch (event) {
 	case NETDEV_DOWN:
-		nss_connmgr_link_down(event_dev);
+		if (is_lag_master(event_dev)) {
+			nss_connmgr_bond_down(event_dev);
+		} else {
+			nss_connmgr_link_down(event_dev);
+		}
 		break;
 
 	case NETDEV_CHANGE:
@@ -638,6 +753,9 @@ static unsigned int nss_connmgr_ipv6_bridge_post_routing_hook(unsigned int hookn
 	struct nf_conntrack_tuple orig_tuple;
 	struct nf_conntrack_tuple reply_tuple;
 	struct ethhdr *eh;
+	uint8_t *lag_smac = NULL;
+	struct net_device *dest_slave = NULL;
+	struct net_device *src_slave = NULL;
 
 	nss_tx_status_t nss_tx_status;
 
@@ -932,6 +1050,123 @@ static unsigned int nss_connmgr_ipv6_bridge_post_routing_hook(unsigned int hookn
 	}
 
 	/*
+	 * Handle Link Aggregation
+	 */
+	if (ctinfo < IP_CT_IS_REPLY) {
+		/*
+		 * If ingress interface is a lag slave, we cannot assume that
+		 * reply packets will use this interface for egress; call
+		 * bonding driver API to find the egress interface
+		 * for reply packets.
+		 */
+		if (is_lag_slave(src_dev)) {
+			if (unic.flags & NSS_IPV6_CREATE_FLAG_BRIDGE_FLOW) {
+				lag_smac = unic.dest_mac;
+			} else {
+				lag_smac = (uint8_t *)src_dev->master->dev_addr;
+			}
+
+			src_slave = bond_get_tx_dev(NULL, lag_smac,
+						    unic.src_mac,
+						    (void *)&unic.dest_ip,
+						    (void *)&unic.src_ip,
+						    skb->protocol,
+						    src_dev->master);
+
+			if (src_slave == NULL
+			    || !netif_carrier_ok(src_slave)) {
+				dev_put(in);
+				return NF_ACCEPT;
+			}
+
+			src_dev = src_slave;
+		}
+
+		/*
+		 * Determine egress LAG slave interface
+		 * for packet in original direction.
+		 */
+		if (is_lag_master(dest_dev)) {
+			if (unic.flags & NSS_IPV6_CREATE_FLAG_BRIDGE_FLOW) {
+				lag_smac = unic.src_mac;
+			} else {
+				lag_smac = (uint8_t *)dest_dev->dev_addr;
+			}
+
+			dest_slave = bond_get_tx_dev(NULL, lag_smac,
+						     unic.dest_mac,
+						     (void *)&unic.src_ip,
+						     (void *)&unic.dest_ip,
+						     skb->protocol, dest_dev);
+
+			if (dest_slave == NULL
+			    || !netif_carrier_ok(dest_slave)) {
+				dev_put(in);
+				return NF_ACCEPT;
+			}
+
+			dest_dev = dest_slave;
+		}
+	} else {
+		/*
+		 * At this point, src_dev points to ingress IF and and dest_dev
+		 * points to egress 'physical' IF, both in original direction.
+		 */
+
+		/*
+		 * If, in original direction, the ingress [virtual] IF was a
+		 * LAG master, then we must determine the egress LAG slave for
+		 * reply packets (such as the current packet).
+		 */
+		if (is_lag_master(src_dev)) {
+			if (unic.flags & NSS_IPV6_CREATE_FLAG_BRIDGE_FLOW) {
+				lag_smac = unic.dest_mac;
+			} else {
+				lag_smac = src_dev->dev_addr;
+			}
+
+			src_slave = bond_get_tx_dev(NULL, lag_smac,
+						    unic.src_mac,
+						    (void *)&unic.dest_ip,
+						    (void *)&unic.src_ip,
+						    skb->protocol, src_dev);
+			if (src_slave == NULL
+			    || !netif_carrier_ok(src_slave)) {
+				dev_put(in);
+				return NF_ACCEPT;
+			}
+
+			src_dev = src_slave;
+		}
+
+		/*
+		 * If, in original direction, the egress IF was a LAG slave
+		 * then we must determine the correct egress LAG slave, for
+		 * packets in original direction.
+		 */
+		if (is_lag_slave(dest_dev)) {
+			if (unic.flags & NSS_IPV6_CREATE_FLAG_BRIDGE_FLOW) {
+				lag_smac = unic.src_mac;
+			} else {
+				lag_smac = (uint8_t *)dest_dev->master->dev_addr;
+			}
+
+			dest_slave = bond_get_tx_dev(NULL, lag_smac,
+						     unic.dest_mac,
+						     (void *)&unic.src_ip,
+						     (void *)&unic.dest_ip,
+						     skb->protocol,
+						     dest_dev->master);
+			if (dest_slave == NULL || !netif_carrier_ok(dest_slave)) {
+				dev_put(in);
+				return NF_ACCEPT;
+			}
+
+			dest_dev = dest_slave;
+		}
+	}
+
+	/*
 	 * Only devices that are NSS devices may be accelerated.
 	 */
 	unic.src_interface_num = nss_get_interface_number(nss_connmgr_ipv6.nss_context, src_dev);
@@ -1068,6 +1303,12 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 	bool is_flow_pppoe = false;
 	bool is_return_pppoe = false;
 	bool is_tmp_pppoe = false;
+
+	/*
+	 * Variables needed for LAG
+	 */
+	struct net_device *dest_slave = NULL;
+	struct net_device *src_slave = NULL;
 
 	/*
 	 * Don't process broadcast or multicast
@@ -1433,6 +1674,101 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 			unic.ingress_vlan_tag = vlan_dev_priv(new_out)->vlan_id;
 			src_dev = vlan_dev_priv(new_out)->real_dev;
 			NSS_CONNMGR_DEBUG_INFO("Route-CM: Ingress VLAN ID = %d\n",vlan_dev_priv(new_out)->vlan_id);
+		}
+	}
+
+	/*
+	 * Handle Link Aggregation
+	 */
+	if (ctinfo < IP_CT_IS_REPLY) {
+		/*
+		 * If ingress interface is a lag slave, we cannot assume that
+		 * reply packets will use this interface for egress; call
+		 * bonding driver API to find the egress interface
+		 * for reply packets.
+		 */
+		if (is_lag_slave(src_dev)) {
+			src_slave = bond_get_tx_dev(NULL,
+						    (uint8_t *)src_dev->master->dev_addr,
+						    unic.src_mac,
+						    (void *)&unic.dest_ip,
+						    (void *)&unic.src_ip,
+						    skb->protocol,
+						    src_dev->master);
+			if (src_slave == NULL
+			    || !netif_carrier_ok(src_slave)) {
+				dev_put(in);
+				return NF_ACCEPT;
+			}
+
+			src_dev = src_slave;
+		}
+
+		/*
+		 * Determine egress LAG slave interface
+		 * for packet in original direction.
+		 */
+		if (is_lag_master(dest_dev)) {
+			dest_slave = bond_get_tx_dev(NULL,
+						     (uint8_t *)dest_dev->dev_addr,
+						     unic.dest_mac,
+						     (void *)&unic.src_ip,
+						     (void *)&unic.dest_ip,
+						     skb->protocol, dest_dev);
+			if (dest_slave == NULL
+			    || !netif_carrier_ok(dest_slave)) {
+				goto out;
+			}
+
+			dest_dev = dest_slave;
+		}
+	} else {
+		/*
+		 * At this point, src_dev points to ingress IF and and dest_dev
+		 * points to egress 'physical' IF, both in original direction.
+		 */
+
+		/*
+		 * If, in original direction, the ingress [virtual] IF was a
+		 * LAG master, then we must determine the egress LAG slave for
+		 * reply packets (such as the current packet).
+		 */
+		if (is_lag_master(src_dev)) {
+			src_slave = bond_get_tx_dev(NULL,
+						    (uint8_t *)src_dev->dev_addr,
+						    unic.src_mac,
+						    (void *)&unic.dest_ip,
+						    (void *)&unic.src_ip,
+						    skb->protocol, src_dev);
+			if (src_slave == NULL
+			    || !netif_carrier_ok(src_slave)) {
+				dev_put(in);
+				return NF_ACCEPT;
+			}
+
+			src_dev = src_slave;
+		}
+
+		/*
+		 * If, in original direction, the egress IF was a LAG slave,
+		 * then we must determine the correct egress LAG slave, for
+		 * packets in original direction.
+		 */
+		if (is_lag_slave(dest_dev)) {
+			dest_slave = bond_get_tx_dev(NULL,
+						     (uint8_t *)dest_dev->master->dev_addr,
+						     unic.dest_mac,
+						     (void *)&unic.src_ip,
+						     (void *)&unic.dest_ip,
+						     skb->protocol,
+						     dest_dev->master);
+			if (dest_slave == NULL
+			    || !netif_carrier_ok(dest_slave)) {
+				dev_put(in);
+				return NF_ACCEPT;
+			}
+
+			dest_dev = dest_slave;
 		}
 	}
 
@@ -2090,6 +2426,8 @@ static int nss_connmgr_ipv6_thread_fn(void *arg)
 		goto task_cleanup_5;
 	}
 
+	nss_connmgr_ipv4_register_bond_slave_linkup_cb(nss_connmgr_bond_link_up);
+
 	/*
 	 * Register this module with the Linux NSS driver (net_device)
 	 */
@@ -2117,6 +2455,8 @@ static int nss_connmgr_ipv6_thread_fn(void *arg)
 	}
 	spin_unlock_bh(&nss_connmgr_ipv6.lock);
 	NSS_CONNMGR_DEBUG_INFO("nss_connmgr_ipv6 terminate\n");
+
+	nss_connmgr_ipv4_unregister_bond_slave_linkup_cb();
 
 	nss_unregister_ipv6_mgr();
 

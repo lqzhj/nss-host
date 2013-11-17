@@ -301,6 +301,12 @@ struct nss_connmgr_ipv4_instance {
 	struct notifier_block netdev_notifier;
 	struct nss_connmgr_ipv4_connection connection[NSS_CONNMGR_IPV4_CONN_MAX];
 					/* Connection Table */
+
+	/*
+	 * Notification callback for IPv6
+	 * manager about LAG slave link up.
+	 */
+	void (*bond_slave_linkup) (struct net_device *slave);
 	struct dentry *dent;		/* Debugfs directory */
 	uint32_t debug_stats[NSS_CONNMGR_IPV4_DEBUG_STATS_MAX];
 					/* Debug statistics */
@@ -1133,6 +1139,11 @@ static void nss_connmgr_bond_link_up(struct net_device *slave_dev)
 			nss_connmgr_destroy_ipv4_rule(connection);
 			spin_unlock_bh(&nss_connmgr_ipv4.lock);
 		}
+	}
+
+	/* Notify IPv6 connection manager */
+	if (nss_connmgr_ipv4.bond_slave_linkup) {
+		nss_connmgr_ipv4.bond_slave_linkup(slave_dev);
 	}
 }
 
@@ -2264,6 +2275,27 @@ void nss_connmgr_ipv4_unregister_conntrack_event_cb(void)
 EXPORT_SYMBOL(nss_connmgr_ipv4_unregister_conntrack_event_cb);
 #endif
 
+/*
+ * nss_connmgr_ipv4_register_bond_slave_linkup_cb
+ * 	Registers callback for LAG slave linkup
+ *	notification to IPv6 manager.
+ */
+void nss_connmgr_ipv4_register_bond_slave_linkup_cb(void (*event_cb) (struct net_device *))
+{
+	nss_connmgr_ipv4.bond_slave_linkup = event_cb;
+}
+EXPORT_SYMBOL(nss_connmgr_ipv4_register_bond_slave_linkup_cb);
+
+/*
+ * nss_connmgr_ipv4_unregister_bond_slave_linkup_cb
+ * 	Unregisters callback for LAG slave linkup
+ *	notification to IPv6 manager.
+ */
+void nss_connmgr_ipv4_unregister_bond_slave_linkup_cb(void)
+{
+	nss_connmgr_ipv4.bond_slave_linkup = NULL;
+}
+EXPORT_SYMBOL(nss_connmgr_ipv4_unregister_bond_slave_linkup_cb);
 
 /*
  * nss_connmgr_bond_down
