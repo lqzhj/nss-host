@@ -2478,12 +2478,29 @@ void nss_connmgr_ipv4_unregister_bond_slave_linkup_cb(void)
 EXPORT_SYMBOL(nss_connmgr_ipv4_unregister_bond_slave_linkup_cb);
 
 /*
+ * nss_connmgr_do_bond_down
+ * 	Go through list of interfaces on the system and delete
+ *	rules using slave interfaces of this LAG master.
+ *	Called with dev_base_lock held.
+ */
+static void nss_connmgr_do_bond_down(struct net *net,
+				     struct net_device *bond_dev)
+{
+	struct net_device *dev = NULL;
+
+	for_each_netdev(net, dev) {
+		if (is_lag_slave(dev) && (dev->master == bond_dev)) {
+			nss_connmgr_link_down(dev);
+		}
+	}
+}
+
+/*
  * nss_connmgr_bond_down
  * 	LAG master closed
  */
 static void nss_connmgr_bond_down(struct net_device *bond_dev)
 {
-	struct net_device *dev = NULL;
 	struct net *net = NULL;
 
 	net = dev_net(bond_dev);
@@ -2493,13 +2510,38 @@ static void nss_connmgr_bond_down(struct net_device *bond_dev)
 		return;
 	}
 
-	read_lock_bh(&dev_base_lock);
-	for_each_netdev_rcu(net, dev) {
-		if (is_lag_slave(dev) && (dev->master == bond_dev)) {
-			nss_connmgr_link_down(dev);
+	read_lock(&dev_base_lock);
+	nss_connmgr_do_bond_down(net, bond_dev);
+	read_unlock(&dev_base_lock);
+}
+
+/*
+ * nss_connmgr_bridge_down
+ * 	Bridge interface closed
+ */
+static void nss_connmgr_bridge_down(struct net_device *br_dev)
+{
+	struct net_device *dev = NULL;
+	struct net *net = NULL;
+
+	net = dev_net(br_dev);
+	if (!net) {
+		NSS_CONNMGR_DEBUG_WARN("Unable to get network namespace "
+				       "for %s\n", br_dev->name);
+		return;
+	}
+
+	read_lock(&dev_base_lock);
+	for_each_netdev(net, dev) {
+		if (is_bridge_port(dev) && (dev->master == br_dev)) {
+			if (is_lag_master(dev)) {
+				nss_connmgr_do_bond_down(net, dev);
+			} else {
+				nss_connmgr_link_down(dev);
+			}
 		}
 	}
-	read_unlock_bh(&dev_base_lock);
+	read_unlock(&dev_base_lock);
 }
 
 /*
@@ -2515,6 +2557,8 @@ static int nss_connmgr_netdev_notifier_cb(struct notifier_block *this,
 	case NETDEV_DOWN:
 		if (is_lag_master(event_dev)) {
 			nss_connmgr_bond_down(event_dev);
+		} else if(is_bridge_device(event_dev)) {
+			nss_connmgr_bridge_down(event_dev);
 		} else {
 			nss_connmgr_link_down(event_dev);
 		}
