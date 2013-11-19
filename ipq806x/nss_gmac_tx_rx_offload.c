@@ -546,6 +546,9 @@ int nss_gmac_linux_close(struct net_device *netdev)
 	netif_stop_queue(netdev);
 	netif_carrier_off(netdev);
 
+	nss_gmac_rx_disable(gmacdev);
+	nss_gmac_tx_disable(gmacdev);
+
 	nss_gmac_disable_interrupt_all(gmacdev);
 
 	nss_tx_phys_if_link_state(gmacdev->nss_gmac_ctx, 0, gmacdev->macid);
