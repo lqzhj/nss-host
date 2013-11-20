@@ -489,7 +489,10 @@ int __init nss_ipsec_init_module(void)
 
 void __exit nss_ipsec_exit_module(void)
 {
+	nss_cfi_ocf_unregister_ipsec();
+
 	nss_unregister_ipsec_if(NSS_C2C_TX_INTERFACE);
+
 	nss_cfi_info("module unloaded\n");
 }
 

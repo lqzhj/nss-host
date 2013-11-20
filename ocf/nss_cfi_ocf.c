@@ -36,6 +36,7 @@
 #include <linux/spinlock.h>
 #include <asm/cmpxchg.h>
 #include <linux/hrtimer.h>
+#include <linux/delay.h>
 #include <cryptodev.h>
 
 #include <nss_crypto_if.h>
@@ -63,6 +64,22 @@ static struct nss_cfi_ocf_algo cfi_algo[CRYPTO_ALGORITHM_MAX] = {
 					NSS_CFI_OCF_ALGO_TYPE_IS_AUTH
 				},
 };
+
+/*
+ * Dummy trap function for IPsec encryption.
+ */
+static int32_t nss_cfi_ocf_encrypt_trap(struct sk_buff *skb, uint32_t session_idx)
+{
+	return 0;
+}
+
+/*
+ * Dummy trap function for IPsec decryption.
+ */
+static int32_t nss_cfi_ocf_decrypt_trap(struct sk_buff *skb, uint32_t session_idx)
+{
+	return 0;
+}
 
 /*
  * Returns the type of buffer sent by OCF
@@ -231,7 +248,7 @@ static void nss_cfi_ocf_process_done(struct nss_crypto_buf *buf)
 
 	crp = (struct cryptop *)buf->cb_ctx;
 
-	if (nss_crypto_buf_check_req_type(buf, NSS_CRYPTO_BUF_REQ_DECRYPT) && g_cfi_ocf.decrypt_fn) {
+	if (nss_crypto_buf_check_req_type(buf, NSS_CRYPTO_BUF_REQ_DECRYPT)) {
 		g_cfi_ocf.decrypt_fn((struct sk_buff *)crp->crp_buf, buf->session_idx);
 	}
 
@@ -347,9 +364,7 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 				get_random_bytes((data + cip_crd->crd_inject), ivsize);
 			}
 
-			if (sc->encrypt_fn) {
-				sc->encrypt_fn((struct sk_buff *)crp->crp_buf, buf->session_idx);
-			}
+			sc->encrypt_fn((struct sk_buff *)crp->crp_buf, buf->session_idx);
 
 			flag = NSS_CRYPTO_BUF_REQ_ENCRYPT;
 		}
@@ -411,6 +426,8 @@ device_method_t nss_cfi_ocf_methods = {
 static nss_crypto_user_ctx_t nss_cfi_ocf_register(nss_crypto_handle_t crypto)
 {
 	struct nss_cfi_ocf *sc = &g_cfi_ocf;
+	nss_cfi_encrypt_trap_t encrypt;
+	nss_cfi_decrypt_trap_t decrypt;
 	int i;
 
 	softc_device_init(sc, NSS_CFI_DRV_NAME, 0, nss_cfi_ocf_methods);
@@ -431,6 +448,9 @@ static nss_crypto_user_ctx_t nss_cfi_ocf_register(nss_crypto_handle_t crypto)
 		}
 	}
 
+	encrypt = xchg(&sc->encrypt_fn, nss_cfi_ocf_encrypt_trap);
+	decrypt = xchg(&sc->decrypt_fn, nss_cfi_ocf_decrypt_trap);
+
 	return sc;
 }
 
@@ -448,9 +468,29 @@ static void nss_cfi_ocf_unregister(nss_crypto_user_ctx_t cfi)
 void nss_cfi_ocf_register_ipsec(nss_cfi_encrypt_trap_t encrypt_fn, nss_cfi_decrypt_trap_t decrypt_fn)
 {
 	struct nss_cfi_ocf *sc = &g_cfi_ocf;
+	nss_cfi_encrypt_trap_t encrypt;
+	nss_cfi_decrypt_trap_t decrypt;
 
-	sc->encrypt_fn = encrypt_fn;
-	sc->decrypt_fn = decrypt_fn;
+	encrypt = xchg(&sc->encrypt_fn, encrypt_fn);
+	decrypt = xchg(&sc->decrypt_fn, decrypt_fn);
+}
+
+/*
+ * Unregister IPsec trap handlers with CFI_OCF
+ */
+void nss_cfi_ocf_unregister_ipsec(void)
+{
+	struct nss_cfi_ocf *sc = &g_cfi_ocf;
+	nss_cfi_encrypt_trap_t encrypt;
+	nss_cfi_decrypt_trap_t decrypt;
+
+
+	nss_cfi_info("Unregistering IPsec trap handlers\n");
+
+	encrypt = xchg(&sc->encrypt_fn, nss_cfi_ocf_encrypt_trap);
+	decrypt = xchg(&sc->decrypt_fn, nss_cfi_ocf_decrypt_trap);
+
+	msleep(10000);
 }
 
 /*
@@ -473,6 +513,7 @@ void nss_cfi_ocf_exit(void)
 }
 
 EXPORT_SYMBOL(nss_cfi_ocf_register_ipsec);
+EXPORT_SYMBOL(nss_cfi_ocf_unregister_ipsec);
 
 module_init(nss_cfi_ocf_init);
 module_exit(nss_cfi_ocf_exit);

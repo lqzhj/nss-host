@@ -106,4 +106,9 @@ typedef int32_t (*nss_cfi_decrypt_trap_t)(struct sk_buff *skb, uint32_t session_
  */
 void nss_cfi_ocf_register_ipsec(nss_cfi_encrypt_trap_t encrypt_fn, nss_cfi_decrypt_trap_t decrypt_fn);
 
+/**
+ * @brief Unregister the Ipsec trap handlers.
+ */
+void nss_cfi_ocf_unregister_ipsec(void);
+
 #endif /* !__NSS_CFI_IF_H */
