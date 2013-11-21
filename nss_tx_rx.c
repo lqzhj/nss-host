@@ -801,7 +801,7 @@ static void nss_rx_metadata_nss_core_stats(struct nss_ctx_instance *nss_ctx, str
 
 			maximum = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].maximum;
 
-			if ((nss_runtime_samples.average > maximum) && (nss_runtime_samples.freq_scale_index < (NSS_MAX_CPU_SCALES - 1))) {
+			if ((nss_runtime_samples.average > maximum) && (nss_runtime_samples.freq_scale_index < (nss_runtime_samples.freq_scale_sup_max - 1))) {
 				nss_runtime_samples.freq_scale_index++;
 				nss_frequency_workqueue();
 			} else {

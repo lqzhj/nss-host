@@ -163,6 +163,20 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 		clk_set_rate(nss_core0_clk, NSS_FREQ_550);
 		clk_prepare(nss_core0_clk);
 		clk_enable(nss_core0_clk);
+
+		/*
+		 * Check if turbo is supported
+		 */
+		if (npd->turbo_frequency) {
+			/*
+			 * Turbo is supported
+			 */
+			printk("nss_driver - Turbo Support %d\n", npd->turbo_frequency);
+			nss_runtime_samples.freq_scale_sup_max = NSS_MAX_CPU_SCALES;
+		} else {
+			printk("nss_driver - Turbo No Support %d\n", npd->turbo_frequency);
+			nss_runtime_samples.freq_scale_sup_max = NSS_MAX_CPU_SCALES - 1;
+		}
 	}
 
 	/*
@@ -490,8 +504,8 @@ static int nss_current_freq_handler (ctl_table *ctl, int write, void __user *buf
 	nss_cmd_buf.auto_scale = 0;
 	nss_runtime_samples.freq_scale_ready = 0;
 
-	/* If support NSS freq is in the table send the new frequency request to NSS */
-	if ((nss_cmd_buf.current_freq != NSS_FREQ_110) && (nss_cmd_buf.current_freq != NSS_FREQ_275) && (nss_cmd_buf.current_freq != NSS_FREQ_550) && (nss_cmd_buf.current_freq != NSS_FREQ_733)) {
+	/* If support NSS freq is in the table send the new frequency request to NSS or If No Turbo and ask for turbo freq */
+	if (((nss_cmd_buf.current_freq != NSS_FREQ_110) && (nss_cmd_buf.current_freq != NSS_FREQ_275) && (nss_cmd_buf.current_freq != NSS_FREQ_550) && (nss_cmd_buf.current_freq != NSS_FREQ_733)) || ((nss_runtime_samples.freq_scale_sup_max != NSS_MAX_CPU_SCALES) && (nss_cmd_buf.current_freq == NSS_FREQ_733))) {
 		printk("Frequency not found. Please check Frequency Table\n");
 		return ret;
 	}
@@ -566,6 +580,13 @@ static int nss_get_freq_table_handler (ctl_table *ctl, int write, void __user *b
 	int ret;
 
 	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+
+	if (nss_runtime_samples.freq_scale_sup_max != NSS_MAX_CPU_SCALES) {
+		printk("Frequency Supported - 110Mhz 275Mhz 550Mhz\n");
+		printk("Ex. To Change Frequency - echo 110000000 > current_freq \n");
+
+		return ret;
+	}
 
 	printk("Frequency Supported - 110Mhz 275Mhz 550Mhz 733Mhz \n");
 	printk("Ex. To Change Frequency - echo 110000000 > current_freq \n");

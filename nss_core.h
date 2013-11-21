@@ -601,9 +601,10 @@ struct nss_scale_info {
  *	Also contains the per frequency scale array
  */
 struct nss_runtime_sampling {
-	struct nss_scale_info freq_scale[NSS_MAX_CPU_SCALES];	/* NSS Scale Per Freq */
+	struct nss_scale_info freq_scale[NSS_MAX_CPU_SCALES];	/* NSS Max Scale Per Freq */
 	uint32_t freq_scale_index;				/* Current Freq Index */
 	uint32_t freq_scale_ready;				/* Allow Freq Scaling */
+	uint32_t freq_scale_sup_max;				/* NSS Max Supported Scale - Limit Turbo */
 	uint32_t freq_scale_rate_limit_up;			/* Scaling Change Rate Limit */
 	uint32_t freq_scale_rate_limit_down;			/* Scaling Change Rate Limit */
 	uint32_t buffer[NSS_SAMPLE_BUFFER_SIZE];		/* Sample Ring Buffer */
