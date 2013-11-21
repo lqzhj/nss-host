@@ -565,7 +565,7 @@ struct nss_cmd_buffer {
 #define NSS_SAMPLE_BUFFER_MASK (NSS_SAMPLE_BUFFER_SIZE - 1)
 #define NSS_MAX_CPU_SCALES 3			/* Max Number of Frequencies */
 #define NSS_FREQUENCY_SCALE_RATE_LIMIT_UP 2	/* Adjust the Rate of Frequency Switching Up */
-#define NSS_FREQUENCY_SCALE_RATE_LIMIT_DOWN 500	/* Adjust the Rate of Frequency Switching Down */
+#define NSS_FREQUENCY_SCALE_RATE_LIMIT_DOWN 5000	/* Adjust the Rate of Frequency Switching Down */
 #define NSS_MESSAGE_RATE_LIMIT 15000		/* Adjust the Rate of Displaying Statistic Messages */
 
 /*
