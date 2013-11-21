@@ -21,9 +21,133 @@
 
 #include <linux/delay.h>
 #include <linux/err.h>
+#include <linux/gpio.h>
+#include <mach/gpiomux.h>
 #include "nss_hal_pvt.h"
 #include "nss_clocks.h"
 #include "nss_core.h"
+
+/*
+ * Global declarations
+ */
+
+/*
+ * NSS debug pins configuration
+ */
+
+/*
+ * Core 0, Data
+ * No pull up, Function 2
+ */
+static struct gpiomux_setting nss_spi_data_0 = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_IN,
+};
+
+/*
+ * Core 0, CLK, CS
+ * Pull up high, Function 2
+ */
+static struct gpiomux_setting nss_spi_cs_clk_0 = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+	.dir = GPIOMUX_IN,
+};
+
+/*
+ * Core 1, CS
+ * Pull up high, Function 4
+ */
+static struct gpiomux_setting nss_spi_cs_1 = {
+	.func = GPIOMUX_FUNC_4,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+	.dir = GPIOMUX_IN,
+};
+
+/*
+ * Core 1, CLK
+ * Pull up high, Function 5
+ */
+static struct gpiomux_setting nss_spi_clk_1 = {
+	.func = GPIOMUX_FUNC_5,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+	.dir = GPIOMUX_IN,
+};
+
+/*
+ * Core 1, Data
+ * Pull up none, Function 5
+ */
+static struct gpiomux_setting nss_spi_data_1 = {
+	.func = GPIOMUX_FUNC_5,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_IN,
+};
+
+static struct msm_gpiomux_config nss_spi_gpiomux[] = {
+	{
+		.gpio = 14,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &nss_spi_data_0,
+			[GPIOMUX_SUSPENDED] = &nss_spi_data_0,
+		},
+	},
+	{
+		.gpio = 15,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &nss_spi_data_0,
+			[GPIOMUX_SUSPENDED] = &nss_spi_data_0,
+		},
+	},
+	{
+		.gpio = 16,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &nss_spi_cs_clk_0,
+			[GPIOMUX_SUSPENDED] = &nss_spi_cs_clk_0,
+		},
+	},
+	{
+		.gpio = 17,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &nss_spi_cs_clk_0,
+			[GPIOMUX_SUSPENDED] = &nss_spi_cs_clk_0,
+		},
+	},
+	{
+		.gpio = 55,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &nss_spi_data_1,
+			[GPIOMUX_SUSPENDED] = &nss_spi_data_1,
+		},
+	},
+	{
+		.gpio = 56,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &nss_spi_data_1,
+			[GPIOMUX_SUSPENDED] = &nss_spi_data_1,
+		},
+	},
+	{
+		.gpio = 57,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &nss_spi_cs_1,
+			[GPIOMUX_SUSPENDED] = &nss_spi_cs_1,
+		},
+	},
+	{
+		.gpio = 58,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &nss_spi_clk_1,
+			[GPIOMUX_SUSPENDED] = &nss_spi_clk_1,
+		},
+	},
+};
 
 /*
  * clk_reg_write_32()
@@ -41,6 +165,16 @@ static inline void clk_reg_write_32(void *addr, uint32_t val)
 static inline uint32_t clk_reg_read_32(volatile void *addr)
 {
 	return readl(addr);
+}
+
+/*
+ * __nss_hal_debug_enable()
+ *	Enable NSS debug
+ */
+void __nss_hal_debug_enable(void)
+{
+	msm_gpiomux_install(nss_spi_gpiomux,
+				ARRAY_SIZE(nss_spi_gpiomux));
 }
 
 /*
