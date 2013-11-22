@@ -55,6 +55,10 @@
 #define nss_pm_trace(fmt, args...) printk(KERN_DEBUG "nss_pm:"fmt, ##args)
 #endif
 
+/*
+ * Define this to use NETAP driver also request for NSS Fab1 BW on behalf of GMAC driver
+ */
+#define NSS_PM_NETAP_GMAC_SCALING 1
 
 /*
  * PM Client data structure

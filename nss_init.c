@@ -70,6 +70,11 @@ int nss_ctl_redirect __read_mostly = 0;
 int nss_ctl_debug __read_mostly = 0;
 
 /*
+ * PM client handle
+ */
+static void *pm_client;
+
+/*
  * Handler to send NSS messages
  */
 void *nss_freq_change_context;
@@ -449,6 +454,18 @@ void nss_wq_function (struct work_struct *work)
 	clk_set_rate(nss_core0_clk, my_work->frequency);
 	nss_freq_change(nss_freq_change_context, my_work->frequency, 1);
 
+	if(!pm_client) {
+		goto out;
+	}
+
+	if (my_work->frequency == NSS_FREQ_733) {
+		nss_pm_set_perf_level(pm_client, NSS_PM_PERF_LEVEL_TURBO);
+	} else if ((my_work->frequency == NSS_FREQ_275) || (my_work->frequency == NSS_FREQ_550)) {
+		nss_pm_set_perf_level(pm_client, NSS_PM_PERF_LEVEL_NOMINAL);
+	} else {
+		nss_pm_set_perf_level(pm_client, NSS_PM_PERF_LEVEL_IDLE);
+	}
+out:
 	kfree((void *)work);
 }
 
@@ -723,6 +740,14 @@ static int __init nss_init(void)
 	 * Initialize NSS Bus PM module
 	 */
 	nss_pm_init();
+
+	/*
+	 * Register with Bus driver
+	 */
+	pm_client = nss_pm_client_register(NSS_PM_CLIENT_NETAP);
+	if (!pm_client) {
+		nss_warning("Error registering with PM driver");
+	}
 
 	/*
 	 * Register platform_driver

@@ -58,19 +58,40 @@ static struct msm_bus_paths nss_crypto_bw_level_tbl[NSS_PM_PERF_MAX_LEVELS] = {
 				/* 266 MHz to DDR, 20 MHz to TCM  */
 };
 
+#ifdef  NSS_PM_NETAP_GMAC_SCALING
+
+/*
+ * Bus vector table for NSS HLOS driver
+ * This requests bw for both NSS Fab0 and Fab1 on behalf of GMAC and NSS Drivers
+ */
+static struct msm_bus_paths nss_netap_bw_level_tbl[NSS_PM_PERF_MAX_LEVELS] = {
+		[NSS_PM_PERF_LEVEL_SUSPEND] =  GMAC_BW_MBPS(0, 0),
+			/* 0 MHz to DDR, 0 MHz to TCM */
+		[NSS_PM_PERF_LEVEL_IDLE] =  GMAC_BW_MBPS(133, 5),
+			/* 133 MHz to DDR, 5 MHz to TCM */
+		[NSS_PM_PERF_LEVEL_NOMINAL] =  GMAC_BW_MBPS(200, 400),
+			/* 200 MHz to DDR, 10 MHz to TCM */
+		[NSS_PM_PERF_LEVEL_TURBO] = GMAC_BW_MBPS(266, 533),
+			/* 266 MHz to DDR, 20 MHz to TCM  */
+};
+
+#else
+
 /*
  * Bus vector table for NSS HLOS driver
  */
 static struct msm_bus_paths nss_netap_bw_level_tbl[NSS_PM_PERF_MAX_LEVELS] = {
 		[NSS_PM_PERF_LEVEL_SUSPEND] =  NETAP_BW_MBPS(0, 0),
-				/* 0 MHz to DDR, 0 MHz to TCM */
+			/* 0 MHz to DDR, 0 MHz to TCM */
 		[NSS_PM_PERF_LEVEL_IDLE] =  NETAP_BW_MBPS(133, 133),
-				/* 133 MHz to DDR and TCM */
+			/* 133 MHz to DDR and TCM */
 		[NSS_PM_PERF_LEVEL_NOMINAL] =  NETAP_BW_MBPS(400, 400),
-				/* 400 MHz to DDR and TCM */
+			/* 400 MHz to DDR and TCM */
 		[NSS_PM_PERF_LEVEL_TURBO] = NETAP_BW_MBPS(533, 533),
-				/* 533 MHz to DDR and TCM  */
+			/* 533 MHz to DDR and TCM  */
 };
+
+#endif
 
 /*
  * Bus Driver Platform data for GMAC, Crypto and Netap clients
