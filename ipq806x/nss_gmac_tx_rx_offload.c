@@ -356,10 +356,6 @@ void nss_gmac_adjust_link(struct net_device *netdev)
 	} else if (status == LINKDOWN && gmacdev->link_state == LINKUP) {
 		nss_gmac_linkdown(gmacdev);
 	}
-
-	if (nss_gmac_adjust_bus_bw(gmacdev->ctx) != 0) {
-		nss_gmac_msg("%s Link : Bus BW request failed \n" , netdev->name );
-	}
 }
 
 
@@ -623,44 +619,5 @@ int32_t nss_gmac_linux_change_mtu(struct net_device *netdev, int32_t newmtu)
 	}
 
 	netdev->mtu = newmtu;
-	return 0;
-}
-
-/**
- * @brief Function to send bus performance level requests to PM driver
- *
- * @param[ctx] Handle to GMAC driver global context
- *
- * @return Returns 0 on success Errorcode on failure.
- */
-int32_t nss_gmac_adjust_bus_bw(struct nss_gmac_global_ctx *ctx)
-{
-	int i;
-	nss_pm_interface_status_t ret;
-	nss_gmac_dev *dev;
-	int num_links_up = 0;
-
-	for (i = 0; i < NSS_MAX_GMACS; i++) {
-		dev = ctx->nss_gmac[i];
-		if (dev) {
-			num_links_up += (dev->link_state == LINKUP);
-		}
-	}
-
-	if (num_links_up > 1) {
-		/* Request for Turbo BW when more than 1 links are up */
-		ret = nss_pm_set_perf_level(ctx->pm_client, NSS_PM_PERF_LEVEL_TURBO);
-	} else if (num_links_up > 0) {
-		/* Request for Nominal BW when only 1 link is up */
-		ret = nss_pm_set_perf_level(ctx->pm_client, NSS_PM_PERF_LEVEL_NOMINAL);
-	} else {
-		/* Request for Idle BW when all links are down */
-		ret = nss_pm_set_perf_level(ctx->pm_client, NSS_PM_PERF_LEVEL_IDLE);
-	}
-
-	if (unlikely(ret == NSS_PM_API_FAILED)) {
-		return -EAGAIN;
-	}
-
 	return 0;
 }

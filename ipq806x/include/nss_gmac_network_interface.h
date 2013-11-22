@@ -45,6 +45,5 @@ void nss_gmac_linux_powerdown_mac(nss_gmac_dev *gmacdev);
 void nss_gmac_linkdown(nss_gmac_dev *gmacdev);
 void nss_gmac_linkup(nss_gmac_dev *gmacdev);
 void nss_gmac_adjust_link(struct net_device *netdev);
-int32_t nss_gmac_adjust_bus_bw(struct nss_gmac_global_ctx *ctx);
 
 #endif /* End of file */

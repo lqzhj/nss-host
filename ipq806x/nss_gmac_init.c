@@ -439,16 +439,6 @@ int32_t nss_gmac_common_init(struct nss_gmac_global_ctx *ctx)
 		iounmap(msm_tcsr_base);
 	}
 
-	ctx->pm_client = nss_pm_client_register(NSS_PM_CLIENT_GMAC);
-	if (!ctx->pm_client) {
-		nss_gmac_early_dbg("Error registering with PM driver");
-		iounmap(ctx->nss_base);
-		iounmap(ctx->qsgmii_base);
-		ctx->nss_base = NULL;
-		ctx->qsgmii_base = NULL;
-		return -EIO;
-	}
-
 	return 0;
 }
 
