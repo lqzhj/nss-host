@@ -976,11 +976,22 @@ static unsigned int nss_connmgr_ipv6_bridge_post_routing_hook(unsigned int hookn
 	if ((rt_dev == NULL)
 		|| (is_bridge_device(rt_dev) && (rt_dev == (struct net_device *)out->master))) {
 		/*
+		 * Ensure MAC header is in place, which may be sripped off in some cases, for
+		 * example, for partially accelerated IPv6 tunnel exception packets.
+		 */
+		if (!skb_mac_header_was_set(skb)) {
+			dev_put(in);
+			NSS_CONNMGR_DEBUG_TRACE("Bridge-CM: MAC address not present for bridge %s packet\n",out->master->name);
+			return NF_ACCEPT;
+		}
+
+		/*
 		 * Is the ingress bridge port is a virtual interface?
 		 */
 		if (!is_bridge_port(in)) {
 			/*
-			 * Try to access the ingress bridge slave interface for this packet
+			 * Get the slave bridge port which is the ingress interface
+			 * for this packet.
 			 */
 			br_port_in_dev = br_port_dev_get(out->master, eth_hdr(skb)->h_source);
 			if (br_port_in_dev == NULL) {
@@ -1681,9 +1692,16 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 		} else if (is_bridge_device(rt_dev)) {
 			/*
 			 * Get the slave bridge port which is the ingress interface
-			 * for this packet
+			 * for this packet. Ensure MAC header is in place, which
+			 * may be sripped off in some cases, for example, for partially
+			 * accelerated IPv6 tunnel exception packets.
 			 */
-			br_port_dev = br_port_dev_get(rt_dev, eth_hdr(skb)->h_source);
+			if (skb_mac_header_was_set(skb)) {
+				br_port_dev = br_port_dev_get(rt_dev, eth_hdr(skb)->h_source);
+			} else {
+				goto out;
+			}
+
 			if (br_port_dev) {
 				/*
 				 * Is the ingress bridge port a VLAN interface?
