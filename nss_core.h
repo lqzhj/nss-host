@@ -129,7 +129,7 @@
  * Statistics struct
  *
  * INFO: These numbers are based on previous generation chip
- * 	These may change in future
+ *	These may change in future
  */
 #define NSS_PPPOE_NUM_SESSION_PER_INTERFACE 8
 					/* Number of maximum simultaneous PPPoE sessions per physical interface */
@@ -491,6 +491,10 @@ struct nss_top_instance {
 					/* Physical interface event callback functions */
 	nss_profiler_callback_t profiler_callback[NSS_MAX_CORES];
 					/* Profiler interface callback function */
+	nss_tun6rd_if_event_callback_t tun6rd_if_event_callback;
+					/* 6rd tunnel interface event callback function */
+	nss_tunipip6_if_event_callback_t tunipip6_if_event_callback;
+					/* ipip6 tunnel interface event callback function */
 	void *crypto_ctx;		/* Crypto interface context */
 	void *if_ctx[NSS_MAX_NET_INTERFACES];
 					/* Phys/Virt interface context */
@@ -572,7 +576,7 @@ struct nss_cmd_buffer {
  * NSS Frequency Scale Info
  *
  * INFO: Contains the Scale information per Frequency
- * 	Per Scale information needed to Program PLL and make switching decisions
+ *	Per Scale information needed to Program PLL and make switching decisions
  */
 struct nss_scale_info {
 	uint32_t frequency;	/* Frequency in Mhz */
@@ -584,7 +588,7 @@ struct nss_scale_info {
  * NSS Runtime Sample Structure
  *
  * INFO: Contains the runtime statistic of the NSS core
- * 	Also contains the per frequency scale array
+ *	Also contains the per frequency scale array
  */
 struct nss_runtime_sampling {
 	struct nss_scale_info freq_scale[NSS_MAX_CPU_SCALES];	/* NSS Scale Per Freq */

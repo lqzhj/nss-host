@@ -19,7 +19,7 @@
  *
  * This file is the NSS DS-lit and IPP6  tunnel module
  * ------------------------REVISION HISTORY-----------------------------
- * Qualcomm Atheros         15/sep/2013              Created
+ * Qualcomm Atheros	    15/sep/2013		     Created
  */
 
 #include <linux/types.h>
@@ -70,6 +70,8 @@
 #endif
 
 void nss_tunipip6_exception(void *ctx, void *buf);
+void nss_tunipip6_event_receive(void *ctx, nss_tunipip6_event_t ev_type,
+			      void *os_buf, uint32_t len);
 
 enum tunipip6_metadata_types {
 	TUNIPIP6_METADATA_TYPE_IF_UP,
@@ -86,6 +88,16 @@ struct nss_tunnel_ipip6_cfg{
 	uint32_t flags; /* Tunnel additional flags */
 	uint8_t  hop_limit; /* Tunnel ipv6 hop limit */
 
+};
+
+/*
+ *  tunipip6 stats structure
+ */
+struct nss_tunipip6_stats{
+	uint32_t rx_packets;
+	uint32_t rx_bytes;
+	uint32_t tx_packets;
+	uint32_t tx_bytes;
 };
 
 /*
@@ -176,14 +188,14 @@ void nss_tunipip6_dev_up( struct net_device * netdev)
 	tnlparam.type = TUNIPIP6_METADATA_TYPE_IF_UP;
 	tnlcfg = (struct nss_tunnel_ipip6_cfg *)&tnlparam.sub.cfg;
 
-        tnlcfg->saddr[0] = ntohl(fl6->saddr.s6_addr32[0]);
-        tnlcfg->saddr[1] = ntohl(fl6->saddr.s6_addr32[1]);
-        tnlcfg->saddr[2] = ntohl(fl6->saddr.s6_addr32[2]);
-        tnlcfg->saddr[3] = ntohl(fl6->saddr.s6_addr32[3]);
+	tnlcfg->saddr[0] = ntohl(fl6->saddr.s6_addr32[0]);
+	tnlcfg->saddr[1] = ntohl(fl6->saddr.s6_addr32[1]);
+	tnlcfg->saddr[2] = ntohl(fl6->saddr.s6_addr32[2]);
+	tnlcfg->saddr[3] = ntohl(fl6->saddr.s6_addr32[3]);
 	tnlcfg->daddr[0] = ntohl(fl6->daddr.s6_addr32[0]);
 	tnlcfg->daddr[1] = ntohl(fl6->daddr.s6_addr32[1]);
-        tnlcfg->daddr[2] = ntohl(fl6->daddr.s6_addr32[2]);
-        tnlcfg->daddr[3] = ntohl(fl6->daddr.s6_addr32[3]);
+	tnlcfg->daddr[2] = ntohl(fl6->daddr.s6_addr32[2]);
+	tnlcfg->daddr[3] = ntohl(fl6->daddr.s6_addr32[3]);
 	tnlcfg->hop_limit = tunnel->parms.hop_limit;
 	tnlcfg->flags = ntohl(tunnel->parms.flags);
 	tnlcfg->flowlabel = fl6->flowlabel;  /*flow Label In kernel is stored in big endian format*/
@@ -193,11 +205,12 @@ void nss_tunipip6_dev_up( struct net_device * netdev)
 			tnlcfg->daddr[0], tnlcfg->daddr[1],
 			tnlcfg->daddr[2], tnlcfg->daddr[3] );
 
-        /*
+	/*
 	 * Register ipip6 tunnel with NSS
 	 */
 	g_tunipip6.nss_ctx = nss_register_tunipip6_if(g_tunipip6.if_num,
 				nss_tunipip6_exception,
+				nss_tunipip6_event_receive,
 				netdev);
 	if (g_tunipip6.nss_ctx == NULL) {
 		nss_tunipip6_trace("nss_register_tunipip6_if Failed \n");
@@ -206,7 +219,7 @@ void nss_tunipip6_dev_up( struct net_device * netdev)
 		nss_tunipip6_trace("nss_register_tunipip6_if Success \n");
 	}
 
-	nss_tunipip6_trace("Sending IPIP6 tunnel i/f up command to NSS  %x \n",
+	nss_tunipip6_trace("Sending IPIP6 tunnel i/f up command to NSS	%x \n",
 			(int)g_tunipip6.nss_ctx);
 
 	/*
@@ -214,7 +227,7 @@ void nss_tunipip6_dev_up( struct net_device * netdev)
 	 */
 	status = nss_tx_generic_if_buf(g_tunipip6.nss_ctx,
 			g_tunipip6.if_num,
-		       	(uint8_t *)&tnlparam,
+			(uint8_t *)&tnlparam,
 			sizeof(struct nss_tunnel_ipip6_param));
 	if (status != NSS_TX_SUCCESS) {
 		nss_tunipip6_error("Tunnel up command error %d \n", status);
@@ -256,7 +269,7 @@ void nss_tunipip6_dev_down( struct net_device * netdev)
 	tnlparam.type = TUNIPIP6_METADATA_TYPE_IF_DOWN;
 
 	nss_tunipip6_trace("Sending Tunnel ipip6 Down command %x \n",g_tunipip6.if_num);
-	status  = nss_tx_generic_if_buf(g_tunipip6.nss_ctx,
+	status = nss_tx_generic_if_buf(g_tunipip6.nss_ctx,
 			g_tunipip6.if_num,
 			(uint8_t *)&tnlparam,
 			sizeof(struct nss_tunnel_ipip6_param));
@@ -335,6 +348,51 @@ void nss_tunipip6_exception(void *ctx, void *buf)
 	skb->skb_iif = dev->ifindex;
 	skb->ip_summed = CHECKSUM_NONE;
 	netif_receive_skb(skb);
+}
+
+/*
+ *  nss_tunipip6_update_dev_stats
+ *	Update the Dev stats received from NetAp
+ */
+static void nss_tunipip6_update_dev_stats(struct net_device *dev,
+					struct nss_tunipip6_stats_sync *tunipip6stats)
+{
+	void *ptr;
+	struct nss_tunipip6_stats stats;
+
+	stats.rx_packets = tunipip6stats->rx_packets;
+	stats.rx_bytes = tunipip6stats->rx_bytes;
+	stats.tx_packets = tunipip6stats->tx_packets;
+	stats.tx_bytes = tunipip6stats->tx_bytes;
+	ptr = (void *)&stats;
+	ip6_update_offload_stats(dev, ptr);
+
+}
+
+/**
+ * @brief Event Callback to receive events from NSS
+ * @param[in] pointer to net device context
+ * @param[in] event type
+ * @param[in] pointer to buffer
+ * @param[in] length of buffer
+ * @return Returns void
+ */
+void nss_tunipip6_event_receive(void *if_ctx, nss_tunipip6_event_t ev_type,
+			    void *os_buf, uint32_t len)
+{
+	struct net_device *netdev = NULL;
+	netdev = (struct net_device *)if_ctx;
+
+	switch (ev_type) {
+	case NSS_TUNIPIP6_EVENT_STATS:
+		 nss_tunipip6_update_dev_stats(netdev, (struct nss_tunipip6_stats_sync *)os_buf );
+		break;
+
+	default:
+		nss_tunipip6_info("%s: Unknown Event from NSS",
+			      __FUNCTION__);
+		break;
+	}
 }
 
 /*
