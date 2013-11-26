@@ -65,6 +65,7 @@
 
 #include "nss_api_if.h"
 #include <linux/../../net/8021q/vlan.h>
+#include <linux/if_vlan.h>
 
 /*
  * Debug output levels
@@ -273,11 +274,13 @@ struct nss_connmgr_ipv4_connection {
 	int32_t  src_port;		/* Non-NAT source port */
 	uint32_t src_addr_xlate;	/* NAT translated source address, i.e. the creator of the connection */
 	int32_t  src_port_xlate;	/* NAT translated source port */
+	uint16_t ingress_vlan_tag;	/* Ingress VLAN tag */
 	int32_t  dest_interface;	/* Return interface number */
 	uint32_t dest_addr;		/* Non-NAT destination address, i.e. the to whom the connection was created */
 	int32_t  dest_port;		/* Non-NAT destination port */
 	uint32_t dest_addr_xlate;	/* NAT translated destination address, i.e. the to whom the connection was created */
 	int32_t  dest_port_xlate;	/* NAT translated destination port */
+	uint16_t egress_vlan_tag;	/* Egress VLAN tag */
 	uint64_t stats[NSS_CONNMGR_IPV4_STATS_MAX];
 	/* Connection statistics */
 	uint32_t last_sync;		/* Last sync time as jiffies */
@@ -2021,6 +2024,62 @@ out:
 }
 
 /*
+ * nss_connmgr_ipv4_update_vlan_dev_stats()
+ *	Update VLAN device statistics
+ */
+void nss_connmgr_ipv4_update_vlan_dev_stats(struct nss_connmgr_ipv4_connection *connection, struct nss_ipv4_sync *sync)
+{
+	struct net_device *vlandev, *physdev;
+	struct rtnl_link_stats64 stats;
+
+	if (connection->ingress_vlan_tag != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED)
+	{
+		physdev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->src_interface);
+		if (unlikely(!physdev)) {
+			NSS_CONNMGR_DEBUG_WARN("Invalid src dev reference from NSS \n");
+			return;
+		}
+		rcu_read_lock();
+		vlandev = __vlan_find_dev_deep(physdev, connection->ingress_vlan_tag);
+		rcu_read_unlock();
+
+		if (vlandev) {
+			stats.rx_packets = sync->flow_rx_packet_count;
+			stats.rx_bytes = sync->flow_rx_byte_count;
+			stats.tx_packets = sync->flow_tx_packet_count;
+			stats.tx_bytes = sync->flow_tx_byte_count;
+			__vlan_dev_update_accel_stats(vlandev, &stats);
+		} else {
+			NSS_CONNMGR_DEBUG_WARN("Could not find VLAN IN device for ingress vlan %d\n", connection->ingress_vlan_tag);
+			return;
+		}
+	}
+
+	if (connection->egress_vlan_tag != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED)
+	{
+		physdev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->dest_interface);
+		if (unlikely(!physdev)) {
+			NSS_CONNMGR_DEBUG_WARN("Invalid dest dev reference from NSS \n");
+			return;
+		}
+		rcu_read_lock();
+		vlandev = __vlan_find_dev_deep(physdev, connection->egress_vlan_tag);
+		rcu_read_unlock();
+
+		if (vlandev) {
+			stats.rx_packets = sync->return_rx_packet_count;
+			stats.rx_bytes = sync->return_rx_byte_count;
+			stats.tx_packets = sync->return_tx_packet_count;
+			stats.tx_bytes = sync->return_tx_byte_count;
+			__vlan_dev_update_accel_stats(vlandev, &stats);
+		} else {
+			NSS_CONNMGR_DEBUG_WARN("Could not find VLAN OUT device for egress vlan %d\n", connection->egress_vlan_tag);
+			return;
+		}
+	}
+}
+
+/*
  * nss_connmgr_ipv4_net_dev_callback()
  *	Callback handler from the linux device driver for the Network Accelerator.
  *
@@ -2093,6 +2152,8 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 			connection->dest_port = establish->return_ident;
 			connection->dest_addr_xlate = establish->return_ip_xlate;
 			connection->dest_port_xlate = establish->return_ident_xlate;
+			connection->ingress_vlan_tag = establish->ingress_vlan_tag;
+			connection->egress_vlan_tag = establish->egress_vlan_tag;
 
 			memset(connection->stats, 0, (8*NSS_CONNMGR_IPV4_STATS_MAX));
 
@@ -2139,10 +2200,18 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 
 				case NSS_IPV4_SYNC_REASON_STATS:
 					spin_lock_bh(&nss_connmgr_ipv4.lock);
-					connection->stats[NSS_CONNMGR_IPV4_ACCELERATED_RX_PKTS] += sync->flow_packet_count;
-					connection->stats[NSS_CONNMGR_IPV4_ACCELERATED_RX_BYTES] += sync->flow_byte_count;
-					connection->stats[NSS_CONNMGR_IPV4_ACCELERATED_TX_PKTS] += sync->return_packet_count;
-					connection->stats[NSS_CONNMGR_IPV4_ACCELERATED_TX_BYTES] += sync->return_byte_count;
+					connection->stats[NSS_CONNMGR_IPV4_ACCELERATED_RX_PKTS] += sync->flow_rx_packet_count + sync->return_rx_packet_count;
+					connection->stats[NSS_CONNMGR_IPV4_ACCELERATED_RX_BYTES] += sync->flow_rx_byte_count + sync->return_rx_byte_count;
+					connection->stats[NSS_CONNMGR_IPV4_ACCELERATED_TX_PKTS] += sync->flow_tx_packet_count + sync->return_tx_packet_count;
+					connection->stats[NSS_CONNMGR_IPV4_ACCELERATED_TX_BYTES] += sync->flow_tx_byte_count + sync->return_tx_byte_count;
+
+					/*
+					 * Update VLAN device statistics if required
+					 */
+					if ((connection->ingress_vlan_tag & connection->egress_vlan_tag) != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED) {
+						nss_connmgr_ipv4_update_vlan_dev_stats(connection, sync);
+					}
+
 					spin_unlock_bh(&nss_connmgr_ipv4.lock);
 					break;
 
@@ -2207,11 +2276,11 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 	acct = nf_conn_acct_find(ct);
 	if (acct) {
 		spin_lock_bh(&ct->lock);
-		atomic64_add(sync->flow_packet_count, &acct[IP_CT_DIR_ORIGINAL].packets);
-		atomic64_add(sync->flow_byte_count, &acct[IP_CT_DIR_ORIGINAL].bytes);
+		atomic64_add(sync->flow_rx_packet_count, &acct[IP_CT_DIR_ORIGINAL].packets);
+		atomic64_add(sync->flow_rx_byte_count, &acct[IP_CT_DIR_ORIGINAL].bytes);
 
-		atomic64_add(sync->return_packet_count, &acct[IP_CT_DIR_REPLY].packets);
-		atomic64_add(sync->return_byte_count, &acct[IP_CT_DIR_REPLY].bytes);
+		atomic64_add(sync->return_rx_packet_count, &acct[IP_CT_DIR_REPLY].packets);
+		atomic64_add(sync->return_rx_byte_count, &acct[IP_CT_DIR_REPLY].bytes);
 		spin_unlock_bh(&ct->lock);
 	}
 
