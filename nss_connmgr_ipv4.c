@@ -274,12 +274,14 @@ struct nss_connmgr_ipv4_connection {
 	int32_t  src_port;		/* Non-NAT source port */
 	uint32_t src_addr_xlate;	/* NAT translated source address, i.e. the creator of the connection */
 	int32_t  src_port_xlate;	/* NAT translated source port */
+	char	 src_mac_addr[ETH_ALEN];	/* Source MAC address */
 	uint16_t ingress_vlan_tag;	/* Ingress VLAN tag */
 	int32_t  dest_interface;	/* Return interface number */
 	uint32_t dest_addr;		/* Non-NAT destination address, i.e. the to whom the connection was created */
 	int32_t  dest_port;		/* Non-NAT destination port */
 	uint32_t dest_addr_xlate;	/* NAT translated destination address, i.e. the to whom the connection was created */
 	int32_t  dest_port_xlate;	/* NAT translated destination port */
+	char	 dest_mac_addr[ETH_ALEN];	/* Destination MAC address */
 	uint16_t egress_vlan_tag;	/* Egress VLAN tag */
 	uint64_t stats[NSS_CONNMGR_IPV4_STATS_MAX];
 	/* Connection statistics */
@@ -2024,6 +2026,86 @@ out:
 }
 
 /*
+ * nss_connmgr_ipv4_update_bridge_dev()
+ *	Update bridge device at host with packet statistics and refresh bridge MAC entries
+ */
+void nss_connmgr_ipv4_update_bridge_dev(struct nss_connmgr_ipv4_connection *connection, struct nss_ipv4_sync *sync, int final_sync)
+{
+	struct net_device *indev, *outdev;
+	struct rtnl_link_stats64 stats;
+
+	indev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->src_interface);
+
+	if (is_lag_slave(indev)) {
+		if (indev->master) {
+			indev = indev->master;
+		} else {
+			return;
+		}
+	} else if (connection->ingress_vlan_tag != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED) {
+		indev = __vlan_find_dev_deep(indev, connection->ingress_vlan_tag);
+	}
+
+	outdev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->dest_interface);
+	if (is_lag_slave(outdev)) {
+		if (outdev->master) {
+			outdev = outdev->master;
+		} else {
+			return;
+		}
+	} else if (connection->egress_vlan_tag != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED) {
+		outdev = __vlan_find_dev_deep(outdev, connection->egress_vlan_tag);
+	}
+
+	/*
+	 * Check if we have a bridge to update
+	 */
+	if (!is_bridge_port(indev) && !is_bridge_port(outdev))
+		return;
+
+	/*
+	 * Update bridge device statistics for routing flows that have
+	 * a bridge in the path. We should avoid updating bridge device
+	 * for flows that are forwrded within the bridge.
+	 */
+	if (is_bridge_port(indev))
+	{
+		/*
+		 * Refresh bridge MAC table if necessary
+		 */
+		if (!final_sync) {
+			br_refresh_fdb_entry(indev, connection->src_mac_addr);
+		}
+
+		if (indev->master != outdev->master) {
+			stats.rx_packets = sync->flow_rx_packet_count;
+			stats.rx_bytes = sync->flow_rx_byte_count;
+			stats.tx_packets = sync->flow_tx_packet_count;
+			stats.tx_bytes = sync->flow_tx_byte_count;
+			br_dev_update_stats(indev->master, &stats);
+		}
+	}
+
+	if (is_bridge_port(outdev))
+	{
+		/*
+		 * Refresh bridge MAC table if necessary
+		 */
+		if (!final_sync) {
+			br_refresh_fdb_entry(outdev, connection->dest_mac_addr);
+		}
+
+		if (indev->master != outdev->master) {
+			stats.rx_packets = sync->return_rx_packet_count;
+			stats.rx_bytes = sync->return_rx_byte_count;
+			stats.tx_packets = sync->return_tx_packet_count;
+			stats.tx_bytes = sync->return_tx_byte_count;
+			br_dev_update_stats(outdev->master, &stats);
+		}
+	}
+}
+
+/*
  * nss_connmgr_ipv4_update_vlan_dev_stats()
  *	Update VLAN device statistics
  */
@@ -2155,6 +2237,9 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 			connection->ingress_vlan_tag = establish->ingress_vlan_tag;
 			connection->egress_vlan_tag = establish->egress_vlan_tag;
 
+			memcpy(connection->src_mac_addr, (char *)establish->flow_mac, ETH_ALEN);
+			memcpy(connection->dest_mac_addr, (char *)establish->return_mac, ETH_ALEN);
+
 			memset(connection->stats, 0, (8*NSS_CONNMGR_IPV4_STATS_MAX));
 
 			spin_unlock_bh(&nss_connmgr_ipv4.lock);
@@ -2211,6 +2296,11 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 					if ((connection->ingress_vlan_tag & connection->egress_vlan_tag) != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED) {
 						nss_connmgr_ipv4_update_vlan_dev_stats(connection, sync);
 					}
+
+					/*
+					 * Update bridge device if required
+					 */
+					nss_connmgr_ipv4_update_bridge_dev(connection, sync, final_sync);
 
 					spin_unlock_bh(&nss_connmgr_ipv4.lock);
 					break;

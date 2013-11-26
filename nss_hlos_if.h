@@ -362,6 +362,7 @@ struct nss_ipv4_rule_establish {
 	uint32_t flow_ip_xlate;			/* Translated flow IP address */
 	uint32_t flow_ident;			/* Flow ident (e.g. port) */
 	uint32_t flow_ident_xlate;		/* Translated flow ident (e.g. port) */
+	uint16_t flow_mac[3];			/* Flow direction source MAC address */
 	uint16_t flow_pppoe_session_id;		/* Flow direction`s PPPoE session ID. */
 	uint16_t flow_pppoe_remote_mac[3];	/* Flow direction`s PPPoE Server MAC address */
 	uint16_t ingress_vlan_tag;		/* Ingress VLAN tag */
@@ -371,6 +372,7 @@ struct nss_ipv4_rule_establish {
 	uint32_t return_ip_xlate;		/* Translated return IP address */
 	uint32_t return_ident;			/* Return ident (e.g. port) */
 	uint32_t return_ident_xlate;		/* Translated return ident (e.g. port) */
+	uint16_t return_mac[3];			/* Return direction source MAC address */
 	uint16_t return_pppoe_session_id;	/* Return direction's PPPoE session ID. */
 	uint16_t return_pppoe_remote_mac[3];	/* Return direction's PPPoE Server MAC address */
 	uint16_t egress_vlan_tag;		/* Egress VLAN tag */
@@ -433,6 +435,7 @@ struct nss_ipv6_rule_establish {
 	uint32_t flow_mtu;			/* MTU for flow interface */
 	uint32_t flow_ip[4];			/* Flow IP address */
 	uint32_t flow_ident;			/* Flow ident (e.g. port) */
+	uint16_t flow_mac[3];			/* Flow direction source MAC address */
 	uint16_t flow_pppoe_session_id;		/* Flow direction`s PPPoE session ID. */
 	uint16_t flow_pppoe_remote_mac[3];	/* Flow direction`s PPPoE Server MAC address */
 	uint16_t ingress_vlan_tag;		/* Ingress VLAN tag */
@@ -440,6 +443,7 @@ struct nss_ipv6_rule_establish {
 	uint32_t return_mtu;			/* MTU for return interface */
 	uint32_t return_ip[4];			/* Return IP address */
 	uint32_t return_ident;			/* Return ident (e.g. port) */
+	uint16_t return_mac[3];			/* Return direction source MAC address */
 	uint16_t return_pppoe_session_id;	/* Return direction's PPPoE session ID. */
 	uint16_t return_pppoe_remote_mac[3];	/* Return direction's PPPoE Server MAC address */
 	uint16_t egress_vlan_tag;		/* Egress VLAN tag */
