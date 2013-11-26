@@ -67,7 +67,7 @@ MODULE_PARM_DESC(string1, "NSS Core 1 identification string");
  * Global declarations
  */
 int nss_ctl_redirect __read_mostly = 0;
-
+int nss_ctl_debug __read_mostly = 0;
 
 /*
  * Handler to send NSS messages
@@ -557,6 +557,25 @@ static int nss_get_freq_table_handler (ctl_table *ctl, int write, void __user *b
 }
 
 /*
+ * nss_debug_handler()
+ *	Enable NSS debug output
+ */
+static int nss_debug_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	int ret;
+
+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+	if (!ret) {
+		if ((write) && (nss_ctl_debug != 0)) {
+			printk("Enabling NSS SPI Debug\n");
+			nss_hal_debug_enable();
+		}
+	}
+
+	return ret;
+}
+
+/*
  * sysctl-tuning infrastructure.
  */
 static ctl_table nss_freq_table[] = {
@@ -591,6 +610,13 @@ static ctl_table nss_general_table[] = {
 		.maxlen                 = sizeof(int),
 		.mode                   = 0644,
 		.proc_handler   = proc_dointvec,
+	},
+	{
+		.procname               = "debug",
+		.data                   = &nss_ctl_debug,
+		.maxlen                 = sizeof(int),
+		.mode                   = 0644,
+		.proc_handler   = &nss_debug_handler,
 	},
 	{ }
 };

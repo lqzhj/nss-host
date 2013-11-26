@@ -36,7 +36,7 @@ static int32_t nss_send_c2c_map(struct nss_ctx_instance *nss_own, struct nss_ctx
 
 	nss_info("%p: C2C map:%x\n", nss_own, nss_other->c2c_start);
 
-	nbuf = __dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE, GFP_ATOMIC);
+	nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
 	if (unlikely(!nbuf)) {
 		spin_lock_bh(&nss_own->nss_top->stats_lock);
 		nss_own->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
@@ -433,7 +433,7 @@ static int32_t nss_core_handle_cause_nonqueue (struct int_ctx_instance *int_ctx,
 		while (count) {
 			struct h2n_descriptor *desc = &(desc_if->desc[hlos_index]);
 
-			nbuf = __dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE, GFP_ATOMIC | __GFP_NOWARN);
+			nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
 			if (unlikely(!nbuf)) {
 				/*
 				 * ERR:

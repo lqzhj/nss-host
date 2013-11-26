@@ -80,4 +80,12 @@ static inline void nss_hal_send_interrupt(uint32_t map, uint32_t irq, uint32_t c
 	__nss_hal_send_interrupt(map, irq, cause);
 }
 
+/*
+ * nss_hal_debug_enable()
+ */
+static inline void nss_hal_debug_enable(void)
+{
+	__nss_hal_debug_enable();
+}
+
 #endif /* __NSS_HAL_H */
