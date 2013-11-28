@@ -492,7 +492,7 @@ struct nss_ipv6_rule_sync {
  */
 struct nss_l2switch_rule_establish {
 	uint32_t index;			/* Slot ID for cache stats to host OS */
-	int32_t interface_num;          /* Interface number */
+	int32_t interface_num;		/* Interface number */
 	uint16_t mac_addr[3];		/* MAC Adress */
 };
 
@@ -668,6 +668,28 @@ enum exception_events_pppoe {
 };
 
 /*
+ *  The NSS tun6rd statistics sync structure.
+ */
+struct nss_tun6rd_stats_sync {
+	int32_t interface;		/* Interface number */
+	uint32_t rx_packets;		/* Number of packets received */
+	uint32_t rx_bytes;		/* Number of bytes received */
+	uint32_t tx_packets;		/* Number of packets transmitted */
+	uint32_t tx_bytes;		/* Number of bytes transmitted */
+};
+
+/*
+ * The NSS tunipip6 statistics sync structure.
+ */
+struct nss_tunipip6_stats_sync {
+	int32_t interface;		/* Interface number */
+	uint32_t rx_packets;		/* Number of packets received */
+	uint32_t rx_bytes;		/* Number of bytes received */
+	uint32_t tx_packets;		/* Number of packets transmitted */
+	uint32_t tx_bytes;		/* Number of bytes transmitted */
+};
+
+/*
  * The NSS per-interface statistics sync structure.
  */
 struct nss_interface_stats_sync {
@@ -831,6 +853,8 @@ enum nss_rx_metadata_types {
 	NSS_RX_METADATA_TYPE_PROFILER_SYNC,
 	NSS_RX_METADATA_TYPE_FREQ_ACK,
 	NSS_RX_METADATA_TYPE_CORE_STATS,
+	NSS_RX_METADATA_TYPE_TUN6RD_STATS_SYNC,
+	NSS_RX_METADATA_TYPE_TUNIPIP6_STATS_SYNC,
 };
 
 /*
@@ -853,6 +877,8 @@ struct nss_rx_metadata_object {
 		struct nss_profiler_sync profiler_sync;
 		struct nss_freq_ack freq_ack;
 		struct nss_core_stats core_stats;
+		struct nss_tun6rd_stats_sync tun6rd_stats_sync;
+		struct nss_tunipip6_stats_sync tunipip6_stats_sync;
 	} sub;
 };
 

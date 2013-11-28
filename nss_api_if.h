@@ -550,6 +550,22 @@ typedef enum {
 } nss_gmac_event_t;
 
 /**
+ * NSS 6rd tunnel event type
+ */
+typedef enum {
+	NSS_TUN6RD_EVENT_STATS,
+	NSS_TUN6RD_EVENT_MAX
+} nss_tun6rd_event_t;
+
+/**
+ * NSS ipip6 tunnel event type
+ */
+typedef enum {
+	NSS_TUNIPIP6_EVENT_STATS,
+	NSS_TUNIPIP6_EVENT_MAX
+} nss_tunipip6_event_t;
+
+/**
  * General utilities
  */
 
@@ -1028,9 +1044,19 @@ extern nss_tx_status_t nss_tx_generic_if_buf(void *nss_ctx, uint32_t if_num, uin
  */
 
 /**
+ * Callback to receive tun6rd events
+ */
+typedef void (*nss_tun6rd_if_event_callback_t)(void *if_ctx, nss_tun6rd_event_t ev_type, void *buf, uint32_t len);
+
+/**
  * Callback to receive 6rd callback
  */
 typedef void (*nss_tun6rd_callback_t)(void *ctx, void *os_buf);
+
+/**
+ * Callback to receive tunipip6 events
+ */
+typedef void (*nss_tunipip6_if_event_callback_t)(void *if_ctx, nss_tunipip6_event_t ev_type, void *buf, uint32_t len);
 
 /**
  * Callback to receive ipip6 callback
@@ -1045,7 +1071,7 @@ typedef void (*nss_tunipip6_callback_t)(void *ctx, void *os_buf);
  *
  * @return void* NSS context
  */
-extern void *nss_register_tun6rd_if(uint32_t if_num, nss_tun6rd_callback_t tun6rd_callback, void *ctx);
+extern void *nss_register_tun6rd_if(uint32_t if_num, nss_tun6rd_callback_t tun6rd_callback, nss_tun6rd_if_event_callback_t event_callback, void *ctx);
 
 /**
  * @brief Unregister 6rd tunnel interface with NSS
@@ -1060,7 +1086,7 @@ extern void nss_unregister_tun6rd_if(uint32_t if_num);
  *
  * @return void* NSS context
  */
-extern void *nss_register_tunipip6_if(uint32_t if_num, nss_tunipip6_callback_t tunipip6_callback, void *ctx);
+extern void *nss_register_tunipip6_if(uint32_t if_num, nss_tunipip6_callback_t tunipip6_callback, nss_tunipip6_if_event_callback_t event_callback, void *ctx);
 
 /**
  * @brief Unregister ipip6 tunnel interface with NSS

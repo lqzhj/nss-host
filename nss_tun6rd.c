@@ -69,6 +69,8 @@
 #endif
 
 void nss_tun6rd_exception(void *ctx, void *buf);
+void nss_tun6rd_event_receive(void *ctx, nss_tun6rd_event_t ev_type,
+			      void *os_buf, uint32_t len);
 
 enum tun6rd_metadata_types {
 	TUN6RD_METADATA_TYPE_IF_UP,
@@ -116,6 +118,16 @@ struct nss_tun6rd_tunnel{
 	uint32_t if_num;
 	struct net_device *netdev;
 	uint32_t device_up;
+};
+
+/*
+ * 6rd tunnel stats
+ */
+struct nss_tun6rd_stats{
+	uint32_t rx_packets;
+	uint32_t rx_bytes;
+	uint32_t tx_packets;
+	uint32_t tx_bytes;
 };
 
 struct nss_tun6rd_tunnel g_tun6rd;
@@ -236,6 +248,7 @@ void nss_tun6rd_dev_up( struct net_device * netdev)
 	 */
 	g_tun6rd.nss_ctx = nss_register_tun6rd_if(g_tun6rd.if_num,
 				nss_tun6rd_exception,
+				nss_tun6rd_event_receive,
 				netdev);
 	if (g_tun6rd.nss_ctx == NULL) {
 		nss_tun6rd_trace("nss_register_tun6rd_if Failed \n");
@@ -252,7 +265,7 @@ void nss_tun6rd_dev_up( struct net_device * netdev)
 	 */
 	status = nss_tx_generic_if_buf(g_tun6rd.nss_ctx,
 			g_tun6rd.if_num,
-		       	(uint8_t *)&tun6rdparam,
+			(uint8_t *)&tun6rdparam,
 			sizeof(struct nss_tunnel_6rd_param));
 
 	if (status != NSS_TX_SUCCESS) {
@@ -402,6 +415,50 @@ void nss_tun6rd_exception(void *ctx, void *buf)
 	skb->skb_iif = dev->ifindex;
 	skb->ip_summed = CHECKSUM_NONE;
 	netif_receive_skb(skb);
+}
+
+/*
+ *  nss_tun6rd_update_dev_stats
+ *	Update the Dev stats received from NetAp
+ */
+static void nss_tun6rd_update_dev_stats(struct net_device *dev,
+					struct nss_tun6rd_stats_sync *tun6rdstats)
+{
+	void *ptr;
+	struct nss_tun6rd_stats stats;
+
+	stats.rx_packets = tun6rdstats->rx_packets;
+	stats.rx_bytes = tun6rdstats->rx_bytes;
+	stats.tx_packets = tun6rdstats->tx_packets;
+	stats.tx_bytes = tun6rdstats->tx_bytes;
+	ptr = (void *)&stats;
+	ipip6_update_offload_stats(dev, ptr);
+}
+
+/**
+ * @brief Event Callback to receive events from NSS
+ * @param[in] pointer to net device context
+ * @param[in] event type
+ * @param[in] pointer to buffer
+ * @param[in] length of buffer
+ * @return Returns void
+ */
+void nss_tun6rd_event_receive(void *if_ctx, nss_tun6rd_event_t ev_type,
+			    void *os_buf, uint32_t len)
+{
+	struct net_device *netdev = NULL;
+	netdev = (struct net_device *)if_ctx;
+
+	switch (ev_type) {
+	case NSS_TUN6RD_EVENT_STATS:
+		nss_tun6rd_update_dev_stats(netdev, (struct nss_tun6rd_stats_sync *)os_buf );
+		break;
+
+	default:
+		nss_tun6rd_info("%s: Unknown Event from NSS",
+			      __FUNCTION__);
+		break;
+	}
 }
 
 /*

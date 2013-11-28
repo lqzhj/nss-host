@@ -190,17 +190,17 @@ static void nss_rx_metadata_ipv4_rule_sync(struct nss_ctx_instance *nss_ctx, str
 	if (nirs->flow_pppoe_session_id) {
 		pppoe_dev = ppp_session_to_netdev(nirs->flow_pppoe_session_id, (uint8_t *)nirs->flow_pppoe_remote_mac);
 		if (pppoe_dev) {
-	                ppp_update_stats(pppoe_dev, nirs->flow_rx_packet_count, nirs->flow_rx_byte_count,
-                                        nirs->flow_tx_packet_count, nirs->flow_tx_byte_count);
+			ppp_update_stats(pppoe_dev, nirs->flow_rx_packet_count, nirs->flow_rx_byte_count,
+					nirs->flow_tx_packet_count, nirs->flow_tx_byte_count);
 			dev_put(pppoe_dev);
 		}
-        }
+	}
 
 	if (nirs->return_pppoe_session_id) {
 		pppoe_dev = ppp_session_to_netdev(nirs->return_pppoe_session_id, (uint8_t *)nirs->return_pppoe_remote_mac);
 		if (pppoe_dev) {
-	                ppp_update_stats(pppoe_dev, nirs->return_rx_packet_count, nirs->return_rx_byte_count,
-                                        nirs->return_tx_packet_count, nirs->return_tx_byte_count);
+			ppp_update_stats(pppoe_dev, nirs->return_rx_packet_count, nirs->return_rx_byte_count,
+					nirs->return_tx_packet_count, nirs->return_tx_byte_count);
 			dev_put(pppoe_dev);
 		}
        }
@@ -307,10 +307,10 @@ static void nss_rx_metadata_ipv6_rule_sync(struct nss_ctx_instance *nss_ctx, str
 		pppoe_dev = ppp_session_to_netdev(nirs->flow_pppoe_session_id, (uint8_t *)nirs->flow_pppoe_remote_mac);
 		if (pppoe_dev) {
 			ppp_update_stats(pppoe_dev, nirs->flow_rx_packet_count, nirs->flow_rx_byte_count,
-                                        nirs->flow_tx_packet_count, nirs->flow_tx_byte_count);
+					nirs->flow_tx_packet_count, nirs->flow_tx_byte_count);
 			dev_put(pppoe_dev);
 		}
-        }
+	}
 
 	if (nirs->return_pppoe_session_id) {
 		pppoe_dev = ppp_session_to_netdev(nirs->return_pppoe_session_id, (uint8_t *)nirs->return_pppoe_remote_mac);
@@ -372,6 +372,67 @@ nss_tx_status_t nss_freq_change(void *ctx, uint32_t eng, uint32_t start_or_end)
 	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit, NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
 
 	return NSS_TX_SUCCESS;
+}
+
+/*
+ * nss_rx_metadata_tun6rd_stats_sync()
+ *	Handle the syncing of 6rd tunnel stats.
+ */
+static void nss_rx_metadata_tun6rd_stats_sync(struct nss_ctx_instance *nss_ctx, struct nss_tun6rd_stats_sync *ntun6rdss)
+{
+	void *ctx;
+	nss_tun6rd_if_event_callback_t cb;
+	struct nss_top_instance *nss_top = nss_ctx->nss_top;
+	uint32_t id = ntun6rdss->interface;
+
+	if (id >= NSS_MAX_NET_INTERFACES) {
+		nss_warning("%p: Callback received for invalid interface %d", nss_ctx, id);
+		return;
+	}
+
+	ctx = nss_top->if_ctx[id];
+	cb = nss_top->tun6rd_if_event_callback;
+
+	/*
+	 * call 6rd tunnel callback
+	 */
+	if (!cb || !ctx) {
+		nss_warning("%p: Event received for 6rd tunnel interface %d before registration", nss_ctx, ntun6rdss->interface);
+		return;
+	}
+
+	cb(ctx, NSS_TUN6RD_EVENT_STATS, (void *)ntun6rdss, sizeof(struct nss_tun6rd_stats_sync));
+}
+
+/*
+ * nss_rx_metadata_tunipip6_stats_sync()
+ *	Handle the syncing of ipip6 tunnel stats.
+ */
+static void nss_rx_metadata_tunipip6_stats_sync(struct nss_ctx_instance *nss_ctx, struct nss_tunipip6_stats_sync *ntunipip6ss)
+{
+	void *ctx;
+	nss_tunipip6_if_event_callback_t cb;
+	struct nss_top_instance *nss_top = nss_ctx->nss_top;
+	uint32_t id = ntunipip6ss->interface;
+
+	if (id >= NSS_MAX_NET_INTERFACES) {
+		nss_warning("%p: Callback received for invalid interface %d", nss_ctx, id);
+		return;
+	}
+
+	ctx = nss_top->if_ctx[id];
+	cb = nss_top->tunipip6_if_event_callback;
+
+	/*
+	 * call ipip6 tunnel callback
+	 */
+
+	if (!cb || !ctx) {
+		nss_warning("%p: Event received for ipip6 tunnel interface %d before registration", nss_ctx, ntunipip6ss->interface);
+		return;
+	}
+
+	cb(ctx, NSS_TUNIPIP6_EVENT_STATS, (void *)ntunipip6ss, sizeof(struct nss_tunipip6_stats_sync));
 }
 
 /*
@@ -609,10 +670,10 @@ static void nss_tx_destroy_pppoe_connection_rule(void *ctx, uint16_t pppoe_sessi
 		}
 	}
 
-        nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_CREATE_REQUESTS] = 0;
-        nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_CREATE_FAILURES] = 0;
-        nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_DESTROY_REQUESTS] = 0;
-        nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_DESTROY_MISSES] = 0;
+	nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_CREATE_REQUESTS] = 0;
+	nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_CREATE_FAILURES] = 0;
+	nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_DESTROY_REQUESTS] = 0;
+	nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_DESTROY_MISSES] = 0;
 
 	/*
 	 * TODO: Do we need to unregister the destroy method? The ppp_dev has already gone.
@@ -631,7 +692,7 @@ static void nss_rx_metadata_pppoe_rule_create_success(struct nss_ctx_instance *n
 	if (!ppp_dev) {
 		nss_warning("%p: There is not any PPP devices with SID: %x remote MAC: %x:%x:%x:%x:%x:%x", nss_ctx, pcs->pppoe_session_id,
 			pcs->pppoe_remote_mac[0], pcs->pppoe_remote_mac[1], pcs->pppoe_remote_mac[2],
-                        pcs->pppoe_remote_mac[3], pcs->pppoe_remote_mac[4], pcs->pppoe_remote_mac[5]);
+			pcs->pppoe_remote_mac[3], pcs->pppoe_remote_mac[4], pcs->pppoe_remote_mac[5]);
 
 		return;
 	}
@@ -828,6 +889,14 @@ void nss_rx_handle_status_pkt(struct nss_ctx_instance *nss_ctx, struct sk_buff *
 
 	case NSS_RX_METADATA_TYPE_CORE_STATS:
 		nss_rx_metadata_nss_core_stats(nss_ctx, &nrmo->sub.core_stats);
+		break;
+
+	case NSS_RX_METADATA_TYPE_TUN6RD_STATS_SYNC:
+		nss_rx_metadata_tun6rd_stats_sync(nss_ctx, &nrmo->sub.tun6rd_stats_sync);
+		break;
+
+	case NSS_RX_METADATA_TYPE_TUNIPIP6_STATS_SYNC:
+		nss_rx_metadata_tunipip6_stats_sync(nss_ctx, &nrmo->sub.tunipip6_stats_sync);
 		break;
 
 	default:
@@ -1858,7 +1927,7 @@ int32_t nss_get_interface_number(void *ctx, void *dev)
 
 /*
  * nss_get_interface_dev()
- *      Return the net_device for NSS interface id.
+ *	Return the net_device for NSS interface id.
  *
  * Returns NULL on failure or the net_device for NSS interface id.
  */
@@ -2236,12 +2305,15 @@ void nss_unregister_ipsec_if(uint32_t if_num)
 /*
  * nss_register_tun6rd_if()
  */
-void *nss_register_tun6rd_if(uint32_t if_num, nss_tun6rd_callback_t tun6rd_callback, void *if_ctx)
+void *nss_register_tun6rd_if(uint32_t if_num,
+				nss_tun6rd_callback_t tun6rd_callback,
+				nss_tun6rd_if_event_callback_t event_callback, void *if_ctx)
 {
 	nss_assert((if_num >= NSS_MAX_VIRTUAL_INTERFACES) && (if_num < NSS_MAX_NET_INTERFACES));
 
 	nss_top_main.if_ctx[if_num] = if_ctx;
 	nss_top_main.if_rx_callback[if_num] = tun6rd_callback;
+	nss_top_main.tun6rd_if_event_callback = event_callback;
 
 	return (void *)&nss_top_main.nss[nss_top_main.tun6rd_handler_id];
 }
@@ -2255,17 +2327,21 @@ void nss_unregister_tun6rd_if(uint32_t if_num)
 
 	nss_top_main.if_rx_callback[if_num] = NULL;
 	nss_top_main.if_ctx[if_num] = NULL;
+	nss_top_main.tun6rd_if_event_callback = NULL;
 }
 
 /*
  * nss_register_tunipip6_if()
  */
-void *nss_register_tunipip6_if(uint32_t if_num, nss_tunipip6_callback_t tunipip6_callback, void *if_ctx)
+void *nss_register_tunipip6_if(uint32_t if_num,
+				nss_tunipip6_callback_t tunipip6_callback,
+				nss_tunipip6_if_event_callback_t event_callback, void *if_ctx)
 {
 	nss_assert((if_num >= NSS_MAX_VIRTUAL_INTERFACES) && (if_num < NSS_MAX_NET_INTERFACES));
 
 	nss_top_main.if_ctx[if_num] = if_ctx;
 	nss_top_main.if_rx_callback[if_num] = tunipip6_callback;
+	nss_top_main.tunipip6_if_event_callback = event_callback;
 
 	return (void *)&nss_top_main.nss[nss_top_main.tunipip6_handler_id];
 }
@@ -2279,6 +2355,7 @@ void nss_unregister_tunipip6_if(uint32_t if_num)
 
 	nss_top_main.if_rx_callback[if_num] = NULL;
 	nss_top_main.if_ctx[if_num] = NULL;
+	nss_top_main.tunipip6_if_event_callback = NULL;
 }
 
 /*
