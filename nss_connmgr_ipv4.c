@@ -443,6 +443,8 @@ static struct neighbour *nss_connmgr_ipv4_neigh_get(ipv4_addr_t addr)
 
 	if (!neigh) {
 		neigh = neigh_lookup(&arp_tbl, &addr, dst->dev);
+	} else {
+		neigh_hold(neigh);
 	}
 
 	dst_release(dst);
@@ -475,12 +477,14 @@ static int nss_connmgr_ipv4_mac_addr_get(ipv4_addr_t addr, mac_addr_t mac_addr)
 
 	if (!(neigh->nud_state & NUD_VALID)) {
 		rcu_read_unlock();
+		neigh_release(neigh);
 		NSS_CONNMGR_DEBUG_WARN("NUD Invalid \n");
 		return -2;
 	}
 
 	if (!neigh->dev) {
 		rcu_read_unlock();
+		neigh_release(neigh);
 		NSS_CONNMGR_DEBUG_WARN("Neigh Dev Invalid \n");
 		return -3;
 	}
@@ -488,6 +492,7 @@ static int nss_connmgr_ipv4_mac_addr_get(ipv4_addr_t addr, mac_addr_t mac_addr)
 	memcpy(mac_addr, neigh->ha, (size_t)neigh->dev->addr_len);
 
 	rcu_read_unlock();
+	neigh_release(neigh);
 
 	/*
 	 * If this mac looks like a multicast then it MAY be either truly multicast or it could be broadcast
@@ -2269,6 +2274,7 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 		if (!final_sync) {
 			neigh_update(neigh, NULL, neigh->nud_state, NEIGH_UPDATE_F_WEAK_OVERRIDE);
 		}
+		neigh_release(neigh);
 	} else {
 		NSS_CONNMGR_DEBUG_TRACE("Neighbour entry could not be found for onward flow\n");
 	}
@@ -2281,6 +2287,7 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 		if (!final_sync) {
 			neigh_update(neigh, NULL, neigh->nud_state, NEIGH_UPDATE_F_WEAK_OVERRIDE);
 		}
+		neigh_release(neigh);
 	} else {
 		NSS_CONNMGR_DEBUG_TRACE("Neighbour entry could not be found for return flow\n");
 	}

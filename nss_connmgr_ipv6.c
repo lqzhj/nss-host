@@ -450,6 +450,8 @@ static struct neighbour *nss_connmgr_ipv6_neigh_get(ipv6_addr_t addr) {
 
 	if (!neigh) {
 		neigh = neigh_lookup(&nd_tbl, &daddr, dst->dev);
+	} else {
+		neigh_hold(neigh);
 	}
 
 	/* Release dst reference */
@@ -483,18 +485,22 @@ static int nss_connmgr_ipv6_mac_addr_get(ipv6_addr_t addr, mac_addr_t mac_addr)
 
 	if (!(neigh->nud_state & NUD_VALID)) {
 		rcu_read_unlock();
+		neigh_release(neigh);
 		NSS_CONNMGR_DEBUG_WARN("NUD Invalid \n");
 		return -2;
 	}
 
 	if (!neigh->dev) {
 		rcu_read_unlock();
+		neigh_release(neigh);
 		NSS_CONNMGR_DEBUG_WARN("Neigh Dev Invalid \n");
 		return -3;
 	}
 
 	memcpy(mac_addr, neigh->ha, (size_t)neigh->dev->addr_len);
+
 	rcu_read_unlock();
+	neigh_release(neigh);
 
 	/*
 	 * If this mac looks like a multicast then it MAY be either truly multicast or it could be broadcast
@@ -2153,6 +2159,7 @@ static void nss_connmgr_ipv6_net_dev_callback(struct nss_ipv6_cb_params *nicp)
 		if (!sync->final_sync) {
 			neigh_update(neigh, NULL, neigh->nud_state, NEIGH_UPDATE_F_WEAK_OVERRIDE);
 		}
+		neigh_release(neigh);
 	} else {
 		NSS_CONNMGR_DEBUG_TRACE("Neighbour entry could not be found for onward flow\n");
 	}
@@ -2167,6 +2174,7 @@ static void nss_connmgr_ipv6_net_dev_callback(struct nss_ipv6_cb_params *nicp)
 		if (!sync->final_sync) {
 			neigh_update(neigh, NULL, neigh->nud_state, NEIGH_UPDATE_F_WEAK_OVERRIDE);
 		}
+		neigh_release(neigh);
 	} else {
 		NSS_CONNMGR_DEBUG_TRACE("Neighbour entry could not be found for return flow\n");
 	}
@@ -2592,8 +2600,8 @@ static ssize_t nss_connmgr_ipv6_read_stats(struct file *fp, char __user *ubuf, s
 			state[j] = nss_connmgr_ipv6.connection[i+j].state;
 			src_port[j] = nss_connmgr_ipv6.connection[i+j].src_port;
 			dest_port[j] = nss_connmgr_ipv6.connection[i+j].dest_port;
-			memcpy(src_addr[j], nss_connmgr_ipv6.connection[i].src_addr, sizeof(src_addr[j]));
-			memcpy(dest_addr[j], nss_connmgr_ipv6.connection[i].dest_addr, sizeof(dest_addr[j]));
+			memcpy(src_addr[j], nss_connmgr_ipv6.connection[i+j].src_addr, 16);
+			memcpy(dest_addr[j], nss_connmgr_ipv6.connection[i+j].dest_addr, 16);
 			protocol[j] = nss_connmgr_ipv6.connection[i+j].protocol;
 		}
 
