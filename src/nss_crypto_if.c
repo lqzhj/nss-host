@@ -27,6 +27,8 @@
 extern struct nss_crypto_ctrl gbl_crypto_ctrl;
 
 void *nss_drv_hdl;
+void *nss_pm_hdl;
+
 /*
  * internal structure for a buffer node
  */
@@ -240,12 +242,22 @@ EXPORT_SYMBOL(nss_crypto_transform_payload);
  * 	initialize the crypto driver
  *
  * this will do the following
+ * - Bring Power management perf level to TURBO
  * - register itself to the NSS HLOS driver
  * - wait for the NSS to be ready
  * - initialize the control component
  */
 void nss_crypto_init(void)
 {
+	nss_pm_interface_status_t status;
+
+	nss_pm_hdl = nss_pm_client_register(NSS_PM_CLIENT_CRYPTO);
+
+	status = nss_pm_set_perf_level(nss_pm_hdl,  NSS_PM_PERF_LEVEL_TURBO);
+	if (status == NSS_PM_API_FAILED) {
+		nss_crypto_info(" Not able to set pm perf level to TURBO!!!\n");
+	}
+
 	nss_crypto_info("Waiting for NSS \n");
 
 	nss_drv_hdl = nss_register_crypto_if(nss_crypto_transform_done, &user_head);
