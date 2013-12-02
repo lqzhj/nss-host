@@ -1835,7 +1835,7 @@ nss_tx_status_t nss_tx_virt_if_rxbuf(void *ctx, struct sk_buff *os_buf)
 	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[nss_top_main.ipv4_handler_id];
 	int32_t if_num = (int32_t)ctx;
 
-	if (unlikely(nss_ctl_redirect == 0)) {
+	if (unlikely(nss_ctl_redirect == 0) || unlikely(os_buf->vlan_tci)) {
 		return NSS_TX_FAILURE_NOT_SUPPORTED;
 	}
 
@@ -2152,6 +2152,11 @@ void *nss_create_virt_if(struct net_device *if_ctx)
 	struct nss_virtual_interface_create *nvic;
 	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[nss_top_main.ipv4_handler_id];
 
+	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
+		nss_warning("Interface could not be created as core not ready");
+		return NULL;
+	}
+
 	/*
 	 * Check if net_device is Ethernet type
 	 */
@@ -2232,6 +2237,11 @@ nss_tx_status_t nss_destroy_virt_if(void *ctx)
 	struct nss_virtual_interface_destroy *nvid;
 	struct net_device *dev;
 	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[nss_top_main.ipv4_handler_id];
+
+	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
+		nss_warning("Interface could not be destroyed as core not ready");
+		return NSS_TX_FAILURE_NOT_READY;
+	}
 
 	if_num = (int32_t)ctx;
 	nss_assert(NSS_IS_VIRTUAL_INTERFACE(if_num));
