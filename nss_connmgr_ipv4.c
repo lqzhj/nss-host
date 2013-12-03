@@ -2240,12 +2240,6 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 		break;
 	}
 
-	/* For ipsec tunnel interfaces (virtual interface) , no arp processing is required */
-	if ((connection->src_interface == NSS_C2C_TX_INTERFACE) ||
-			(connection->dest_interface ==  NSS_C2C_TX_INTERFACE)) {
-		goto out;
-	}
-
 	flow_dev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->src_interface);
 	if (unlikely(!flow_dev)) {
 		NSS_CONNMGR_DEBUG_WARN("Invalid src dev reference from NSS \n");
