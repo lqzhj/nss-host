@@ -255,7 +255,7 @@ static void nss_notify_linkup(nss_gmac_dev *gmacdev)
 void nss_gmac_linkup(nss_gmac_dev *gmacdev)
 {
 	struct net_device *netdev = gmacdev->netdev;
-
+	uint32_t gmac_tx_desc = 0, gmac_rx_desc = 0;
 	nss_gmac_spare_ctl(gmacdev);
 
 	if (nss_gmac_check_phy_init(gmacdev) != 0) {
@@ -287,8 +287,12 @@ void nss_gmac_linkup(nss_gmac_dev *gmacdev)
 	nss_gmac_mac_init(gmacdev);
 
 	if (gmacdev->notify_open == 0) {
+		/*
+		 * The NSS allocates the descriptors in TCM, so it
+		 * does not expect descriptors from host.
+		 */
 		if (nss_tx_phys_if_open(gmacdev->nss_gmac_ctx,
-				     gmacdev->tx_desc_dma, gmacdev->rx_desc_dma,
+				     gmac_tx_desc, gmac_rx_desc,
 				     gmacdev->macid) != NSS_TX_SUCCESS) {
 			nss_gmac_info(gmacdev,
 				      "%s: NSS open command un-successful",

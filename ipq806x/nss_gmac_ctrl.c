@@ -231,6 +231,10 @@ void nss_gmac_linux_powerup_mac(nss_gmac_dev *gmacdev)
 static int32_t nss_gmac_setup_tx_desc_queue(nss_gmac_dev *gmacdev,
 					    struct device *dev,
 					    uint32_t no_of_desc,
+					    uint32_t desc_mode) __attribute__((unused));
+static int32_t nss_gmac_setup_tx_desc_queue(nss_gmac_dev *gmacdev,
+					    struct device *dev,
+					    uint32_t no_of_desc,
 					    uint32_t desc_mode)
 {
 	int32_t i;
@@ -304,6 +308,10 @@ static int32_t nss_gmac_setup_tx_desc_queue(nss_gmac_dev *gmacdev,
 static int32_t nss_gmac_setup_rx_desc_queue(nss_gmac_dev *gmacdev,
 					    struct device *dev,
 					    uint32_t no_of_desc,
+					    uint32_t desc_mode) __attribute__((unused));
+static int32_t nss_gmac_setup_rx_desc_queue(nss_gmac_dev *gmacdev,
+					    struct device *dev,
+					    uint32_t no_of_desc,
 					    uint32_t desc_mode)
 {
 	int32_t i;
@@ -372,6 +380,9 @@ static int32_t nss_gmac_setup_rx_desc_queue(nss_gmac_dev *gmacdev,
  */
 static void nss_gmac_giveup_rx_desc_queue(nss_gmac_dev *gmacdev,
 					  struct device *dev,
+					  uint32_t desc_mode) __attribute__((unused));
+static void nss_gmac_giveup_rx_desc_queue(nss_gmac_dev *gmacdev,
+					  struct device *dev,
 					  uint32_t desc_mode)
 {
 	int32_t i;
@@ -424,6 +435,9 @@ static void nss_gmac_giveup_rx_desc_queue(nss_gmac_dev *gmacdev,
  * @note No reference should be made to descriptors once this function is called.
  * This function is invoked when the device is closed.
  */
+static void nss_gmac_giveup_tx_desc_queue(nss_gmac_dev *gmacdev,
+					  struct device *dev,
+					  uint32_t desc_mode) __attribute__((unused));
 static void nss_gmac_giveup_tx_desc_queue(nss_gmac_dev *gmacdev,
 					  struct device *dev,
 					  uint32_t desc_mode)
@@ -748,7 +762,6 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	struct net_device *netdev = NULL;
 	struct msm_nss_gmac_platform_data *gmaccfg = NULL;
 	nss_gmac_dev *gmacdev = NULL;
-	struct device *dev = &pdev->dev;
 	uint32_t ret = 0;
 	phy_interface_t phyif = 0;
 	uint8_t phy_id[MII_BUS_ID_SIZE + 3];
@@ -976,27 +989,6 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	nss_gmac_info(gmacdev, "%s MII_PHYSID2 - 0x%04x", netdev->name,
 		      nss_gmac_mii_rd_reg(gmacdev, gmacdev->phy_base, MII_PHYSID2));
 
-	/*
-	 * Set up the tx and rx descriptor queue/ring
-	 */
-	if (nss_gmac_setup_tx_desc_queue
-	    (gmacdev, dev, NSS_GMAC_TX_DESC_SIZE, RINGMODE) != 0) {
-		nss_gmac_info(gmacdev, "Error in setup TX descriptor");
-		ret = -ENOMEM;
-		goto nss_gmac_tx_fail;
-	}
-	nss_gmac_info(gmacdev, "GMAC%d Tx Desc alloc Ok.", gmacdev->macid);
-
-	if (nss_gmac_setup_rx_desc_queue
-	    (gmacdev, dev, NSS_GMAC_RX_DESC_SIZE, RINGMODE) != 0) {
-		nss_gmac_info(gmacdev, "Error in setup RX descriptor");
-		ret = -ENOMEM;
-		goto nss_gmac_rx_fail;
-	}
-	nss_gmac_info(gmacdev, "GMAC%d Rx Desc alloc Ok.", gmacdev->macid);
-
-	nss_gmac_tx_rx_desc_init(gmacdev);
-
 	test_and_set_bit(__NSS_GMAC_RXCSUM, &gmacdev->flags);
 	nss_gmac_ipc_offload_init(gmacdev);
 
@@ -1026,10 +1018,6 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 nss_gmac_reg_fail:
 	unregister_netdev(gmacdev->netdev);
 
-nss_gmac_rx_fail:
-	nss_gmac_giveup_tx_desc_queue(gmacdev, dev, RINGMODE);
-
-nss_gmac_tx_fail:
 	if (!IS_ERR_OR_NULL(gmacdev->phydev)) {
 		phy_disconnect(gmacdev->phydev);
 		gmacdev->phydev = NULL;
@@ -1062,7 +1050,6 @@ static int nss_gmac_remove(struct platform_device *pdev)
 {
 	struct net_device *netdev = NULL;
 	nss_gmac_dev *gmacdev = NULL;
-	struct device *dev = &pdev->dev;
 
 	gmacdev = ctx.nss_gmac[pdev->id];
 	if (!gmacdev) {
@@ -1074,11 +1061,6 @@ static int nss_gmac_remove(struct platform_device *pdev)
 
 	nss_unregister_phys_if(gmacdev->macid);
 
-	/*
-	 * Free the Descriptors
-	 */
-	nss_gmac_giveup_rx_desc_queue(gmacdev, dev, RINGMODE);
-	nss_gmac_giveup_tx_desc_queue(gmacdev, dev, RINGMODE);
 	if (!IS_ERR_OR_NULL(gmacdev->phydev)) {
 		phy_disconnect(gmacdev->phydev);
 		gmacdev->phydev = NULL;
