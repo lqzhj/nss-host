@@ -69,6 +69,7 @@ typedef struct {
 	uint32_t current_perf_lvl;
 	uint32_t auto_scale;
 	struct dentry *dentry;
+	nss_pm_client_t client_id;
 } nss_pm_client_data_t;
 
 /*

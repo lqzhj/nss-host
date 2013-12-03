@@ -611,10 +611,10 @@ void __nss_hal_common_reset(uint32_t *clk_src)
 	} while (wait_cycles-- > 0);
 
 	/*
-	 * PLL0 (800 MHZ) and div is set to 2/4.
-	 * Effective frequency = 200/400 Mhz for SRC0/1
+	 * PLL0 (800 MHZ) and div is set to 3/4.
+	 * Effective frequency = 266/400 Mhz for SRC0/1
 	 */
-	clk_reg_write_32(NSSTCM_CLK_SRC0_NS, 0x1a);
+	clk_reg_write_32(NSSTCM_CLK_SRC0_NS, 0x12);
 	clk_reg_write_32(NSSTCM_CLK_SRC1_NS, 0xa);
 
 	/*
