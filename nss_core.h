@@ -403,10 +403,20 @@ struct int_ctx_instance {
 };
 
 /*
+ * N2H descriptor ring information
+ */
+struct hlos_n2h_desc_ring {
+	struct n2h_desc_if_instance desc_if;
+					/* Descriptor ring */
+	uint32_t hlos_index;		/* Current HLOS index for this ring */
+};
+
+/*
  * H2N descriptor ring information
  */
 struct hlos_h2n_desc_rings {
 	struct h2n_desc_if_instance desc_ring;	/* Descriptor ring */
+	uint32_t hlos_index;
 	spinlock_t lock;			/* Lock to save from simultaneous access */
 	uint32_t flags;				/* Flags */
 	uint64_t tx_q_full_cnt;			/* Descriptor queue full count */
@@ -432,7 +442,7 @@ struct nss_ctx_instance {
 					/* Interrupt context instances */
 	struct hlos_h2n_desc_rings h2n_desc_rings[16];
 					/* Host to NSS descriptor rings */
-	struct n2h_desc_if_instance n2h_desc_if[15];
+	struct hlos_n2h_desc_ring n2h_desc_ring[15];
 					/* NSS to Host descriptor rings */
 	uint32_t max_buf_size;		/* Maximum buffer size */
 	nss_queue_decongestion_callback_t queue_decongestion_callback[NSS_MAX_CLIENTS];

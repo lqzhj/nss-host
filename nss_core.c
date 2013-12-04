@@ -38,9 +38,11 @@ static int32_t nss_send_c2c_map(struct nss_ctx_instance *nss_own, struct nss_ctx
 
 	nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
 	if (unlikely(!nbuf)) {
-		spin_lock_bh(&nss_own->nss_top->stats_lock);
-		nss_own->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
-		spin_unlock_bh(&nss_own->nss_top->stats_lock);
+		struct nss_top_instance *nss_top = nss_own->nss_top;
+
+		spin_lock_bh(&nss_top->stats_lock);
+		nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
+		spin_unlock_bh(&nss_top->stats_lock);
 		nss_warning("%p: Unable to allocate memory for 'C2C tx map'", nss_own);
 		return NSS_CORE_STATUS_FAILURE;
 	}
@@ -53,7 +55,7 @@ static int32_t nss_send_c2c_map(struct nss_ctx_instance *nss_own, struct nss_ctx
 	nctm->c2c_int_addr = (uint32_t)(nss_other->nphys) + NSS_REGS_C2C_INTR_SET_OFFSET;
 
 	status = nss_core_send_buffer(nss_own, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
-	if (status != NSS_CORE_STATUS_SUCCESS) {
+	if (unlikely(status != NSS_CORE_STATUS_SUCCESS)) {
 		dev_kfree_skb_any(nbuf);
 		nss_warning("%p: Unable to enqueue 'c2c tx map'\n", nss_own);
 		return NSS_CORE_STATUS_FAILURE;
@@ -73,7 +75,9 @@ static inline uint16_t nss_core_cause_to_queue(uint16_t cause)
 {
 	if (likely(cause == NSS_REGS_N2H_INTR_STATUS_DATA_COMMAND_QUEUE)) {
 		return NSS_IF_DATA_QUEUE;
-	} else if (cause == NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFER_QUEUE) {
+	}
+
+	if (likely(cause == NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFER_QUEUE)) {
 		return NSS_IF_EMPTY_BUFFER_QUEUE;
 	}
 
@@ -97,11 +101,14 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 	uint32_t nss_index, hlos_index;
 	struct sk_buff *nbuf;
 	struct net_device *ndev;
+	struct hlos_n2h_desc_ring *n2h_desc_ring;
 	struct n2h_desc_if_instance *desc_if;
+	struct n2h_descriptor *desc_ring;
 	struct n2h_descriptor *desc;
 	uint32_t nr_frags;
 	struct nss_ctx_instance *nss_ctx = int_ctx->nss_ctx;
-	struct nss_if_mem_map *if_map = (struct nss_if_mem_map *)(nss_ctx->vmap);
+	struct nss_top_instance *nss_top = nss_ctx->nss_top;
+	struct nss_if_mem_map *if_map = (struct nss_if_mem_map *)nss_ctx->vmap;
 
 	qid = nss_core_cause_to_queue(cause);
 
@@ -110,9 +117,11 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 	 */
 	nss_assert(qid < if_map->n2h_rings);
 
-	desc_if = &nss_ctx->n2h_desc_if[qid];
+	n2h_desc_ring = &nss_ctx->n2h_desc_ring[qid];
+	desc_if = &n2h_desc_ring->desc_if;
+	desc_ring = desc_if->desc;
 	nss_index = if_map->n2h_nss_index[qid];
-	hlos_index = if_map->n2h_hlos_index[qid];
+	hlos_index = n2h_desc_ring->hlos_index;
 	size = desc_if->size;
 	mask = size - 1;
 
@@ -133,10 +142,13 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 
 	count_temp = count;
 	while (count_temp) {
-		desc = &(desc_if->desc[hlos_index]);
+		unsigned int buffer_type;
+		desc = &desc_ring[hlos_index];
+		buffer_type = desc->buffer_type;
 
-		if (unlikely((desc->buffer_type == N2H_BUFFER_CRYPTO_RESP))) {
-			NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_RX_CRYPTO_RESP]);
+	if (unlikely((buffer_type == N2H_BUFFER_CRYPTO_RESP))) {
+			NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_CRYPTO_RESP]);
+
 
 			/*
 			 * This is a crypto buffer hence send it to crypto driver
@@ -147,6 +159,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 			 */
 			nss_rx_handle_crypto_buf(nss_ctx, desc->opaque, desc->buffer, desc->payload_len);
 		} else {
+			unsigned int interface_num = desc->interface_num;
 
 			/*
 			* Obtain nbuf
@@ -181,9 +194,9 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 			 * scattered segments and the first segment of SKB
 			 */
 
-			switch (desc->buffer_type) {
+			switch (buffer_type) {
 			case N2H_BUFFER_PACKET_VIRTUAL:
-				NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_RX_VIRTUAL]);
+				NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_VIRTUAL]);
 
 				/*
 				 * Checksum is already done by NSS for packets forwarded to virtual interfaces
@@ -193,10 +206,10 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 				/*
 				 * Obtain net_device pointer
 				 */
-				ndev = (struct net_device *)nss_ctx->nss_top->if_ctx[desc->interface_num];
+				ndev = (struct net_device *)nss_top->if_ctx[interface_num];
 				if (unlikely(ndev == NULL)) {
-					nss_warning("%p: Received packet for bad virtual interface %d",
-							nss_ctx, desc->interface_num);
+					nss_warning("%p: Received packet for unregistered virtual interface %d",
+							nss_ctx, interface_num);
 
 					/*
 					 * NOTE: The assumption is that gather support is not
@@ -219,7 +232,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 				break;
 
 			case N2H_BUFFER_PACKET:
-				NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_RX_PACKET]);
+				NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_PACKET]);
 
 				/*
 				 * Check if NSS was able to obtain checksum
@@ -229,14 +242,14 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 					nbuf->ip_summed = CHECKSUM_NONE;
 				}
 
-				ctx = nss_ctx->nss_top->if_ctx[desc->interface_num];
-				cb = nss_ctx->nss_top->if_rx_callback[desc->interface_num];
+				ctx = nss_top->if_ctx[interface_num];
+				cb = nss_top->if_rx_callback[interface_num];
 				if (likely(cb) && likely(ctx)) {
 					/*
 					 * Packet was received on Physical interface
 					 */
 					cb(ctx, (void *)nbuf);
-				} else if (NSS_IS_VIRTUAL_INTERFACE(desc->interface_num)) {
+				} else if (NSS_IS_VIRTUAL_INTERFACE(interface_num)) {
 					/*
 					 * Packet was received on Virtual interface
 					 */
@@ -260,7 +273,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 					 *
 					 * TODO: Change to gro receive later
 					 */
-					ctx = nss_ctx->nss_top->if_ctx[desc->interface_num];
+					ctx = nss_top->if_ctx[interface_num];
 					if (ctx) {
 						dev_hold(ctx);
 						netif_receive_skb(nbuf);
@@ -270,7 +283,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 						 * Interface has gone down
 						 */
 						nss_warning("%p: Received exception packet from bad virtual interface %d",
-								nss_ctx, desc->interface_num);
+								nss_ctx, interface_num);
 						dev_kfree_skb_any(nbuf);
 					}
 				} else {
@@ -279,13 +292,13 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 				break;
 
 			case N2H_BUFFER_STATUS:
-				NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_RX_STATUS]);
+				NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_STATUS]);
 				nss_rx_handle_status_pkt(nss_ctx, nbuf);
 				dev_kfree_skb_any(nbuf);
 				break;
 
 			case N2H_BUFFER_EMPTY:
-				NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_RX_EMPTY]);
+				NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_EMPTY]);
 
 				/*
 				 * TODO: Unmap fragments
@@ -297,7 +310,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 				/*
 				 * ERROR:
 				 */
-				nss_warning("%p: Invalid buffer type %d received from NSS", nss_ctx, desc->buffer_type);
+				nss_warning("%p: Invalid buffer type %d received from NSS", nss_ctx, buffer_type);
 			}
 		}
 
@@ -305,6 +318,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 		count_temp--;
 	}
 
+	n2h_desc_ring->hlos_index = hlos_index;
 	if_map->n2h_hlos_index[qid] = hlos_index;
 	return count;
 }
@@ -316,6 +330,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 static void nss_core_init_nss(struct nss_ctx_instance *nss_ctx, struct nss_if_mem_map *if_map)
 {
 	int32_t i;
+	struct nss_top_instance *nss_top;
 
 	/*
 	 * NOTE: A commonly found error is that sizes and start address of per core
@@ -324,39 +339,43 @@ static void nss_core_init_nss(struct nss_ctx_instance *nss_ctx, struct nss_if_me
 	 *	Following checks verify that proper virtual map has been initialized
 	 */
 	nss_assert(if_map->magic == DEV_MAGIC);
-	nss_assert(if_map->magic == DEV_MAGIC);
 
 	/*
 	 * Copy ring addresses to cacheable locations.
 	 * We do not wish to read ring start address through NC accesses
 	 */
 	for (i = 0; i < if_map->n2h_rings; i++) {
-		nss_ctx->n2h_desc_if[i].desc =
+		struct hlos_n2h_desc_ring *n2h_desc_ring = &nss_ctx->n2h_desc_ring[i];
+		n2h_desc_ring->desc_if.desc =
 			(struct n2h_descriptor *)((uint32_t)if_map->n2h_desc_if[i].desc - (uint32_t)nss_ctx->vphys + (uint32_t)nss_ctx->vmap);
-		nss_ctx->n2h_desc_if[i].size = if_map->n2h_desc_if[i].size;
-		nss_ctx->n2h_desc_if[i].int_bit = if_map->n2h_desc_if[i].int_bit;
+		n2h_desc_ring->desc_if.size = if_map->n2h_desc_if[i].size;
+		n2h_desc_ring->desc_if.int_bit = if_map->n2h_desc_if[i].int_bit;
+		n2h_desc_ring->hlos_index = if_map->n2h_hlos_index[i];
 	}
 
 	for (i = 0; i < if_map->h2n_rings; i++) {
-		nss_ctx->h2n_desc_rings[i].desc_ring.desc =
+		struct hlos_h2n_desc_rings *h2n_desc_ring = &nss_ctx->h2n_desc_rings[i];
+		h2n_desc_ring->desc_ring.desc =
 			(struct h2n_descriptor *)((uint32_t)if_map->h2n_desc_if[i].desc - (uint32_t)nss_ctx->vphys + (uint32_t)nss_ctx->vmap);
-		nss_ctx->h2n_desc_rings[i].desc_ring.size = if_map->h2n_desc_if[i].size;
-		nss_ctx->h2n_desc_rings[i].desc_ring.int_bit = if_map->h2n_desc_if[i].int_bit;
-		spin_lock_init(&(nss_ctx->h2n_desc_rings[i].lock));
+		h2n_desc_ring->desc_ring.size = if_map->h2n_desc_if[i].size;
+		h2n_desc_ring->desc_ring.int_bit = if_map->h2n_desc_if[i].int_bit;
+		h2n_desc_ring->hlos_index = if_map->h2n_hlos_index[i];
+		spin_lock_init(&h2n_desc_ring->lock);
 	}
 
 	nss_ctx->c2c_start = if_map->c2c_start;
 
-	spin_lock_bh(&nss_ctx->nss_top->lock);
+	nss_top = nss_ctx->nss_top;
+	spin_lock_bh(&nss_top->lock);
 	nss_ctx->state = NSS_CORE_STATE_INITIALIZED;
-	spin_unlock_bh(&nss_ctx->nss_top->lock);
+	spin_unlock_bh(&nss_top->lock);
 }
 
 /*
  * nss_core_handle_cause_nonqueue()
  *	Handle non-queue interrupt causes (e.g. empty buffer SOS, Tx unblocked)
  */
-static int32_t nss_core_handle_cause_nonqueue (struct int_ctx_instance *int_ctx, uint32_t cause, int16_t weight)
+static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uint32_t cause, int16_t weight)
 {
 	struct nss_ctx_instance *nss_ctx = int_ctx->nss_ctx;
 	struct nss_if_mem_map *if_map = (struct nss_if_mem_map *)(nss_ctx->vmap);
@@ -371,7 +390,11 @@ static int32_t nss_core_handle_cause_nonqueue (struct int_ctx_instance *int_ctx,
 		struct sk_buff *nbuf;
 		uint16_t count, size, mask;
 		int32_t nss_index, hlos_index;
-		struct h2n_desc_if_instance *desc_if = &(nss_ctx->h2n_desc_rings[NSS_IF_EMPTY_BUFFER_QUEUE].desc_ring);
+		struct hlos_h2n_desc_rings *h2n_desc_ring = &nss_ctx->h2n_desc_rings[NSS_IF_EMPTY_BUFFER_QUEUE];
+		struct h2n_desc_if_instance *desc_if = &h2n_desc_ring->desc_ring;
+		struct h2n_descriptor *desc_ring;
+		struct nss_top_instance *nss_top = nss_ctx->nss_top;
+
 
 		/*
 		 * If this is the first time we are receiving this interrupt then
@@ -395,32 +418,37 @@ static int32_t nss_core_handle_cause_nonqueue (struct int_ctx_instance *int_ctx,
 				 *	only two cores in current design. And ofcourse ignore
 				 *	the core that we are trying to initialize.
 				 */
-				if (&nss_ctx->nss_top->nss[i] != nss_ctx) {
-
+				if (&nss_top->nss[i] != nss_ctx) {
 					/*
 					 * Block initialization routine of any other NSS cores running on other
 					 * processors. We do not want them to mess around with their initialization
 					 * state and C2C addresses while we check their state.
 					 */
-					spin_lock_bh(&nss_ctx->nss_top->lock);
-					if (nss_ctx->nss_top->nss[i].state == NSS_CORE_STATE_INITIALIZED) {
-						spin_unlock_bh(&nss_ctx->nss_top->lock);
-						nss_send_c2c_map(&nss_ctx->nss_top->nss[i], nss_ctx);
-						nss_send_c2c_map(nss_ctx, &nss_ctx->nss_top->nss[i]);
+					spin_lock_bh(&nss_top->lock);
+					if (nss_top->nss[i].state == NSS_CORE_STATE_INITIALIZED) {
+						spin_unlock_bh(&nss_top->lock);
+						nss_send_c2c_map(&nss_top->nss[i], nss_ctx);
+						nss_send_c2c_map(nss_ctx, &nss_top->nss[i]);
 						continue;
 					}
-					spin_unlock_bh(&nss_ctx->nss_top->lock);
+					spin_unlock_bh(&nss_top->lock);
 				}
 			}
 #endif
 		}
 
 		/*
+		 * Do this late in case we weren't actually initialized before.
+		 */
+		desc_ring = desc_if->desc;
+
+		/*
 		 * Check how many empty buffers could be filled in queue
 		 */
 		nss_index = if_map->h2n_nss_index[NSS_IF_EMPTY_BUFFER_QUEUE];
-		hlos_index = if_map->h2n_hlos_index[NSS_IF_EMPTY_BUFFER_QUEUE];
-		size = nss_ctx->h2n_desc_rings[NSS_IF_EMPTY_BUFFER_QUEUE].desc_ring.size;
+		hlos_index = h2n_desc_ring->hlos_index;
+		size = h2n_desc_ring->desc_ring.size;
+
 		mask = size - 1;
 		count = ((nss_index - hlos_index - 1) + size) & (mask);
 
@@ -431,16 +459,16 @@ static int32_t nss_core_handle_cause_nonqueue (struct int_ctx_instance *int_ctx,
 		 * Note that total number of descriptors in queue cannot be more than (size - 1)
 		 */
 		while (count) {
-			struct h2n_descriptor *desc = &(desc_if->desc[hlos_index]);
+			struct h2n_descriptor *desc = &desc_ring[hlos_index];
 
 			nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
 			if (unlikely(!nbuf)) {
 				/*
 				 * ERR:
 				 */
-				spin_lock_bh(&nss_ctx->nss_top->stats_lock);
-				nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
-				spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
+				spin_lock_bh(&nss_top->stats_lock);
+				nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
+				spin_unlock_bh(&nss_top->stats_lock);
 				nss_warning("%p: Could not obtain empty buffer", nss_ctx);
 				break;
 			}
@@ -462,13 +490,14 @@ static int32_t nss_core_handle_cause_nonqueue (struct int_ctx_instance *int_ctx,
 			count--;
 		}
 
+		h2n_desc_ring->hlos_index = hlos_index;
 		if_map->h2n_hlos_index[NSS_IF_EMPTY_BUFFER_QUEUE] = hlos_index;
 
 		/*
 		 * Inform NSS that new buffers are available
 		 */
 		nss_hal_send_interrupt(nss_ctx->nmap, desc_if->int_bit, NSS_REGS_H2N_INTR_STATUS_EMPTY_BUFFER_QUEUE);
-		NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_EMPTY]);
+		NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_TX_EMPTY]);
 	} else if (cause == NSS_REGS_N2H_INTR_STATUS_TX_UNBLOCKED) {
 		nss_trace("%p: Data queue unblocked", nss_ctx);
 
@@ -492,8 +521,6 @@ static int32_t nss_core_handle_cause_nonqueue (struct int_ctx_instance *int_ctx,
 		nss_hal_disable_interrupt(nss_ctx->nmap, nss_ctx->int_ctx[0].irq,
 				nss_ctx->int_ctx[0].shift_factor, NSS_REGS_N2H_INTR_STATUS_TX_UNBLOCKED);
 	}
-
-	return 0;
 }
 
 /*
@@ -571,26 +598,10 @@ int nss_core_handle_napi(struct napi_struct *napi, int budget)
 				weight = budget;
 			}
 
-			processed = 0;
-			switch (cause_type) {
-			case NSS_INTR_CAUSE_QUEUE:
-				processed = nss_core_handle_cause_queue(int_ctx, prio_cause, weight);
-				break;
-
-			case NSS_INTR_CAUSE_NON_QUEUE:
-				processed = nss_core_handle_cause_nonqueue(int_ctx, prio_cause, weight);
-
-				/*
-				 * Buffer replenish should also be considered in NAPI weight
-				 */
-				processed = weight - 1;
-				break;
-
-			default:
-				nss_warning("%p: Invalid cause %x received from nss", nss_ctx, int_cause);
-				nss_assert(0);
-				break;
-			}
+		processed = 0;
+		switch (cause_type) {
+		case NSS_INTR_CAUSE_QUEUE:
+			processed = nss_core_handle_cause_queue(int_ctx, prio_cause, weight);
 
 			count += processed;
 			budget -= processed;
@@ -603,7 +614,19 @@ int nss_core_handle_napi(struct napi_struct *napi, int budget)
 				 */
 				int_ctx->cause &= ~prio_cause;
 			}
+			break;
+
+		case NSS_INTR_CAUSE_NON_QUEUE:
+			nss_core_handle_cause_nonqueue(int_ctx, prio_cause, weight);
+			int_ctx->cause &= ~prio_cause;
+			break;
+
+		default:
+			nss_warning("%p: Invalid cause %x received from nss", nss_ctx, int_cause);
+			nss_assert(0);
+			break;
 		}
+	}
 
 		nss_hal_read_interrupt_cause(nss_ctx->nmap, int_ctx->irq, int_ctx->shift_factor, &int_cause);
 		nss_hal_clear_interrupt_cause(nss_ctx->nmap, int_ctx->irq, int_ctx->shift_factor, int_cause);
@@ -630,29 +653,30 @@ int32_t nss_core_send_crypto(struct nss_ctx_instance *nss_ctx, void *buf, uint32
 {
 	int16_t count, hlos_index, nss_index, size;
 	struct h2n_descriptor *desc;
-	struct h2n_desc_if_instance *desc_if = &nss_ctx->h2n_desc_rings[NSS_IF_DATA_QUEUE].desc_ring;
+	struct hlos_h2n_desc_rings *h2n_desc_ring = &nss_ctx->h2n_desc_rings[NSS_IF_DATA_QUEUE];
+	struct h2n_desc_if_instance *desc_if = &h2n_desc_ring->desc_ring;
 	struct nss_if_mem_map *if_map = (struct nss_if_mem_map *) nss_ctx->vmap;
 
 	/*
 	 * Take a lock for queue
 	 */
-	spin_lock_bh(&nss_ctx->h2n_desc_rings[NSS_IF_DATA_QUEUE].lock);
+	spin_lock_bh(&h2n_desc_ring->lock);
 
 	/*
 	 * We need to work out if there's sufficent space in our transmit descriptor
 	 * ring to place the crypto packet.
 	 */
-	hlos_index = if_map->h2n_hlos_index[NSS_IF_DATA_QUEUE];
 	nss_index = if_map->h2n_nss_index[NSS_IF_DATA_QUEUE];
+	hlos_index = h2n_desc_ring->hlos_index;
 
 	size = desc_if->size;
 	count = ((nss_index - hlos_index - 1) + size) & (size - 1);
 
 	if (unlikely(count < 1)) {
 		/* TODO: What is the use case of TX_STOPPED_FLAGS */
-		nss_ctx->h2n_desc_rings[NSS_IF_DATA_QUEUE].tx_q_full_cnt++;
-		nss_ctx->h2n_desc_rings[NSS_IF_DATA_QUEUE].flags |= NSS_H2N_DESC_RING_FLAGS_TX_STOPPED;
-		spin_unlock_bh(&nss_ctx->h2n_desc_rings[NSS_IF_DATA_QUEUE].lock);
+		h2n_desc_ring->tx_q_full_cnt++;
+		h2n_desc_ring->flags |= NSS_H2N_DESC_RING_FLAGS_TX_STOPPED;
+		spin_unlock_bh(&h2n_desc_ring->lock);
 		nss_warning("%p: Data/Command Queue full reached", nss_ctx);
 
 		/*
@@ -676,8 +700,11 @@ int32_t nss_core_send_crypto(struct nss_ctx_instance *nss_ctx, void *buf, uint32
 	/*
 	 * Update our host index so the NSS sees we've written a new descriptor.
 	 */
-	if_map->h2n_hlos_index[NSS_IF_DATA_QUEUE] = (hlos_index + 1) & (size - 1);
-	spin_unlock_bh(&nss_ctx->h2n_desc_rings[NSS_IF_DATA_QUEUE].lock);
+	hlos_index = (hlos_index + 1) & (size - 1);
+	h2n_desc_ring->hlos_index = hlos_index;
+	if_map->h2n_hlos_index[NSS_IF_DATA_QUEUE] = hlos_index;
+	spin_unlock_bh(&h2n_desc_ring->lock);
+
 	return NSS_CORE_STATUS_SUCCESS;
 }
 
@@ -691,24 +718,31 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 {
 	int16_t count, hlos_index, nss_index, size, mask;
 	uint32_t nr_frags;
+	struct hlos_h2n_desc_rings *h2n_desc_ring = &nss_ctx->h2n_desc_rings[qid];
+	struct h2n_desc_if_instance *desc_if = &h2n_desc_ring->desc_ring;
+	struct h2n_descriptor *desc_ring;
 	struct h2n_descriptor *desc;
-	struct h2n_desc_if_instance *desc_if = &nss_ctx->h2n_desc_rings[qid].desc_ring;
-	struct nss_if_mem_map *if_map = (struct nss_if_mem_map *) nss_ctx->vmap;
+	struct nss_if_mem_map *if_map = (struct nss_if_mem_map *)nss_ctx->vmap;
+
 
 	nr_frags = skb_shinfo(nbuf)->nr_frags;
 	BUG_ON(nr_frags > MAX_SKB_FRAGS);
 
+	desc_ring = desc_if->desc;
+	size = desc_if->size;
+	mask = size - 1;
+
 	/*
 	 * Take a lock for queue
 	 */
-	spin_lock_bh(&nss_ctx->h2n_desc_rings[qid].lock);
+	spin_lock_bh(&h2n_desc_ring->lock);
 
 	/*
 	 * We need to work out if there's sufficent space in our transmit descriptor
 	 * ring to place all the segments of a nbuf.
 	 */
-	hlos_index = if_map->h2n_hlos_index[qid];
 	nss_index = if_map->h2n_nss_index[qid];
+	hlos_index = h2n_desc_ring->hlos_index;
 
 	size = desc_if->size;
 	mask = size - 1;
@@ -720,9 +754,9 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		 *	when we will add support for DESC Q congestion management
 		 *	in future
 		 */
-		nss_ctx->h2n_desc_rings[qid].tx_q_full_cnt++;
-		nss_ctx->h2n_desc_rings[qid].flags |= NSS_H2N_DESC_RING_FLAGS_TX_STOPPED;
-		spin_unlock_bh(&nss_ctx->h2n_desc_rings[qid].lock);
+		h2n_desc_ring->tx_q_full_cnt++;
+		h2n_desc_ring->flags |= NSS_H2N_DESC_RING_FLAGS_TX_STOPPED;
+		spin_unlock_bh(&h2n_desc_ring->lock);
 		nss_warning("%p: Data/Command Queue full reached", nss_ctx);
 
 		/*
@@ -734,7 +768,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		return NSS_CORE_STATUS_FAILURE_QUEUE;
 	}
 
-	desc = &(desc_if->desc[hlos_index]);
+	desc = &desc_ring[hlos_index];
 
 	/*
 	 * Is this a conventional unfragmented nbuf?
@@ -866,7 +900,11 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	/*
 	 * Update our host index so the NSS sees we've written a new descriptor.
 	 */
-	if_map->h2n_hlos_index[qid] = (hlos_index + 1) & (mask);
-	spin_unlock_bh(&nss_ctx->h2n_desc_rings[qid].lock);
+	hlos_index = (hlos_index + 1) & mask;
+	h2n_desc_ring->hlos_index = hlos_index;
+	if_map->h2n_hlos_index[qid] = hlos_index;
+
+	spin_unlock_bh(&h2n_desc_ring->lock);
+
 	return NSS_CORE_STATUS_SUCCESS;
 }

@@ -911,23 +911,35 @@ struct nss_rx_metadata_object {
  * HLOS to NSS descriptor structure.
  */
 struct h2n_descriptor {
-	uint32_t opaque;
-			/* 32-bit value provided by the HLOS to associate with the buffer. The cookie has no meaning to the NSS */
-	uint32_t buffer;
-			/* Physical buffer address. This is the address of the start of the usable buffer being provided by the HLOS */
-	uint16_t buffer_len;	/* Length of the buffer (in bytes) */
-	uint16_t metadata_off;	/* Reserved for future use */
-	uint16_t payload_len;	/* Length of the active payload of the buffer (in bytes) */
-	uint16_t mss;		/* MSS to be used with TSO/UFO */
-	uint16_t payload_offs;	/* Offset from the start of the buffer to the start of the payload (in bytes) */
-	uint16_t interface_num;	/* Interface number to which the buffer is to be sent (where appropriate) */
-	uint8_t buffer_type;	/* Type of buffer */
-	uint8_t reserved3;	/* Reserved for future use */
-	uint16_t bit_flags;	/* Bit flags associated with the buffer */
-	uint8_t qos_class;	/* QoS class of the buffer (where appropriate) */
-	uint8_t qos_priority;	/* QoS priority of the buffer (where appropriate) */
-	uint16_t qos_flow_id;	/* QoS flow ID of the buffer (where appropriate) */
-	uint32_t reserved4;	/* Reserved for future use */
+	volatile uint32_t opaque;
+				/* 32-bit value provided by the HLOS to associate with the buffer. The cookie has no meaning to the NSS */
+	volatile uint32_t buffer;
+				/* Physical buffer address. This is the address of the start of the usable buffer being provided by the HLOS */
+	volatile uint16_t buffer_len;
+				/* Length of the buffer (in bytes) */
+	volatile uint16_t metadata_off;
+				/* Reserved for future use */
+	volatile uint16_t payload_len;
+				/* Length of the active payload of the buffer (in bytes) */
+	volatile uint16_t mss;	/* MSS to be used with TSO/UFO */
+	volatile uint16_t payload_offs;
+				/* Offset from the start of the buffer to the start of the payload (in bytes) */
+	volatile uint16_t interface_num;
+				/* Interface number to which the buffer is to be sent (where appropriate) */
+	volatile uint8_t buffer_type;
+				/* Type of buffer */
+	volatile uint8_t reserved3;
+				/* Reserved for future use */
+	volatile uint16_t bit_flags;
+				/* Bit flags associated with the buffer */
+	volatile uint8_t qos_class;
+				/* QoS class of the buffer (where appropriate) */
+	volatile uint8_t qos_priority;
+				/* QoS priority of the buffer (where appropriate) */
+	volatile uint16_t qos_flow_id;
+				/* QoS flow ID of the buffer (where appropriate) */
+	volatile uint32_t reserved4;	/* Reserved for future use */
+
 };
 
 /*
@@ -964,21 +976,32 @@ struct h2n_descriptor {
  * NSS to HLOS descriptor structure
  */
 struct n2h_descriptor {
-	uint32_t opaque;
-			/* 32-bit value provided by the HLOS to associate with the buffer. The cookie has no meaning to the NSS */
-	uint32_t buffer;
-			/* Physical buffer address. This is the address of the start of the usable buffer being provided by the HLOS */
-	uint16_t buffer_len;	/* Length of the buffer (in bytes) */
-	uint16_t reserved1;	/* Reserved for future use */
-	uint16_t payload_len;	/* Length of the active payload of the buffer (in bytes) */
-	uint16_t reserved2;	/* Reserved for future use */
-	uint16_t payload_offs;	/* Offset from the start of the buffer to the start of the payload (in bytes) */
-	uint16_t interface_num;	/* Interface number to which the buffer is to be sent (where appropriate) */
-	uint8_t buffer_type;	/* Type of buffer */
-	uint8_t response_type;	/* Response type if the buffer is a command response */
-	uint16_t bit_flags;	/* Bit flags associated with the buffer */
-	uint32_t timestamp_lo;	/* Low 32 bits of any timestamp associated with the buffer */
-	uint32_t timestamp_hi;	/* High 32 bits of any timestamp associated with the buffer */
+	volatile uint32_t opaque;
+				/* 32-bit value provided by the HLOS to associate with the buffer. The cookie has no meaning to the NSS */
+	volatile uint32_t buffer;
+				/* Physical buffer address. This is the address of the start of the usable buffer being provided by the HLOS */
+	volatile uint16_t buffer_len;
+				/* Length of the buffer (in bytes) */
+	volatile uint16_t reserved1;
+				/* Reserved for future use */
+	volatile uint16_t payload_len;
+				/* Length of the active payload of the buffer (in bytes) */
+	volatile uint16_t reserved2;
+				/* Reserved for future use */
+	volatile uint16_t payload_offs;
+				/* Offset from the start of the buffer to the start of the payload (in bytes) */
+	volatile uint16_t interface_num;
+				/* Interface number to which the buffer is to be sent (where appropriate) */
+	volatile uint8_t buffer_type;
+				/* Type of buffer */
+	volatile uint8_t response_type;
+				/* Response type if the buffer is a command response */
+	volatile uint16_t bit_flags;
+				/* Bit flags associated with the buffer */
+	volatile uint32_t timestamp_lo;
+				/* Low 32 bits of any timestamp associated with the buffer */
+	volatile uint32_t timestamp_hi;
+				/* High 32 bits of any timestamp associated with the buffer */
 };
 
 /*
@@ -1010,22 +1033,22 @@ struct n2h_desc_if_instance {
  * NSS virtual interface map
  */
 struct nss_if_mem_map {
-	struct h2n_desc_if_instance h2n_desc_if[16];	/* Base address of H2N0 descriptor ring */
-	struct n2h_desc_if_instance n2h_desc_if[15];	/* Base address of N2H0 descriptor ring */
-	uint32_t magic;				/* Magic value used to identify NSS implementations (must be 0x4e52522e) */
-	uint16_t if_version;			/* Interface version number (must be 1 for this version) */
-	uint8_t h2n_rings;			/* Number of descriptor rings in the H2N direction */
-	uint8_t n2h_rings;			/* Number of descriptor rings in the N2H direction */
-	uint32_t h2n_nss_index[16];
+	volatile struct h2n_desc_if_instance h2n_desc_if[16];	/* Base address of H2N0 descriptor ring */
+	volatile struct n2h_desc_if_instance n2h_desc_if[15];	/* Base address of N2H0 descriptor ring */
+	volatile uint32_t magic;				/* Magic value used to identify NSS implementations (must be 0x4e52522e) */
+	volatile uint16_t if_version;			/* Interface version number (must be 1 for this version) */
+	volatile uint8_t h2n_rings;			/* Number of descriptor rings in the H2N direction */
+	volatile uint8_t n2h_rings;			/* Number of descriptor rings in the N2H direction */
+	volatile uint32_t h2n_nss_index[16];
 			/* Index number for the next descriptor that will be read by the NSS in the H2N0 descriptor ring (NSS owned) */
-	uint32_t n2h_nss_index[15];
+	volatile uint32_t n2h_nss_index[15];
 			/* Index number for the next descriptor that will be written by the NSS in the N2H0 descriptor ring (NSS owned) */
-	uint8_t num_phys_ports;
-	uint8_t reserved1[3];	/* Reserved for future use */
-	uint32_t h2n_hlos_index[16];
+	volatile uint8_t num_phys_ports;
+	volatile uint8_t reserved1[3];	/* Reserved for future use */
+	volatile uint32_t h2n_hlos_index[16];
 			/* Index number for the next descriptor that will be written by the HLOS in the H2N0 descriptor ring (HLOS owned) */
-	uint32_t n2h_hlos_index[15];
+	volatile uint32_t n2h_hlos_index[15];
 			/* Index number for the next descriptor that will be read by the HLOS in the N2H0 descriptor ring (HLOS owned) */
-	uint32_t c2c_start;	/* Reserved for future use */
+	volatile uint32_t c2c_start;	/* Reserved for future use */
 };
 #endif /* __NSS_HLOS_IF_H */
