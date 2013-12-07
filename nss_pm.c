@@ -22,6 +22,7 @@
 #include <linux/debugfs.h>
 #include <linux/module.h>
 #include <linux/netdevice.h>
+#include "nss_clocks.h"
 
 #include "nss_pm.h"
 
@@ -251,6 +252,7 @@ void *nss_pm_client_register(nss_pm_client_t client_id)
 	}
 
 	pm_client->dentry = pm_dentry;
+	pm_client->client_id = client_id;
 
 	if (!debugfs_create_file("perf_level", S_IRUGO | S_IWUSR, pm_dentry, pm_client, &perf_level_fops)) {
 		nss_pm_info("debugfs perf_level file not created for %d client pm \n", client_id);
@@ -321,6 +323,27 @@ nss_pm_interface_status_t nss_pm_set_perf_level(void *handle, nss_pm_perf_level_
 	if (!pm_client->bus_perf_client) {
 		nss_pm_warning("Bus driver client not registered.request failed \n");
 		return NSS_PM_API_FAILED;
+	}
+
+	/*
+	 * Do client specific operations here
+	 */
+	if (pm_client->client_id == NSS_PM_CLIENT_NETAP) {
+		if (lvl == NSS_PM_PERF_LEVEL_TURBO) {
+			/*
+			 * For turbo perf level, switch TCM source to
+			 * SRC1 to set TCM clock = 400 MHz
+			 * SRC0 and SRC1 are set to 266 and 400 MHz resp.
+			 * in nss_hal/ipq806x/nss_hal_pvt.c
+			 */
+			writel(0x3, NSSTCM_CLK_SRC_CTL);
+		} else {
+			/*
+			 * For Nominal and Idle perf level, switch to SRC0 to
+			 * set TCM clock = 266 MHz
+			 */
+			writel(0x2, NSSTCM_CLK_SRC_CTL);
+		}
 	}
 
 	/* Update bandwidth if request has changed. This may sleep. */
