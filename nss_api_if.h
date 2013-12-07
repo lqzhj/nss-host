@@ -285,13 +285,17 @@ struct nss_ipv4_sync {
 	uint32_t flow_max_window;	/**< Maximum window size (TCP) */
 	uint32_t flow_end;		/**< Flow end */
 	uint32_t flow_max_end;		/**< Flow max end */
-	uint32_t flow_packet_count;	/**< Packet count for the flow */
-	uint32_t flow_byte_count;	/**< Byte count for the flow */
+	uint32_t flow_rx_packet_count;	/**< Rx Packet count for the flow */
+	uint32_t flow_rx_byte_count;	/**< Rx Byte count for the flow */
+	uint32_t flow_tx_packet_count;	/**< Tx Packet count for the flow */
+	uint32_t flow_tx_byte_count;	/**< Tx Byte count for the flow */
 	uint32_t return_max_window;	/**< Maximum window size (TCP) for return */
 	uint32_t return_end;		/**< End for return */
 	uint32_t return_max_end;	/**< Max end for return */
-	uint32_t return_packet_count;	/**< Packet count for return direction */
-	uint32_t return_byte_count;	/**< Byte count for return */
+	uint32_t return_rx_packet_count;	/**< Rx Packet count for return */
+	uint32_t return_rx_byte_count;	/**< Rx Byte count for return */
+	uint32_t return_tx_packet_count;	/**< Tx Packet count for return */
+	uint32_t return_tx_byte_count;	/**< Tx Byte count for return */
 	unsigned long int delta_jiffies;
 					/**< Time in Linux jiffies to be added to the current timeout to keep the connection alive */
 	uint8_t reason;			/**< Reason of synchronization */
@@ -322,6 +326,7 @@ struct nss_ipv4_establish {
 	uint16_t flow_pppoe_session_id;	/**< Flow direction`s PPPoE session ID. */
 	uint16_t flow_pppoe_remote_mac[3];
 					/**< Flow direction`s PPPoE Server MAC address */
+	uint16_t ingress_vlan_tag;	/**< Ingress VLAN tag */
 	int32_t return_interface;	/**< Return interface number */
 	uint32_t return_mtu;		/**< MTU for return interface */
 	uint32_t return_ip;		/**< Return IP address */
@@ -332,6 +337,7 @@ struct nss_ipv4_establish {
 					/**< Return direction's PPPoE session ID. */
 	uint16_t return_pppoe_remote_mac[3];
 					/**< Return direction's PPPoE Server MAC address */
+	uint16_t egress_vlan_tag;	/**< Egress VLAN tag */
 };
 
 /**
@@ -370,13 +376,17 @@ struct nss_ipv6_sync {
 	uint32_t flow_max_window;	/**< Maximum window size (TCP) */
 	uint32_t flow_end;		/**< Flow end */
 	uint32_t flow_max_end;		/**< Flow max end */
-	uint32_t flow_packet_count;	/**< Packet count for the flow */
-	uint32_t flow_byte_count;	/**< Byte count for the flow */
+	uint32_t flow_rx_packet_count;	/**< Rx Packet count for the flow */
+	uint32_t flow_rx_byte_count;	/**< Rx Byte count for the flow */
+	uint32_t flow_tx_packet_count;	/**< Tx Packet count for the flow */
+	uint32_t flow_tx_byte_count;	/**< Tx Byte count for the flow */
 	uint32_t return_max_window;	/**< Maximum window size (TCP) for return */
 	uint32_t return_end;		/**< End for return */
 	uint32_t return_max_end;	/**< Max end for return */
-	uint32_t return_packet_count;	/**< Packet count for return direction */
-	uint32_t return_byte_count;	/**< Byte count for return */
+	uint32_t return_rx_packet_count;	/**< Rx Packet count for return */
+	uint32_t return_rx_byte_count;	/**< Rx Byte count for return */
+	uint32_t return_tx_packet_count;	/**< Tx Packet count for return */
+	uint32_t return_tx_byte_count;	/**< Tx Byte count for return */
 	unsigned long int delta_jiffies;
 					/**< Time in Linux jiffies to be added to the current timeout to keep the connection alive */
 	uint8_t final_sync;		/**< Non-zero when the NA has ceased to accelerate the given connection */
@@ -398,6 +408,7 @@ struct nss_ipv6_establish {
 	uint16_t flow_pppoe_session_id;	/**< Flow direction`s PPPoE session ID. */
 	uint16_t flow_pppoe_remote_mac[3];
 					/**< Flow direction`s PPPoE Server MAC address */
+	uint16_t ingress_vlan_tag;	/**< Ingress VLAN tag */
 	int32_t return_interface;	/**< Return interface number */
 	uint32_t return_mtu;		/**< MTU for return interface */
 	uint32_t return_ip[4];		/**< Return IP address */
@@ -406,6 +417,7 @@ struct nss_ipv6_establish {
 					/**< Return direction's PPPoE session ID. */
 	uint16_t return_pppoe_remote_mac[3];
 					/**< Return direction's PPPoE Server MAC address */
+	uint16_t egress_vlan_tag;	/**< Egress VLAN tag */
 };
 
 /**

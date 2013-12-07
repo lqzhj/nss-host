@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, Qualcomm Atheros, Inc.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -364,6 +364,7 @@ struct nss_ipv4_rule_establish {
 	uint32_t flow_ident_xlate;		/* Translated flow ident (e.g. port) */
 	uint16_t flow_pppoe_session_id;		/* Flow direction`s PPPoE session ID. */
 	uint16_t flow_pppoe_remote_mac[3];	/* Flow direction`s PPPoE Server MAC address */
+	uint16_t ingress_vlan_tag;		/* Ingress VLAN tag */
 	int32_t return_interface;		/* Return interface number */
 	uint32_t return_mtu;			/* MTU for return interface */
 	uint32_t return_ip;			/* Return IP address */
@@ -372,6 +373,7 @@ struct nss_ipv4_rule_establish {
 	uint32_t return_ident_xlate;		/* Translated return ident (e.g. port) */
 	uint16_t return_pppoe_session_id;	/* Return direction's PPPoE session ID. */
 	uint16_t return_pppoe_remote_mac[3];	/* Return direction's PPPoE Server MAC address */
+	uint16_t egress_vlan_tag;		/* Egress VLAN tag */
 };
 
 /*
@@ -433,12 +435,14 @@ struct nss_ipv6_rule_establish {
 	uint32_t flow_ident;			/* Flow ident (e.g. port) */
 	uint16_t flow_pppoe_session_id;		/* Flow direction`s PPPoE session ID. */
 	uint16_t flow_pppoe_remote_mac[3];	/* Flow direction`s PPPoE Server MAC address */
+	uint16_t ingress_vlan_tag;		/* Ingress VLAN tag */
 	int32_t return_interface;		/* Return interface number */
 	uint32_t return_mtu;			/* MTU for return interface */
 	uint32_t return_ip[4];			/* Return IP address */
 	uint32_t return_ident;			/* Return ident (e.g. port) */
 	uint16_t return_pppoe_session_id;	/* Return direction's PPPoE session ID. */
 	uint16_t return_pppoe_remote_mac[3];	/* Return direction's PPPoE Server MAC address */
+	uint16_t egress_vlan_tag;		/* Egress VLAN tag */
 };
 
 /*

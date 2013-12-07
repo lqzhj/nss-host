@@ -126,13 +126,17 @@ static void nss_rx_metadata_ipv4_rule_sync(struct nss_ctx_instance *nss_ctx, str
 	nicp.params.sync.flow_max_window = nirs->flow_max_window;
 	nicp.params.sync.flow_end = nirs->flow_end;
 	nicp.params.sync.flow_max_end = nirs->flow_max_end;
-	nicp.params.sync.flow_packet_count = nirs->flow_rx_packet_count;
-	nicp.params.sync.flow_byte_count = nirs->flow_rx_byte_count;
+	nicp.params.sync.flow_rx_packet_count = nirs->flow_rx_packet_count;
+	nicp.params.sync.flow_rx_byte_count = nirs->flow_rx_byte_count;
+	nicp.params.sync.flow_tx_packet_count = nirs->flow_tx_packet_count;
+	nicp.params.sync.flow_tx_byte_count = nirs->flow_tx_byte_count;
 	nicp.params.sync.return_max_window = nirs->return_max_window;
 	nicp.params.sync.return_end = nirs->return_end;
 	nicp.params.sync.return_max_end = nirs->return_max_end;
-	nicp.params.sync.return_packet_count = nirs->return_rx_packet_count;
-	nicp.params.sync.return_byte_count = nirs->return_rx_byte_count;
+	nicp.params.sync.return_rx_packet_count = nirs->return_rx_packet_count;
+	nicp.params.sync.return_rx_byte_count = nirs->return_rx_byte_count;
+	nicp.params.sync.return_tx_packet_count = nirs->return_tx_packet_count;
+	nicp.params.sync.return_tx_byte_count = nirs->return_tx_byte_count;
 
 	switch (nirs->reason) {
 	case NSS_IPV4_RULE_SYNC_REASON_STATS:
@@ -248,13 +252,17 @@ static void nss_rx_metadata_ipv6_rule_sync(struct nss_ctx_instance *nss_ctx, str
 	nicp.params.sync.flow_max_window = nirs->flow_max_window;
 	nicp.params.sync.flow_end = nirs->flow_end;
 	nicp.params.sync.flow_max_end = nirs->flow_max_end;
-	nicp.params.sync.flow_packet_count = nirs->flow_rx_packet_count;
-	nicp.params.sync.flow_byte_count = nirs->flow_rx_byte_count;
+	nicp.params.sync.flow_rx_packet_count = nirs->flow_rx_packet_count;
+	nicp.params.sync.flow_rx_byte_count = nirs->flow_rx_byte_count;
+	nicp.params.sync.flow_tx_packet_count = nirs->flow_tx_packet_count;
+	nicp.params.sync.flow_tx_byte_count = nirs->flow_tx_byte_count;
 	nicp.params.sync.return_max_window = nirs->return_max_window;
 	nicp.params.sync.return_end = nirs->return_end;
 	nicp.params.sync.return_max_end = nirs->return_max_end;
-	nicp.params.sync.return_packet_count = nirs->return_rx_packet_count;
-	nicp.params.sync.return_byte_count = nirs->return_rx_byte_count;
+	nicp.params.sync.return_rx_packet_count = nirs->return_rx_packet_count;
+	nicp.params.sync.return_rx_byte_count = nirs->return_rx_byte_count;
+	nicp.params.sync.return_tx_packet_count = nirs->return_tx_packet_count;
+	nicp.params.sync.return_tx_byte_count = nirs->return_tx_byte_count;
 
 	switch(nirs->reason) {
 	case NSS_IPV6_RULE_SYNC_REASON_FLUSH:
