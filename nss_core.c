@@ -88,6 +88,21 @@ static inline uint16_t nss_core_cause_to_queue(uint16_t cause)
 	return 0;
 }
 
+static inline void nss_dump_desc(struct nss_ctx_instance *nss_ctx, struct n2h_descriptor *desc)
+{
+	printk("bad descriptor dump for nss core = %d\n", nss_ctx->id);
+	printk("\topaque = %x\n", desc->opaque);
+	printk("\tinterface = %d\n", desc->interface_num);
+	printk("\tbuffer_type = %d\n", desc->buffer_type);
+	printk("\tbit_flags = %x\n", desc->bit_flags);
+	printk("\tbuffer_addr = %x\n", desc->buffer);
+	printk("\tbuffer_len = %d\n", desc->buffer_len);
+	printk("\tpayload_offs = %d\n", desc->payload_offs);
+	printk("\tpayload_len = %d\n", desc->payload_len);
+	printk("\tpayload_offs = %d\n", desc->payload_offs);
+	printk("\tpayload_len = %d\n", desc->payload_len);
+}
+
 /*
  * nss_core_handle_cause_queue()
  *	Handle interrupt cause related to N2H/H2N queues
@@ -165,6 +180,12 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 			* Obtain nbuf
 			*/
 			nbuf = (struct sk_buff *)desc->opaque;
+			if (unlikely(nbuf < (struct sk_buff *)PAGE_OFFSET)) {
+				/*
+				 * Invalid opaque pointer
+				 */
+				nss_dump_desc(nss_ctx, desc);
+			}
 
 			/*
 			 * Get the number of fragments

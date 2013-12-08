@@ -1441,6 +1441,8 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 		goto out;
 	}
 
+#if (NSS_CONNMGR_PPPOE_SUPPORT == 1)
+
 	/*
 	 * In PPPoE connection case, the interfaces will be as below in this function.
 	 *
@@ -1505,6 +1507,7 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 		is_return_pppoe = true;
 		new_out = eth_out;
 	}
+#endif
 
 	/*
 	 * Only work with standard 802.3 mac address sizes

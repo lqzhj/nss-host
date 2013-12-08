@@ -1576,7 +1576,7 @@ nss_tx_status_t nss_tx_phys_if_get_napi_ctx(void *ctx, struct napi_struct **napi
 {
 	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) ctx;
 
-	nss_info("%p: Get interrupt context, GMAC%d\n", nss_ctx, if_num);
+	nss_info("%p: Get interrupt context, GMAC\n", nss_ctx);
 
 	NSS_VERIFY_CTX_MAGIC(nss_ctx);
 	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
