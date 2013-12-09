@@ -864,6 +864,15 @@ static unsigned int nss_connmgr_ipv6_bridge_post_routing_hook(unsigned int hookn
 	NSS_CONNMGR_DEBUG_TRACE("skb: %p tracked by connection: %p\n", skb, ct);
 
 	/*
+	 * Ignore packets that are related to a valid connection, such as ICMP destination
+	 * unreachable error packets
+	 */
+	if ((ctinfo == IP_CT_RELATED) || (ctinfo == IP_CT_RELATED_REPLY)) {
+		NSS_CONNMGR_DEBUG_TRACE("skb: Related packet %p tracked by connection: %p\n", skb, ct);
+		return NF_ACCEPT;
+	}
+
+	/*
 	 * Special untracked connection is not monitored
 	 */
 	if (ct == &nf_conntrack_untracked) {
@@ -1049,9 +1058,13 @@ static unsigned int nss_connmgr_ipv6_bridge_post_routing_hook(unsigned int hookn
 		 * Configure the MAC addresses for the flow
 		 */
 		eh = (struct ethhdr *)skb->mac_header;
-
-		memcpy(unic.src_mac, eh->h_source, ETH_HLEN);
-		memcpy(unic.dest_mac, eh->h_dest, ETH_HLEN);
+		if (ctinfo < IP_CT_IS_REPLY) {
+			memcpy(unic.src_mac, eh->h_source, ETH_HLEN);
+			memcpy(unic.dest_mac, eh->h_dest, ETH_HLEN);
+		} else {
+			memcpy(unic.src_mac, eh->h_dest, ETH_HLEN);
+			memcpy(unic.dest_mac, eh->h_source, ETH_HLEN);
+		}
 	} else {
 		/*
 		 * This is a routed + bridged flow
@@ -1439,6 +1452,15 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 		goto out;
 	}
 	NSS_CONNMGR_DEBUG_TRACE("skb: %p tracked by connection: %p\n", skb, ct);
+
+	/*
+	 * Ignore packets that are related to a valid connection, such as ICMP destination
+	 * unreachable error packets
+	 */
+	if ((ctinfo == IP_CT_RELATED) || (ctinfo == IP_CT_RELATED_REPLY)) {
+		NSS_CONNMGR_DEBUG_TRACE("skb: Related packet %p tracked by connection: %p\n", skb, ct);
+		return NF_ACCEPT;
+	}
 
 	/*
 	 * Special untracked connection is not monitored
