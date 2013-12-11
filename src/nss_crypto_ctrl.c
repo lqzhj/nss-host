@@ -440,6 +440,32 @@ static nss_crypto_status_t nss_crypto_validate_cipher(struct nss_crypto_key *cip
 		return NSS_CRYPTO_STATUS_OK;
 	}
 
+	/*
+	 * DES-64 (SINGLE_DES)
+	 */
+	if ((cipher->algo == NSS_CRYPTO_CIPHER_DES) && (cipher->key_len == NSS_CRYPTO_KEYLEN_DES)) {
+		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_KEY_SINGLE_DES;
+		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_ALG_DES;
+		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_MODE_CBC;
+
+		memcpy(encr_cfg->key, cipher->key, NSS_CRYPTO_KEYLEN_DES);
+
+		return NSS_CRYPTO_STATUS_OK;
+	}
+
+	/*
+	 * DES-192 (TRIPLE_DES)
+	 */
+	if ((cipher->algo == NSS_CRYPTO_CIPHER_DES) && (cipher->key_len == NSS_CRYPTO_KEYLEN_3DES)) {
+		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_KEY_TRIPLE_DES;
+		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_ALG_DES;
+		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_MODE_CBC;
+
+		memcpy(encr_cfg->key, cipher->key, NSS_CRYPTO_KEYLEN_3DES);
+
+		return NSS_CRYPTO_STATUS_OK;
+	}
+
 	return NSS_CRYPTO_STATUS_ENOSUPP;
 }
 

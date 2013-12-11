@@ -29,6 +29,8 @@ enum nss_crypto_keylen_supp {
 	NSS_CRYPTO_KEYLEN_AES256 = 32,		/**< AES-256 bit */
 	NSS_CRYPTO_KEYLEN_SHA1HMAC = 20,	/**< SHA1-HMAC */
 	NSS_CRYPTO_KEYLEN_SHA256HMAC = 32,	/**< SHA256-HMAC */
+	NSS_CRYPTO_KEYLEN_DES = 8,		/**< DES-64 bit */
+	NSS_CRYPTO_KEYLEN_3DES = 24,		/**< 3DES-192 bit */
 };
 
 struct nss_crypto_encr_cfg {

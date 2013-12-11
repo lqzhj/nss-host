@@ -129,7 +129,32 @@ static uint8_t plain_text[__ENCR_MEMCMP_SZ] = {
 	0xe6, 0x6c, 0x37, 0x10
 };
 
-static uint8_t encr_text[__ENCR_MEMCMP_SZ] = {
+/*
+ * 3DES (encrypted text)
+ */
+static uint8_t triple_des_encr_text[__ENCR_MEMCMP_SZ] = {
+	0x5e, 0x45, 0x0a, 0x57,
+	0x99, 0xa1, 0x77, 0x53,
+	0x71, 0x83, 0x3f, 0xb0,
+	0xba, 0xcd, 0xbb, 0xcf,
+	0x60, 0x40, 0xa8, 0x94,
+	0x1c, 0x09, 0x89, 0xab,
+	0xc8, 0x30, 0x1f, 0x45,
+	0xae, 0x42, 0x80, 0xf0,
+	0x01, 0xd9, 0xa4, 0xd7,
+	0x9c, 0xae, 0xd6, 0xc4,
+	0x34, 0x50, 0x33, 0x63,
+	0xb0, 0x71, 0x49, 0xd9,
+	0xc3, 0xe7, 0x1f, 0xd4,
+	0x2d, 0x6f, 0x16, 0xc2,
+	0x0d, 0x93, 0xfe, 0x9a,
+	0x0c, 0x21, 0x94, 0xfa,
+};
+
+/*
+ * AES-256 (encrypted text)
+ */
+static uint8_t aes_encr_text[__ENCR_MEMCMP_SZ] = {
 	0xf5, 0x8c, 0x4c, 0x04,
 	0xd6, 0xe5, 0xf1, 0xba,
 	0x77, 0x9e, 0xab, 0xfb,
@@ -147,12 +172,25 @@ static uint8_t encr_text[__ENCR_MEMCMP_SZ] = {
 	0xda, 0x6c, 0x19, 0x07,
 	0x8c, 0x6a, 0x9d, 0x1b
 };
-static uint8_t sha1_hash[NSS_CRYPTO_MAX_KEYLEN_SHA1] = {
+
+/*
+ * AES hash
+ */
+static uint8_t aes_sha1_hash[NSS_CRYPTO_MAX_KEYLEN_SHA1] = {
 	0xc9, 0xdd, 0x94, 0xfb,
 	0xc8, 0x9f, 0x81, 0x12,
 	0x68, 0x1b, 0x8f, 0xfb,
 	0xb5, 0xfd, 0x27, 0x69,
 	0x76, 0xa1, 0x2e, 0x99
+};
+
+/*
+ * 3DES hash
+ */
+static uint8_t triple_des_sha1_hash[NSS_CRYPTO_MAX_KEYLEN_SHA1] = {
+	0x4a, 0xae, 0xc0, 0x59,
+	0x39, 0x40, 0x6b, 0x85,
+	0xb1, 0x03, 0xad, 0x7e,
 };
 
 #elif (__ENCR_MEMCMP_SZ == 256)
@@ -297,6 +335,9 @@ struct crypto_bench_param {
 	uint32_t cipher_op;	/**< encrypt(op=1) or decrypt(op=0) */
 	uint32_t auth_op;	/**< auth(op=1) or none(op=0) */
 
+	uint32_t ciph_algo;	/**< 1 for AES or 2 for DES */
+	uint32_t auth_algo;	/**< 1 for SHA-1 or 2 for SHA-256 */
+
 	uint32_t num_reqs;	/**< number of requests in "1" pass */
 	uint32_t num_loops;	/**< number of loops of num_reqs */
 	uint32_t cpu_id;	/**< CPU to run the test from */
@@ -318,6 +359,8 @@ static struct crypto_bench_param def_param = {
 	.bam_len = 256,
 	.cipher_op = 1,
 	.auth_op = 1,
+	.ciph_algo = 1,
+	.auth_algo = 1,
 	.bam_align = 4,
 	.num_reqs = 10000,
 	.hash_len = NSS_CRYPTO_MAX_HASHLEN_SHA1,
@@ -332,12 +375,14 @@ static void crypto_bench_dump_addr(uint8_t *addr, uint32_t len, uint8_t *str)
 {
 	int i;
 
-	crypto_bench_dbg("%s:\n", str);
+	crypto_bench_debug("%s:\n", str);
 
-	for (i = 0; i < len; i++) {
-		crypto_bench_dbg("0x%02x,%s", addr[i], (i % 4) ? " " : "\n");
+	crypto_bench_debug("0x%02x,%s", addr[0]," ");
+
+	for (i = 1; i < len; i++) {
+		crypto_bench_debug("0x%02x,%s", addr[i], ((i % 4) == 0) ? " " : "\n");
 	}
-	crypto_bench_dbg("\n");
+	crypto_bench_debug("\n");
 }
 #else
 #define crypto_bench_dump_addr(addr, len, str)
@@ -352,28 +397,36 @@ static inline uint32_t crypto_bench_align(uint32_t val, uint32_t align)
 
 	return val - offset + align;
 }
-#define check_n_set(val, def_val)	\
-	if ((val) == 0) {	\
-		(val) = (def_val);	\
-	}
+
+#define chk_n_set(expr, field, def_val)	do {	\
+	if ((expr)) {	\
+		field = def_val;	\
+	}	\
+} while(0)
 
 static void crypto_bench_init_param(enum crypto_bench_type type)
 {
-	if (!param.auth_op) {
-		param.auth_len = 0;
-		param.auth_skip = 0;
-	}
+	chk_n_set((param.auth_op == 0), param.auth_len, 0);
+	chk_n_set((param.auth_op == 0), param.auth_skip, 0);
 
-	if (!param.cipher_op) {
-		param.cipher_len = 0;
-		param.cipher_skip = 0;
-	} else if (param.cipher_skip < NSS_CRYPTO_MAX_IVLEN_AES) {
-		param.cipher_skip = NSS_CRYPTO_MAX_IVLEN_AES;
-	}
+	chk_n_set((param.cipher_op == 0), param.cipher_len, 0);
+	chk_n_set((param.cipher_op == 0), param.cipher_skip, 0);
 
-	param.cpu_id = param.cpu_id > CONFIG_NR_CPUS ? 0 : param.cpu_id;
-	param.bam_len = param.bam_len > CRYPTO_BENCH_MAX_DATA_SZ ? CRYPTO_BENCH_MAX_DATA_SZ : param.bam_len;
-	param.bam_align = !param.bam_align ? CRYPTO_BENCH_DATA_ALIGN : param.bam_align;
+	chk_n_set((param.cipher_skip < NSS_CRYPTO_MAX_IVLEN_AES), param.cipher_skip, NSS_CRYPTO_MAX_IVLEN_AES);
+
+	chk_n_set((param.cpu_id > CONFIG_NR_CPUS), param.cpu_id, 0);
+
+	chk_n_set((param.bam_align == 0), param.bam_align, CRYPTO_BENCH_DATA_ALIGN);
+	chk_n_set((param.bam_align > 8), param.bam_align, CRYPTO_BENCH_DATA_ALIGN);
+	chk_n_set((param.bam_len > CRYPTO_BENCH_MAX_DATA_SZ), param.bam_len, CRYPTO_BENCH_MAX_DATA_SZ);
+
+	chk_n_set((param.ciph_algo == 0), param.ciph_algo, 1);
+	chk_n_set((param.auth_algo == 0), param.auth_algo, 1);
+
+	/*
+	 * we don't support sending more than 200 request in a single batch
+	 */
+	chk_n_set((param.num_reqs > 200), param.num_reqs, 200);
 
 	switch (type) {
 	case TYPE_BENCH:
@@ -389,11 +442,10 @@ static void crypto_bench_init_param(enum crypto_bench_type type)
 		param.bench_mode = 0;
 		param.mcmp_mode = 1;
 
-		param.auth_op = 1;
-		param.cipher_op = 1;
+		chk_n_set((param.auth_op == 0), param.auth_op, 1);
+		chk_n_set((param.cipher_op == 0), param.cipher_op, 1);
 
 		param.hash_len = 12;
-		param.key_len = NSS_CRYPTO_MAX_KEYLEN_AES;
 
 		data_ptr = &plain_text[0];
 
@@ -443,6 +495,7 @@ static int32_t crypto_bench_prep_op(void)
 	struct crypto_op *op = NULL;
 	nss_crypto_status_t status;
 	uint32_t iv_hash_len;
+	uint8_t *str;
 	int i = 0;
 
 	if (prep) {
@@ -455,24 +508,70 @@ static int32_t crypto_bench_prep_op(void)
 	c_key.key 	= &cipher_key[0];
 	c_key.key_len   = param.key_len;
 
-	if (param.auth_op) {
+	switch(param.auth_algo) {
+	case 1:
+		a_key.algo = NSS_CRYPTO_AUTH_SHA1_HMAC;
+		a_key.key_len = NSS_CRYPTO_MAX_KEYLEN_SHA1;
 		a_key.key = &auth_key[0];
 
-		switch(param.auth_op) {
-		case 1:
-			a_key.algo    = NSS_CRYPTO_AUTH_SHA1_HMAC;
-			a_key.key_len = NSS_CRYPTO_MAX_KEYLEN_SHA1;
-			break;
-		case 2:
-			a_key.algo    = NSS_CRYPTO_AUTH_SHA256_HMAC;
-			a_key.key_len = NSS_CRYPTO_MAX_KEYLEN_SHA256;
-			break;
-		default:
-			crypto_bench_error("auth algo not supported, reseting to default\n");
-			a_key.algo    = NSS_CRYPTO_AUTH_SHA1_HMAC;
-			a_key.key_len = NSS_CRYPTO_MAX_KEYLEN_SHA1;
-			break;
-		}
+		str = "SHA1_HMAC";
+		break;
+
+	case 2:
+		a_key.algo = NSS_CRYPTO_AUTH_SHA256_HMAC;
+		a_key.key_len = NSS_CRYPTO_MAX_KEYLEN_SHA256;
+		a_key.key = &auth_key[0];
+
+		str = "SHA256_HMAC";
+		break;
+
+	default:
+		a_key.algo = NSS_CRYPTO_AUTH_NONE;
+		a_key.key = &auth_key[0];
+		a_key.key_len = 0;
+
+		str = param.auth_op ? "unsupported" : "none";
+		break;
+	}
+
+	crypto_bench_info("auth algo %s\n", str);
+
+	switch (param.ciph_algo) {
+	case 1:
+		c_key.algo = NSS_CRYPTO_CIPHER_AES;
+		c_key.key = &cipher_key[0];
+
+		chk_n_set((param.key_len <= 16), param.key_len, 16);
+		chk_n_set((param.key_len > 16), param.key_len, 32);
+		c_key.key_len = param.key_len;
+
+		str = "AES";
+		break;
+
+	case 2:
+		c_key.algo = NSS_CRYPTO_CIPHER_DES;
+		c_key.key = &cipher_key[0];
+
+		chk_n_set((param.key_len <= 8), param.key_len, 8);
+		chk_n_set((param.key_len > 8), param.key_len, 24);
+		c_key.key_len = param.key_len;
+
+		str = "DES";
+		break;
+
+	default:
+		c_key.algo = NSS_CRYPTO_CIPHER_NONE;
+		c_key.key = &cipher_key[0];
+		c_key.key_len = 0;
+
+		str = param.ciph_algo ? "unsupported" : "none";
+		break;
+	}
+
+	crypto_bench_info("cipher algo %s\n", str);
+
+	if ((c_key.algo == NSS_CRYPTO_CIPHER_NONE) && (a_key.algo == NSS_CRYPTO_AUTH_NONE)) {
+		return -1;
 	}
 
 	status = nss_crypto_session_alloc(crypto_hdl, &c_key, &a_key, &session_idx);
@@ -534,12 +633,18 @@ static void crypto_bench_prep_buf(struct crypto_op *op)
 	buf->cb_ctx = (uint32_t)op;
 	buf->cb_fn = crypto_bench_done;
 
-	buf->req_type = (param.cipher_op ? NSS_CRYPTO_BUF_REQ_ENCRYPT : NSS_CRYPTO_BUF_REQ_DECRYPT);
+	buf->req_type = (param.cipher_op ? NSS_CRYPTO_BUF_REQ_ENCRYPT : 0);
+
+	chk_n_set((param.cipher_op > 1), buf->req_type, NSS_CRYPTO_BUF_REQ_DECRYPT);
+
 	buf->req_type |= (param.auth_op ? NSS_CRYPTO_BUF_REQ_AUTH : 0);
 
 	buf->session_idx = session_idx;
 
 	buf->iv_offset = op->iv_offset;
+
+	buf->iv_len = (param.ciph_algo == 2) ? NSS_CRYPTO_MAX_IVLEN_DES : NSS_CRYPTO_MAX_IVLEN_AES;
+
 	buf->hash_offset = op->hash_offset;
 	buf->hash_len = param.hash_len;
 
@@ -560,6 +665,14 @@ void crypto_bench_mcmp(void)
 	struct crypto_op *op;
 	struct list_head *ptr;
 	uint32_t encr_res, hash_res;
+	uint8_t *encr_text;
+	uint8_t *hash_text;
+
+	chk_n_set((param.ciph_algo <=1), encr_text, &aes_encr_text[0]);
+	chk_n_set((param.ciph_algo <=1), hash_text, &aes_sha1_hash[0]);
+
+	chk_n_set((param.ciph_algo > 1), encr_text, &triple_des_encr_text[0]);
+	chk_n_set((param.ciph_algo > 1), hash_text, &triple_des_sha1_hash[0]);
 
 	list_for_each(ptr, &op_head) {
 		op = list_entry(ptr, struct crypto_op, node);
@@ -568,9 +681,12 @@ void crypto_bench_mcmp(void)
 		param.mcmp_encr = param.mcmp_encr + !!(encr_res);
 
 		if (param.auth_op) {
-			hash_res = memcmp(op->data_vaddr + op->hash_offset, sha1_hash, param.hash_len);
+			hash_res = memcmp(op->data_vaddr + op->hash_offset, hash_text, param.hash_len);
 			param.mcmp_hash = param.mcmp_hash + !!(hash_res);
 		}
+
+		crypto_bench_dump_addr(op->data_vaddr + op->cipher_skip, op->cipher_len, "data");
+		crypto_bench_dump_addr(op->data_vaddr + op->hash_offset, param.hash_len, "hash");
 
 		memcpy(op->data_vaddr + op->cipher_skip, data_ptr, op->cipher_len);
 	}
@@ -733,6 +849,9 @@ nss_crypto_user_ctx_t crypto_bench_attach(nss_crypto_handle_t crypto)
 	debugfs_create_u32("bam_align", CRYPTO_BENCH_PERM_RW, droot, &param.bam_align);
 	debugfs_create_u32("cipher_skip", CRYPTO_BENCH_PERM_RW, droot, &param.cipher_skip);
 	debugfs_create_u32("auth_skip", CRYPTO_BENCH_PERM_RW, droot, &param.auth_skip);
+
+	debugfs_create_u32("cipher_algo", CRYPTO_BENCH_PERM_RW, droot, &param.ciph_algo);
+	debugfs_create_u32("auth_algo", CRYPTO_BENCH_PERM_RW, droot, &param.auth_algo);
 
 	/* R/W buffer */
 	debugfs_create_file("cmd", CRYPTO_BENCH_PERM_RW, droot, &op_head, &cmd_ops);

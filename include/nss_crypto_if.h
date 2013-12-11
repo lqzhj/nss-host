@@ -50,6 +50,7 @@ enum nss_crypto_max_keylen {
 	NSS_CRYPTO_MAX_KEYLEN_AES = 32,		/**< max key size for AES (bytes) */
 	NSS_CRYPTO_MAX_KEYLEN_SHA1 = 20,	/**< max key size for SHA1 (bytes) */
 	NSS_CRYPTO_MAX_KEYLEN_SHA256 = 32,	/**< max key size for SHA256 (bytes) */
+	NSS_CRYPTO_MAX_KEYLEN_DES = 24,		/**< max key size for DES */
 };
 
 /**
@@ -84,6 +85,7 @@ enum nss_crypto_hash {
 enum nss_crypto_cipher {
 	NSS_CRYPTO_CIPHER_NONE = 0,		/**< Cipher not required*/
 	NSS_CRYPTO_CIPHER_AES,			/**< AES, CBC for 128-bit & 256-bit key sizes*/
+	NSS_CRYPTO_CIPHER_DES,			/**< DES, CBC for 64-bit key size */
 	NSS_CRYPTO_CIPHER_MAX
 };
 
