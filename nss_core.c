@@ -206,6 +206,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 				 * touch HEADROOM area
 				 */
 				dma_unmap_single(NULL, (desc->buffer + desc->payload_offs), desc->payload_len, DMA_FROM_DEVICE);
+				prefetch((void *)(nbuf->data));
 			}
 
 			/*
@@ -744,6 +745,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	struct h2n_descriptor *desc_ring;
 	struct h2n_descriptor *desc;
 	struct nss_if_mem_map *if_map = (struct nss_if_mem_map *)nss_ctx->vmap;
+	uint32_t frag0phyaddr = 0;
 
 
 	nr_frags = skb_shinfo(nbuf)->nr_frags;
@@ -753,6 +755,11 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	size = desc_if->size;
 	mask = size - 1;
 
+	frag0phyaddr = (uint32_t)dma_map_single(NULL, nbuf->head, (nbuf->tail - nbuf->head), DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(NULL, frag0phyaddr))) {
+		nss_warning("%p: DMA mapping failed for virtual address = %x", nss_ctx, desc->buffer);
+		return NSS_CORE_STATUS_FAILURE;
+	}
 	/*
 	 * Take a lock for queue
 	 */
@@ -807,12 +814,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		desc->payload_offs = (uint16_t) (nbuf->data - nbuf->head);
 		desc->payload_len = nbuf->len;
 		desc->buffer_len = (uint16_t)(nbuf->end - nbuf->head);
-		desc->buffer = (uint32_t)dma_map_single(NULL, nbuf->head, (nbuf->tail - nbuf->head), DMA_TO_DEVICE);
-		if (unlikely(dma_mapping_error(NULL, desc->buffer))) {
-			spin_unlock_bh(&nss_ctx->h2n_desc_rings[qid].lock);
-			nss_warning("%p: DMA mapping failed for virtual address = %x", nss_ctx, desc->buffer);
-			return NSS_CORE_STATUS_FAILURE;
-		}
+		desc->buffer = frag0phyaddr;
 
 		if (!NSS_IS_VIRTUAL_INTERFACE(if_num)) {
 			if (likely(nbuf->destructor == NULL)) {
@@ -868,13 +870,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		desc->payload_offs = nbuf->data - nbuf->head;
 		desc->payload_len = nbuf->len - nbuf->data_len;
 		desc->buffer_len = nbuf->end - nbuf->head;
-		desc->buffer = (uint32_t)dma_map_single(NULL, nbuf->head, (nbuf->tail - nbuf->head), DMA_TO_DEVICE);
-		if (unlikely(dma_mapping_error(NULL, desc->buffer))) {
-			spin_unlock_bh(&nss_ctx->h2n_desc_rings[qid].lock);
-			nss_warning("%p: DMA mapping failed for virtual address = %p", nss_ctx, nbuf->head);
-			return NSS_CORE_STATUS_FAILURE;
-		}
-
+		desc->buffer = frag0phyaddr;
 		desc->mss = mss;
 
 		/*
