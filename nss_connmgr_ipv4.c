@@ -114,7 +114,7 @@
 typedef uint8_t mac_addr_t[6];
 typedef uint32_t ipv4_addr_t;
 
-#define is_bridge_port(dev) (dev->priv_flags & IFF_BRIDGE_PORT)
+#define is_bridge_port(dev) (dev && (dev->priv_flags & IFF_BRIDGE_PORT))
 #define is_bridge_device(dev) (dev->priv_flags & IFF_EBRIDGE)
 #define is_lag_master(dev)	((dev->flags & IFF_MASTER)		\
 				 && (dev->priv_flags & IFF_BONDING))
@@ -2043,32 +2043,56 @@ out:
  */
 void nss_connmgr_ipv4_update_bridge_dev(struct nss_connmgr_ipv4_connection *connection, struct nss_ipv4_sync *sync, int final_sync)
 {
-	struct net_device *indev, *outdev;
+	struct net_device *indev = NULL, *outdev = NULL;
 	struct rtnl_link_stats64 stats;
 
-	indev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->src_interface);
+	/*
+	 * IPsec interface does not have a registered net device with NSS
+	 * HLOS driver, hance cannot participate in any statistic update.
+	 */
+	if (connection->src_interface != NSS_C2C_TX_INTERFACE) {
+		indev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->src_interface);
+		if (!indev) {
+			goto check_outdev;
+		}
 
-	if (is_lag_slave(indev)) {
-		if (indev->master) {
+		if (is_lag_slave(indev)) {
+			if (!indev->master) {
+				NSS_CONNMGR_DEBUG_TRACE("NSS IPv4 no master for LAG %s \n", indev->name);
+				return;
+			}
+
 			indev = indev->master;
-		} else {
-			return;
+		} else if (connection->ingress_vlan_tag != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED) {
+			indev = __vlan_find_dev_deep(indev, connection->ingress_vlan_tag);
 		}
-	} else if (connection->ingress_vlan_tag != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED) {
-		indev = __vlan_find_dev_deep(indev, connection->ingress_vlan_tag);
 	}
 
-	outdev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->dest_interface);
-	if (is_lag_slave(outdev)) {
-		if (outdev->master) {
+check_outdev:
+
+	/*
+	 * IPsec interface does not have a registered net device with NSS
+	 * HLOS driver, hance cannot participate in any statistic update.
+	 */
+	if (connection->dest_interface != NSS_C2C_TX_INTERFACE) {
+		outdev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->dest_interface);
+		if (!outdev) {
+			goto check_bridge;
+		}
+
+		if (is_lag_slave(outdev)) {
+			if (!outdev->master) {
+				NSS_CONNMGR_DEBUG_TRACE("NSS IPv4 no master for LAG %s \n", outdev->name);
+				return;
+			}
+
 			outdev = outdev->master;
-		} else {
-			return;
+		} else if (connection->egress_vlan_tag != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED) {
+			outdev = __vlan_find_dev_deep(outdev, connection->egress_vlan_tag);
 		}
-	} else if (connection->egress_vlan_tag != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED) {
-		outdev = __vlan_find_dev_deep(outdev, connection->egress_vlan_tag);
 	}
 
+check_bridge:
 	/*
 	 * Check if we have a bridge to update
 	 */

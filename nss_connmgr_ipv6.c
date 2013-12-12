@@ -159,7 +159,7 @@
 typedef uint8_t mac_addr_t[6];
 typedef uint32_t ipv6_addr_t[4];
 
-#define is_bridge_port(dev) (dev->priv_flags & IFF_BRIDGE_PORT)
+#define is_bridge_port(dev) (dev && (dev->priv_flags & IFF_BRIDGE_PORT))
 #define is_bridge_device(dev) (dev->priv_flags & IFF_EBRIDGE)
 #define is_lag_master(dev)	((dev->flags & IFF_MASTER)		\
 				 && (dev->priv_flags & IFF_BONDING))
