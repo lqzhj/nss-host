@@ -81,6 +81,7 @@ void *gbl_nss_ctx = NULL;
 struct net_device *gbl_except_dev = NULL;
 
 #define NSS_IPSEC_IFNAME_BASE_SZ	(sizeof(ifname_base) - 1)
+#define NSS_IPSEC_IFNAME_SZ(str)	(sizeof((str) - 1)
 
 /*
  * nss_ipsec_get_tunnel_by_dev()
@@ -471,16 +472,46 @@ static int32_t nss_ipsec_decap_rule_insert(struct sk_buff *skb, uint32_t crypto_
 fail:
 	return -EINVAL;
 }
+static int nss_ipsec_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
+{
+	struct net_device *dev = (struct net_device *)ptr;
+
+	switch (event) {
+	case NETDEV_UP:
+		if (strncmp(dev->name, "ipsec0", (strlen("ipsec0") - 1)) == 0) {
+			nss_cfi_info("IPsec interface coming up: %s\n", dev->name);
+
+			gbl_nss_ctx = nss_register_ipsec_if(NSS_C2C_TX_INTERFACE, nss_ipsec_except, dev);
+			if (gbl_nss_ctx == NULL) {
+				nss_cfi_err("Unable to register IPsec with NSS driver\n");
+				return -1;
+			}
+		}
+		break;
+
+        case NETDEV_DOWN:
+		if (strncmp(dev->name, ifname_base, NSS_IPSEC_IFNAME_BASE_SZ) == 0) {
+			nss_cfi_info("IPsec interface going down: %s\n", dev->name);
+		}
+		break;
+
+	default:
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block nss_ipsec_notifier = {
+	.notifier_call = nss_ipsec_dev_event,
+};
 
 int __init nss_ipsec_init_module(void)
 {
 	nss_cfi_info("NSS IPsec (platform - IPQ806x , Build - %s:%s) loaded\n", __DATE__, __TIME__);
 
-	gbl_nss_ctx = nss_register_ipsec_if(NSS_C2C_TX_INTERFACE, nss_ipsec_except, &tunnel_head);
-	if (gbl_nss_ctx == NULL) {
-		nss_cfi_err("Unable to register IPsec with NSS driver\n");
-		return -1;
-	}
+
+	register_netdevice_notifier(&nss_ipsec_notifier);
 
 	nss_cfi_ocf_register_ipsec(nss_ipsec_encap_rule_insert, nss_ipsec_decap_rule_insert);
 
