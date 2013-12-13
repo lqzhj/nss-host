@@ -2055,22 +2055,20 @@ void nss_connmgr_ipv4_update_bridge_dev(struct nss_connmgr_ipv4_connection *conn
 	 * IPsec interface does not have a registered net device with NSS
 	 * HLOS driver, hance cannot participate in any statistic update.
 	 */
-	if (connection->src_interface != NSS_C2C_TX_INTERFACE) {
-		indev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->src_interface);
-		if (!indev) {
-			goto check_outdev;
+	indev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->src_interface);
+	if (!indev) {
+		goto check_outdev;
+	}
+
+	if (is_lag_slave(indev)) {
+		if (!indev->master) {
+			NSS_CONNMGR_DEBUG_TRACE("NSS IPv4 no master for LAG %s \n", indev->name);
+			return;
 		}
 
-		if (is_lag_slave(indev)) {
-			if (!indev->master) {
-				NSS_CONNMGR_DEBUG_TRACE("NSS IPv4 no master for LAG %s \n", indev->name);
-				return;
-			}
-
-			indev = indev->master;
-		} else if (connection->ingress_vlan_tag != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED) {
-			indev = __vlan_find_dev_deep(indev, connection->ingress_vlan_tag);
-		}
+		indev = indev->master;
+	} else if (connection->ingress_vlan_tag != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED) {
+		indev = __vlan_find_dev_deep(indev, connection->ingress_vlan_tag);
 	}
 
 check_outdev:
@@ -2079,22 +2077,20 @@ check_outdev:
 	 * IPsec interface does not have a registered net device with NSS
 	 * HLOS driver, hance cannot participate in any statistic update.
 	 */
-	if (connection->dest_interface != NSS_C2C_TX_INTERFACE) {
-		outdev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->dest_interface);
-		if (!outdev) {
-			goto check_bridge;
+	outdev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->dest_interface);
+	if (!outdev) {
+		goto check_bridge;
+	}
+
+	if (is_lag_slave(outdev)) {
+		if (!outdev->master) {
+			NSS_CONNMGR_DEBUG_TRACE("NSS IPv4 no master for LAG %s \n", outdev->name);
+			return;
 		}
 
-		if (is_lag_slave(outdev)) {
-			if (!outdev->master) {
-				NSS_CONNMGR_DEBUG_TRACE("NSS IPv4 no master for LAG %s \n", outdev->name);
-				return;
-			}
-
-			outdev = outdev->master;
-		} else if (connection->egress_vlan_tag != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED) {
-			outdev = __vlan_find_dev_deep(outdev, connection->egress_vlan_tag);
-		}
+		outdev = outdev->master;
+	} else if (connection->egress_vlan_tag != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED) {
+		outdev = __vlan_find_dev_deep(outdev, connection->egress_vlan_tag);
 	}
 
 check_bridge:
