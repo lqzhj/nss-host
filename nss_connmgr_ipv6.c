@@ -892,11 +892,16 @@ static unsigned int nss_connmgr_ipv6_bridge_post_routing_hook(unsigned int hookn
 	/*
 	 * If destination is not reachable, ignore.
 	 */
-	if (skb_mac_header_was_set(skb)
-	    && br_port_dev_get(out->master, eth_hdr(skb)->h_dest) == NULL) {
-		dev_put(in);
-		NSS_CONNMGR_DEBUG_TRACE("Dest not reachable, skb(%p)\n", skb);
-		return NF_ACCEPT;
+	if (skb_mac_header_was_set(skb)) {
+		struct net_device *dest_dev = br_port_dev_get(out->master, eth_hdr(skb)->h_dest);
+
+		if (dest_dev == NULL) {
+			dev_put(in);
+			NSS_CONNMGR_DEBUG_TRACE("Dest not reachable, skb(%p)\n", skb);
+			return NF_ACCEPT;
+		} else {
+			dev_put(dest_dev);
+		}
 	}
 
 	/*
