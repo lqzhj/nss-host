@@ -63,6 +63,20 @@ static struct nss_cfi_ocf_algo cfi_algo[CRYPTO_ALGORITHM_MAX] = {
 					NSS_CRYPTO_MAX_HASHLEN_SHA1,
 					NSS_CFI_OCF_ALGO_TYPE_IS_AUTH
 				},
+	[CRYPTO_DES_CBC] =	{
+					NSS_CRYPTO_CIPHER_DES,
+					(NSS_CRYPTO_MAX_KEYLEN_DES)/3,
+					NSS_CRYPTO_MAX_IVLEN_DES,
+					0,
+					NSS_CFI_OCF_ALGO_TYPE_IS_CIPHER
+				},
+	[CRYPTO_3DES_CBC] =	{
+					NSS_CRYPTO_CIPHER_DES,
+					NSS_CRYPTO_MAX_KEYLEN_DES,
+					NSS_CRYPTO_MAX_IVLEN_DES,
+					0,
+					NSS_CFI_OCF_ALGO_TYPE_IS_CIPHER
+				}
 };
 
 /*
@@ -372,6 +386,7 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 		buf->cipher_len = cip_crd->crd_len;
 		buf->cipher_skip = cip_crd->crd_skip;
 		buf->iv_offset = cip_crd->crd_inject;
+		buf->iv_len = ivsize;
 
 		nss_cfi_dbg("cipher len %d cipher skip %d iv_offset %d\n",
 				buf->cipher_len, buf->cipher_skip, buf->iv_offset);
