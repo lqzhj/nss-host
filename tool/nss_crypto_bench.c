@@ -349,6 +349,8 @@ struct crypto_bench_param {
 
 	uint32_t mcmp_encr;	/**< encryption failures in mcmp */
 	uint32_t mcmp_hash;	/**< hash match failures in mcmp */
+	uint32_t avg_mbps;	/**< avg throughput */
+	uint32_t peak_mbps;	/**<peak throughput */
 };
 
 /*
@@ -698,7 +700,10 @@ static int crypto_bench_tx(void *arg)
 	struct crypto_op *op;
 	struct list_head *ptr;
 	nss_crypto_status_t status;
+	uint32_t loop_count = 0, total_mbps = 0;
 
+	param.peak_mbps = 0;
+	param.avg_mbps = 0;
 
 	for (;;) {
 
@@ -711,7 +716,7 @@ static int crypto_bench_tx(void *arg)
 
 		tx_reqs = 0;
 
-		crypto_bench_info("#");
+		crypto_bench_debug("#");
 
 		/* get start time */
 		do_gettimeofday(&init_time);
@@ -745,15 +750,27 @@ static int crypto_bench_tx(void *arg)
 		mbits   = (tx_reqs * param.bam_len * 8);
 		param.mbps = mbits / delta_usecs;
 
-		crypto_bench_info("bench: completed (reqs = %d, size = %d, time = %d, mbps = %d",
+		chk_n_set((param.peak_mbps < param.mbps), param.peak_mbps, param.mbps);
+
+		crypto_bench_debug("bench: completed (reqs = %d, size = %d, time = %d, mbps = %d",
 				tx_reqs, param.bam_len, delta_usecs, param.mbps);
+
+		total_mbps += param.mbps;
 
 		if (param.mcmp_mode) {
 			crypto_bench_mcmp();
-			crypto_bench_info(", encr_fail = %d, hash_fail = %d", param.mcmp_encr, param.mcmp_hash);
+			crypto_bench_debug(", encr_fail = %d, hash_fail = %d", param.mcmp_encr, param.mcmp_hash);
 		}
-		crypto_bench_info(")\n");
+		crypto_bench_debug(")\n");
+
+		loop_count++;
+
+		if (param.num_loops == 0) {
+			param.avg_mbps = (total_mbps / loop_count);
+			crypto_bench_info("crypto bench is done\n");
+		}
 	}
+
 
 	return 0;
 }
@@ -864,6 +881,8 @@ nss_crypto_user_ctx_t crypto_bench_attach(nss_crypto_handle_t crypto)
 	debugfs_create_u32("hash_fail", CRYPTO_BENCH_PERM_RO, droot, &param.mcmp_hash);
 	debugfs_create_u32("encr_fail", CRYPTO_BENCH_PERM_RO, droot, &param.mcmp_encr);
 	debugfs_create_u32("comp", CRYPTO_BENCH_PERM_RO, droot, &tx_reqs);
+	debugfs_create_u32("peak_mbps", CRYPTO_BENCH_PERM_RO, droot, &param.peak_mbps);
+	debugfs_create_u32("avg_mbps", CRYPTO_BENCH_PERM_RO, droot, &param.avg_mbps);
 
 	return (nss_crypto_user_ctx_t)&op_head;
 }
@@ -876,7 +895,7 @@ void crypto_bench_detach(nss_crypto_user_ctx_t ctx)
 
 int __init crypto_bench_init(void)
 {
-	crypto_bench_info("Crypto bench loaded\n");
+	crypto_bench_info("Crypto bench loaded build (%s, %s)\n", __DATE__, __TIME__);
 
 	droot = debugfs_create_dir("crypto_bench", NULL);
 
