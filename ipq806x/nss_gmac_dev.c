@@ -484,6 +484,32 @@ void nss_gmac_jumbo_frame_disable(nss_gmac_dev *gmacdev)
 }
 
 /*
+ * Enable twokpe frame support.
+ * When Enabled GMAC supports jumbo frames of <= 2000 bytes.
+ * Giant frame error is not reported in receive frame status.
+ * @param[in] pointer to nss_gmac_dev.
+ * @return returns void.
+ */
+void nss_gmac_twokpe_frame_enable(nss_gmac_dev *gmacdev)
+{
+	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
+			      GmacConfig, GmacTwokpe);
+}
+
+/*
+ * Disable twokpe SUPPORT.
+ * When disabled gmac does not support frames of length > 1522 bytes.
+ * Giant frame error is reported in receive frame status
+ * @param[in] pointer to nss_gmac_dev.
+ * @return returns void.
+ */
+void nss_gmac_twokpe_frame_disable(nss_gmac_dev *gmacdev)
+{
+	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
+				GmacConfig, GmacTwokpe);
+}
+
+/*
  * Disable Carrier sense.
  * When Disabled GMAC ignores CRS signal during frame transmission
  * in half duplex mode.
@@ -1274,11 +1300,7 @@ void nss_gmac_mac_init(nss_gmac_dev *gmacdev)
 	nss_gmac_wd_enable(gmacdev);
 	nss_gmac_jab_enable(gmacdev);
 	nss_gmac_frame_burst_enable(gmacdev);
-#ifdef NSS_GMAC_JUMBO
-	nss_gmac_jumbo_frame_enable(gmacdev);
-#else
 	nss_gmac_jumbo_frame_disable(gmacdev);
-#endif
 	nss_gmac_loopback_off(gmacdev);
 
 	if (gmacdev->speed == SPEED1000) {

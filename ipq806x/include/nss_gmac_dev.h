@@ -375,6 +375,9 @@ enum GmacRegisters {
 
 /* GmacConfig              = 0x0000,    Mac config Register  Layout */
 enum GmacConfigReg {
+	GmacTwokpe = 0x08000000,
+	GmacTwokpeEnable = 0x08000000,
+	GmacTwokpeDisable = 0x00000000,
 	GmacTCEnable = 0x01000000,
 	GmacWatchdog = 0x00800000,
 	GmacWatchdogDisable = 0x00800000,	/* (WD)Disable watchdog timer on Rx     */
@@ -1802,6 +1805,8 @@ void nss_gmac_frame_burst_enable(nss_gmac_dev *gmacdev);
 void nss_gmac_frame_burst_disable(nss_gmac_dev *gmacdev);
 void nss_gmac_jumbo_frame_enable(nss_gmac_dev *gmacdev);
 void nss_gmac_jumbo_frame_disable(nss_gmac_dev *gmacdev);
+void nss_gmac_twokpe_frame_disable(nss_gmac_dev *gmacdev);
+void nss_gmac_twokpe_frame_enable(nss_gmac_dev *gmacdev);
 void nss_gmac_select_gmii(nss_gmac_dev *gmacdev);
 void nss_gmac_select_mii(nss_gmac_dev *gmacdev);
 void nss_gmac_rx_own_enable(nss_gmac_dev *gmacdev);

@@ -104,6 +104,7 @@ static void nss_gmac_copy_stats(nss_gmac_dev *gmacdev,
 	pstat->hw_errs[9] += gstat->hw_errs[9];
 	gmacdev->nss_stats.rx_missed += gstat->rx_missed;
 	gmacdev->nss_stats.fifo_overflows += gstat->fifo_overflows;
+	gmacdev->nss_stats.rx_scatter_errors += gstat->rx_scatter_errors;
 	gmacdev->nss_stats.gmac_total_ticks += gstat->gmac_total_ticks;
 	gmacdev->nss_stats.gmac_worst_case_ticks += gstat->gmac_worst_case_ticks;
 	gmacdev->nss_stats.gmac_iterations += gstat->gmac_iterations;
@@ -628,6 +629,16 @@ int32_t nss_gmac_linux_change_mtu(struct net_device *netdev, int32_t newmtu)
 	if (nss_status != NSS_TX_SUCCESS) {
 		return -EAGAIN;
 	}
+
+	if (newmtu <= NSS_ETH_NORMAL_FRAME_MTU) {
+		nss_gmac_jumbo_frame_disable(gmacdev);
+		nss_gmac_twokpe_frame_disable(gmacdev);
+        } else if (newmtu <= NSS_ETH_MINI_JUMBO_FRAME_MTU) {
+		nss_gmac_jumbo_frame_disable(gmacdev);
+		nss_gmac_twokpe_frame_enable(gmacdev);
+        } else if (newmtu <= NSS_ETH_FULL_JUMBO_FRAME_MTU) {
+		nss_gmac_jumbo_frame_enable(gmacdev);
+        }
 
 	netdev->mtu = newmtu;
 	return 0;

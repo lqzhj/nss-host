@@ -77,6 +77,7 @@ static const struct nss_gmac_ethtool_stats gmac_gstrings_stats[] = {
 	{"tx_dropped", NSS_GMAC_STAT(tx_dropped)},
 	{"rx_missed", NSS_GMAC_STAT(rx_missed)},
 	{"fifo_overflows", NSS_GMAC_STAT(fifo_overflows)},
+	{"rx_scatter_errors", NSS_GMAC_STAT(rx_scatter_errors)},
 	{"pmt_interrupts", NSS_GMAC_STAT(hw_errs[0])},
 	{"mmc_interrupts", NSS_GMAC_STAT(hw_errs[0]) + (1 * HW_ERR_SIZE)},
 	{"line_interface_interrupts", NSS_GMAC_STAT(hw_errs[0]) + (2 * HW_ERR_SIZE)},
