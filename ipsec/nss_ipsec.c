@@ -478,7 +478,7 @@ static int nss_ipsec_dev_event(struct notifier_block *this, unsigned long event,
 
 	switch (event) {
 	case NETDEV_UP:
-		if (strncmp(dev->name, "ipsec0", (strlen("ipsec0") - 1)) == 0) {
+		if (strncmp(dev->name, "ipsec0", strlen("ipsec0")) == 0) {
 			nss_cfi_info("IPsec interface coming up: %s\n", dev->name);
 
 			gbl_nss_ctx = nss_register_ipsec_if(NSS_C2C_TX_INTERFACE, nss_ipsec_except, dev);
@@ -490,7 +490,7 @@ static int nss_ipsec_dev_event(struct notifier_block *this, unsigned long event,
 		break;
 
         case NETDEV_DOWN:
-		if (strncmp(dev->name, ifname_base, NSS_IPSEC_IFNAME_BASE_SZ) == 0) {
+		if (strncmp(dev->name, "ipsec", strlen("ipsec")) == 0) {
 			nss_cfi_info("IPsec interface going down: %s\n", dev->name);
 		}
 		break;
@@ -510,7 +510,6 @@ int __init nss_ipsec_init_module(void)
 {
 	nss_cfi_info("NSS IPsec (platform - IPQ806x , Build - %s:%s) loaded\n", __DATE__, __TIME__);
 
-
 	register_netdevice_notifier(&nss_ipsec_notifier);
 
 	nss_cfi_ocf_register_ipsec(nss_ipsec_encap_rule_insert, nss_ipsec_decap_rule_insert);
@@ -523,6 +522,8 @@ void __exit nss_ipsec_exit_module(void)
 	nss_cfi_ocf_unregister_ipsec();
 
 	nss_unregister_ipsec_if(NSS_C2C_TX_INTERFACE);
+
+	unregister_netdevice_notifier(&nss_ipsec_notifier);
 
 	nss_cfi_info("module unloaded\n");
 }
