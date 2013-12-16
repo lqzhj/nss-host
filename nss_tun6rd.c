@@ -405,6 +405,15 @@ void nss_tun6rd_exception(void *ctx, void *buf)
 	 * Packet after Decap/Encap Did not find the Rule.
 	 */
 	if (iph->version == 4) {
+		if(iph->protocol == IPPROTO_IPV6){
+			skb_pull(skb, sizeof(struct iphdr));
+			skb->protocol = htons(ETH_P_IPV6);
+			skb_reset_network_header(skb);
+			skb->pkt_type = PACKET_HOST;
+			skb->ip_summed = CHECKSUM_NONE;
+			dev_queue_xmit(skb);
+			return;
+		}
 		skb->protocol = htons(ETH_P_IP);
 	} else {
 		skb->protocol = htons(ETH_P_IPV6);
