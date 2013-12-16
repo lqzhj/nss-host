@@ -1532,8 +1532,10 @@ nss_tx_status_t nss_tx_phys_if_change_mtu(void *ctx, uint32_t mtu, uint32_t if_n
 {
 	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) ctx;
 	struct sk_buff *nbuf;
-	int32_t status;
+	int32_t status, i;
+	uint16_t max_mtu;
 	struct nss_tx_metadata_object *ntmo;
+	struct nss_if_mtu_change *nimc;
 
 	nss_info("%p: Phys If Change MTU, id:%d, mtu=%d\n", nss_ctx, if_num, mtu);
 
@@ -1552,7 +1554,11 @@ nss_tx_status_t nss_tx_phys_if_change_mtu(void *ctx, uint32_t mtu, uint32_t if_n
 	}
 
 	ntmo = (struct nss_tx_metadata_object *)skb_put(nbuf, sizeof(struct nss_tx_metadata_object));
-	ntmo->type = NSS_TX_METADATA_TYPE_DESTROY_ALL_L3_RULES;
+	ntmo->type = NSS_TX_METADATA_TYPE_INTERFACE_MTU_CHANGE;
+
+	nimc = &ntmo->sub.if_mtu_change;
+	nimc->interface_num = if_num;
+	nimc->min_buf_size = (uint16_t)mtu + NSS_NBUF_ETH_EXTRA;
 
 	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
 	if (status != NSS_CORE_STATUS_SUCCESS) {
@@ -1560,6 +1566,24 @@ nss_tx_status_t nss_tx_phys_if_change_mtu(void *ctx, uint32_t mtu, uint32_t if_n
 		nss_warning("%p: Unable to enqueue 'Phys If Change MTU' rule\n", nss_ctx);
 		return NSS_TX_FAILURE;
 	}
+
+	nss_ctx->phys_if_mtu[if_num] = (uint16_t)mtu;
+	max_mtu = nss_ctx->phys_if_mtu[0];
+	for (i = 1; i < NSS_MAX_PHYSICAL_INTERFACES; i++) {
+		if (max_mtu < nss_ctx->phys_if_mtu[i]) {
+		       max_mtu = nss_ctx->phys_if_mtu[i];
+		}
+	}
+
+	if (max_mtu <= NSS_ETH_NORMAL_FRAME_MTU) {
+		max_mtu = NSS_ETH_NORMAL_FRAME_MTU;
+	} else if (max_mtu <= NSS_ETH_MINI_JUMBO_FRAME_MTU) {
+		max_mtu = NSS_ETH_MINI_JUMBO_FRAME_MTU;
+	} else if (max_mtu <= NSS_ETH_FULL_JUMBO_FRAME_MTU) {
+		max_mtu = NSS_ETH_FULL_JUMBO_FRAME_MTU;
+	}
+
+	nss_ctx->max_buf_size = ((max_mtu + ETH_HLEN + SMP_CACHE_BYTES - 1) & ~(SMP_CACHE_BYTES - 1)) + NSS_NBUF_PAD_EXTRA;
 
 	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
 								NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
@@ -2127,6 +2151,7 @@ void *nss_register_phys_if(uint32_t if_num,
 				nss_phys_if_event_callback_t event_callback, struct net_device *if_ctx)
 {
 	uint8_t id = nss_top_main.phys_if_handler_id[if_num];
+	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[id];
 
 	nss_assert(if_num <= NSS_MAX_PHYSICAL_INTERFACES);
 
@@ -2134,7 +2159,8 @@ void *nss_register_phys_if(uint32_t if_num,
 	nss_top_main.if_rx_callback[if_num] = rx_callback;
 	nss_top_main.phys_if_event_callback[if_num] = event_callback;
 
-	return (void *)&nss_top_main.nss[id];
+	nss_ctx->phys_if_mtu[if_num] = NSS_ETH_NORMAL_FRAME_MTU;
+	return (void *)nss_ctx;
 }
 
 /*
@@ -2147,6 +2173,8 @@ void nss_unregister_phys_if(uint32_t if_num)
 	nss_top_main.if_rx_callback[if_num] = NULL;
 	nss_top_main.phys_if_event_callback[if_num] = NULL;
 	nss_top_main.if_ctx[if_num] = NULL;
+	nss_top_main.nss[0].phys_if_mtu[if_num] = 0;
+	nss_top_main.nss[1].phys_if_mtu[if_num] = 0;
 }
 
 /*

@@ -377,6 +377,10 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 					nss_ctx->int_ctx[1].shift_factor, NSS_HAL_SUPPORTED_INTERRUPTS);
 	}
 
+	/*
+	 * Initialize max buffer size for NSS core
+	 */
+	nss_ctx->max_buf_size = NSS_NBUF_PAYLOAD_SIZE;
 	nss_info("%p: All resources initialized and nss core%d has been brought out of reset", nss_ctx, nss_dev->id);
 	goto err_init_0;
 

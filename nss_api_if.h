@@ -69,6 +69,9 @@
  */
 #define IPV6_ADDR_TO_OCTAL(ipv6) ((uint16_t *)ipv6)[0], ((uint16_t *)ipv6)[1], ((uint16_t *)ipv6)[2], ((uint16_t *)ipv6)[3], ((uint16_t *)ipv6)[4], ((uint16_t *)ipv6)[5], ((uint16_t *)ipv6)[6], ((uint16_t *)ipv6)[7]
 
+#define NSS_ETH_NORMAL_FRAME_MTU 1500
+#define NSS_ETH_MINI_JUMBO_FRAME_MTU 1978
+#define NSS_ETH_FULL_JUMBO_FRAME_MTU 9600
 /*
  * Link aggregation enslave/release events
  */

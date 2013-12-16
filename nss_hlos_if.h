@@ -213,6 +213,14 @@ struct nss_if_close {
 };
 
 /*
+ * Interface mtu change
+ */
+struct nss_if_mtu_change {
+	uint32_t interface_num;		/* Interface number */
+	uint16_t min_buf_size;		/* Changed min buf size value */
+};
+
+/*
  * Crypto open command
  */
 struct nss_crypto_open {
@@ -305,6 +313,7 @@ enum nss_tx_metadata_types {
 	NSS_TX_METADATA_TYPE_PROFILER_TX,
 	NSS_TX_METADATA_TYPE_GENERIC_IF_PARAMS,
 	NSS_TX_METADATA_TYPE_NSS_FREQ_CHANGE,
+	NSS_TX_METADATA_TYPE_INTERFACE_MTU_CHANGE,
 };
 
 /*
@@ -334,6 +343,7 @@ struct nss_tx_metadata_object {
 		struct nss_profiler_tx profiler_tx;
 		struct nss_generic_if_params generic_if_params;
 		struct nss_freq_change freq_change;
+		struct nss_if_mtu_change if_mtu_change;
 	} sub;
 };
 
