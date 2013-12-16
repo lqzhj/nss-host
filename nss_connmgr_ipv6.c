@@ -2014,48 +2014,65 @@ void nss_connmgr_ipv6_update_bridge_dev(struct nss_connmgr_ipv6_connection *conn
 	struct rtnl_link_stats64 stats;
 
 	indev = nss_get_interface_dev(nss_connmgr_ipv6.nss_context, connection->src_interface);
+	if (indev == NULL) {
+		/*
+		 * Possible sync for a deleted interface
+		 */
+		return;
+	}
 
 	if (is_lag_slave(indev)) {
-		if (indev->master) {
-			indev = indev->master;
-		} else {
+		if (indev->master == NULL) {
+			NSS_CONNMGR_DEBUG_TRACE("Could not find master for LAG slave %s\n", indev->name);
 			return;
 		}
+		indev = indev->master;
 	} else if (connection->ingress_vlan_tag != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED) {
 		indev = __vlan_find_dev_deep(indev, connection->ingress_vlan_tag);
+		if (indev == NULL) {
+			/*
+			 * Possible sync for a deleted VLAN interface
+			 */
+			return;
+		}
 	}
 
 	outdev = nss_get_interface_dev(nss_connmgr_ipv6.nss_context, connection->dest_interface);
-	if (is_lag_slave(outdev)) {
-		if (outdev->master) {
-			outdev = outdev->master;
-		} else {
-			return;
-		}
-	} else if (connection->egress_vlan_tag != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED) {
-		outdev = __vlan_find_dev_deep(outdev, connection->egress_vlan_tag);
+	if (outdev == NULL) {
+		/*
+		 * Possible sync for a deleted interface
+		 */
+		return;
 	}
 
-	/*
-	 * Check if we have a bridge to update
-	 */
-	if (!is_bridge_port(indev) && !is_bridge_port(outdev))
-		return;
+	if (is_lag_slave(outdev)) {
+		if (outdev->master == NULL) {
+			NSS_CONNMGR_DEBUG_TRACE("Could not find master for LAG slave %s\n", outdev->name);
+			return;
+		}
+		outdev = outdev->master;
+	} else if (connection->egress_vlan_tag != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED) {
+		outdev = __vlan_find_dev_deep(outdev, connection->egress_vlan_tag);
+		if (outdev == NULL) {
+			/*
+			 * Possible sync for a deleted VLAN interface
+			 */
+			return;
+		}
+	}
 
-	/*
-	 * Update bridge device statistics for routing flows that have
-	 * a bridge in the path. We should avoid updating bridge device
-	 * for flows that are forwrded within the bridge.
-	 */
 	if (is_bridge_port(indev))
 	{
 		/*
 		 * Refresh bridge MAC table if necessary
 		 */
-		if (!sync->final_sync) {
+		if (!sync->final_sync && sync->flow_rx_packet_count) {
 			br_refresh_fdb_entry(indev, connection->src_mac_addr);
 		}
 
+		/*
+		 * Update bridge interface stats for L3 flows involving a bridge
+		 */
 		if (indev->master != outdev->master) {
 			stats.rx_packets = sync->flow_rx_packet_count;
 			stats.rx_bytes = sync->flow_rx_byte_count;
@@ -2070,10 +2087,13 @@ void nss_connmgr_ipv6_update_bridge_dev(struct nss_connmgr_ipv6_connection *conn
 		/*
 		 * Refresh bridge MAC table if necessary
 		 */
-		if (!sync->final_sync) {
+		if (!sync->final_sync && sync->return_rx_packet_count) {
 			br_refresh_fdb_entry(outdev, connection->dest_mac_addr);
 		}
 
+		/*
+		 * Update bridge interface stats for L3 flows involving a bridge
+		 */
 		if (indev->master != outdev->master) {
 			stats.rx_packets = sync->return_rx_packet_count;
 			stats.rx_bytes = sync->return_rx_byte_count;
