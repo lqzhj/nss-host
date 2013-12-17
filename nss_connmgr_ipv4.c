@@ -610,6 +610,7 @@ static unsigned int nss_connmgr_ipv4_bridge_post_routing_hook(unsigned int hookn
 	 * unreachable error packets
 	 */
 	if ((ctinfo == IP_CT_RELATED) || (ctinfo == IP_CT_RELATED_REPLY)) {
+		dev_put(in);
 		NSS_CONNMGR_DEBUG_TRACE("skb: Related packet %p tracked by connection: %p\n", skb, ct);
 		return NF_ACCEPT;
 	}
@@ -1462,7 +1463,7 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 	 */
 	if ((ctinfo == IP_CT_RELATED) || (ctinfo == IP_CT_RELATED_REPLY)) {
 		NSS_CONNMGR_DEBUG_TRACE("skb: Related packet %p tracked by connection: %p\n", skb, ct);
-		return NF_ACCEPT;
+		goto out;
 	}
 
 	/*
