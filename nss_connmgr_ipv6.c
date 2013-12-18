@@ -815,6 +815,14 @@ static unsigned int nss_connmgr_ipv6_bridge_post_routing_hook(unsigned int hookn
 	nss_tx_status_t nss_tx_status;
 
 	/*
+	 * Only process IPV6 packets in bridge hook
+	 */
+	if(skb->protocol != htons(ETH_P_IPV6)){
+		NSS_CONNMGR_DEBUG_TRACE("non ipv6 , ignoring: %p\n", skb);
+		return NF_ACCEPT;
+	}
+
+	/*
 	 * Don't process broadcast or multicast
 	 */
 	if (skb->pkt_type == PACKET_BROADCAST) {
