@@ -264,7 +264,9 @@ void nss_gmac_linkup(nss_gmac_dev *gmacdev)
 	}
 
 	gmacdev->link_state = LINKUP;
-	nss_gmac_dev_set_speed(gmacdev);
+	if (nss_gmac_dev_set_speed(gmacdev) != 0) {
+		return;
+	}
 
 	if (gmacdev->first_linkup_done == 0) {
 		nss_gmac_disable_interrupt_all(gmacdev);
@@ -386,14 +388,19 @@ void nss_gmac_work(struct work_struct *work)
 
 		nss_tx_phys_if_get_napi_ctx(gmacdev->nss_gmac_ctx, &gmacdev->napi);
 
-		if (!IS_ERR_OR_NULL(gmacdev->phydev)) {
-			if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
+		if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
+			if (!IS_ERR_OR_NULL(gmacdev->phydev)) {
 				nss_gmac_info(gmacdev, "%s: start phy 0x%x", __FUNCTION__, gmacdev->phydev->phy_id);
 				phy_start(gmacdev->phydev);
 				phy_start_aneg(gmacdev->phydev);
 			} else {
-				nss_gmac_linkup(gmacdev);
+				nss_gmac_info(gmacdev, "%s: Invalid PHY device for a link polled interface", __FUNCTION__);
 			}
+		} else {
+			/*
+			 * Force link up if link polling is disabled
+			 */
+			nss_gmac_linkup(gmacdev);
 		}
 
 		return;

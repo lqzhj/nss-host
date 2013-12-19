@@ -552,6 +552,35 @@ static uint32_t clk_div_rgmii(nss_gmac_dev *gmacdev)
 }
 
 /**
+ * @brief Return PCS Channel speed values
+ * @param[in] nss_gmac_dev *
+ * @return returns PCS speed values.
+ */
+static uint32_t get_pcs_speed(nss_gmac_dev *gmacdev)
+{
+	uint32_t speed;
+
+	switch (gmacdev->speed) {
+	case SPEED1000:
+		speed = PCS_CH_SPEED_1000;
+		break;
+
+	case SPEED100:
+		speed = PCS_CH_SPEED_100;
+		break;
+
+	case SPEED10:
+		speed = PCS_CH_SPEED_10;
+		break;
+
+	default:
+		speed = PCS_CH_SPEED_1000;
+		break;
+	}
+
+	return speed;
+}
+/**
  * @brief Set GMAC speed.
  * @param[in] nss_gmac_dev *
  * @return returns 0 on success.
@@ -560,7 +589,7 @@ int32_t nss_gmac_dev_set_speed(nss_gmac_dev *gmacdev)
 {
 	uint32_t val = 0;
 	uint32_t id = gmacdev->macid;
-	uint32_t div = 0;
+	uint32_t div = 0, pcs_speed = 0;
 	uint32_t clk = 0;
 	uint32_t *nss_base = (uint32_t *)(gmacdev->ctx->nss_base);
 	uint32_t *qsgmii_base = (uint32_t *)(gmacdev->ctx->qsgmii_base);
@@ -579,19 +608,19 @@ int32_t nss_gmac_dev_set_speed(nss_gmac_dev *gmacdev)
 		break;
 
 	default:
-		return -EINVAL;
 		nss_gmac_info(gmacdev, "%s: Invalid MII type", __FUNCTION__);
-		break;
+		return -EINVAL;
 	}
 
-	/* Force speed control signal if channel is connected to switch. */
+	/* Force speed control signal if link polling is disabled */
 	if (!test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
 		if (gmacdev->phy_mii_type == GMAC_INTF_SGMII) {
+			pcs_speed = get_pcs_speed(gmacdev);
 			nss_gmac_set_reg_bits(qsgmii_base, PCS_ALL_CH_CTL,
-					      PCS_CHn_FORCE_SPEED(gmacdev->macid));
+					      PCS_CHn_FORCE_SPEED(id));
 			nss_gmac_clear_reg_bits(qsgmii_base, PCS_ALL_CH_CTL, PCS_CHn_SPEED_MASK(id));
 			nss_gmac_set_reg_bits(qsgmii_base, PCS_ALL_CH_CTL,
-					      PCS_CHn_SPEED(gmacdev->macid, PCS_CH_SPEED_1000));
+					      PCS_CHn_SPEED(id, pcs_speed));
 		}
 	}
 
@@ -620,12 +649,12 @@ int32_t nss_gmac_dev_set_speed(nss_gmac_dev *gmacdev)
 	if (gmacdev->phy_mii_type == GMAC_INTF_SGMII
 	    || gmacdev->phy_mii_type == GMAC_INTF_QSGMII) {
 		nss_gmac_clear_reg_bits(qsgmii_base, PCS_MODE_CTL,
-					PCS_MODE_CTL_CHn_AUTONEG_EN(gmacdev->macid));
+					PCS_MODE_CTL_CHn_AUTONEG_EN(id));
 
 		/* Enable autonegotiation from MII register of PHY */
 		if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
 			nss_gmac_set_reg_bits(qsgmii_base, PCS_MODE_CTL,
-					      PCS_MODE_CTL_CHn_AUTONEG_EN(gmacdev->macid));
+					      PCS_MODE_CTL_CHn_AUTONEG_EN(id));
 		}
 
 		val = nss_gmac_read_reg(qsgmii_base, PCS_MODE_CTL);

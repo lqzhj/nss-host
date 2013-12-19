@@ -725,18 +725,6 @@ static const struct net_device_ops nss_gmac_netdev_ops = {
 	.ndo_set_features = &nss_gmac_set_features,
 };
 
-
-/**
- * @brief PHY fixup
- * @param[in] pointer to PHY device
- * @return 0 on Success
- */
-static int32_t nss_gmac_phy_fixup(struct phy_device *phydev)
-{
-	return 0;
-}
-
-
 /**
  * @brief Update list of supported, advertised features
  * @param[in] pointer to supported features
@@ -938,39 +926,22 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 			gmacdev->miibus->id, gmacdev->phy_base);
 	}
 
-	/* register PHY fixup */
-	if (phy_register_fixup((const char *)phy_id, NSS_GMAC_PHY_FIXUP_UID,
-				NSS_GMAC_PHY_FIXUP_MASK, &nss_gmac_phy_fixup) == 0) {
-		nss_gmac_info(gmacdev, "PHY fixup register OK.");
-	}
-
 	/* connect PHY */
 	if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
 		gmacdev->phydev = phy_connect(netdev, (const char *)phy_id,
 					      &nss_gmac_adjust_link, 0,
 					      phyif);
-	} else {
-		/*
-		 * If the GMAC is attached to a switch, execute phy_attach()
-		 * that does not take a callback. The callback is not required since,
-		 * for GMACs connected to switch, the link is always up.
-		*/
-		gmacdev->phydev = phy_attach(netdev, (const char *)phy_id,
-					      0,
-					      phyif);
-	}
 
-	if (IS_ERR_OR_NULL(gmacdev->phydev)) {
-		nss_gmac_info(gmacdev, "PHY %s attach FAIL", phy_id);
-		goto nss_gmac_phy_attach_fail;
-	}
+		if (IS_ERR_OR_NULL(gmacdev->phydev)) {
+			nss_gmac_info(gmacdev, "PHY %s attach FAIL", phy_id);
+			goto nss_gmac_phy_attach_fail;
+		}
 
-	nss_gmac_update_features(&(gmacdev->phydev->supported), &(gmacdev->phydev->advertising));
-	gmacdev->phydev->irq = PHY_POLL;
-	nss_gmac_info(gmacdev, "PHY %s attach OK", phy_id);
+		nss_gmac_update_features(&(gmacdev->phydev->supported), &(gmacdev->phydev->advertising));
+		gmacdev->phydev->irq = PHY_POLL;
+		nss_gmac_info(gmacdev, "PHY %s attach OK", phy_id);
 
-	/* reset corresponding Phy */
-	if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
+		/* reset corresponding Phy */
 		nss_gmac_reset_phy(gmacdev, gmacdev->phy_base);
 
 		if (gmacdev->phy_mii_type == GMAC_INTF_RGMII) {
@@ -981,13 +952,18 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 			mdiobus_write(gmacdev->miibus, gmacdev->phy_base, 0x1D, 0x0B);
 			mdiobus_write(gmacdev->miibus, gmacdev->phy_base, 0x1E, 0xBC20);
 		}
-	}
 
-	/* XXX: Test code to verify if MDIO access is OK. Remove after bringup. */
-	nss_gmac_info(gmacdev, "%s MII_PHYSID1 - 0x%04x", netdev->name,
+		/* XXX: Test code to verify if MDIO access is OK. Remove after bringup. */
+		nss_gmac_info(gmacdev, "%s MII_PHYSID1 - 0x%04x", netdev->name,
 		      nss_gmac_mii_rd_reg(gmacdev, gmacdev->phy_base, MII_PHYSID1));
-	nss_gmac_info(gmacdev, "%s MII_PHYSID2 - 0x%04x", netdev->name,
+		nss_gmac_info(gmacdev, "%s MII_PHYSID2 - 0x%04x", netdev->name,
 		      nss_gmac_mii_rd_reg(gmacdev, gmacdev->phy_base, MII_PHYSID2));
+	} else if (gmacdev->phy_base != NSS_GMAC_NO_MDIO_PHY) {
+		/*
+		 * Issue a phy_attach for the interface connected to a switch
+		 */
+		gmacdev->phydev = phy_attach(netdev, (const char *)phy_id, 0, phyif);
+	}
 
 	test_and_set_bit(__NSS_GMAC_RXCSUM, &gmacdev->flags);
 	nss_gmac_ipc_offload_init(gmacdev);

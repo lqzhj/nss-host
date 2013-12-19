@@ -1473,14 +1473,19 @@ int32_t nss_gmac_check_phy_init(nss_gmac_dev *gmacdev)
 	int32_t count;
 
 	/*
-	 * If connected to a switch, always assume
-	 * 1000Mbps FullDuplex.
+	 * If link polling is disabled, we need to use the forced speed
+	 * and duplex configured for the interface.
 	 */
 	if (!test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)
 					&& !gmacdev->emulation) {
-		gmacdev->speed = gmacdev->forced_speed;
-		gmacdev->duplex_mode = gmacdev->forced_duplex;
-		goto out;
+		if (gmacdev->forced_speed != SPEED_UNKNOWN) {
+			gmacdev->speed = gmacdev->forced_speed;
+			gmacdev->duplex_mode = gmacdev->forced_duplex;
+			return 0;
+		} else {
+			nss_gmac_info(gmacdev, "%s: Invalid forced speed/duplex configuration with link polling disabled", __FUNCTION__);
+			return -1;
+		}
 	}
 
 	if (gmacdev->emulation && (gmacdev->phy_mii_type == GMAC_INTF_SGMII
@@ -1503,6 +1508,10 @@ int32_t nss_gmac_check_phy_init(nss_gmac_dev *gmacdev)
 		goto out;
 	}
 
+	/*
+	 * Read the link status from the PHY for RGMII interfaces
+	 * with link polling enabled.
+	 */
 	phydev = gmacdev->phydev;
 
 	for (count = 0; count < DEFAULT_LOOP_VARIABLE; count++) {

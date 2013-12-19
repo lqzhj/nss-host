@@ -267,8 +267,6 @@ static int nss_gmac_set_pauseparam(struct net_device *netdev,
 	BUG_ON(gmacdev == NULL);
 	BUG_ON(gmacdev->netdev != netdev);
 
-	phydev = gmacdev->phydev;
-
 	/* set flow control settings */
 	gmacdev->pause = 0;
 	if (pause->rx_pause) {
@@ -278,6 +276,16 @@ static int nss_gmac_set_pauseparam(struct net_device *netdev,
 	if (pause->tx_pause) {
 		gmacdev->pause |= FLOW_CTRL_TX;
 	}
+
+	/*
+	 * If the link polling for this GMAC is disabled, we do not
+	 * attempt to make changes to the PHY settings.
+	 */
+	if (!test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
+		return 0;
+	}
+
+	phydev = gmacdev->phydev;
 
 	/* Update flow control advertisment */
 	phydev->advertising &= ~(ADVERTISED_Pause | ADVERTISED_Asym_Pause);
@@ -308,6 +316,14 @@ static int nss_gmac_nway_reset(struct net_device *netdev)
 
 	if (!netif_running(netdev)) {
 		return -EAGAIN;
+	}
+
+	/*
+	 * If the link polling for this GMAC is disabled, we probably
+	 * do not have a PHY attached.
+	 */
+	if (!test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
+		return -EINVAL;
 	}
 
 	if (!test_bit(__NSS_GMAC_AUTONEG, &gmacdev->flags)) {
@@ -356,14 +372,33 @@ static int32_t nss_gmac_get_settings(struct net_device *netdev,
 	gmacdev = (nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 
+	/* Populate supported capabilities */
+	ecmd->supported = NSS_GMAC_SUPPORTED_FEATURES;
+
+	/*
+	 * If the speed/duplex for this GMAC is forced and we are not
+	 * polling for link state changes, return the values as specified by
+	 * platform. This will be true for GMACs connected to switch, and
+	 * interfaces that do not use a PHY.
+	 */
+	if (!test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
+		if (gmacdev->forced_speed != SPEED_UNKNOWN) {
+			ethtool_cmd_speed_set(ecmd, nss_gmac_to_ethtool_speed(gmacdev->forced_speed));
+			ecmd->duplex = nss_gmac_to_ethtool_duplex(gmacdev->forced_duplex);
+			ecmd->mdio_support = 0;
+			ecmd->lp_advertising = 0;
+			return 0;
+		} else {
+			/* Non-link polled interfaced must have a forced speed/duplex */
+			return -EIO;
+		}
+	}
+
 	phydev = gmacdev->phydev;
 
 	/* update PHY status */
 	if (genphy_read_status(phydev) != 0)
 		return -EIO;
-
-	/* Populate supported capabilities */
-	ecmd->supported = NSS_GMAC_SUPPORTED_FEATURES;
 
 	/* Populate capabilities advertised by self */
 	ecmd->advertising = phydev->advertising;
@@ -371,17 +406,6 @@ static int32_t nss_gmac_get_settings(struct net_device *netdev,
 	ecmd->autoneg = phydev->autoneg;
 	ethtool_cmd_speed_set(ecmd, phydev->speed);
 	ecmd->duplex = phydev->duplex;
-
-	/*
-	 * If the speed/duplex for this GMAC is forced and we are not
-	 * polling for link state changes, return the values as specified by
-	 * platform. This will be true for GMACs connected to switch.
-	 */
-	if (gmacdev->forced_speed != SPEED_UNKNOWN
-	    && !test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
-		ethtool_cmd_speed_set(ecmd, nss_gmac_to_ethtool_speed(gmacdev->forced_speed));
-		ecmd->duplex = nss_gmac_to_ethtool_duplex(gmacdev->forced_duplex);
-	}
 
 	if (gmacdev->link_state == LINKDOWN) {
 		ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
@@ -392,47 +416,41 @@ static int32_t nss_gmac_get_settings(struct net_device *netdev,
 	ecmd->phy_address = gmacdev->phy_base;
 	ecmd->transceiver = XCVR_EXTERNAL;
 
-	if (gmacdev->forced_speed != SPEED_UNKNOWN
-	    && !test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
-		ecmd->mdio_support = 0;
-		ecmd->lp_advertising = 0;
-	} else {
-		ecmd->mdio_support = ETH_MDIO_SUPPORTS_C22;
+	ecmd->mdio_support = ETH_MDIO_SUPPORTS_C22;
 
-		/* Populate capabilities advertised by link partner */
-		phyreg = nss_gmac_mii_rd_reg(gmacdev, gmacdev->phy_base, MII_LPA);
-		if (phyreg & LPA_10HALF) {
-			ecmd->lp_advertising |= ADVERTISED_10baseT_Half;
-		}
+	/* Populate capabilities advertised by link partner */
+	phyreg = nss_gmac_mii_rd_reg(gmacdev, gmacdev->phy_base, MII_LPA);
+	if (phyreg & LPA_10HALF) {
+		ecmd->lp_advertising |= ADVERTISED_10baseT_Half;
+	}
 
-		if (phyreg & LPA_10FULL) {
-			ecmd->lp_advertising |= ADVERTISED_10baseT_Full;
-		}
+	if (phyreg & LPA_10FULL) {
+		ecmd->lp_advertising |= ADVERTISED_10baseT_Full;
+	}
 
-		if (phyreg & LPA_100HALF) {
-			ecmd->lp_advertising |= ADVERTISED_100baseT_Half;
-		}
+	if (phyreg & LPA_100HALF) {
+		ecmd->lp_advertising |= ADVERTISED_100baseT_Half;
+	}
 
-		if (phyreg & LPA_100FULL) {
-			ecmd->lp_advertising |= ADVERTISED_100baseT_Full;
-		}
+	if (phyreg & LPA_100FULL) {
+		ecmd->lp_advertising |= ADVERTISED_100baseT_Full;
+	}
 
-		if (phyreg & LPA_PAUSE_CAP) {
-			ecmd->lp_advertising |= ADVERTISED_Pause;
-		}
+	if (phyreg & LPA_PAUSE_CAP) {
+		ecmd->lp_advertising |= ADVERTISED_Pause;
+	}
 
-		if (phyreg & LPA_PAUSE_ASYM) {
-			ecmd->lp_advertising |= ADVERTISED_Asym_Pause;
-		}
+	if (phyreg & LPA_PAUSE_ASYM) {
+		ecmd->lp_advertising |= ADVERTISED_Asym_Pause;
+	}
 
-		phyreg = nss_gmac_mii_rd_reg(gmacdev, gmacdev->phy_base, MII_STAT1000);
-		if (phyreg & LPA_1000HALF) {
-			ecmd->lp_advertising |= ADVERTISED_1000baseT_Half;
-		}
+	phyreg = nss_gmac_mii_rd_reg(gmacdev, gmacdev->phy_base, MII_STAT1000);
+	if (phyreg & LPA_1000HALF) {
+		ecmd->lp_advertising |= ADVERTISED_1000baseT_Half;
+	}
 
-		if (phyreg & LPA_1000FULL) {
-			ecmd->lp_advertising |= ADVERTISED_1000baseT_Full;
-		}
+	if (phyreg & LPA_1000FULL) {
+		ecmd->lp_advertising |= ADVERTISED_1000baseT_Full;
 	}
 
 	return 0;
@@ -453,9 +471,9 @@ static int32_t nss_gmac_set_settings(struct net_device *netdev,
 	BUG_ON(gmacdev == NULL);
 
 	/*
-	 * If the speed for this GMAC is forced,
-	 * do not proceed with the changes below. This would be true
-	 * for GMACs connected to switch.
+	 * If the speed for this GMAC is forced, do not proceed with the
+	 * changes below. This would be true for GMACs connected to switch
+	 * and interfaces that do not use a PHY.
 	 */
 	if (gmacdev->forced_speed != SPEED_UNKNOWN) {
 		return -EPERM;
