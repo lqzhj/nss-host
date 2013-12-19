@@ -147,12 +147,12 @@
  */
 #define NSS_FREQ_110		110000000	/* Frequency in hz */
 #define NSS_FREQ_110_MIN	0x03000		/* Instructions Per ms Min */
-#define NSS_FREQ_110_MAX	0x05000		/* Instructions Per ms Max */
+#define NSS_FREQ_110_MAX	0x08000		/* Instructions Per ms Max */
 
 #define NSS_FREQ_275		275000000	/* Frequency in hz */
 
 #define NSS_FREQ_550		550000000	/* Frequency in hz */
-#define NSS_FREQ_550_MIN	0x04000		/* Instructions Per ms Min */
+#define NSS_FREQ_550_MIN	0x07000		/* Instructions Per ms Min */
 #define NSS_FREQ_550_MAX	0x16000		/* Instructions Per ms Max */
 
 #define NSS_FREQ_733		733000000	/* Frequency in hz */
@@ -569,11 +569,12 @@ static inline void nss_pkt_stats_increment(struct nss_ctx_instance *nss_ctx, uin
  * NSS Statistics and Data for User Space
  */
 struct nss_cmd_buffer {
-	uint32_t current_freq;
-	int32_t auto_scale;
-	int32_t max_freq;
-	uint32_t register_addr;
-	uint32_t register_data;
+	uint32_t current_freq;	/* Current Running Freq of NSS */
+	int32_t auto_scale;	/* Enable or Disable auto_scale */
+	int32_t max_freq;	/* Maximum supported frequency index value */
+	uint32_t register_addr;	/* register addr buffer */
+	uint32_t register_data;	/* register data buffer */
+	uint32_t average_inst;	/* average of inst for nss core */
 };
 
 /*
@@ -583,7 +584,7 @@ struct nss_cmd_buffer {
 #define NSS_SAMPLE_BUFFER_MASK (NSS_SAMPLE_BUFFER_SIZE - 1)
 #define NSS_MAX_CPU_SCALES 3			/* Max Number of Frequencies */
 #define NSS_FREQUENCY_SCALE_RATE_LIMIT_UP 2	/* Adjust the Rate of Frequency Switching Up */
-#define NSS_FREQUENCY_SCALE_RATE_LIMIT_DOWN 5000	/* Adjust the Rate of Frequency Switching Down */
+#define NSS_FREQUENCY_SCALE_RATE_LIMIT_DOWN 60000	/* Adjust the Rate of Frequency Switching Down */
 #define NSS_MESSAGE_RATE_LIMIT 15000		/* Adjust the Rate of Displaying Statistic Messages */
 
 /*

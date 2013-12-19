@@ -338,7 +338,7 @@ static void nss_rx_metadata_ipv6_rule_sync(struct nss_ctx_instance *nss_ctx, str
 
 /*
  * nss_freq_change()
- *     NSS frequency change API
+ *     NSS frequency change API.
  */
 nss_tx_status_t nss_freq_change(void *ctx, uint32_t eng, uint32_t start_or_end)
 {
@@ -759,6 +759,9 @@ static void nss_rx_metadata_nss_core_stats(struct nss_ctx_instance *nss_ctx, str
 	uint32_t b_index;
 	uint32_t minimum;
 	uint32_t maximum;
+	uint32_t sample;
+
+	sample = core_stats->inst_cnt_total;
 
 	/*
 	 * Delete Current Index Value, Add New Value, Recalculate new Sum, Shift Index
@@ -766,7 +769,7 @@ static void nss_rx_metadata_nss_core_stats(struct nss_ctx_instance *nss_ctx, str
 	b_index = nss_runtime_samples.buffer_index;
 
 	nss_runtime_samples.sum = nss_runtime_samples.sum - nss_runtime_samples.buffer[b_index];
-	nss_runtime_samples.buffer[b_index] = core_stats->inst_cnt_total;
+	nss_runtime_samples.buffer[b_index] = sample;
 	nss_runtime_samples.sum = nss_runtime_samples.sum + nss_runtime_samples.buffer[b_index];
 	nss_runtime_samples.buffer_index = (b_index + 1) & NSS_SAMPLE_BUFFER_MASK;
 
@@ -809,9 +812,10 @@ static void nss_rx_metadata_nss_core_stats(struct nss_ctx_instance *nss_ctx, str
 
 			maximum = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].maximum;
 
-			if ((nss_runtime_samples.average > maximum) && (nss_runtime_samples.freq_scale_index < (nss_runtime_samples.freq_scale_sup_max - 1))) {
+			if ((sample > maximum) && (nss_runtime_samples.freq_scale_index < (nss_runtime_samples.freq_scale_sup_max - 1))) {
 				nss_runtime_samples.freq_scale_index++;
 				nss_frequency_workqueue();
+				nss_info("%p: Switch Up with Sample %x \n", nss_ctx, sample);
 			} else {
 				nss_info("%p: No Change at Max\n", nss_ctx);
 			}
@@ -821,22 +825,19 @@ static void nss_rx_metadata_nss_core_stats(struct nss_ctx_instance *nss_ctx, str
 		} else {
 			nss_runtime_samples.freq_scale_rate_limit_up++;
 		}
-		if (nss_runtime_samples.freq_scale_rate_limit_down == NSS_FREQUENCY_SCALE_RATE_LIMIT_DOWN) {
-			nss_info("%p: Preparing Switch Inst_Cnt Avg:%x\n", nss_ctx, nss_runtime_samples.average);
 
-			minimum = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].minimum;
+		minimum = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].minimum;
 
-			if ((nss_runtime_samples.average < minimum) && (nss_runtime_samples.freq_scale_index > 0)) {
+		if ((nss_runtime_samples.average < minimum) && (nss_runtime_samples.freq_scale_index > 0)) {
+			nss_runtime_samples.freq_scale_rate_limit_down++;
+
+			if (nss_runtime_samples.freq_scale_rate_limit_down == NSS_FREQUENCY_SCALE_RATE_LIMIT_DOWN) {
 				nss_runtime_samples.freq_scale_index--;
 				nss_frequency_workqueue();
-			} else {
-				nss_info("%p: No Change at Min\n", nss_ctx);
+				nss_runtime_samples.freq_scale_rate_limit_down = 0;
 			}
-			nss_runtime_samples.freq_scale_rate_limit_down = 0;
-			return;
-
 		} else {
-			nss_runtime_samples.freq_scale_rate_limit_down++;
+			nss_runtime_samples.freq_scale_rate_limit_down = 0;
 		}
 	}
 }

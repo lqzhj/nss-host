@@ -557,7 +557,7 @@ static int nss_auto_scale_handler (ctl_table *ctl, int write, void __user *buffe
  * nss_get_freq_table_handler()
  *	Display Support Freq and Ex how to Change.
  */
-static int nss_get_freq_table_handler (ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+static int nss_get_freq_table_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	int ret;
 
@@ -572,6 +572,23 @@ static int nss_get_freq_table_handler (ctl_table *ctl, int write, void __user *b
 
 	printk("Frequency Supported - 110Mhz 275Mhz 550Mhz 733Mhz \n");
 	printk("Ex. To Change Frequency - echo 110000000 > current_freq \n");
+
+	return ret;
+}
+
+/*
+ * nss_get_average_inst_handler()
+ *	Display AVG Inst Per Ms.
+ */
+static int nss_get_average_inst_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	int ret;
+
+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+
+	if (!ret && !write) {
+		printk("Current Inst Per Ms %x\n", nss_runtime_samples.average);
+	}
 
 	return ret;
 }
@@ -619,6 +636,13 @@ static ctl_table nss_freq_table[] = {
 		.maxlen			= sizeof(int),
 		.mode			= 0644,
 		.proc_handler	= &nss_auto_scale_handler,
+	},
+	{
+		.procname		= "inst_per_sec",
+		.data			= &nss_cmd_buf.average_inst,
+		.maxlen			= sizeof(int),
+		.mode			= 0644,
+		.proc_handler	= &nss_get_average_inst_handler,
 	},
 	{ }
 };
@@ -727,6 +751,8 @@ static int __init nss_init(void)
 	nss_runtime_samples.sample_count = 0;
 	nss_runtime_samples.average = 0;
 	nss_runtime_samples.message_rate_limit = 0;
+
+	nss_cmd_buf.current_freq = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].frequency;
 
 	/*
 	 * Initial Workqueue
