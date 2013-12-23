@@ -483,7 +483,7 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 		while (count) {
 			struct h2n_descriptor *desc = &desc_ring[hlos_index];
 
-			nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
+			nbuf = dev_alloc_skb(nss_ctx->max_buf_size);
 			if (unlikely(!nbuf)) {
 				/*
 				 * ERR:
@@ -497,7 +497,7 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 
 			desc->opaque = (uint32_t)nbuf;
 			desc->payload_offs = (uint16_t) (nbuf->data - nbuf->head);
-			desc->buffer = dma_map_single(NULL, nbuf->head, (nbuf->end - nbuf->head), DMA_FROM_DEVICE);
+			desc->buffer = dma_map_single(NULL, nbuf->head, nss_ctx->max_buf_size, DMA_FROM_DEVICE);
 			if (unlikely(dma_mapping_error(NULL, desc->buffer))) {
 				/*
 				 * ERR:
@@ -506,7 +506,7 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 				nss_warning("%p: DMA mapping failed for empty buffer", nss_ctx);
 				break;
 			}
-			desc->buffer_len = (uint16_t)(nbuf->end - nbuf->head);
+			desc->buffer_len = (uint16_t)(nss_ctx->max_buf_size);
 			desc->buffer_type = H2N_BUFFER_EMPTY;
 			hlos_index = (hlos_index + 1) & (mask);
 			count--;
@@ -560,10 +560,17 @@ static uint32_t nss_core_get_prioritized_cause(uint32_t cause, uint32_t *type, i
 	 *
 	 * TODO: Modify the algorithm later with proper weights and Round Robin
 	 */
+
 	if (cause & NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFERS_SOS) {
 		*type = NSS_INTR_CAUSE_NON_QUEUE;
 		*weight = NSS_EMPTY_BUFFER_SOS_PROCESSING_WEIGHT;
 		return NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFERS_SOS;
+	}
+
+	if (cause & NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFER_QUEUE) {
+		*type = NSS_INTR_CAUSE_QUEUE;
+		*weight = NSS_EMPTY_BUFFER_RETURN_PROCESSING_WEIGHT;
+		return NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFER_QUEUE;
 	}
 
 	if (cause & NSS_REGS_N2H_INTR_STATUS_TX_UNBLOCKED) {
@@ -578,11 +585,6 @@ static uint32_t nss_core_get_prioritized_cause(uint32_t cause, uint32_t *type, i
 		return NSS_REGS_N2H_INTR_STATUS_DATA_COMMAND_QUEUE;
 	}
 
-	if (cause & NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFER_QUEUE) {
-		*type = NSS_INTR_CAUSE_QUEUE;
-		*weight = NSS_EMPTY_BUFFER_RETURN_PROCESSING_WEIGHT;
-		return NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFER_QUEUE;
-	}
 
 	return 0;
 }
@@ -747,7 +749,6 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	struct nss_if_mem_map *if_map = (struct nss_if_mem_map *)nss_ctx->vmap;
 	uint32_t frag0phyaddr = 0;
 
-
 	nr_frags = skb_shinfo(nbuf)->nr_frags;
 	BUG_ON(nr_frags > MAX_SKB_FRAGS);
 
@@ -760,6 +761,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		nss_warning("%p: DMA mapping failed for virtual address = %x", nss_ctx, desc->buffer);
 		return NSS_CORE_STATUS_FAILURE;
 	}
+
 	/*
 	 * Take a lock for queue
 	 */
@@ -816,10 +818,11 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		desc->buffer_len = (uint16_t)(nbuf->end - nbuf->head);
 		desc->buffer = frag0phyaddr;
 
-		if (!NSS_IS_VIRTUAL_INTERFACE(if_num)) {
+		if (unlikely(!NSS_IS_VIRTUAL_INTERFACE(if_num))) {
 			if (likely(nbuf->destructor == NULL)) {
-				if (likely(skb_recycle_check(nbuf, NSS_NBUF_PAYLOAD_SIZE))) {
+				if (likely(skb_recycle_check(nbuf, nss_ctx->max_buf_size))) {
 					desc->bit_flags |= H2N_BIT_BUFFER_REUSE;
+					desc->buffer_len = nss_ctx->max_buf_size + NET_SKB_PAD;
 				}
 			}
 		}

@@ -84,6 +84,8 @@
  * Default payload size for NSS buffers
  */
 #define NSS_NBUF_PAYLOAD_SIZE NSS_EMPTY_BUFFER_SIZE
+#define NSS_NBUF_PAD_EXTRA 256
+#define NSS_NBUF_ETH_EXTRA 192
 
 /*
  * N2H/H2N Queue IDs
@@ -450,6 +452,8 @@ struct nss_ctx_instance {
 	void *queue_decongestion_ctx[NSS_MAX_CLIENTS];
 					/* Queue decongestion callback contexts */
 	spinlock_t decongest_cb_lock;	/* Lock to protect queue decongestion cb table */
+	uint16_t phys_if_mtu[NSS_MAX_PHYSICAL_INTERFACES];
+					/* Current MTU value of physical interface */
 	uint32_t magic;
 					/* Magic protection */
 };
