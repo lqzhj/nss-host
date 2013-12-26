@@ -855,6 +855,35 @@ static void nss_rx_metadata_nss_core_stats(struct nss_ctx_instance *nss_ctx, str
 }
 
 /*
+ *  nss_rx_metadata_ipsec_events_sync()
+ *	Handle the IPsec events
+ */
+static void nss_rx_metadata_ipsec_events_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipsec_events_sync *nies)
+{
+	void *ctx;
+	nss_ipsec_event_callback_t cb;
+	uint32_t id = nies->ipsec_if_num;
+
+	if (id >= NSS_MAX_NET_INTERFACES) {
+		nss_warning("%p: Callback received for invalid interface %d", nss_ctx, id);
+		return;
+	}
+
+	ctx = nss_ctx->nss_top->if_ctx[id];
+	cb = nss_ctx->nss_top->ipsec_event_callback;
+
+	/*
+	 * Call IPsec callback
+	 */
+	if (!cb || !ctx) {
+		nss_warning("%p: Event received for IPsec interface %d before registration", nss_ctx, id);
+		return;
+	}
+
+	cb(ctx, nies->event_if_num, nies->buf, nies->len);
+}
+
+/*
  * nss_rx_handle_status_pkt()
  *	Handle the metadata/status packet.
  */
@@ -918,6 +947,10 @@ void nss_rx_handle_status_pkt(struct nss_ctx_instance *nss_ctx, struct sk_buff *
 
 	case NSS_RX_METADATA_TYPE_TUNIPIP6_STATS_SYNC:
 		nss_rx_metadata_tunipip6_stats_sync(nss_ctx, &nrmo->sub.tunipip6_stats_sync);
+		break;
+
+	case NSS_RX_METADATA_TYPE_IPSEC_EVENTS_SYNC:
+		nss_rx_metadata_ipsec_events_sync(nss_ctx, &nrmo->sub.ipsec_events_sync);
 		break;
 
 	default:
@@ -1277,7 +1310,7 @@ nss_tx_status_t nss_tx_ipsec_rule(void *ctx, uint32_t interface_num, uint32_t ty
 		return NSS_TX_FAILURE;
 	}
 
-	ntmo = (struct nss_tx_metadata_object *)skb_put(nbuf, sizeof(struct nss_tx_metadata_object));
+	ntmo = (struct nss_tx_metadata_object *)skb_put(nbuf, (sizeof(struct nss_tx_metadata_object) + len));
 	ntmo->type = NSS_TX_METADATA_TYPE_IPSEC_RULE;
 
 	nir = &ntmo->sub.ipsec_rule;
@@ -2340,14 +2373,26 @@ nss_tx_status_t nss_destroy_virt_if(void *ctx)
 /*
  * nss_register_ipsec_if()
  */
-void *nss_register_ipsec_if(uint32_t if_num, nss_ipsec_callback_t ipsec_callback, void *if_ctx)
+void *nss_register_ipsec_if(uint32_t if_num,
+				nss_ipsec_data_callback_t ipsec_data_cb,
+				void *if_ctx)
 {
 	nss_assert((if_num >= NSS_MAX_PHYSICAL_INTERFACES) && (if_num < NSS_MAX_NET_INTERFACES));
 
 	nss_top_main.if_ctx[if_num] = if_ctx;
-	nss_top_main.if_rx_callback[if_num] = ipsec_callback;
+	nss_top_main.if_rx_callback[if_num] = ipsec_data_cb;
 
 	return (void *)&nss_top_main.nss[nss_top_main.ipsec_handler_id];
+}
+
+/*
+ * nss_register_ipsec_event_if()
+ */
+void nss_register_ipsec_event_if(uint32_t if_num, nss_ipsec_event_callback_t ipsec_event_cb)
+{
+	nss_assert((if_num >= NSS_MAX_PHYSICAL_INTERFACES) && (if_num < NSS_MAX_NET_INTERFACES));
+
+	nss_top_main.ipsec_event_callback = ipsec_event_cb;
 }
 
 /*
@@ -2359,6 +2404,7 @@ void nss_unregister_ipsec_if(uint32_t if_num)
 
 	nss_top_main.if_rx_callback[if_num] = NULL;
 	nss_top_main.if_ctx[if_num] = NULL;
+	nss_top_main.ipsec_event_callback = NULL;
 }
 
 /*
@@ -2482,6 +2528,7 @@ EXPORT_SYMBOL(nss_destroy_virt_if);
 EXPORT_SYMBOL(nss_tx_virt_if_rxbuf);
 
 EXPORT_SYMBOL(nss_register_ipsec_if);
+EXPORT_SYMBOL(nss_register_ipsec_event_if);
 EXPORT_SYMBOL(nss_unregister_ipsec_if);
 EXPORT_SYMBOL(nss_tx_ipsec_rule);
 

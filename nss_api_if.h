@@ -1007,19 +1007,34 @@ extern nss_tx_status_t nss_tx_virt_if_rxbuf(void *nss_ctx, struct sk_buff *os_bu
  */
 
 /**
- * Callback to receive ipsec sync message
+ * Callback to receive IPsec events
  */
-typedef void (*nss_ipsec_callback_t)(void *ctx, void *os_buf);
+typedef void (*nss_ipsec_event_callback_t)(void *if_ctx, uint32_t if_num, void *buf, uint32_t len);
 
 /**
- * @brief Register to send/receive IPsec messages to NSS
+ * Callback to receive ipsec data message
+ */
+typedef void (*nss_ipsec_data_callback_t)(void *ctx, void *os_buf);
+
+/**
+ * @brief Register to send/receive IPsec data to NSS
  *
- * @param ipsec_callback Callback
+ * @param ipsec interface number if_num
+ * @param ipsec_data callback ipsec_data_cb
  * @param ctx IPsec context
  *
  * @return void* NSS context
  */
-extern void *nss_register_ipsec_if(uint32_t if_num, nss_ipsec_callback_t ipsec_callback, void *ctx);
+extern void *nss_register_ipsec_if(uint32_t if_num, nss_ipsec_data_callback_t ipsec_data_cb, void *ctx);
+
+/**
+ * @brief Register to send/receive IPsec events to NSS
+ *
+ * @param ipsec interface number if_num
+ * @param ipsec_data callback ipsec_data_cb
+ *
+ */
+extern void nss_register_ipsec_event_if(uint32_t if_num, nss_ipsec_event_callback_t ipsec_event_cb);
 
 /**
  * @brief Unregister IPsec interface with NSS

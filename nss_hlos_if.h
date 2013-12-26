@@ -592,6 +592,16 @@ struct nss_gmac_stats_sync {
 };
 
 /*
+ * NSS IPsec event sync structure
+ */
+struct nss_ipsec_events_sync {
+	uint32_t ipsec_if_num;
+	uint32_t event_if_num;
+	uint32_t len;
+	uint8_t buf[1];
+};
+
+/*
  * Exception events from PE
  */
 enum exception_events_unknown {
@@ -875,6 +885,7 @@ enum nss_rx_metadata_types {
 	NSS_RX_METADATA_TYPE_CORE_STATS,
 	NSS_RX_METADATA_TYPE_TUN6RD_STATS_SYNC,
 	NSS_RX_METADATA_TYPE_TUNIPIP6_STATS_SYNC,
+	NSS_RX_METADATA_TYPE_IPSEC_EVENTS_SYNC,
 };
 
 /*
@@ -899,6 +910,7 @@ struct nss_rx_metadata_object {
 		struct nss_core_stats core_stats;
 		struct nss_tun6rd_stats_sync tun6rd_stats_sync;
 		struct nss_tunipip6_stats_sync tunipip6_stats_sync;
+		struct nss_ipsec_events_sync ipsec_events_sync;
 	} sub;
 };
 
