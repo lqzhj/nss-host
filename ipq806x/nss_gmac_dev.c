@@ -1596,6 +1596,92 @@ out:
 }
 
 /*
+ * Write a MDIO Manageable Device(MMD) register of a Phy.
+ * @phydev[in] pointer to struct phy_device
+ * @mmd_dev_addr[in] MMD device address
+ * @reg[in] register offset
+ * @val[in] value to be written
+ * @return 0 on success
+ */
+int32_t nss_gmac_ath_phy_mmd_wr(struct phy_device *phydev, uint32_t mmd_dev_addr,
+			uint32_t reg, uint16_t val)
+{
+	if(IS_ERR_OR_NULL(phydev)) {
+		return -EINVAL;
+	}
+
+	phy_write(phydev, ATH_MII_MMD_ACCESS_CTRL, mmd_dev_addr);
+	phy_write(phydev, ATH_MII_MMD_ACCESS_ADDR_DATA, reg);
+	phy_write(phydev, ATH_MII_MMD_ACCESS_CTRL,
+		  ath_mmd_acc_ctrl_data_no_incr | mmd_dev_addr);
+	phy_write(phydev, ATH_MII_MMD_ACCESS_ADDR_DATA, val);
+
+	return 0;
+}
+
+/*
+ * Read a MDIO Manageable Device(MMD) register form a Phy.
+ * @phydev[in] pointer to struct phy_device
+ * @mmd_dev_addr[in] MMD device address
+ * @reg[in] register offset
+ * @return -EINVAL on failure.
+ * 	   Register value on success.
+ */
+int32_t nss_gmac_ath_phy_mmd_rd(struct phy_device *phydev,
+			uint32_t mmd_dev_addr, uint32_t reg)
+{
+	if(IS_ERR_OR_NULL(phydev)) {
+		return -EINVAL;
+	}
+
+	phy_write(phydev, ATH_MII_MMD_ACCESS_CTRL, mmd_dev_addr);
+	phy_write(phydev, ATH_MII_MMD_ACCESS_ADDR_DATA, reg);
+	phy_write(phydev, ATH_MII_MMD_ACCESS_CTRL,
+		  ath_mmd_acc_ctrl_data_no_incr | mmd_dev_addr);
+	return phy_read(phydev, ATH_MII_MMD_ACCESS_ADDR_DATA);
+}
+
+/*
+ * Disable QCA Smart Energy Efficient Ethernet on a Phy.
+ * @phydev[in] pointer to struct phy_device
+ * @return 0 on success.
+ */
+int32_t nss_gmac_ath_phy_disable_smart_802az(struct phy_device *phydev)
+{
+	uint16_t val = 0;
+
+	if(IS_ERR_OR_NULL(phydev)) {
+		return -EINVAL;
+	}
+
+	val = nss_gmac_ath_phy_mmd_rd(phydev, ATH_MMD_DEVADDR_3, ath_mmd_smart_eee_ctrl_3);
+	val &= ~ath_mmd_smart_eee_ctrl3_lpi_en;
+	nss_gmac_ath_phy_mmd_wr(phydev, ATH_MMD_DEVADDR_3, ath_mmd_smart_eee_ctrl_3, val);
+
+	return 0;
+}
+
+/*
+ * Disable Energy Efficient Ethernet (IEEE 802.3az) on a Phy.
+ * @phydev[in] pointer to struct phy_device
+ * @return 0 on success.
+ */
+int32_t nss_gmac_ath_phy_disable_802az(struct phy_device *phydev)
+{
+	uint16_t val = 0;
+
+	if(IS_ERR_OR_NULL(phydev)) {
+		return -EINVAL;
+	}
+
+	val = nss_gmac_ath_phy_mmd_rd(phydev, ATH_MMD_DEVADDR_7, ath_mmd_eee_adv);
+	val &= ~(ath_mmd_eee_adv_100BT | ath_mmd_eee_adv_1000BT);
+	nss_gmac_ath_phy_mmd_wr(phydev, ATH_MMD_DEVADDR_7, ath_mmd_eee_adv, val);
+
+	return 0;
+}
+
+/*
  * Sets the Mac address in to GMAC register.
  * This function sets the MAC address to the MAC register in question.
  * @param[in] pointer to nss_gmac_dev to populate mac dma and phy addresses.

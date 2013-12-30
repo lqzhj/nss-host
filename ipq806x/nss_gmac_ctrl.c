@@ -739,6 +739,28 @@ static void nss_gmac_update_features(uint32_t *supp, uint32_t * adv)
 
 
 /**
+ * @brief PHY fixup
+ * @param[in] pointer to PHY device
+ * @return 0 on Success
+ */
+static int32_t nss_gmac_phy_fixup(struct phy_device *phydev)
+{
+	int32_t ret = 0;
+
+	/* Disable QCA Smart 802.3az in PHY */
+	if (nss_gmac_ath_phy_disable_smart_802az(phydev) != 0) {
+		ret = -EFAULT;
+	}
+
+	/* Disable IEEE 802.3az in PHY */
+	if (nss_gmac_ath_phy_disable_802az(phydev) != 0) {
+		ret = -EFAULT;
+	}
+
+	return ret;
+}
+
+/**
  * @brief Function to initialize the Linux network interface.
  * Linux dependent Network interface is setup here. This provides
  * an example to handle the network dependent functionality.
@@ -785,7 +807,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	gmacdev->loop_back_mode = NOLOOPBACK;
 
 	if (gmaccfg->poll_required) {
-		test_and_set_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags);	
+		test_and_set_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags);
 	}
 
 	switch (gmaccfg->forced_speed) {
@@ -926,6 +948,18 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 			gmacdev->miibus->id, gmacdev->phy_base);
 	}
 
+	/* register PHY fixup */
+	if (gmacdev->phy_base != NSS_GMAC_NO_MDIO_PHY) {
+		ret = phy_register_fixup((const char *)phy_id,
+		    		  NSS_GMAC_PHY_FIXUP_UID,
+				  NSS_GMAC_PHY_FIXUP_MASK,
+				  &nss_gmac_phy_fixup);
+		if (ret	!= 0) {
+			nss_gmac_info(gmacdev, "PHY fixup register Error.");
+			goto nss_gmac_phy_attach_fail;
+		}
+	}
+
 	/* connect PHY */
 	if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
 		gmacdev->phydev = phy_connect(netdev, (const char *)phy_id,
@@ -963,6 +997,10 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 		 * Issue a phy_attach for the interface connected to a switch
 		 */
 		gmacdev->phydev = phy_attach(netdev, (const char *)phy_id, 0, phyif);
+		if (IS_ERR_OR_NULL(gmacdev->phydev)) {
+			nss_gmac_info(gmacdev, "PHY %s attach FAIL", phy_id);
+			goto nss_gmac_phy_attach_fail;
+		}
 	}
 
 	test_and_set_bit(__NSS_GMAC_RXCSUM, &gmacdev->flags);

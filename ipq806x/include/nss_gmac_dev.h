@@ -69,6 +69,13 @@
 					| ADVERTISED_Pause		\
 					| ADVERTISED_Asym_Pause);
 
+/* MDIO address space register offsets */
+#define ATH_MII_MMD_ACCESS_CTRL				0xD
+#define ATH_MII_MMD_ACCESS_ADDR_DATA			0xE
+
+/* MMD deivce addresses */
+#define ATH_MMD_DEVADDR_3				3
+#define ATH_MMD_DEVADDR_7				7
 
 const static uint8_t nss_gmac_driver_string[] =
     "NSS GMAC Driver for RTL v" NSS_GMAC_RTL_VER;
@@ -255,6 +262,35 @@ enum mii_link_speed {
 enum mii_loop_back {
 	NOLOOPBACK = 0,
 	LOOPBACK = 1,
+};
+
+
+/*
+ * PHY Registers
+ */
+/* MDIO Managebale Device (MMD) register offsets */
+enum ath_mmd_register {
+	ath_mmd_smart_eee_ctrl_3 = 0x805D,	/* MMD smart EEE control 3 */
+	ath_mmd_eee_adv = 0x003C,		/* MMD EEE Advertisment */
+};
+
+/* MMD Access Control function bits */
+enum ath_mmd_access_ctrl_function_bit_descriptions {
+	ath_mmd_acc_ctrl_addr = 0x0000,		/* address */
+	ath_mmd_acc_ctrl_data_no_incr = 0x4000,	/* data, no post incr */
+	ath_mmd_acc_ctrl_data_incr_rw = 0x8000,	/* data, post incr on r/w */
+	ath_mmd_acc_ctrl_data_incr_w = 0xC000,	/* data, post incr on write only */
+};
+
+/* MMD Smart EEE control 3 register bits */
+enum ath_mmd_smart_eee_ctrl_bit_descriptions {
+	ath_mmd_smart_eee_ctrl3_lpi_en = 0x0100,
+};
+
+/* MMD EEE Advertisment register bits */
+enum ath_mmd_eee_adv_bit_descriptions {
+	ath_mmd_eee_adv_100BT = 0x0002,
+	ath_mmd_eee_adv_1000BT = 0x0004,
 };
 
 /**********************************************************
@@ -1860,6 +1896,12 @@ void nss_gmac_rx_pause_disable(nss_gmac_dev *gmacdev);
 void nss_gmac_flush_tx_fifo(nss_gmac_dev *gmacdev);
 void nss_gmac_mac_init(nss_gmac_dev *gmacdev);
 int32_t nss_gmac_check_phy_init(nss_gmac_dev *gmacdev);
+int32_t nss_gmac_ath_phy_mmd_wr(struct phy_device *phydev, uint32_t mmd_dev_addr,
+			uint32_t reg, uint16_t val);
+int32_t nss_gmac_ath_phy_mmd_rd(struct phy_device *phydev,
+			uint32_t mmd_dev_addr, uint32_t reg);
+int32_t nss_gmac_ath_phy_disable_smart_802az(struct phy_device *phydev);
+int32_t nss_gmac_ath_phy_disable_802az(struct phy_device *phydev);
 void nss_gmac_set_mac_addr(nss_gmac_dev *gmacdev,
 			      uint32_t MacHigh, uint32_t MacLow, uint8_t *MacAddr);
 void nss_gmac_get_mac_addr(nss_gmac_dev *gmacdev,
@@ -2604,4 +2646,6 @@ void nss_gmac_enable_mmc_ipc_rx_interrupt(nss_gmac_dev *gmacdev,
 					  uint32_t mask);
 void nss_gmac_disable_mmc_ipc_rx_interrupt(nss_gmac_dev *gmacdev,
 					   uint32_t mask);
+
+
 #endif /* End of file */
