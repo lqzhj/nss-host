@@ -499,6 +499,7 @@ struct nss_gmac_sync {
 	uint32_t hw_errs[10];		/**< GMAC DMA error counters */
 	uint32_t rx_missed;		/**< Number of RX packets missed by the DMA */
 	uint32_t fifo_overflows;	/**< Number of RX FIFO overflows signalled by the DMA */
+	uint32_t rx_scatter_errors;     /**< Number of scattered frames received by the DMA */
 	uint32_t gmac_total_ticks;	/**< Total clock ticks spend inside the GMAC */
 	uint32_t gmac_worst_case_ticks;	/**< Worst case iteration of the GMAC in ticks */
 	uint32_t gmac_iterations;	/**< Number of iterations around the GMAC */
