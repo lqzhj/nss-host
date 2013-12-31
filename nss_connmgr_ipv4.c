@@ -172,17 +172,6 @@ typedef uint32_t ipv4_addr_t;
 #define NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED 0xFFF
 
 /*
- * NSS specific special interface number
- * for LAG group 0.
- */
-#define NSS_LAG0_INTERFACE_NUM		26
-
-/*
- * Virtual Interface Number for IPSec Tunnel
- */
-#define NSS_C2C_TX_INTERFACE 28
-
-/*
  * Device Type for IPSec Tunnel devices
  */
 #define ARPHRD_IPSEC_TUNNEL_TYPE 31

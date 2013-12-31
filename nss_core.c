@@ -271,7 +271,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 					 * Packet was received on Physical interface
 					 */
 					cb(ctx, (void *)nbuf);
-				} else if (NSS_IS_VIRTUAL_INTERFACE(interface_num)) {
+				} else if (NSS_IS_IF_TYPE(VIRTUAL, interface_num)) {
 					/*
 					 * Packet was received on Virtual interface
 					 */
@@ -818,7 +818,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		desc->buffer_len = (uint16_t)(nbuf->end - nbuf->head);
 		desc->buffer = frag0phyaddr;
 
-		if (unlikely(!NSS_IS_VIRTUAL_INTERFACE(if_num))) {
+		if (unlikely(!NSS_IS_IF_TYPE(VIRTUAL, if_num))) {
 			if (likely(nbuf->destructor == NULL)) {
 				if (likely(skb_recycle_check(nbuf, nss_ctx->max_buf_size))) {
 					desc->bit_flags |= H2N_BIT_BUFFER_REUSE;

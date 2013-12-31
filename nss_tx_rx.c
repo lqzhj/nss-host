@@ -1872,7 +1872,7 @@ nss_tx_status_t nss_tx_virt_if_rxbuf(void *ctx, struct sk_buff *os_buf)
 		return NSS_TX_FAILURE_NOT_SUPPORTED;
 	}
 
-	nss_assert(NSS_IS_VIRTUAL_INTERFACE(if_num));
+	nss_assert(NSS_IS_IF_TYPE(VIRTUAL, if_num));
 	nss_trace("%p: Virtual Rx packet, if_num:%d, skb:%p", nss_ctx, if_num, os_buf);
 
 	/*
@@ -2281,7 +2281,7 @@ nss_tx_status_t nss_destroy_virt_if(void *ctx)
 	}
 
 	if_num = (int32_t)ctx;
-	nss_assert(NSS_IS_VIRTUAL_INTERFACE(if_num));
+	nss_assert(NSS_IS_IF_TYPE(VIRTUAL, if_num));
 
 	spin_lock_bh(&nss_top_main.lock);
 	if (!nss_top_main.if_ctx[if_num]) {

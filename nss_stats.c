@@ -631,6 +631,7 @@ static ssize_t nss_stats_gmac_read(struct file *fp, char __user *ubuf, size_t sz
 static ssize_t nss_stats_if_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
 {
 	uint32_t i, k, id;
+	void *ifctx;
 
 	/*
 	 * max output lines per interface =
@@ -686,7 +687,16 @@ static ssize_t nss_stats_if_read(struct file *fp, char __user *ubuf, size_t sz, 
 
 	size_wr = scnprintf(lbuf, size_al, "if stats start:\n\n");
 
-	for (id = 0; id < NSS_MAX_NET_INTERFACES; id++) {
+	for (id = NSS_DEVICE_IF_START; id < NSS_MAX_DEVICE_INTERFACES; id++) {
+
+		spin_lock_bh(&nss_top_main.lock);
+		ifctx = nss_top_main.if_ctx[id];
+		spin_unlock_bh(&nss_top_main.lock);
+
+		if (!ifctx) {
+			continue;
+		}
+
 		/*
 		 * Host Stats
 		 */

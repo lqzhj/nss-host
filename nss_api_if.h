@@ -37,6 +37,49 @@
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
 
+/*
+ * Interface numbers are reserved in the
+ * following sequence of interface types:
+ * 	Physical
+ * 	Virtual
+ *	Tunnel
+ *	Special
+ *
+ * Interfaces starting from 'Special' do
+ * not have statistics associated with them.
+ */
+
+/*
+ * Maximum Number of interfaces
+ */
+#define NSS_MAX_PHYSICAL_INTERFACES 4
+#define NSS_MAX_VIRTUAL_INTERFACES 16
+#define NSS_MAX_TUNNEL_INTERFACES 12
+#define NSS_MAX_SPECIAL_INTERFACES 24
+
+/**
+ * Start of individual interface groups
+ */
+#define NSS_PHYSICAL_IF_START 0
+#define NSS_VIRTUAL_IF_START (NSS_PHYSICAL_IF_START + NSS_MAX_PHYSICAL_INTERFACES)
+#define NSS_TUNNEL_IF_START (NSS_VIRTUAL_IF_START + NSS_MAX_VIRTUAL_INTERFACES)
+#define NSS_SPECIAL_IF_START (NSS_TUNNEL_IF_START + NSS_MAX_TUNNEL_INTERFACES)
+
+/**
+ * Special interface numbers
+ */
+#define NSS_LAG0_INTERFACE_NUM (NSS_SPECIAL_IF_START + 10) /* Special IF number for LAG0 */
+#define NSS_LAG1_INTERFACE_NUM (NSS_SPECIAL_IF_START + 11) /* Special IF number for LAG1 */
+#define NSS_C2C_TX_INTERFACE (NSS_SPECIAL_IF_START + 12) /* Virtual Interface Number for IPSec Tunnel */
+
+/**
+ * Tunnel interface numbers
+ */
+#define NSS_IPSEC_ENCAP_IF_NUMBER (NSS_TUNNEL_IF_START + 0)
+#define NSS_IPSEC_DECAP_IF_NUMBER (NSS_TUNNEL_IF_START + 1)
+#define NSS_TUNRD_IF_NUMBER (NSS_TUNNEL_IF_START + 2)
+#define NSS_TUNIPIP6_IF_NUMBER (NSS_TUNNEL_IF_START + 3)
+
 /**
  * This macro converts format for IPv6 address (from Linux to NSS)
  */

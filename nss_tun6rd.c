@@ -33,8 +33,6 @@
 #include "nss_api_if.h"
 #include "nss_hlos_if.h"
 
-#define NSS_TUNRD_IF_NUMBER 10
-
 /*
  * NSS tun6rd debug macros
  */

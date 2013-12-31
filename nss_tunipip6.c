@@ -34,8 +34,6 @@
 #include "nss_api_if.h"
 #include "nss_hlos_if.h"
 
-#define NSS_TUNIPIP6_IF_NUMBER 11
-
 /*
  * NSS tunipip6 debug macros
  */
