@@ -758,7 +758,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 
 	frag0phyaddr = (uint32_t)dma_map_single(NULL, nbuf->head, (nbuf->tail - nbuf->head), DMA_TO_DEVICE);
 	if (unlikely(dma_mapping_error(NULL, frag0phyaddr))) {
-		nss_warning("%p: DMA mapping failed for virtual address = %x", nss_ctx, desc->buffer);
+		nss_warning("%p: DMA mapping failed for virtual address = %x", nss_ctx,(uint32_t)nbuf->head);
 		return NSS_CORE_STATUS_FAILURE;
 	}
 
