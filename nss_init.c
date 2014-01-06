@@ -431,6 +431,21 @@ struct platform_driver nss_driver = {
 };
 
 /*
+ * nss_reset_frequency_stats_samples()
+ *	Reset all frequency sampling state when auto scaling is turned off.
+ */
+static void nss_reset_frequency_stats_samples (void)
+{
+	nss_runtime_samples.buffer_index = 0;
+	nss_runtime_samples.sum = 0;
+	nss_runtime_samples.average = 0;
+	nss_runtime_samples.sample_count = 0;
+	nss_runtime_samples.message_rate_limit = 0;
+	nss_runtime_samples.freq_scale_rate_limit_up = 0;
+	nss_runtime_samples.freq_scale_rate_limit_down = 0;
+}
+
+/*
  ***************************************************************************************************
  * nss_wq_function() is used to queue up requests to change NSS frequencies.
  * The function will take care of NSS notices and also control clock.
@@ -446,9 +461,9 @@ void nss_wq_function (struct work_struct *work)
 {
 	nss_work_t *my_work = (nss_work_t *)work;
 
-	nss_freq_change(nss_freq_change_context, my_work->frequency, 0);
+	nss_freq_change(nss_freq_change_context, my_work->frequency, my_work->stats_enable, 0);
 	clk_set_rate(nss_core0_clk, my_work->frequency);
-	nss_freq_change(nss_freq_change_context, my_work->frequency, 1);
+	nss_freq_change(nss_freq_change_context, my_work->frequency, my_work->stats_enable, 1);
 
 	if(!pm_client) {
 		goto out;
@@ -499,6 +514,11 @@ static int nss_current_freq_handler (ctl_table *ctl, int write, void __user *buf
 	}
 	INIT_WORK((struct work_struct *)nss_work, nss_wq_function);
 	nss_work->frequency = nss_cmd_buf.current_freq;
+	nss_work->stats_enable = 0;
+
+	/* Ensure we start with a fresh set of samples later */
+	nss_reset_frequency_stats_samples();
+
 	queue_work(nss_wq, (struct work_struct *)nss_work);
 
 	return ret;
@@ -520,9 +540,28 @@ static int nss_auto_scale_handler (ctl_table *ctl, int write, void __user *buffe
 
 	if (nss_cmd_buf.auto_scale != 1) {
 		/*
-		 * Auto Scaling is already disabled
+		 * Is auto scaling currently enabled? If so, send the command to
+		 * disable stats reporting to NSS
 		 */
-		nss_runtime_samples.freq_scale_ready = 0;
+		if (nss_runtime_samples.freq_scale_ready != 0) {
+			nss_cmd_buf.current_freq = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].frequency;
+			nss_work = (nss_work_t *)kmalloc(sizeof(nss_work_t), GFP_KERNEL);
+			if (!nss_work) {
+				nss_info("NSS Freq WQ kmalloc fail");
+				return ret;
+			}
+			INIT_WORK((struct work_struct *)nss_work, nss_wq_function);
+			nss_work->frequency = nss_cmd_buf.current_freq;
+			nss_work->stats_enable = 0;
+			queue_work(nss_wq, (struct work_struct *)nss_work);
+			nss_runtime_samples.freq_scale_ready = 0;
+
+			/*
+			 * The current samples would be stale later when scaling is
+			 * enabled again, hence reset them
+			 */
+			nss_reset_frequency_stats_samples();
+		}
 		return ret;
 	}
 
@@ -546,6 +585,7 @@ static int nss_auto_scale_handler (ctl_table *ctl, int write, void __user *buffe
 	}
 	INIT_WORK((struct work_struct *)nss_work, nss_wq_function);
 	nss_work->frequency = nss_cmd_buf.current_freq;
+	nss_work->stats_enable = 1;
 	queue_work(nss_wq, (struct work_struct *)nss_work);
 
 	nss_runtime_samples.freq_scale_ready = 1;
@@ -751,6 +791,7 @@ static int __init nss_init(void)
 	nss_runtime_samples.sample_count = 0;
 	nss_runtime_samples.average = 0;
 	nss_runtime_samples.message_rate_limit = 0;
+	nss_runtime_samples.initialized = 0;
 
 	nss_cmd_buf.current_freq = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].frequency;
 

@@ -340,7 +340,7 @@ static void nss_rx_metadata_ipv6_rule_sync(struct nss_ctx_instance *nss_ctx, str
  * nss_freq_change()
  *     NSS frequency change API.
  */
-nss_tx_status_t nss_freq_change(void *ctx, uint32_t eng, uint32_t start_or_end)
+nss_tx_status_t nss_freq_change(void *ctx, uint32_t eng, uint32_t stats_enable, uint32_t start_or_end)
 {
 	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) ctx;
 	struct sk_buff *nbuf;
@@ -369,6 +369,7 @@ nss_tx_status_t nss_freq_change(void *ctx, uint32_t eng, uint32_t start_or_end)
 	nfc = &ntmo->sub.freq_change;
 	nfc->frequency = eng;
 	nfc->start_or_end = start_or_end;
+	nfc->stats_enable = stats_enable;
 
 	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
 	if (status != NSS_CORE_STATUS_SUCCESS) {
@@ -746,6 +747,7 @@ static void nss_frequency_workqueue(void)
 
 	INIT_WORK((struct work_struct *)nss_work, nss_wq_function);
 	nss_work->frequency = nss_cmd_buf.current_freq;
+	nss_work->stats_enable =  1;
 	queue_work(nss_wq, (struct work_struct *)nss_work);
 }
 
@@ -762,6 +764,15 @@ static void nss_rx_metadata_nss_core_stats(struct nss_ctx_instance *nss_ctx, str
 	uint32_t sample;
 
 	sample = core_stats->inst_cnt_total;
+
+	/*
+	 * We do not accept any statistics if auto scaling is off,
+	 * we start with a fresh sample set when scaling is
+	 * eventually turned on.
+	 */
+	if (!nss_cmd_buf.auto_scale && nss_runtime_samples.initialized) {
+		return;
+	}
 
 	/*
 	 * Delete Current Index Value, Add New Value, Recalculate new Sum, Shift Index
@@ -782,6 +793,7 @@ static void nss_rx_metadata_nss_core_stats(struct nss_ctx_instance *nss_ctx, str
 		if (nss_runtime_samples.sample_count == NSS_SAMPLE_BUFFER_SIZE ) {
 			nss_cmd_buf.auto_scale = 1;
 			nss_runtime_samples.freq_scale_ready = 1;
+			nss_runtime_samples.initialized = 1;
 		}
 
 		return;

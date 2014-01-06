@@ -617,6 +617,7 @@ struct nss_runtime_sampling {
 	uint32_t sample_count;					/* Number of Samples stored in Ring Buffer */
 	uint32_t average;					/* Average of INST_CNT */
 	uint32_t message_rate_limit;				/* Debug Message Rate Limit */
+	uint32_t initialized;					/* Flag to check for adequate initial samples */
 };
 
 /*
@@ -625,6 +626,7 @@ struct nss_runtime_sampling {
 typedef struct {
 	struct work_struct my_work;	/* Work Structure */
 	uint32_t frequency;		/* Frequency To Change */
+	uint32_t stats_enable;		/* Auto scale on/off */
 } nss_work_t;
 
 /*

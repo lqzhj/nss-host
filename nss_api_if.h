@@ -1160,11 +1160,12 @@ extern void nss_unregister_tunipip6_if(uint32_t if_num);
  * @brief NSS Frequency Change
  * @ param ctx NSS context
  * @ param eng Frequency Value in Hz
+ * @ param stats_enable Enable NSS to send scaling statistics
  * @ param start_or_end Start or End of Freq Change
  *
  * @return nss_tx_status_t Tx Status
  */
-nss_tx_status_t nss_freq_change(void *ctx, uint32_t eng, uint32_t start_or_end);
+nss_tx_status_t nss_freq_change(void *ctx, uint32_t eng, uint32_t stats_enable, uint32_t start_or_end);
 
 /**
  * @brief Register PM Driver Client

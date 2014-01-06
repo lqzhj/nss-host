@@ -284,6 +284,7 @@ struct nss_generic_if_params {
 struct nss_freq_change {
 	uint32_t frequency;
 	uint32_t start_or_end;
+	uint32_t stats_enable;
 };
 
 /*
