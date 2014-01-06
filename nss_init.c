@@ -36,34 +36,6 @@
 #include <linux/clk.h>
 
 /*
- * Declare module parameters
- */
-static int load0 = 0x40000000;
-module_param(load0, int, S_IRUSR | S_IWUSR);
-MODULE_PARM_DESC(load0, "NSS Core 0 load address");
-
-static int entry0 = 0x40000000;
-module_param(entry0, int, S_IRUSR | S_IWUSR);
-MODULE_PARM_DESC(load0, "NSS Core 0 entry address");
-
-static char *string0 = "nss0";
-module_param(string0, charp, 0);
-MODULE_PARM_DESC(string0, "NSS Core 0 identification string");
-
-static int load1 = 0x40100000;
-module_param(load1, int, S_IRUSR | S_IWUSR);
-MODULE_PARM_DESC(load0, "NSS Core 1 load address");
-
-static int entry1 = 0x40100000;
-module_param(entry1, int, S_IRUSR | S_IWUSR);
-MODULE_PARM_DESC(load0, "NSS Core 1 entry address");
-
-static char *string1 = "nss1";
-module_param(string1, charp, 0);
-MODULE_PARM_DESC(string1, "NSS Core 1 identification string");
-
-
-/*
  * Global declarations
  */
 int nss_ctl_redirect __read_mostly = 0;
@@ -178,6 +150,12 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 			nss_runtime_samples.freq_scale_sup_max = NSS_MAX_CPU_SCALES - 1;
 		}
 	}
+
+	/*
+	 * Get load address of NSS firmware
+	 */
+	nss_info("%p: Setting NSS%d Firmware load address to %x\n", nss_ctx, nss_dev->id, npd->load_addr);
+	nss_top->nss[nss_dev->id].load = npd->load_addr;
 
 	/*
 	 * Get virtual and physical memory addresses for nss logical/hardware address maps
@@ -722,12 +700,6 @@ static int __init nss_init(void)
 	 * Enable NSS statistics
 	 */
 	nss_stats_init();
-
-	/*
-	 * Store load addresses
-	 */
-	nss_top_main.nss[0].load = (uint32_t)load0;
-	nss_top_main.nss[1].load = (uint32_t)load1;
 
 	/*
 	 * Register sysctl table.
