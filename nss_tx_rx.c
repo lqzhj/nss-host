@@ -1814,7 +1814,7 @@ nss_tx_status_t nss_tx_generic_if_buf(void *ctx, uint32_t if_num, uint8_t *buf, 
 	struct nss_tx_metadata_object *ntmo;
 	struct nss_generic_if_params *ngip;
 
-	nss_trace("%p: Generic If Tx, interface = %d, buf=%p", nss_ctx, interface, buf);
+	nss_trace("%p: Generic If Tx, interface = %d, buf=%p", nss_ctx, if_num, buf);
 
 	NSS_VERIFY_CTX_MAGIC(nss_ctx);
 	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
