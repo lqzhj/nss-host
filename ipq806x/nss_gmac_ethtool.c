@@ -210,12 +210,12 @@ static void nss_gmac_get_ethtool_stats(struct net_device *netdev,
 	int32_t i;
 	uint8_t *p = NULL;
 
-	spin_lock(&gmacdev->stats_lock);
+	spin_lock_bh(&gmacdev->stats_lock);
 	for (i = 0; i < NSS_GMAC_STATS_LEN; i++) {
 		p = (uint8_t *)&(gmacdev->nss_stats) + gmac_gstrings_stats[i].stat_offset;
 		data[i] = *(uint32_t *)p;
 	}
-	spin_unlock(&gmacdev->stats_lock);
+	spin_unlock_bh(&gmacdev->stats_lock);
 }
 
 

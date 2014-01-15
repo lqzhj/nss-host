@@ -526,9 +526,9 @@ struct rtnl_link_stats64 *nss_gmac_linux_get_stats64(struct net_device *netdev, 
 	gmacdev = (nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 
-	spin_lock(&gmacdev->stats_lock);
+	spin_lock_bh(&gmacdev->stats_lock);
 	memcpy(stats, &gmacdev->stats, sizeof(*stats));
-	spin_unlock(&gmacdev->stats_lock);
+	spin_unlock_bh(&gmacdev->stats_lock);
 
 	return stats;
 }
