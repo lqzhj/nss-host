@@ -545,6 +545,14 @@ static unsigned int nss_connmgr_ipv4_bridge_post_routing_hook(unsigned int hookn
 	nss_tx_status_t	nss_tx_status;
 
 	/*
+	 * Variables needed for PPPoE WAN mode.
+	 */
+	struct net_device *eth_out = NULL;
+	struct net_device *ppp_in = NULL;
+	bool is_flow_pppoe;
+	bool is_return_pppoe;
+
+	/*
 	 * Only process IPV4 packets in bridge hook
 	 */
 	if(skb->protocol != htons(ETH_P_IP)){
@@ -628,6 +636,35 @@ static unsigned int nss_connmgr_ipv4_bridge_post_routing_hook(unsigned int hookn
 		dev_put(in);
 		NSS_CONNMGR_DEBUG_TRACE("%p: Connection has helper\n", ct);
 		return NF_ACCEPT;
+	}
+
+	is_flow_pppoe = false;
+	ppp_in = ppp_get_ppp_netdev(in);
+	if (unlikely(ppp_in)) {
+#if (NSS_CONNMGR_PPPOE_SUPPORT == 1)
+		if (!ppp_get_session_id(ppp_in)) {
+			goto out;
+		}
+
+		is_flow_pppoe = true;
+#else
+		goto out;
+#endif
+	}
+
+	is_return_pppoe = false;
+	eth_out = ppp_get_eth_netdev((struct net_device *)out);
+	if (unlikely(eth_out)) {
+#if (NSS_CONNMGR_PPPOE_SUPPORT == 1)
+		if (!ppp_get_session_id((struct net_device *)out)) {
+			goto out;
+		}
+
+		is_return_pppoe = true;
+		new_out = eth_out;
+#else
+		goto out;
+#endif
 	}
 
 	/*
@@ -1139,6 +1176,14 @@ out:
 	 */
 	dev_put(in);
 
+	if (ppp_in) {
+		dev_put(ppp_in);
+	}
+
+	if (eth_out) {
+		dev_put(eth_out);
+	}
+
 	return NF_ACCEPT;
 }
 
@@ -1479,7 +1524,6 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 		goto out;
 	}
 
-#if (NSS_CONNMGR_PPPOE_SUPPORT == 1)
 	/*
 	 * In PPPoE connection case, the interfaces will be as below in this function.
 	 *
@@ -1516,6 +1560,7 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 	 */
 	ppp_in = ppp_get_ppp_netdev(in);
 	if (unlikely(ppp_in)) {
+#if (NSS_CONNMGR_PPPOE_SUPPORT == 1)
 		/*
 		 * It mway not be pppoe interface. It may be PPTP or L2TP.
 		 */
@@ -1524,6 +1569,9 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 		}
 
 		is_flow_pppoe = true;
+#else
+		goto out;
+#endif
 	}
 
 	/*
@@ -1533,6 +1581,7 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 	 */
 	eth_out = ppp_get_eth_netdev((struct net_device *)out);
 	if (unlikely(eth_out)) {
+#if (NSS_CONNMGR_PPPOE_SUPPORT == 1)
 		/*
 		 * It may not be PPPoE interface. It may be PPTP or L2TP. In that case,
 		 * we shouldn't set the is_return_pppoe flag.
@@ -1543,8 +1592,10 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 
 		is_return_pppoe = true;
 		new_out = eth_out;
-	}
+#else
+		goto out;
 #endif
+	}
 
 	/*
 	 * Only work with standard 802.3 mac address sizes
