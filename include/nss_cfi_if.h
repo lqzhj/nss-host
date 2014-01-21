@@ -87,15 +87,14 @@ static inline void nss_cfi_dbg_data(uint8_t *data, uint16_t len, uint8_t c)
 #endif
 
 /**
- * @brief Handler to trap IPsec packets before encryption
+ * @brief Handler to trap IPsec data packets
  */
-typedef int32_t (*nss_cfi_encrypt_trap_t)(struct sk_buff *skb, uint32_t session_idx);
+typedef int32_t (*nss_cfi_data_trap_t)(struct sk_buff *skb, uint32_t session_idx);
 
 /**
- * @brief Handler to trap IPsec packets after decryption
+ * @brief Handler to trap IPsec session information
  */
-typedef int32_t (*nss_cfi_decrypt_trap_t)(struct sk_buff *skb, uint32_t session_idx);
-
+typedef int32_t (*nss_cfi_session_trap_t)(uint32_t session_idx);
 
 /**
  * @brief Register the IPsec trap handlers for trapping packets before encryption and
@@ -103,8 +102,9 @@ typedef int32_t (*nss_cfi_decrypt_trap_t)(struct sk_buff *skb, uint32_t session_
  *
  * @param encrypt_fn[IN] trap function for encryption direction mostly encap rules
  * @param decrypt_fn[IN] trap function for decryption direction mostly decap rules
+ * @param session_fn[IN] trap function for session related information.
  */
-void nss_cfi_ocf_register_ipsec(nss_cfi_encrypt_trap_t encrypt_fn, nss_cfi_decrypt_trap_t decrypt_fn);
+void nss_cfi_ocf_register_ipsec(nss_cfi_data_trap_t encrypt_fn, nss_cfi_data_trap_t decrypt_fn, nss_cfi_session_trap_t session_fn);
 
 /**
  * @brief Unregister the Ipsec trap handlers.

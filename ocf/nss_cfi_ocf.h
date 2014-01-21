@@ -48,8 +48,9 @@ struct nss_cfi_ocf {
 	int32_t cid;				/**< crypto tag */
 	nss_crypto_handle_t crypto;		/**< crypto handle */
 
-	nss_cfi_encrypt_trap_t encrypt_fn;	/**< IPsec encryption trap function, Encap direction */
-	nss_cfi_decrypt_trap_t decrypt_fn;	/**< IPsec decryption trap function, Decap direction */
+	nss_cfi_data_trap_t encrypt_fn;		/**< IPsec encryption trap function, Encap direction */
+	nss_cfi_data_trap_t decrypt_fn;		/**< IPsec decryption trap function, Decap direction */
+	nss_cfi_session_trap_t session_fn;	/**< IPsec session trap function */
 };
 
 

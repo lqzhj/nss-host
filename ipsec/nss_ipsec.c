@@ -35,6 +35,8 @@
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 
+#include <net/netfilter/nf_conntrack.h>
+#include <net/netfilter/nf_conntrack_tuple.h>
 #include <net/arp.h>
 #include <net/neighbour.h>
 #include <net/route.h>
@@ -44,29 +46,6 @@
 #include <nss_cfi_if.h>
 #include "nss_ipsec.h"
 
-#define nss_ipsec_skb_tunnel_dev(skb) 	(((struct nss_ipsec_skb_cb *)skb->cb)->tunnel_dev)
-#define nss_ipsec_skb_eth_dev(skb) 	(((struct nss_ipsec_skb_cb *)skb->cb)->eth_dev)
-/*
- * This is used by KLIPS for communicate the device along with the
- * packet. We need this to derive the mapping of the incoming flow
- * to the IPsec tunnel
- */
-struct nss_ipsec_skb_cb {
-	struct net_device *tunnel_dev;
-	struct net_device *eth_dev;
-};
-
-/**
- * @brief IPsec tunnel entry
- */
-struct nss_ipsec_tunnel {
-	struct list_head list;		/**< list of registered tunnels */
-
-	uint8_t name[IFNAMSIZ];		/**< IPsec interface name from HLOS */
-
-	struct net_device *dev;		/**< tunnel device entry for the interface */
-	struct net_device *eth_dev;	/**< physical device entry for the tunnel interface */
-};
 
 /*
  * tunnel list head, the protection is required for accessing the
@@ -74,425 +53,695 @@ struct nss_ipsec_tunnel {
  * reference count so that delete doesn't happen when the create
  * is working on it.
  */
-LIST_HEAD(tunnel_head);
 
-uint8_t ifname_base[] = "ipsec";
-void *gbl_nss_ctx = NULL;
-struct net_device *gbl_except_dev = NULL;
-
-#define NSS_IPSEC_IFNAME_BASE_SZ	(sizeof(ifname_base) - 1)
-#define NSS_IPSEC_IFNAME_SZ(str)	(sizeof((str) - 1)
+static void *gbl_nss_ctx = NULL;
+static struct net_device *gbl_except_dev = NULL;
+static spinlock_t gbl_dev_lock;
 
 /*
- * nss_ipsec_get_tunnel_by_dev()
- * 	retrieve the tunnel using the device pointer
+ * This is used by KLIPS for communicate the device along with the
+ * packet. We need this to derive the mapping of the incoming flow
+ * to the IPsec tunnel
  */
-static struct nss_ipsec_tunnel *nss_ipsec_get_tunnel_by_dev(struct net_device *dev)
+struct nss_ipsec_skb_cb {
+	struct net_device *ipsec_dev;
+	struct net_device *eth_dev;
+};
+
+/*
+ * IPsec rule table structure.
+ */
+struct nss_ipsec_rule_tbl {
+	struct nss_ipsec_rule_entry entry[NSS_IPSEC_TBL_MAX_ENTRIES];
+
+	uint32_t free_count;
+	uint32_t num_pending_sync;
+
+	uint32_t if_num;
+
+	spinlock_t lock;
+	wait_queue_head_t waitq;
+};
+
+static struct nss_ipsec_rule_tbl gbl_rule_tbl[NSS_IPSEC_TBL_TYPE_MAX];
+
+typedef void (*nss_ipsec_sync_op_t)(struct nss_ipsec_rule_tbl *, struct nss_ipsec_rule_sync *);
+
+/*
+ * nss_ipsec_get_ipsec_dev()
+ * 	get ipsec netdevice from skb. Openswan stack fills up ipsec_dev in skb.
+ */
+static inline struct net_device * nss_ipsec_get_ipsec_dev(struct sk_buff *skb)
 {
-	struct nss_ipsec_tunnel *tunnel;
-	struct list_head *cur;
+	struct net_device *dev;
+	dev = (((struct nss_ipsec_skb_cb *)skb->cb)->ipsec_dev);
 
-	list_for_each(cur, &tunnel_head) {
-		tunnel = (struct nss_ipsec_tunnel *)cur;
-
-		if (tunnel->dev == dev) {
-			return tunnel;
-		}
-	}
-
-	return NULL;
+	return dev;
 }
 
 /*
- * nss_ipsec_check_outer_ip()
- * 	verify if the outer IP header is valid
- *
- * NOTE: the valid outer IP headers are specific to IPsec and
- * cannot be performed in conjunction with other non-IPsec protocols
+ * nss_ipsec_get_eth_dev()
+ * 	get eth netdevice from skb. Openswan stack fills up eth_dev in skb.
  */
-static inline int nss_ipsec_check_outer_ip(struct nss_ipsec_ipv4_hdr *ip)
+static inline struct net_device * nss_ipsec_get_eth_dev(struct sk_buff *skb)
 {
-	/*
-	 * IP options are not supported
-	 */
-	if (ip->ver_ihl != 0x45) {
-		nss_cfi_dbg("outer IPv4 header mismatch:ver_ihl - %d\n", ip->ver_ihl);
-		return -1;
-	}
+	struct net_device *dev;
+	dev = (((struct nss_ipsec_skb_cb *)skb->cb)->eth_dev);
 
-	/*
-	 * supported outer IP protocols for Fast path
-	 */
-	switch(ip->protocol) {
-	case IPPROTO_ESP:
-		return 0;
-	default:
-		return -1;
-	}
-}
-
-/*
- * nss_ipsec_check_inner_ip()
- * 	verify if the inner IP header is valid
- */
-static inline int nss_ipsec_check_inner_ip(struct nss_ipsec_ipv4_hdr *ip)
-{
-	/*
-	 * IP options are not supported
-	 */
-	if (ip->ver_ihl != 0x45) {
-		nss_cfi_dbg("inner IPv4 header mismatch:ver_ihl - %d\n", ip->ver_ihl);
-		return -1;
-	}
-
-	/*
-	 * supported inner IP protocols for Fast path
-	 */
-	switch(ip->protocol) {
-	case IPPROTO_TCP:
-	case IPPROTO_UDP:
-		return 0;
-	default:
-		return -1;
-	}
+	return dev;
 }
 
 /*
  * nss_ipsec_get_next_hdr()
- * 	return the next header based upon the ip protocol type
+ * 	get next hdr after IPv4 header.
  */
-static inline uint32_t nss_ipsec_get_next_hdr(struct nss_ipsec_ipv4_hdr *ip, uint8_t **next_hdr)
+static inline void * nss_ipsec_get_next_hdr(struct nss_ipsec_ipv4_hdr *ip)
 {
-	/*
-	 * location of the next header
-	 */
-	*next_hdr = (uint8_t *)ip + NSS_IPSEC_IPHDR_SZ;
-
-	/*
-	 * size of the next header
-	 */
-	switch(ip->protocol) {
-	case IPPROTO_TCP:
-		return sizeof(struct nss_ipsec_tcp_hdr);
-	case IPPROTO_UDP:
-		return sizeof(struct nss_ipsec_udp_hdr);
-	case IPPROTO_ESP:
-		return sizeof(struct nss_ipsec_esp_hdr);
-	/*
-	 * we should never get here
-	 */
-	default:
-		nss_cfi_err("unknown protocol for next hdr\n");
-		return 0;
-	}
+	return ((uint8_t *)ip + NSS_IPSEC_IPHDR_SZ);
 }
 
 /*
- * nss_ipsec_get_if_idx()
- * 	return the interface index number from the interface name
- *
- * get device index from interface name e.g., 'ipsec0' has the index
- * 0 and 'ipsec1' has index 1
+ * nss_ipsec_set_crypto_sid()
+ * 	set crpto session id to IPsec rule.
  */
-static int32_t nss_ipsec_get_if_idx(uint8_t *ifname)
+static inline void nss_ipsec_set_crypto_sid(struct nss_ipsec_rule *rule, uint32_t crypto_sid)
 {
+	struct nss_ipsec_rule_data *data = &rule->type.push.data;
+
+	data->crypto_sid = crypto_sid;
+}
+
+/*
+ * nss_ipsec_copy_from_sync()
+ * 	copy selector and data info from sync message received.
+ */
+static inline void nss_ipsec_copy_from_sync(struct nss_ipsec_rule_entry *entry, struct nss_ipsec_rule_sync *sync)
+{
+	if (sync == NULL) {
+		memset(entry, 0, sizeof(struct nss_ipsec_rule_entry));
+		entry->aging = NSS_IPSEC_TBL_ENTRY_DELETED;
+		return;
+	}
+
+	memcpy(&entry->sel, &sync->sel, sizeof(struct nss_ipsec_rule_sel));
+	memcpy(&entry->data, &sync->data, sizeof(struct nss_ipsec_rule_data));
+
+	entry->aging = NSS_IPSEC_TBL_ENTRY_ACTIVE;
+}
+
+/*
+ * nss_ipsec_copy_from_entry()
+ * 	copy selector and data info from IPsec rule entry
+ */
+static inline void nss_ipsec_copy_from_entry(struct nss_ipsec_rule_push *push, struct nss_ipsec_rule_entry *entry)
+{
+	if (entry->aging == NSS_IPSEC_TBL_ENTRY_DELETED) {
+		memset(push, 0, sizeof(struct nss_ipsec_rule_push));
+		return;
+	}
+
+	memcpy(&push->sel, &entry->sel, sizeof(struct nss_ipsec_rule_sel));
+	memcpy(&push->data, &entry->data, sizeof(struct nss_ipsec_rule_data));
+}
+
+/*
+ * nss_ipsec_parse_packet()
+ * 	Parse packet to fill up selector information.
+ */
+static uint32_t nss_ipsec_parse_packet(struct nss_ipsec_ipv4_hdr *ip, struct nss_ipsec_rule_sel *sel, struct nss_ipsec_rule_data *data)
+{
+	struct nss_ipsec_tcp_hdr *tcp = NULL;
+	struct nss_ipsec_udp_hdr *udp = NULL;
+	struct nss_ipsec_esp_hdr *esp = NULL;
+
+	if (ip->ver_ihl != 0x45) {
+		nss_cfi_dbg("IPv4 header mismatch:ver_ihl = %d\n", ip->ver_ihl);
+		return NSS_IPSEC_RULE_OP_NONE;
+	}
+
+	switch(ip->protocol) {
+	case IPPROTO_TCP:
+		tcp = nss_ipsec_get_next_hdr(ip);
+
+		sel->dst_port = ntohs(tcp->dst_port);
+		sel->src_port = ntohs(tcp->src_port);
+		sel->dst_ip = ntohl(ip->dst_ip);
+		sel->src_ip = ntohl(ip->src_ip);
+		sel->proto = IPPROTO_TCP;
+
+		break;
+
+	case IPPROTO_UDP:
+		udp = nss_ipsec_get_next_hdr(ip);
+
+		sel->dst_port = ntohs(udp->dst_port);
+		sel->src_port = ntohs(udp->src_port);
+		sel->dst_ip = ntohl(ip->dst_ip);
+		sel->src_ip = ntohl(ip->src_ip);
+		sel->proto = IPPROTO_UDP;
+
+		break;
+
+	case IPPROTO_ESP:
+		esp = nss_ipsec_get_next_hdr(ip);
+
+		sel->dst_ip = ntohl(ip->dst_ip);
+		sel->src_ip = ntohl(ip->src_ip);
+		sel->proto = IPPROTO_ESP;
+		sel->spi = ntohl(esp->spi);
+
+		break;
+	default:
+		nss_cfi_dbg("inner IPv4 header mismatch:proto = %d\n", ip->protocol);
+		return NSS_IPSEC_RULE_OP_NONE;
+	}
+
+	return NSS_IPSEC_RULE_OP_ADD;
+}
+
+/*
+ * nss_ipsec_sync_none()
+ * 	Invalid sync callback.
+ */
+static void nss_ipsec_sync_none(struct nss_ipsec_rule_tbl *tbl, struct nss_ipsec_rule_sync *sync)
+{
+	nss_cfi_err("invalid sync callback \n");
+}
+
+/*
+ * nss_ipsec_sync_add()
+ * 	Add an entry to Host IPsec table.
+ */
+static void nss_ipsec_sync_add(struct nss_ipsec_rule_tbl *tbl, struct nss_ipsec_rule_sync *sync)
+{
+	struct nss_ipsec_rule_entry *entry;
 	uint32_t idx;
 
-	if (strncmp(ifname, ifname_base, NSS_IPSEC_IFNAME_BASE_SZ) != 0) {
+	idx = sync->index.num;
+	entry = &tbl->entry[idx];
+
+	if (!tbl->free_count) {
+		nss_cfi_dbg("table(%p) full, add operation failed\n", tbl);
+		return;
+	}
+
+	if (entry->aging != NSS_IPSEC_TBL_ENTRY_DELETED) {
+		nss_cfi_dbg("table(%p) entry exists, add operation failed\n", tbl);
+		return;
+	}
+
+	nss_ipsec_copy_from_sync(entry, sync);
+
+	tbl->free_count--;
+	nss_cfi_dbg("add_op, table freecnt %d\n", tbl->free_count);
+}
+
+/*
+ * nss_ipsec_sync_del()
+ * 	Delete an entry from Host IPsec table.
+ */
+static void nss_ipsec_sync_del(struct nss_ipsec_rule_tbl *tbl, struct nss_ipsec_rule_sync *sync)
+{
+	struct nss_ipsec_rule_entry *entry;
+	uint32_t idx;
+
+	idx = sync->index.num;
+	entry = &tbl->entry[idx];
+
+	if (tbl->free_count == NSS_IPSEC_TBL_MAX_ENTRIES) {
+		nss_cfi_dbg("table(%p) empty, delete operation failed\n", tbl);
+		return;
+	}
+
+	if (entry->aging == NSS_IPSEC_TBL_ENTRY_DELETED) {
+		nss_cfi_dbg("table(%p) entry nonexistent, delete operation failed\n", tbl);
+		return;
+	}
+
+	nss_ipsec_copy_from_sync(entry, NULL);
+
+	tbl->free_count++;
+}
+
+/*
+ * nss_ipsec_sync_flush()
+ * 	Flush enries mentioned in index bitmap on host.
+ */
+static void nss_ipsec_sync_flush(struct nss_ipsec_rule_tbl *tbl, struct nss_ipsec_rule_sync *sync)
+{
+	struct nss_ipsec_rule_entry *entry;
+	int i;
+
+	for (i = 0; i < NSS_IPSEC_TBL_MAX_ENTRIES; i++) {
+		if (!sync->index.map[i]) {
+			continue;
+		}
+
+		nss_cfi_info("flushing entry idx %d\n",i);
+
+		entry = &tbl->entry[i];
+
+		nss_cfi_assert(entry->aging != NSS_IPSEC_TBL_ENTRY_DELETED);
+
+		nss_ipsec_copy_from_sync(entry, NULL);
+
+		tbl->free_count++;
+	}
+
+	if (waitqueue_active(&tbl->waitq)) {
+		tbl->num_pending_sync--;
+		wake_up_interruptible(&tbl->waitq);
+	}
+
+}
+
+/*
+ * nss_ipsec_push_rule()
+ * 	Push rule to NSS.
+ */
+static int nss_ipsec_push_rule(struct nss_ipsec_rule *rule, uint32_t if_num)
+{
+	const uint32_t size = sizeof(struct nss_ipsec_rule);
+	nss_tx_status_t status;
+
+	nss_cfi_dbg("pushing rule_op %d, for if_num %d with size %d\n", rule->op, if_num, size);
+
+	status = nss_tx_ipsec_rule(gbl_nss_ctx, if_num, 0, (uint8_t *)rule, size);
+	if (status != NSS_TX_SUCCESS) {
+		nss_cfi_err("push rule(%d) failed for if_num: %d\n", rule->op, if_num);
 		return -1;
 	}
 
-	ifname += NSS_IPSEC_IFNAME_BASE_SZ;
-
-	for (idx = 0; (*ifname >= '0') && (*ifname <= '9'); ifname++) {
-		idx = (*ifname - '0') + (idx * 10);
-	}
-
-	return idx;
+	return 0;
 }
 
 /*
- * nss_ipsec_except()
+ * nss_ipsec_push_rule_sync()
+ * 	Push rule to NSS synchronously
+ */
+static int nss_ipsec_push_rule_sync(struct nss_ipsec_rule *rule, struct nss_ipsec_rule_tbl *tbl)
+{
+	const uint32_t size = sizeof(struct nss_ipsec_rule);
+	nss_tx_status_t status;
+
+	tbl->num_pending_sync++;
+
+	status = nss_tx_ipsec_rule(gbl_nss_ctx, tbl->if_num, 0, (uint8_t *)rule, size);
+	if (status != NSS_TX_SUCCESS) {
+		nss_cfi_err("push rule failed for if_num: %d\n", tbl->if_num);
+		return -1;
+	}
+
+	wait_event_interruptible_timeout(tbl->waitq, (tbl->num_pending_sync == 0), msecs_to_jiffies(5000));
+
+	return 0;
+}
+
+/*
+ * nss_ipsec_free_rule()
+ * 	Free Perticular rule on NSS.
+ */
+static int nss_ipsec_free_rule(struct nf_conn *ct) __attribute__((unused));
+static int nss_ipsec_free_rule(struct nf_conn *ct)
+{
+	const uint32_t size = sizeof(struct nss_ipsec_rule);
+	struct nss_ipsec_rule rule;
+	struct nss_ipsec_rule_sel *sel;
+	struct nf_conntrack_tuple orig_tuple;
+	uint32_t if_num;
+
+	memset(&rule, 0, size);
+	sel = &rule.type.push.sel;
+
+	rule.op = NSS_IPSEC_RULE_OP_DEL;
+
+	orig_tuple = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
+
+	sel->src_ip = (uint32_t)orig_tuple.src.u3.ip;
+	sel->dst_ip = (uint32_t)orig_tuple.dst.u3.ip;
+	sel->proto = (int32_t)orig_tuple.dst.protonum;
+
+	switch (sel->proto) {
+	case IPPROTO_TCP:
+		sel->src_port = (int32_t)orig_tuple.src.u.tcp.port;
+		sel->dst_port = (int32_t)orig_tuple.dst.u.tcp.port;
+
+		if_num = NSS_IPSEC_ENCAP_INTERFACE;
+
+		break;
+
+	case IPPROTO_UDP:
+		sel->src_port = (int32_t)orig_tuple.src.u.udp.port;
+		sel->dst_port = (int32_t)orig_tuple.dst.u.udp.port;
+
+		if_num = NSS_IPSEC_ENCAP_INTERFACE;
+
+		break;
+
+	case IPPROTO_ESP:
+		sel->src_port = 0;
+		sel->dst_port = 0;
+
+		if_num = NSS_IPSEC_DECAP_INTERFACE;
+
+		break;
+
+	default:
+		nss_cfi_err("%s Unhandled prorocol %d\n",__FUNCTION__, sel->proto);
+		return -1;
+	}
+
+	nss_cfi_info("deleting rule: src_ip %d , dest_ip %d , proto %d,"
+			"src_port %d , dest_port %d\n",sel->src_ip, sel->dst_ip,
+			sel->proto, sel->src_port, sel->dst_port);
+
+	sel->src_ip = ntohl(sel->src_ip);
+	sel->dst_ip = ntohl(sel->dst_ip);
+	sel->src_port = ntohs(sel->src_port);
+	sel->dst_port = ntohs(sel->dst_port);
+
+	if (nss_ipsec_push_rule(&rule, if_num) < 0) {
+		nss_cfi_err("unable to delete rule: src_ip %d , dest_ip %d ,"
+				"proto %d, src_port %d , dest_port %d\n",
+				sel->src_ip, sel->dst_ip, sel->proto,
+				sel->src_port, sel->dst_port);
+
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * nss_ipsec_free_session()
+ * 	Free perticular session on NSS.
+ */
+static int32_t nss_ipsec_free_session(uint32_t crypto_sid)
+{
+	const uint32_t size = sizeof(struct nss_ipsec_rule);
+	struct nss_ipsec_rule rule;
+
+	memset(&rule, 0, size);
+	rule.op = NSS_IPSEC_RULE_OP_DEL_SID;
+
+	nss_ipsec_set_crypto_sid(&rule, crypto_sid);
+
+	if (nss_ipsec_push_rule(&rule, NSS_IPSEC_ENCAP_INTERFACE) < 0) {
+		nss_cfi_err("unable to delete session id:%d\n", crypto_sid);
+		return -1;
+	}
+
+	if (nss_ipsec_push_rule(&rule, NSS_IPSEC_DECAP_INTERFACE) < 0) {
+		nss_cfi_err("unable to delete session id:%d\n", crypto_sid);
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * nss_ipsec_free_all()
+ * 	Free both IPsec encap and decap tables on NSS.
+ */
+static int32_t nss_ipsec_free_all(void)
+{
+	struct nss_ipsec_rule rule;
+	struct nss_ipsec_rule_tbl *tbl;
+
+	memset(&rule, 0, sizeof(struct nss_ipsec_rule));
+	rule.op = NSS_IPSEC_RULE_OP_DEL_ALL;
+
+	tbl = &gbl_rule_tbl[NSS_IPSEC_TBL_TYPE_ENCAP];
+	if (nss_ipsec_push_rule_sync(&rule, tbl) < 0) {
+		nss_cfi_err("unable to delete all sessions for encap table\n");
+		return -1;
+	}
+
+	nss_cfi_info("freed up encap table\n");
+
+	tbl = &gbl_rule_tbl[NSS_IPSEC_TBL_TYPE_DECAP];
+	if (nss_ipsec_push_rule_sync(&rule, tbl) < 0) {
+		nss_cfi_err("unable to delete all sessions for decap table\n");
+		return -1;
+	}
+
+	nss_cfi_info("freed up decap table\n");
+
+	return 0;
+}
+
+/*
+ * nss_ipsec_trap_encap()
+ * 	Trap IPsec pkts for sending encap fast path rules.
+ */
+static int32_t nss_ipsec_trap_encap(struct sk_buff *skb, uint32_t crypto_sid)
+{
+	struct nss_ipsec_ipv4_hdr *tun;
+	struct nss_ipsec_ipv4_hdr *ip;
+	struct nss_ipsec_rule rule;
+	struct nss_ipsec_rule_push *push;
+	struct nss_ipsec_rule_data *data;
+	struct net_device *ipsec_dev;
+	uint32_t op;
+
+	tun = (struct nss_ipsec_ipv4_hdr *)skb->data;
+	ip = (struct nss_ipsec_ipv4_hdr *)(skb->data + NSS_IPSEC_IPHDR_SZ + NSS_IPSEC_ESPHDR_SZ);
+
+	ipsec_dev = nss_ipsec_get_ipsec_dev(skb);
+
+	memset(&rule, 0, sizeof(struct nss_ipsec_rule));
+	push = &rule.type.push;
+
+	/*
+	 * for encap we use the inner header to create the selector
+	 */
+	op = nss_ipsec_parse_packet(ip, &push->sel, &push->data);
+	if (op == NSS_IPSEC_RULE_OP_NONE) {
+		nss_cfi_dbg("error during encap trap\n");
+		return -1;
+	}
+
+	data = &push->data;
+
+	memcpy(&data->ip, tun, NSS_IPSEC_IPHDR_SZ);
+	memcpy(&data->esp, ((uint8_t *)tun + NSS_IPSEC_IPHDR_SZ), NSS_IPSEC_ESPHDR_SZ);
+
+	skb->skb_iif = ipsec_dev->ifindex;
+
+	rule.op = op;
+	nss_ipsec_set_crypto_sid(&rule, crypto_sid);
+
+	if (nss_ipsec_push_rule(&rule, NSS_IPSEC_ENCAP_INTERFACE) < 0) {
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * nss_ipsec_trap_decap()
+ * 	Trap IPsec pkts for sending decap fast path rules.
+ */
+static int32_t nss_ipsec_trap_decap(struct sk_buff *skb, uint32_t crypto_sid)
+{
+	struct nss_ipsec_ipv4_hdr *tun;
+	struct nss_ipsec_ipv4_hdr *ip;
+	struct nss_ipsec_rule rule;
+	struct nss_ipsec_rule_push *push;
+	struct net_device *ipsec_dev;
+	uint32_t op;
+
+	tun = (struct nss_ipsec_ipv4_hdr *)skb_network_header(skb);
+	ip = (struct nss_ipsec_ipv4_hdr *)(skb->data + NSS_IPSEC_ESPHDR_SZ);
+
+	ipsec_dev = nss_ipsec_get_ipsec_dev(skb);
+
+	memset(&rule, 0, sizeof(struct nss_ipsec_rule));
+
+	push = &rule.type.push;
+
+	/*
+	 * for decap we use the tunnel header to create the selector
+	 */
+	op = nss_ipsec_parse_packet(tun, &push->sel, &push->data);
+	if (op == NSS_IPSEC_RULE_OP_NONE) {
+		nss_cfi_dbg("error during decap trap\n");
+		return -1;
+	}
+
+	skb->skb_iif = ipsec_dev->ifindex;
+
+	rule.op = op;
+	nss_ipsec_set_crypto_sid(&rule, crypto_sid);
+
+	if (nss_ipsec_push_rule(&rule, NSS_IPSEC_DECAP_INTERFACE) < 0) {
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * nss_ipsec_data_cb()
  * 	ipsec exception routine for handling exceptions from NSS IPsec package
  *
  * exception function called by NSS HLOS driver when it receives
  * a packet for exception with the interface number for decap
  */
-static void nss_ipsec_except(void *ctx, void *buf)
+static void nss_ipsec_data_cb(void *ctx, void *buf)
 {
 	struct net_device *dev = gbl_except_dev;
 	struct sk_buff *skb = (struct sk_buff *)buf;
-	struct nss_ipsec_ipv4_hdr *inner_ip;
+	struct nss_ipsec_ipv4_hdr *ip;
 
-	inner_ip = (struct nss_ipsec_ipv4_hdr *)skb->data;
+	/*
+	 * need to hold the lock prior to accessing the dev
+	 */
+	spin_lock(&gbl_dev_lock);
+
+	if(!dev) {
+		spin_unlock(&gbl_dev_lock);
+		dev_kfree_skb_any(skb);
+		return;
+	}
+
+	dev_hold(dev);
+
+	spin_unlock(&gbl_dev_lock);
+
+	ip = (struct nss_ipsec_ipv4_hdr *)skb->data;
 
 	nss_cfi_dbg_skb(skb, NSS_IPSEC_DBG_DUMP_LIMIT);
 
-	if (nss_ipsec_check_inner_ip(inner_ip) < 0) {
+	if (ip->ver_ihl != 0x45) {
 		nss_cfi_dbg("unkown ipv4 header\n");
 		return;
 	}
 
 	skb_reset_network_header(skb);
+	skb_reset_mac_header(skb);
+
 	skb->pkt_type = PACKET_HOST;
 	skb->protocol = cpu_to_be16(ETH_P_IP);
 	skb->dev = dev;
 	skb->skb_iif = dev->ifindex;
 
 	netif_receive_skb(skb);
+
+	dev_put(dev);
+}
+
+static nss_ipsec_sync_op_t gbl_sync_op[NSS_IPSEC_RULE_OP_MAX] = {
+	[NSS_IPSEC_RULE_OP_NONE] = nss_ipsec_sync_none,
+	[NSS_IPSEC_RULE_OP_ADD] = nss_ipsec_sync_add,
+	[NSS_IPSEC_RULE_OP_DEL] = nss_ipsec_sync_del,
+	[NSS_IPSEC_RULE_OP_DEL_SID] = nss_ipsec_sync_flush,
+	[NSS_IPSEC_RULE_OP_DEL_ALL] = nss_ipsec_sync_flush,
+};
+
+/*
+ * nss_ipsec_event_cb()
+ * 	Callback function for IPsec events.
+ */
+static void nss_ipsec_event_cb(void *ctx, uint32_t if_num, void *buf, uint32_t len)
+{
+	struct nss_ipsec_rule_tbl *tbl;
+	struct nss_ipsec_rule_sync *sync;
+	struct nss_ipsec_rule *rule;
+	nss_ipsec_sync_op_t fn;
+
+	switch(if_num) {
+	case NSS_IPSEC_ENCAP_INTERFACE:
+		tbl = &gbl_rule_tbl[NSS_IPSEC_TBL_TYPE_ENCAP];
+		break;
+
+	case NSS_IPSEC_DECAP_INTERFACE:
+		tbl = &gbl_rule_tbl[NSS_IPSEC_TBL_TYPE_DECAP];
+		break;
+
+	default:
+		nss_cfi_err("invalid interface number for event callback: %d\n", if_num);
+		return;
+	}
+
+	rule = (struct nss_ipsec_rule *)buf;
+
+	nss_cfi_assert(len == sizeof(struct nss_ipsec_rule));
+
+	if (rule->op >= NSS_IPSEC_RULE_OP_MAX) {
+		return;
+	}
+
+	fn = gbl_sync_op[rule->op];
+	sync = &rule->type.sync;
+
+	spin_lock_bh(&tbl->lock);
+
+	fn(tbl, sync);
+
+	spin_unlock_bh(&tbl->lock);
 }
 
 /*
- * nss_ipsec_get_tunnel()
- * 	return the associated tunnel state
- *
- * retreive the tunnel from net_device if no tunnels are found which means
- * this the first time we are seeing this skb from this IPsec interface,
- * go ahead and create a new tunnel
+ * nss_ipsec_table_init()
+ * 	Initialize IPsec tables.
  */
-static struct nss_ipsec_tunnel* nss_ipsec_get_tunnel(struct net_device *dev, struct net_device *eth_dev)
+void nss_ipsec_table_init(struct nss_ipsec_rule_tbl *tbl, uint32_t if_num)
 {
-	struct nss_ipsec_tunnel *tunnel;
-	int32_t idx;
+	tbl->free_count = NSS_IPSEC_TBL_MAX_ENTRIES;
+	tbl->if_num = if_num;
+	tbl->num_pending_sync = 0;
 
-	tunnel = nss_ipsec_get_tunnel_by_dev(dev);
-	if (tunnel) {
-		return tunnel;
-	}
+	spin_lock_init(&tbl->lock);
 
-	idx = nss_ipsec_get_if_idx(dev->name);
-	if (idx < 0) {
-		nss_cfi_err("unable to get num from - (%s) where base is (%s)\n", dev->name, ifname_base);
-		return NULL;
-	}
-
-	tunnel = kzalloc(sizeof(struct nss_ipsec_tunnel), GFP_ATOMIC);
-	if (!tunnel) {
-		nss_cfi_err("unable to allocate tunnel for NSS IPsec offload\n");
-		return NULL;
-	}
-
-	nss_cfi_info("index found - %d\n", idx);
-
-	strncpy(tunnel->name, dev->name, IFNAMSIZ);
-
-	/*
-	 * XXX: we need to register a notifier so that we can delete our state,
-	 */
-	tunnel->dev = dev;
-	tunnel->eth_dev = eth_dev;
-
-	/*
-	 * exception is indicated using the first registered tunnel
-	 */
-	if (!gbl_except_dev)  {
-		gbl_except_dev = dev;
-	}
-
-	list_add(&tunnel->list, &tunnel_head);
-
-	nss_cfi_info("registered tunnel for %s\n", tunnel->name);
-
-	return tunnel;
+	init_waitqueue_head(&tbl->waitq);
 }
 
 /*
- * nss_ipsec_encap_rule_insert()
- *	add an encapsulation SA rule to NSS IPsec
- *
- * Encap rule insertion API, this will add a new SA rule to the NSS ipsec_encap
- * SA table if there was no entry for this tuple.
+ * nss_ipsec_dev_event()
+ * 	notifier function for IPsec device events.
  */
-static int32_t nss_ipsec_encap_rule_insert(struct sk_buff *skb, uint32_t crypto_sid)
-{
-	struct nss_ipsec_encap_rule rule = {{{0}}};
-	struct nss_ipsec_ipv4_hdr *outer_ip;
-	struct nss_ipsec_ipv4_hdr *inner_ip;
-	struct nss_ipsec_tunnel *tunnel;
-	struct net_device *eth_dev;
-	struct net_device *dev;
-	uint32_t inner_next_sz;
-	uint32_t outer_next_sz;
-	uint8_t *inner_next;
-	uint8_t *outer_next;
-	nss_tx_status_t status;
-
-	dev = nss_ipsec_skb_tunnel_dev(skb);
-	eth_dev = nss_ipsec_skb_eth_dev(skb);
-
-	outer_ip = (struct nss_ipsec_ipv4_hdr *)skb->data;
-
-	nss_cfi_dbg("tunnel_dev - %s, eth_dev - %s, hard_header_len - %d\n",
-			dev->name, eth_dev->name, dev->hard_header_len);
-	/**
-	 * Note: Only ESP encap is supported for now, AH or AH over ESP will continue
-	 * to use slow path through host
-	 */
-	if (nss_ipsec_check_outer_ip(outer_ip) < 0) {
-		nss_cfi_dbg_skb(skb, NSS_IPSEC_DBG_DUMP_LIMIT);
-		nss_cfi_dbg("unsupported outer IP protocol (%d)\n", outer_ip->protocol);
-		goto fail;
-	}
-
-	inner_ip = (struct nss_ipsec_ipv4_hdr *)(skb->data + NSS_IPSEC_IPHDR_SZ + NSS_IPSEC_ESPHDR_SZ);
-
-	/**
-	 * Note: unsupported protocols like ICMP, etc., will not handled in fast path
-	 * and will continue to use the slow path through host. For all those case
-	 * silently reject any fast path rule insertion
-	 */
-	if (nss_ipsec_check_inner_ip(inner_ip) < 0) {
-		nss_cfi_dbg_skb(skb, NSS_IPSEC_DBG_DUMP_LIMIT);
-		nss_cfi_dbg("unsupported inner IP protocol (%d)\n", inner_ip->protocol);
-		goto fail;
-	}
-
-	tunnel = nss_ipsec_get_tunnel(dev, eth_dev);
-	if (!tunnel) {
-		nss_cfi_err("unable to register a new tunnel\n");
-		goto fail;
-	}
-
-	inner_next_sz = nss_ipsec_get_next_hdr(inner_ip, &inner_next);
-	outer_next_sz = nss_ipsec_get_next_hdr(outer_ip, &outer_next);
-
-	/*
-	 * IP header + TCP or UDP header
-	 */
-	memcpy(&rule.entry.ip, inner_ip, NSS_IPSEC_IPHDR_SZ);
-	memcpy(&rule.entry.next_hdr, inner_next, inner_next_sz);
-
-	/*
-	 * IP header + ESP header
-	 */
-	memcpy(&rule.data.ip, outer_ip, NSS_IPSEC_IPHDR_SZ);
-	memcpy(&rule.data.esp, outer_next, outer_next_sz);
-
-	/*
-	 * crypto session id to use with this rule
-	 */
-	rule.crypto_sid = crypto_sid;
-
-	status = nss_tx_ipsec_rule(gbl_nss_ctx, /* nss context */
-					NSS_IPSEC0_ENCAP_INTERFACE, /* interface number */
-					NSS_IPSEC_RULE_TYPE_ENCAP_INSERT, /* rule type */
-					(uint8_t *)&rule, /* rule object */
-					NSS_IPSEC_ENCAP_RULE_SZ); /* rule size */
-	if (status != NSS_TX_SUCCESS) {
-		nss_cfi_err("unable to create SA rule for encap - %d\n", status);
-		goto fail;
-	}
-
-	return 0;
-fail:
-	return -EINVAL;
-}
-
-/*
- * nss_ipsec_decap_rule_insert()
- * 	add a decapsulation SA rule to NSS IPsec
- *
- * Decap rule insertion API, this will add a new SA rule to the NSS ipsec_decap
- * SA table if there was no entry for this tuple.
- */
-static int32_t nss_ipsec_decap_rule_insert(struct sk_buff *skb, uint32_t crypto_sid)
-{
-	struct nss_ipsec_decap_rule rule = {{{0}}};
-	struct nss_ipsec_ipv4_hdr *outer_ip;
-	struct nss_ipsec_ipv4_hdr *inner_ip;
-	struct nss_ipsec_tunnel *tunnel;
-	struct net_device *eth_dev;
-	struct net_device *dev;
-	uint32_t outer_next_sz;
-	uint8_t *outer_next;
-	nss_tx_status_t status;
-
-	dev = nss_ipsec_skb_tunnel_dev(skb);
-	eth_dev = nss_ipsec_skb_eth_dev(skb);
-
-	nss_cfi_dbg("tunnel_dev - %s, eth_dev - %s, hard_header_len - %d\n",
-			dev->name, eth_dev->name, dev->hard_header_len);
-
-
-	outer_ip = (struct nss_ipsec_ipv4_hdr *)skb_network_header(skb);
-
-	/**
-	 * Note: Only ESP encap is supported for now, AH or AH over ESP will continue
-	 * to use slow path through host
-	 */
-	if (nss_ipsec_check_outer_ip(outer_ip) < 0) {
-		nss_cfi_dbg_skb(skb, NSS_IPSEC_DBG_DUMP_LIMIT);
-		nss_cfi_dbg("unsupported outer IP protocol (%d)\n", outer_ip->protocol);
-		goto fail;
-	}
-
-	/**
-	 * KLIPS strips the IPv4 header before giving it to crypto
-	 */
-	inner_ip = (struct nss_ipsec_ipv4_hdr *)(skb->data + NSS_IPSEC_ESPHDR_SZ);
-
-	/**
-	 * Note: we are operating on the decrypted packet so that we can filter out
-	 * unsupported protcols like ICMP which would otherwise caused a rule insertion
-	 * in the tables for these non fast path frames
-	 */
-	if (nss_ipsec_check_inner_ip(inner_ip) < 0) {
-		nss_cfi_dbg_skb(skb, NSS_IPSEC_DBG_DUMP_LIMIT);
-		nss_cfi_dbg("unsupported inner IP protocol (%d)\n", inner_ip->protocol);
-		goto fail;
-	}
-
-	tunnel = nss_ipsec_get_tunnel(dev, eth_dev);
-	if (!tunnel) {
-		nss_cfi_err("unable to register a new tunnel\n");
-		goto fail;
-	}
-
-	skb->skb_iif = tunnel->dev->ifindex;
-
-	outer_next_sz = nss_ipsec_get_next_hdr(outer_ip, &outer_next);
-
-	memcpy(&rule.entry.ip, outer_ip, NSS_IPSEC_IPHDR_SZ);
-	memcpy(&rule.entry.next_hdr, outer_next, outer_next_sz);
-
-	/* crypto session id to use with this rule */
-	rule.crypto_sid = crypto_sid;
-
-	status = nss_tx_ipsec_rule(gbl_nss_ctx,	/* nss context */
-					NSS_IPSEC0_DECAP_INTERFACE,	/* interface number */
-					NSS_IPSEC_RULE_TYPE_DECAP_INSERT, /* rule type */
-					(uint8_t *)&rule, /* rule object */
-					NSS_IPSEC_DECAP_RULE_SZ); /* rule size */
-	if (status != NSS_TX_SUCCESS) {
-		nss_cfi_err("unable to create SA rule for decap - %d\n", status);
-		goto fail;
-	}
-
-	return 0;
-fail:
-	return -EINVAL;
-}
 static int nss_ipsec_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
 {
 	struct net_device *dev = (struct net_device *)ptr;
 
 	switch (event) {
 	case NETDEV_UP:
-		if (strncmp(dev->name, "ipsec0", strlen("ipsec0")) == 0) {
-			nss_cfi_info("IPsec interface coming up: %s\n", dev->name);
 
-			gbl_nss_ctx = nss_register_ipsec_if(NSS_C2C_TX_INTERFACE, nss_ipsec_except, dev);
-			if (gbl_nss_ctx == NULL) {
-				nss_cfi_err("Unable to register IPsec with NSS driver\n");
-				return -1;
-			}
+		if (strncmp(dev->name, "ipsec0", strlen("ipsec0")) != 0) {
+			break;
 		}
+
+		nss_cfi_info("IPsec interface coming up: %s\n", dev->name);
+
+		spin_lock_bh(&gbl_dev_lock);
+
+		gbl_except_dev = dev;
+
+		spin_unlock_bh(&gbl_dev_lock);
+
+		gbl_nss_ctx = nss_register_ipsec_if(NSS_C2C_TX_INTERFACE, nss_ipsec_data_cb, dev);
+
+		nss_register_ipsec_event_if(NSS_C2C_TX_INTERFACE, nss_ipsec_event_cb);
+
+		nss_cfi_assert(gbl_nss_ctx);
+
 		break;
 
         case NETDEV_DOWN:
-		if (strncmp(dev->name, "ipsec", strlen("ipsec")) == 0) {
-			nss_cfi_info("IPsec interface going down: %s\n", dev->name);
+
+		if (strncmp(dev->name, "ipsec0", strlen("ipsec0")) != 0) {
+			break;
 		}
+
+		nss_cfi_info("IPsec interface going down: %s\n", dev->name);
+
+		spin_lock_bh(&gbl_dev_lock);
+
+		gbl_except_dev = NULL;
+
+		spin_unlock_bh(&gbl_dev_lock);
+
 		break;
 
 	default:
@@ -506,20 +755,34 @@ static struct notifier_block nss_ipsec_notifier = {
 	.notifier_call = nss_ipsec_dev_event,
 };
 
+/*
+ * nss_ipsec_init_module()
+ * 	Initialize IPsec rule tables and register various callbacks
+ */
 int __init nss_ipsec_init_module(void)
 {
 	nss_cfi_info("NSS IPsec (platform - IPQ806x , Build - %s:%s) loaded\n", __DATE__, __TIME__);
 
 	register_netdevice_notifier(&nss_ipsec_notifier);
 
-	nss_cfi_ocf_register_ipsec(nss_ipsec_encap_rule_insert, nss_ipsec_decap_rule_insert);
+	nss_cfi_ocf_register_ipsec(nss_ipsec_trap_encap, nss_ipsec_trap_decap, nss_ipsec_free_session);
+
+	nss_ipsec_table_init(&gbl_rule_tbl[NSS_IPSEC_TBL_TYPE_ENCAP], NSS_IPSEC_ENCAP_INTERFACE);
+	nss_ipsec_table_init(&gbl_rule_tbl[NSS_IPSEC_TBL_TYPE_DECAP], NSS_IPSEC_DECAP_INTERFACE);
+
+	spin_lock_init(&gbl_dev_lock);
 
 	return 0;
 }
 
+/*
+ * nss_ipsec_exit_module()
+ */
 void __exit nss_ipsec_exit_module(void)
 {
 	nss_cfi_ocf_unregister_ipsec();
+
+	nss_ipsec_free_all();
 
 	nss_unregister_ipsec_if(NSS_C2C_TX_INTERFACE);
 
@@ -528,8 +791,6 @@ void __exit nss_ipsec_exit_module(void)
 	nss_cfi_info("module unloaded\n");
 }
 
-EXPORT_SYMBOL(nss_ipsec_encap_rule_insert);
-EXPORT_SYMBOL(nss_ipsec_decap_rule_insert);
 
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Qualcomm Atheros");
