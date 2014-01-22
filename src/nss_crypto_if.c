@@ -251,13 +251,6 @@ void nss_crypto_init(void)
 {
 	nss_pm_interface_status_t status;
 
-	nss_pm_hdl = nss_pm_client_register(NSS_PM_CLIENT_CRYPTO);
-
-	status = nss_pm_set_perf_level(nss_pm_hdl,  NSS_PM_PERF_LEVEL_TURBO);
-	if (status == NSS_PM_API_FAILED) {
-		nss_crypto_info(" Not able to set pm perf level to TURBO!!!\n");
-	}
-
 	nss_crypto_info("Waiting for NSS \n");
 
 	nss_drv_hdl = nss_register_crypto_if(nss_crypto_transform_done, &user_head);
@@ -268,6 +261,13 @@ void nss_crypto_init(void)
 	nss_crypto_info(" done!\n");
 
 	nss_crypto_ctrl_init();
+
+	nss_pm_hdl = nss_pm_client_register(NSS_PM_CLIENT_CRYPTO);
+
+	status = nss_pm_set_perf_level(nss_pm_hdl, NSS_PM_PERF_LEVEL_TURBO);
+	if (status == NSS_PM_API_FAILED) {
+		nss_crypto_info(" Not able to set pm perf level to TURBO!!!\n");
+	}
 }
 
 /*

@@ -48,14 +48,6 @@
 #define CRYPTO_RESET_ENG_2	REG(0x3E08)
 #define CRYPTO_RESET_ENG_3	REG(0x3E0C)
 
-#define CRYPTO_ACLK_SRC_CTL	REG(0x3D80)
-#define CRYPTO_ACLK_SRC0_NS	REG(0x3D84)
-#define CRYPTO_HCLK_SRC_CTL	REG(0x3C60)
-#define CRYPTO_HCLK_SRC0_NS	REG(0x3C64)
-#define CRYPTO_CORE_CLK_SRC_CTL	REG(0x36C0)
-#define CRYPTO_CORE_CLK_SRC0_NS	REG(0x36C4)
-
-
 extern struct nss_crypto_ctrl gbl_crypto_ctrl;
 
 static int eng_count = 0;
@@ -209,17 +201,6 @@ static int __init nss_crypto_module_init(void)
 	 * trust zone use
 	 */
 	gbl_crypto_ctrl.idx_bitmap = res_idx ? ((0x1 << res_idx) - 1) : 0;
-
-	/*
-	 * Switching Crypto clocks to TURBO
-	 */
-	iowrite32(0x23, CRYPTO_ACLK_SRC0_NS);
-	iowrite32(0x23, CRYPTO_HCLK_SRC0_NS);
-	iowrite32(0x23, CRYPTO_CORE_CLK_SRC0_NS);
-
-	iowrite32(0x2, CRYPTO_ACLK_SRC_CTL);
-	iowrite32(0x2, CRYPTO_HCLK_SRC_CTL);
-	iowrite32(0x2, CRYPTO_CORE_CLK_SRC_CTL);
 
 	status = platform_driver_register(&nss_crypto_drv);
 	nss_crypto_assert(status == 0);
