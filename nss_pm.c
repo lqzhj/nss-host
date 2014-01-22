@@ -329,7 +329,7 @@ nss_pm_interface_status_t nss_pm_set_perf_level(void *handle, nss_pm_perf_level_
 	 * Do client specific operations here
 	 */
 	if (pm_client->client_id == NSS_PM_CLIENT_NETAP) {
-		if (lvl == NSS_PM_PERF_LEVEL_TURBO) {
+		if ((lvl == NSS_PM_PERF_LEVEL_TURBO) && (ctx.turbo_support == true)) {
 			/*
 			 * For turbo perf level, switch TCM source to
 			 * SRC1 to set TCM clock = 400 MHz
@@ -343,6 +343,28 @@ nss_pm_interface_status_t nss_pm_set_perf_level(void *handle, nss_pm_perf_level_
 			 * set TCM clock = 266 MHz
 			 */
 			writel(0x2, NSSTCM_CLK_SRC_CTL);
+
+			if (lvl == NSS_PM_PERF_LEVEL_TURBO) {
+				lvl = NSS_PM_PERF_LEVEL_NOMINAL;
+			}
+		}
+	}
+
+	if (pm_client->client_id == NSS_PM_CLIENT_CRYPTO) {
+		if ((lvl == NSS_PM_PERF_LEVEL_TURBO) && (ctx.turbo_support == true))  {
+			/*
+			 * For Turbo mode, set Crypto core and
+			 * Fabric  port clocks to 213 MHz
+			 */
+			writel(0x23, CE5_ACLK_SRC0_NS);
+			writel(0x23, CE5_HCLK_SRC0_NS);
+			writel(0x23, CE5_CORE_CLK_SRC0_NS);
+
+			writel(0x2, CE5_ACLK_SRC_CTL);
+			writel(0x2, CE5_HCLK_SRC_CTL);
+			writel(0x2, CE5_CORE_CLK_SRC_CTL);
+		} else {
+			lvl = NSS_PM_PERF_LEVEL_NOMINAL;
 		}
 	}
 
@@ -361,6 +383,16 @@ nss_pm_interface_status_t nss_pm_set_perf_level(void *handle, nss_pm_perf_level_
 EXPORT_SYMBOL(nss_pm_set_perf_level);
 
 /*
+ * nss_pm_set_turbo()
+ *   Sets the turbo support flag globally for all clients
+ */
+void nss_pm_set_turbo() {
+
+	nss_pm_info("NSS Bus PM - Platform supports Turbo Mode \n");
+	ctx.turbo_support = true;
+}
+
+/*
  * nss_pm_init()
  *    Initialize NSS PM top level structures
  */
@@ -369,6 +401,9 @@ void nss_pm_init(void) {
 	nss_pm_info("NSS Bus PM (platform - IPQ806x, build - %s:%s)\n", __DATE__, __TIME__);
 
 	ctx.pm_dentry = debugfs_create_dir("qca-nss-pm", NULL);
+
+	/* Default turbo support is set to off */
+	ctx.turbo_support = false;
 
 	if (unlikely(ctx.pm_dentry == NULL)) {
 		nss_pm_warning("Failed to create qca-nss-drv directory in debugfs");

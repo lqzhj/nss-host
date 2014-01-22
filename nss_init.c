@@ -145,6 +145,7 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 			 */
 			printk("nss_driver - Turbo Support %d\n", npd->turbo_frequency);
 			nss_runtime_samples.freq_scale_sup_max = NSS_MAX_CPU_SCALES;
+			nss_pm_set_turbo();
 		} else {
 			printk("nss_driver - Turbo No Support %d\n", npd->turbo_frequency);
 			nss_runtime_samples.freq_scale_sup_max = NSS_MAX_CPU_SCALES - 1;

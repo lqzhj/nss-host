@@ -77,6 +77,7 @@ typedef struct {
  */
 struct nss_pm_global_ctx {
 	struct dentry *pm_dentry;
+	bool turbo_support;
 	nss_pm_client_data_t nss_pm_client[NSS_PM_MAX_CLIENTS];
 };
 
@@ -151,5 +152,10 @@ struct nss_pm_global_ctx {
  * Initialize NSS PM top level structures
  */
 void nss_pm_init(void);
+
+/*
+ * Sets the turbo support flag globally for all PM clients
+ */
+void nss_pm_set_turbo(void);
 
 #endif  /** __NSS_PM_H */
