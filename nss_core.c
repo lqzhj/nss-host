@@ -158,8 +158,10 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 	count_temp = count;
 	while (count_temp) {
 		unsigned int buffer_type;
+		uint32_t opaque;
 		desc = &desc_ring[hlos_index];
 		buffer_type = desc->buffer_type;
+		opaque = desc->opaque;
 
 	if (unlikely((buffer_type == N2H_BUFFER_CRYPTO_RESP))) {
 			NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_CRYPTO_RESP]);
@@ -172,14 +174,14 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 			 *	use OS network buffers (e.g. skb). Hence, OS buffer operations
 			 *	are not applicable to crypto buffers
 			 */
-			nss_rx_handle_crypto_buf(nss_ctx, desc->opaque, desc->buffer, desc->payload_len);
+			nss_rx_handle_crypto_buf(nss_ctx, opaque, desc->buffer, desc->payload_len);
 		} else {
 			unsigned int interface_num = desc->interface_num;
 
 			/*
 			* Obtain nbuf
 			*/
-			nbuf = (struct sk_buff *)desc->opaque;
+			nbuf = (struct sk_buff *)opaque;
 			if (unlikely(nbuf < (struct sk_buff *)PAGE_OFFSET)) {
 				/*
 				 * Invalid opaque pointer
@@ -192,12 +194,15 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 			 */
 			nr_frags = skb_shinfo(nbuf)->nr_frags;
 			if (likely(nr_frags == 0)) {
+				unsigned int payload_offs = desc->payload_offs;
+				unsigned int payload_len = desc->payload_len;
+				dma_addr_t buffer = desc->buffer;
 
 				/*
 				 * Set relevant fields within nbuf (len, head, tail)
 				 */
-				nbuf->data = nbuf->head + desc->payload_offs;
-				nbuf->len = desc->payload_len;
+				nbuf->data = nbuf->head + payload_offs;
+				nbuf->len = payload_len;
 				nbuf->tail = nbuf->data + nbuf->len;
 
 				/*
@@ -205,7 +210,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 				 * NSS should playaround with data area and should not
 				 * touch HEADROOM area
 				 */
-				dma_unmap_single(NULL, (desc->buffer + desc->payload_offs), desc->payload_len, DMA_FROM_DEVICE);
+				dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_FROM_DEVICE);
 				prefetch((void *)(nbuf->data));
 			}
 
@@ -401,6 +406,7 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 {
 	struct nss_ctx_instance *nss_ctx = int_ctx->nss_ctx;
 	struct nss_if_mem_map *if_map = (struct nss_if_mem_map *)(nss_ctx->vmap);
+	uint16_t max_buf_size = (uint16_t) nss_ctx->max_buf_size;
 	int32_t i;
 
 	nss_assert((cause == NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFERS_SOS) || (cause == NSS_REGS_N2H_INTR_STATUS_TX_UNBLOCKED));
@@ -482,8 +488,9 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 		 */
 		while (count) {
 			struct h2n_descriptor *desc = &desc_ring[hlos_index];
+			dma_addr_t buffer;
 
-			nbuf = dev_alloc_skb(nss_ctx->max_buf_size);
+			nbuf = dev_alloc_skb(max_buf_size);
 			if (unlikely(!nbuf)) {
 				/*
 				 * ERR:
@@ -495,10 +502,8 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 				break;
 			}
 
-			desc->opaque = (uint32_t)nbuf;
-			desc->payload_offs = (uint16_t) (nbuf->data - nbuf->head);
-			desc->buffer = dma_map_single(NULL, nbuf->head, nss_ctx->max_buf_size, DMA_FROM_DEVICE);
-			if (unlikely(dma_mapping_error(NULL, desc->buffer))) {
+			buffer = dma_map_single(NULL, nbuf->head, max_buf_size, DMA_FROM_DEVICE);
+			if (unlikely(dma_mapping_error(NULL, buffer))) {
 				/*
 				 * ERR:
 				 */
@@ -506,7 +511,11 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 				nss_warning("%p: DMA mapping failed for empty buffer", nss_ctx);
 				break;
 			}
-			desc->buffer_len = (uint16_t)(nss_ctx->max_buf_size);
+
+			desc->opaque = (uint32_t)nbuf;
+			desc->payload_offs = (uint16_t) (nbuf->data - nbuf->head);
+			desc->buffer = buffer;
+			desc->buffer_len = max_buf_size;
 			desc->buffer_type = H2N_BUFFER_EMPTY;
 			hlos_index = (hlos_index + 1) & (mask);
 			count--;
@@ -804,28 +813,32 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	 * Is this a conventional unfragmented nbuf?
 	 */
 	if (likely(nr_frags == 0)) {
-		desc->buffer_type = buffer_type;
-		desc->bit_flags = flags | H2N_BIT_FLAG_FIRST_SEGMENT | H2N_BIT_FLAG_LAST_SEGMENT;
+		uint16_t bit_flags;
+
+		bit_flags = flags | H2N_BIT_FLAG_FIRST_SEGMENT | H2N_BIT_FLAG_LAST_SEGMENT;
 
 		if (likely(nbuf->ip_summed == CHECKSUM_PARTIAL)) {
-			desc->bit_flags |= H2N_BIT_FLAG_GEN_IP_TRANSPORT_CHECKSUM;
+			bit_flags |= H2N_BIT_FLAG_GEN_IP_TRANSPORT_CHECKSUM;
 		}
 
+		desc->buffer_type = buffer_type;
+		desc->buffer = frag0phyaddr;
 		desc->interface_num = (int8_t)if_num;
 		desc->opaque = (uint32_t)nbuf;
-		desc->payload_offs = (uint16_t) (nbuf->data - nbuf->head);
+		desc->payload_offs = (uint16_t)(nbuf->data - nbuf->head);
 		desc->payload_len = nbuf->len;
 		desc->buffer_len = (uint16_t)(nbuf->end - nbuf->head);
-		desc->buffer = frag0phyaddr;
 
 		if (unlikely(!NSS_IS_IF_TYPE(VIRTUAL, if_num))) {
 			if (likely(nbuf->destructor == NULL)) {
 				if (likely(skb_recycle_check(nbuf, nss_ctx->max_buf_size))) {
-					desc->bit_flags |= H2N_BIT_BUFFER_REUSE;
+					bit_flags |= H2N_BIT_BUFFER_REUSE;
 					desc->buffer_len = nss_ctx->max_buf_size + NET_SKB_PAD;
 				}
 			}
 		}
+
+		desc->bit_flags = bit_flags;
 	} else {
 		/*
 		 * TODO: convert to BUGON/ASSERT
@@ -833,6 +846,8 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		uint32_t i = 0;
 		const skb_frag_t *frag;
 		uint16_t mss = 0;
+		dma_addr_t buffer;
+		uint16_t bit_flags;
 
 		/*
 		 * Check if segmentation enabled.
@@ -862,12 +877,12 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		/*
 		 * First fragment/descriptor is special
 		 */
-		desc->buffer_type = buffer_type;
-		desc->bit_flags = (flags | H2N_BIT_FLAG_FIRST_SEGMENT | H2N_BIT_FLAG_DISCARD);
+		bit_flags = (flags | H2N_BIT_FLAG_FIRST_SEGMENT | H2N_BIT_FLAG_DISCARD);
 		if (likely(nbuf->ip_summed == CHECKSUM_PARTIAL)) {
-			desc->bit_flags |= H2N_BIT_FLAG_GEN_IP_TRANSPORT_CHECKSUM;
+			bit_flags |= H2N_BIT_FLAG_GEN_IP_TRANSPORT_CHECKSUM;
 		}
 
+		desc->buffer_type = buffer_type;
 		desc->interface_num = (int8_t)if_num;
 		desc->opaque = (uint32_t)NULL;
 		desc->payload_offs = nbuf->data - nbuf->head;
@@ -875,6 +890,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		desc->buffer_len = nbuf->end - nbuf->head;
 		desc->buffer = frag0phyaddr;
 		desc->mss = mss;
+		desc->bit_flags = bit_flags;
 
 		/*
 		 * Now handle rest of the fragments.
@@ -883,24 +899,27 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 			frag = &skb_shinfo(nbuf)->frags[i++];
 			hlos_index = (hlos_index + 1) & (mask);
 			desc = &(desc_if->desc[hlos_index]);
-			desc->buffer_type = buffer_type;
-			desc->bit_flags = (flags | H2N_BIT_FLAG_DISCARD);
+			bit_flags = (flags | H2N_BIT_FLAG_DISCARD);
 			if (likely(nbuf->ip_summed == CHECKSUM_PARTIAL)) {
-				desc->bit_flags |= H2N_BIT_FLAG_GEN_IP_TRANSPORT_CHECKSUM;
+				bit_flags |= H2N_BIT_FLAG_GEN_IP_TRANSPORT_CHECKSUM;
 			}
 
+			buffer = skb_frag_dma_map(NULL, frag, 0, skb_frag_size(frag), DMA_TO_DEVICE);
+			if (unlikely(dma_mapping_error(NULL, buffer))) {
+				spin_unlock_bh(&nss_ctx->h2n_desc_rings[qid].lock);
+				nss_warning("%p: DMA mapping failed for fragment", nss_ctx);
+				return NSS_CORE_STATUS_FAILURE;
+			}
+
+			desc->buffer_type = buffer_type;
+			desc->buffer = buffer;
 			desc->interface_num = (int8_t)if_num;
 			desc->opaque = (uint32_t)NULL;
 			desc->payload_offs = 0;
 			desc->payload_len = skb_frag_size(frag);
 			desc->buffer_len = skb_frag_size(frag);
-			desc->buffer = skb_frag_dma_map(NULL, frag, 0, skb_frag_size(frag), DMA_TO_DEVICE);
-			if (unlikely(dma_mapping_error(NULL, desc->buffer))) {
-				spin_unlock_bh(&nss_ctx->h2n_desc_rings[qid].lock);
-				nss_warning("%p: DMA mapping failed for fragment", nss_ctx);
-				return NSS_CORE_STATUS_FAILURE;
-			}
 			desc->mss = mss;
+			desc->bit_flags = bit_flags;
 		}
 
 		/*
