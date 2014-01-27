@@ -699,6 +699,8 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
 
 	*session_idx = idx;
 
+	nss_crypto_reset_session(idx, NSS_CRYPTO_SESSION_STATE_ALLOC);
+
 	spin_unlock_bh(&ctrl->lock); /* index unlock*/
 
 	nss_crypto_info("new index (used - %d, max - %d)\n", ctrl->num_idxs, NSS_CRYPTO_MAX_IDXS);
@@ -752,6 +754,8 @@ nss_crypto_status_t nss_crypto_session_free(nss_crypto_handle_t crypto, uint32_t
 
 	ctrl->idx_bitmap &= ~idx_mask;
 	ctrl->num_idxs--;
+
+	nss_crypto_reset_session(session_idx, NSS_CRYPTO_SESSION_STATE_FREE);
 
 	spin_unlock_bh(&ctrl->lock); /* index unlock*/
 

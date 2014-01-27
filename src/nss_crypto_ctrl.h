@@ -33,6 +33,15 @@ enum nss_crypto_keylen_supp {
 	NSS_CRYPTO_KEYLEN_3DES = 24,		/**< 3DES-192 bit */
 };
 
+/**
+ * @brief session states
+ */
+enum nss_crypto_session_state {
+	NSS_CRYPTO_SESSION_STATE_NONE = 0,	/**< session state none */
+	NSS_CRYPTO_SESSION_STATE_ALLOC = 1,	/**< session state is alloc */
+	NSS_CRYPTO_SESSION_STATE_FREE = 2	/**< session state is free */
+};
+
 struct nss_crypto_encr_cfg {
 	uint32_t cfg;
 	uint8_t key[NSS_CRYPTO_CKEY_SZ];
@@ -130,5 +139,13 @@ void nss_crypto_session_update(struct nss_crypto_ctrl *ctrl, struct nss_crypto_b
  * @brief Initiallize the generic control entities in nss_crypto_ctrl
  */
 void nss_crypto_ctrl_init(void);
+
+/**
+ * @brief Reset session specific parameteres.
+ *
+ * @param session_idx[IN] session index
+ * @param state[IN] session stats (ALLOC/FREE)
+ */
+void nss_crypto_reset_session(uint32_t session_idx, enum nss_crypto_session_state state);
 
 #endif /* __NSS_CRYPTO_CTRL_H*/

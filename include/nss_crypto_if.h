@@ -110,6 +110,25 @@ enum nss_crypto_buf_req_type {
 	NSS_CRYPTO_BUF_REQ_IPSEC = 0x0200		/**< request originates from IPsec fast path */
 };
 
+/**
+ * @brief crypto config msg type
+ */
+enum nss_crypto_config_type {
+	NSS_CRYPTO_CONFIG_TYPE_NONE = 0,		/**< No config */
+	NSS_CRYPTO_CONFIG_TYPE_OPEN_ENG,		/**< open engine config */
+	NSS_CRYPTO_CONFIG_TYPE_CLOSE_ENG,		/**< close engine config */
+	NSS_CRYPTO_CONFIG_TYPE_RESET_SESSION,		/**< reset session state config */
+	NSS_CRYPTO_CONFIG_TYPE_MAX
+};
+
+enum nss_crypto_sync_type {
+	NSS_CRYPTO_SYNC_TYPE_NONE = 0,			/**< sync type none */
+	NSS_CRYPTO_SYNC_TYPE_OPEN_ENG = 1,		/**< open engine sync */
+	NSS_CRYPTO_SYNC_TYPE_CLOSE_ENG = 2,		/**< close engine sync */
+	NSS_CRYPTO_SYNC_TYPE_STATS = 3,			/**< stats sync */
+	NSS_CRYPTO_SYNC_TYPE_MAX
+};
+
 struct nss_crypto_buf;
 /**
  * @brief Cipher/Auth operation completion callback function type
@@ -137,12 +156,68 @@ struct nss_crypto_idx {
 /**
  * @brief open engine message sent to NSS when each is probed
  */
-struct nss_crypto_open_eng {
+struct nss_crypto_config_eng {
 	uint32_t eng_id;				/**< engine number to open */
 	uint32_t bam_pbase;				/**< BAM base addr (physical) */
 	uint32_t crypto_pbase;				/**< Crypto base addr (physical) */
 	uint32_t desc_paddr[NSS_CRYPTO_BAM_PP];		/**< pipe desc addr (physical) */
 	struct nss_crypto_idx idx[NSS_CRYPTO_MAX_IDXS];	/**< allocated ession indexes */
+};
+
+/**
+ * @brief Reset session related state in NSS
+ */
+struct nss_crypto_config_session {
+	uint32_t idx;					/*< session idx on which will be reset */
+};
+
+/**
+ * @brief Config message sent to NSS
+ */
+struct nss_crypto_config {
+	uint32_t type;					/*< Config type */
+
+	union {
+		struct nss_crypto_config_eng eng;		/*< open engine msg structure */
+		struct nss_crypto_config_session session;	/*< reset stats msg structure */
+	} msg;
+};
+
+/**
+ * @brief crypto statistics
+ */
+struct nss_crypto_stats {
+	uint32_t queued;	/**< no. of queued frames */
+	uint32_t completed;	/**< no. of completed frames */
+	uint32_t dropped;	/**< no. of dropped frames */
+};
+
+/**
+ * @brief statistic sync structure
+ */
+struct nss_crypto_sync_stats {
+	struct nss_crypto_stats eng[NSS_CRYPTO_ENGINES];	/**< engine stats */
+	struct nss_crypto_stats idx[NSS_CRYPTO_MAX_IDXS];	/**< session stats */
+	struct nss_crypto_stats total;				/**< Total stats */
+};
+
+/**
+ * @brief engine sync structure
+ */
+struct nss_crypto_sync_eng {
+	uint32_t eng_id;			/**< Engine number */
+};
+
+/**
+ * @brief crypto sync message
+ */
+struct nss_crypto_sync {
+	uint32_t type;				/**< sync message type */
+
+	union {
+		struct nss_crypto_sync_eng eng;	/**< engine configuration sync */
+		struct nss_crypto_sync_stats stats;	/**< statistics sync */
+	} msg;
 };
 
 /**
@@ -325,6 +400,5 @@ nss_crypto_status_t nss_crypto_session_free(nss_crypto_handle_t crypto, uint32_t
  *       buffer has completed
  */
 nss_crypto_status_t nss_crypto_transform_payload(nss_crypto_handle_t crypto, struct nss_crypto_buf *buf);
-
 
 #endif /* __NSS_CRYPTO_IF_H */

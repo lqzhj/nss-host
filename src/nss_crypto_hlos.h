@@ -36,6 +36,7 @@
 #include <linux/slab.h>
 #include <linux/llist.h>
 #include <linux/vmalloc.h>
+#include <linux/debugfs.h>
 
 #define nss_crypto_info(fmt, arg...)	printk(KERN_INFO "<NSS-CRYPTO>:" fmt, ## arg)
 #define nss_crypto_err(fmt, arg...)	printk(KERN_ERR "<NSS-CRYPTO>:" fmt, ## arg)
