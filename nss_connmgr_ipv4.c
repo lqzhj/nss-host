@@ -304,6 +304,7 @@ struct nss_connmgr_ipv4_instance {
 	struct dentry *dent;		/* Debugfs directory */
 	uint32_t debug_stats[NSS_CONNMGR_IPV4_DEBUG_STATS_MAX];
 					/* Debug statistics */
+	uint32_t need_mark;		/* When 0 needing to see a mark value is disabled.  When != 0 we only process packets that have the given skb->mark value */
 };
 
 static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
@@ -335,6 +336,7 @@ static struct nss_connmgr_ipv4_instance nss_connmgr_ipv4 = {
 		.conntrack_notifier = {
 			.fcn = nss_connmgr_ipv4_conntrack_event,
 		},
+		.need_mark = 0,
 };
 
 /*
@@ -553,6 +555,15 @@ static unsigned int nss_connmgr_ipv4_bridge_post_routing_hook(unsigned int hookn
 	bool is_return_pppoe;
 
 	/*
+	 * If the 'need_mark' flag is set and this packet does not have the relevant mark
+	 * then we don't accelerate at all
+	 */
+	if (nss_connmgr_ipv4.need_mark && (nss_connmgr_ipv4.need_mark != skb->mark)) {
+		NSS_CONNMGR_DEBUG_TRACE("Mark %x not seen, ignoring: %p\n", nss_connmgr_ipv4.need_mark, skb);
+		return NF_ACCEPT;
+	}
+
+	/*
 	 * Only process IPV4 packets in bridge hook
 	 */
 	if(skb->protocol != htons(ETH_P_IP)){
@@ -715,6 +726,22 @@ static unsigned int nss_connmgr_ipv4_bridge_post_routing_hook(unsigned int hookn
 
 	unic.flags = 0;
 
+	/*
+	 * Store the skb->priority as the qos tag
+	 */
+	unic.qos_tag = (uint32_t)skb->priority;
+
+	/*
+	 * Only set the routed flag if the interface from which this packet came
+	 * was NOT a bridge interface OR if it is then it is not of the same bridge we are outputting onto.
+	 */
+	if (!is_bridge_port(in) || (out->master != in->master)) {
+		unic.flags |= NSS_IPV4_CREATE_FLAG_ROUTED;
+	}
+
+	/*
+	 * Reset the pppoe session info
+	 */
 	unic.return_pppoe_session_id = 0;
 	unic.flow_pppoe_session_id = 0;
 
@@ -1085,7 +1112,7 @@ static unsigned int nss_connmgr_ipv4_bridge_post_routing_hook(unsigned int hookn
 	/*
 	 * We have everything we need (hopefully :-])
 	 */
-	NSS_CONNMGR_DEBUG_TRACE("\n%p: Conntrack connection\n"
+	NSS_CONNMGR_DEBUG_TRACE("\n%p: Bridge Conntrack connection\n"
 			"skb: %p\n"
 			"dir: %s\n"
 			"Protocol: %d\n"
@@ -1101,8 +1128,9 @@ static unsigned int nss_connmgr_ipv4_bridge_post_routing_hook(unsigned int hookn
 			"dest_dev: %s\n"
 			"src_iface_num: %u\n"
 			"dest_iface_num: %u\n"
-			"ingress_vlan_tag: %u"
-			"egress_vlan_tag: %u",
+			"ingress_vlan_tag: %u\n"
+			"egress_vlan_tag: %u\n"
+			"qos_tag: %u\n",
 			ct,
 			skb,
 			(ctinfo < IP_CT_IS_REPLY)? "Original" : "Reply",
@@ -1120,7 +1148,8 @@ static unsigned int nss_connmgr_ipv4_bridge_post_routing_hook(unsigned int hookn
 			unic.src_interface_num,
 			unic.dest_interface_num,
 			unic.ingress_vlan_tag,
-			unic.egress_vlan_tag);
+			unic.egress_vlan_tag,
+			unic.qos_tag);
 
 	/*
 	 * Create the Network Accelerator connection cache entries
@@ -1449,6 +1478,14 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 	struct net_device *dest_slave = NULL;
 	struct net_device *src_slave = NULL;
 
+	/*
+	 * If the 'need_mark' flag is set and this packet does not have the relevant mark
+	 * then we don't accelerate at all
+	 */
+	if (nss_connmgr_ipv4.need_mark && (nss_connmgr_ipv4.need_mark != skb->mark)) {
+		NSS_CONNMGR_DEBUG_TRACE("Mark %x not seen, ignoring: %p\n", nss_connmgr_ipv4.need_mark, skb);
+		return NF_ACCEPT;
+	}
 
 	/*
 	 * Don't process broadcast or multicast
@@ -1629,6 +1666,16 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 	unic.dest_ip_xlate = (ipv4_addr_t)reply_tuple.src.u3.ip;
 
 	unic.flags = 0;
+
+	/*
+	 * Store the skb->priority as the qos tag
+	 */
+	unic.qos_tag = (uint32_t)skb->priority;
+
+	/*
+	 * Always a routed path
+	 */
+	unic.flags |= NSS_IPV4_CREATE_FLAG_ROUTED;
 
 	/*
 	 * Set the PPPoE values to the defaults, just in case there is not any PPPoE connection.
@@ -2040,7 +2087,8 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 			"ingress_vlan_tag: %u\n"
 			"egress_vlan_tag: %u\n"
 			"flow_pppoe_session_id: %u\n"
-			"return_pppoe_session_id: %u\n",
+			"return_pppoe_session_id: %u\n"
+			"qos_tag: %u\n", 
 			ct,
 			skb,
 			(ctinfo < IP_CT_IS_REPLY)? "Original" : "Reply",
@@ -2060,7 +2108,8 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 			unic.ingress_vlan_tag,
 			unic.egress_vlan_tag,
 			unic.flow_pppoe_session_id,
-			unic.return_pppoe_session_id);
+			unic.return_pppoe_session_id,
+			unic.qos_tag);
 
 	/*
 	 * If operations have stopped then do not proceed further
@@ -2993,12 +3042,69 @@ static ssize_t nss_connmgr_ipv4_set_stop(struct device *dev,
 }
 
 /*
+ * nss_connmgr_ipv4_get_need_mark()
+ * 	Get the value of "need_mark" operational control variable
+ */
+static ssize_t nss_connmgr_ipv4_get_need_mark(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	ssize_t count;
+	uint32_t num;
+
+	/*
+	 * Operate under our locks
+	 */
+	spin_lock_bh(&nss_connmgr_ipv4.lock);
+	num = nss_connmgr_ipv4.need_mark;
+	spin_unlock_bh(&nss_connmgr_ipv4.lock);
+
+	count = snprintf(buf, (ssize_t)PAGE_SIZE, "%x\n", num);
+	return count;
+}
+
+/*
+ * nss_connmgr_ipv4_set_need_mark()
+ * 	Set the value of "need_mark" operational control variable.
+ */
+static ssize_t nss_connmgr_ipv4_set_need_mark(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	char num_buf[12];
+	uint32_t num;
+
+
+	/*
+	 * Get the hex number from buf into a properly z-termed number buffer
+	 */
+	if (count > 11) {
+		return 0;
+	}
+	memcpy(num_buf, buf, count);
+	num_buf[count] = '\0';
+	sscanf(num_buf, "%x", &num);
+	NSS_CONNMGR_DEBUG_TRACE("nss_connmgr_ipv4_need_mark = %x\n", num);
+
+	/*
+	 * Operate under our locks and stop further processing of packets
+	 */
+	spin_lock_bh(&nss_connmgr_ipv4.lock);
+	nss_connmgr_ipv4.need_mark = num;
+	spin_unlock_bh(&nss_connmgr_ipv4.lock);
+
+	return count;
+}
+
+/*
  * SysFS attributes for the default classifier itself.
  */
 static const struct device_attribute nss_connmgr_ipv4_terminate_attr =
 		__ATTR(terminate, S_IWUGO | S_IRUGO, nss_connmgr_ipv4_get_terminate, nss_connmgr_ipv4_set_terminate);
 static const struct device_attribute nss_connmgr_ipv4_stop_attr =
 		__ATTR(stop, S_IWUGO | S_IRUGO, nss_connmgr_ipv4_get_stop, nss_connmgr_ipv4_set_stop);
+static const struct device_attribute nss_connmgr_ipv4_need_mark_attr =
+		__ATTR(need_mark, S_IWUGO | S_IRUGO, nss_connmgr_ipv4_get_need_mark, nss_connmgr_ipv4_set_need_mark);
 
 /*
  * nss_connmgr_ipv4_thread_fn()
@@ -3066,6 +3172,12 @@ static int nss_connmgr_ipv4_thread_fn(void *arg)
 		goto task_cleanup_6;
 	}
 
+	result = sysfs_create_file(nss_connmgr_ipv4.nom_v4, &nss_connmgr_ipv4_need_mark_attr.attr);
+	if (result) {
+		NSS_CONNMGR_DEBUG_ERROR("Failed to register need mark file %d\n", result);
+		goto task_cleanup_7;
+	}
+
 	/*
 	 * Register this module with the Linux NSS driver (net_device)
 	 */
@@ -3104,6 +3216,8 @@ static int nss_connmgr_ipv4_thread_fn(void *arg)
 
 	nss_unregister_ipv4_mgr();
 
+	sysfs_remove_file(nss_connmgr_ipv4.nom_v4, &nss_connmgr_ipv4_need_mark_attr.attr);
+task_cleanup_7:
 	unregister_netdevice_notifier(&nss_connmgr_ipv4.netdev_notifier);
 task_cleanup_6:
 #ifdef CONFIG_NF_CONNTRACK_EVENTS
@@ -3122,6 +3236,7 @@ task_cleanup_1:
 	module_put(THIS_MODULE);
 	return result;
 }
+
 /*
  * nss_connmgr_ipv4_read_conn_stats
  *      Read IPV4 stats

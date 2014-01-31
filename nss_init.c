@@ -279,6 +279,11 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 	/*
 	 * Check functionalities are supported by this NSS core
 	 */
+	if (npd->shaping_enabled == NSS_FEATURE_ENABLED) {
+		nss_top->shaping_handler_id = nss_dev->id;
+		printk(KERN_INFO "%p: NSS Shaping is enabled, handler id: %u", __func__, nss_top->shaping_handler_id);
+	}
+
 	if (npd->ipv4_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->ipv4_handler_id = nss_dev->id;
 	}
@@ -805,6 +810,9 @@ static int __init nss_init(void)
 	 * Initialize NSS Bus PM module
 	 */
 	nss_pm_init();
+
+	// GGG EARLY DEBUG ENABLE HACK - TODO REMOVE
+	nss_hal_debug_enable();
 
 	/*
 	 * Register with Bus driver

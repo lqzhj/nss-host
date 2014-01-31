@@ -20,6 +20,7 @@
  */
 
 #include "nss_core.h"
+#include <linux/module.h>
 #include <nss_hal.h>
 #include <net/dst.h>
 #include <linux/etherdevice.h>
@@ -164,7 +165,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 		buffer_type = desc->buffer_type;
 		opaque = desc->opaque;
 
-	if (unlikely((buffer_type == N2H_BUFFER_CRYPTO_RESP))) {
+		if (unlikely((buffer_type == N2H_BUFFER_CRYPTO_RESP))) {
 			NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_CRYPTO_RESP]);
 
 
@@ -223,6 +224,105 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 			 */
 
 			switch (buffer_type) {
+			case N2H_BUFFER_SHAPER_BOUNCED_INTERFACE:
+				{
+					/*
+					 * Bounced packet is returned from an interface bounce operation
+					 * Obtain the registrant to which to return the skb
+					 */
+					nss_shaper_bounced_callback_t bounced_callback;
+					void *app_data;
+					struct module *owner;
+					struct nss_shaper_bounce_registrant *reg = &nss_top->bounce_interface_registrants[interface_num];
+
+					spin_lock_bh(&nss_top->lock);
+
+					/*
+					 * Do we have a registrant?
+					 */
+					if (!reg->registered) {
+						spin_unlock_bh(&nss_top->lock);
+						break;
+					}
+
+					/*
+					 * Get handle to the owning registrant
+					 */
+					bounced_callback = reg->bounced_callback;
+					app_data = reg->app_data;
+					owner = reg->owner;
+					if (!try_module_get(owner)) {
+						spin_unlock_bh(&nss_top->lock);
+						break;
+					}
+
+					/*
+					 * Callback is active, unregistration is not permitted while this is in progress
+					 */
+					reg->callback_active = true;
+					spin_unlock_bh(&nss_top->lock);
+
+					/*
+					 * Pass bounced packet back to registrant
+					 */
+					bounced_callback(app_data, nbuf);
+					spin_lock_bh(&nss_top->lock);
+					reg->callback_active = false;
+					spin_unlock_bh(&nss_top->lock);
+					module_put(owner);
+				}
+				break;
+			case N2H_BUFFER_SHAPER_BOUNCED_BRIDGE:
+				/*
+				 * Bounced packet is returned from a bridge bounce operation
+				 */
+				{
+					/*
+					 * Bounced packet is returned from a bridge bounce operation
+					 * Obtain the registrant to which to return the skb
+					 */
+					nss_shaper_bounced_callback_t bounced_callback;
+					void *app_data;
+					struct module *owner;
+					struct nss_shaper_bounce_registrant *reg = &nss_top->bounce_bridge_registrants[interface_num];
+
+					spin_lock_bh(&nss_top->lock);
+
+					/*
+					 * Do we have a registrant?
+					 */
+					if (!reg->registered) {
+						spin_unlock_bh(&nss_top->lock);
+						break;
+					}
+
+					/*
+					 * Get handle to the owning registrant
+					 */
+					bounced_callback = reg->bounced_callback;
+					app_data = reg->app_data;
+					owner = reg->owner;
+					if (!try_module_get(owner)) {
+						spin_unlock_bh(&nss_top->lock);
+						break;
+					}
+
+					/*
+					 * Callback is active, unregistration is not permitted while this is in progress
+					 */
+					reg->callback_active = true;
+					spin_unlock_bh(&nss_top->lock);
+
+					/*
+					 * Pass bounced packet back to registrant
+					 */
+					bounced_callback(app_data, nbuf);
+					spin_lock_bh(&nss_top->lock);
+					reg->callback_active = false;
+					spin_unlock_bh(&nss_top->lock);
+					module_put(owner);
+				}
+				break;
 			case N2H_BUFFER_PACKET_VIRTUAL:
 				NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_VIRTUAL]);
 
@@ -249,11 +349,14 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 					break;
 				}
 
-				dev_hold(ndev);
+				dev_hold(ndev);		// GGG FIXME THIS IS BROKEN AS NDEV COULD BE DESTROYED BEFORE THE HOLD IS TAKEN!  NDEV SHOULD BE HELD WHEN THE VIRTUAL IS REGISTERED
+							// AND THE HOLD HERE TAKEN INSIDE OF SOME KIND OF MUTEX LOCK WITH VIRTUAL UNREGISTRATION
 				nbuf->dev = ndev;
 
 				/*
 				 * Send the packet to virtual interface
+				 * NOTE: Invoking this will BYPASS any assigned QDisc - this is OKAY
+				 * as TX packets out of the NSS will have been shaped inside the NSS.
 				 */
 				ndev->netdev_ops->ndo_start_xmit(nbuf, ndev);
 				dev_put(ndev);
@@ -817,6 +920,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		desc->payload_offs = (uint16_t)(nbuf->data - nbuf->head);
 		desc->payload_len = nbuf->len;
 		desc->buffer_len = (uint16_t)(nbuf->end - nbuf->head);
+		desc->qos_tag = (uint32_t)nbuf->priority;
 
 		if (unlikely(!NSS_IS_IF_TYPE(VIRTUAL, if_num))) {
 			if (likely(nbuf->destructor == NULL)) {
@@ -880,6 +984,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		desc->buffer = frag0phyaddr;
 		desc->mss = mss;
 		desc->bit_flags = bit_flags;
+		desc->qos_tag = (uint32_t)nbuf->priority;
 
 		/*
 		 * Now handle rest of the fragments.
@@ -907,6 +1012,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 			desc->payload_offs = 0;
 			desc->payload_len = skb_frag_size(frag);
 			desc->buffer_len = skb_frag_size(frag);
+			desc->qos_tag = (uint32_t)nbuf->priority;
 			desc->mss = mss;
 			desc->bit_flags = bit_flags;
 		}

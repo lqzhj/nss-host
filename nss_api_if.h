@@ -224,6 +224,7 @@ struct nss_ipv4_create {
 	uint32_t param_a2;		/**< Custom extra parameter 2 */
 	uint32_t param_a3;		/**< Custom extra parameter 3 */
 	uint32_t param_a4;		/**< Custom extra parameter 4 */
+	uint32_t qos_tag;		/**< QoS tag value */
 };
 
 /**
@@ -235,6 +236,9 @@ struct nss_ipv4_create {
 
 /** Indicates that this is a pure bridge flow (no routing involved) */
 #define NSS_IPV4_CREATE_FLAG_BRIDGE_FLOW 0x02
+
+/** Rule is for a routed connection. */
+#define NSS_IPV4_CREATE_FLAG_ROUTED 0x04
 
 /**
  * Structure to be used while sending an IPv4 flow/connection destroy rule.
@@ -297,6 +301,7 @@ struct nss_ipv6_create {
 	uint16_t return_pppoe_session_id;		/**< PPPoE session associated with return */
 	uint8_t return_pppoe_remote_mac[ETH_ALEN];	/**< Remote PPPoE peer MAC address for return */
 	uint16_t egress_vlan_tag;	/**< Egress VLAN tag expected for this flow */
+	uint32_t qos_tag;		/**< QoS tag value */
 };
 
 /**
@@ -306,6 +311,8 @@ struct nss_ipv6_create {
 					/**< Indicates that we should not check sequence numbers */
 #define NSS_IPV6_CREATE_FLAG_BRIDGE_FLOW 0x02
 					/**< Indicates that this is a pure bridge flow (no routing involved) */
+#define NSS_IPV6_CREATE_FLAG_ROUTED 0x04
+					/**< Rule is for a routed connection. */
 
 /**
  * Structure to be used while sending an IPv6 flow/connection destroy rule.
@@ -350,6 +357,9 @@ struct nss_ipv4_sync {
 	uint32_t param_a2;		/**< Custom extra parameter 2 */
 	uint32_t param_a3;		/**< Custom extra parameter 3 */
 	uint32_t param_a4;		/**< Custom extra parameter 4 */
+
+	uint8_t flags;			/**< Flags */
+	uint32_t qos_tag;		/**< Qos Tag */
 };
 
 /**
@@ -386,6 +396,8 @@ struct nss_ipv4_establish {
 	uint16_t return_pppoe_remote_mac[3];
 					/**< Return direction's PPPoE Server MAC address */
 	uint16_t egress_vlan_tag;	/**< Egress VLAN tag */
+	uint8_t flags;			/**< Flags */
+	uint32_t qos_tag;		/**< Qos Tag */
 };
 
 /**
@@ -439,6 +451,9 @@ struct nss_ipv6_sync {
 					/**< Time in Linux jiffies to be added to the current timeout to keep the connection alive */
 	uint8_t final_sync;		/**< Non-zero when the NA has ceased to accelerate the given connection */
 	uint8_t evicted;		/**< Non-zero if connection evicted */
+
+	uint8_t flags;			/**< Flags */
+	uint32_t qos_tag;		/**< Qos Tag */
 };
 
 /**
@@ -468,6 +483,8 @@ struct nss_ipv6_establish {
 	uint16_t return_pppoe_remote_mac[3];
 					/**< Return direction's PPPoE Server MAC address */
 	uint16_t egress_vlan_tag;	/**< Egress VLAN tag */
+	uint8_t flags;			/**< Flags */
+	uint32_t qos_tag;		/**< Qos Tag */
 };
 
 /**
@@ -629,6 +646,378 @@ typedef enum {
 } nss_tunipip6_event_t;
 
 /**
+ * NSS Shaping
+ */
+
+/*
+ * struct nss_shaper_config_assign_shaper
+ */
+struct nss_shaper_config_assign_shaper {
+	uint32_t shaper_num;		/* Number of the shaper to assign an existing one, or 0 if any new one will do.*/
+};
+
+/*
+ * struct nss_shaper_config_unassign_shaper
+ */
+struct nss_shaper_config_unassign_shaper {
+	uint32_t shaper_num;		/* Number of the shaper to unassign */
+};
+
+/*
+ * enum nss_shaper_node_types
+ *	Types of shaper node we export to the HLOS 
+ */
+enum nss_shaper_node_types {
+	NSS_SHAPER_NODE_TYPE_CODEL = 1,
+	NSS_SHAPER_NODE_TYPE_PRIO = 3,
+	NSS_SHAPER_NODE_TYPE_FIFO = 4,
+	NSS_SHAPER_NODE_TYPE_TBL = 5,
+};
+typedef enum nss_shaper_node_types nss_shaper_node_type_t;
+
+/*
+ * struct nss_shaper_config_alloc_shaper_node
+ */
+struct nss_shaper_config_alloc_shaper_node {
+	nss_shaper_node_type_t node_type;
+					/* Type of shaper node */
+	uint32_t qos_tag;		/* The qos tag to give the new node */
+};
+
+/*
+ * struct nss_shaper_config_free_shaper_node
+ */
+struct nss_shaper_config_free_shaper_node {
+	uint32_t qos_tag;		/* The qos tag of the node to free */
+};
+
+/*
+ * struct nss_shaper_config_set_root_node
+ */
+struct nss_shaper_config_set_root_node {
+	uint32_t qos_tag;		/* The qos tag of the node that becomes root */
+};
+
+/*
+ * struct nss_shaper_config_set_default_node
+ */
+struct nss_shaper_config_set_default_node {
+	uint32_t qos_tag;		/* The qos tag of the node that becomes default */
+};
+
+/*
+ * struct nss_shaper_shaper_node_basic_stats_get
+ *	Obtain basic stats for a shaper node
+ */
+struct nss_shaper_shaper_node_basic_stats_get {
+	uint32_t qos_tag;		/* The qos tag of the node from which to obtain basic stats */
+};
+
+/*
+ * struct nss_shaper_config_prio_attach
+ */
+struct nss_shaper_config_prio_attach {
+	uint32_t child_qos_tag;		/* Qos tag of shaper node to add as child */
+	uint32_t priority;		/* Priority of the child */
+};
+
+/*
+ * struct nss_shaper_config_prio_detach
+ */
+struct nss_shaper_config_prio_detach {
+	uint32_t priority;		/* Priority of the child to detach */
+};
+
+/*
+ * struct nss_shaper_config_codel_alg_param
+ */
+struct nss_shaper_config_codel_alg_param {
+	uint16_t interval;		/* Buffer time to smoothen state transition */
+	uint16_t target;		/* Acceptable delay associated with a queue */
+	uint16_t mtu;			/* MTU for the associated interface */
+};
+
+/*
+ * struct nss_shaper_config_codel_param
+ */
+struct nss_shaper_config_codel_param {
+	int32_t qlen_max;					/* Max no. of packets that can be enqueued */
+	struct nss_shaper_config_codel_alg_param cap;		/* Config structure for codel algorithm */
+};
+
+/*
+ * struct nss_shaper_config_limiter_alg_param
+ */
+struct nss_shaper_config_limiter_alg_param {
+	uint32_t rate;		/* Allowed Traffic rate measured in bytes per second */
+	uint32_t burst;		/* Max bytes that can be sent before the next token update */
+	uint32_t max_size;	/* The maximum size of packets (in bytes) supported */
+	bool short_circuit;	/* When set, limiter will stop limiting the sending rate */
+};
+
+/*
+ * struct nss_shaper_configure_tbl_attach
+ */
+struct nss_shaper_config_tbl_attach {
+	uint32_t child_qos_tag;	/* Qos tag of shaper node to add as child */
+};
+
+/*
+ * struct nss_shaper_configure_tbl_param
+ */
+struct nss_shaper_config_tbl_param {
+	uint32_t qlen_bytes;						/* Max size of queue in bytes */
+	struct nss_shaper_config_limiter_alg_param lap_cir;		/* Config committed information rate */
+	struct nss_shaper_config_limiter_alg_param lap_pir;		/* Config committed information rate */
+};
+
+/*
+ * struct nss_shaper_config_bf_attach
+ */
+struct nss_shaper_config_bf_attach {
+	uint32_t child_qos_tag;		/* Qos tag of the shaper node to add as child */
+};
+
+/*
+ * struct nss_shaper_config_bf_detach
+ */
+struct nss_shaper_config_bf_detach {
+	uint32_t child_qos_tag;		/* Qos tag of the shaper node to add as child */
+};
+
+/*
+ * struct nss_shaper_config_bf_group_attach
+ */
+struct nss_shaper_config_bf_group_attach {
+	uint32_t child_qos_tag;		/* Qos tag of shaper node to add as child */
+};
+
+/*
+ * struct nss_shaper_config_bf_group_param
+ */
+struct nss_shaper_config_bf_group_param {
+	uint32_t qlen_bytes;					/* Maximum size of queue in bytes */
+	uint32_t quantum;					/* Smallest increment value for the DRRs */
+	struct nss_shaper_config_limiter_alg_param lap;		/* Config structure for codel algorithm */
+};
+
+/*
+ * struct nss_shaper_config_fifo_limit_set
+ */
+enum nss_shaper_config_fifo_drop_modes {
+	NSS_SHAPER_FIFO_DROP_MODE_HEAD = 0,
+	NSS_SHAPER_FIFO_DROP_MODE_TAIL,
+	NSS_SHAPER_FIFO_DROP_MODES,			/* Must be last */
+};
+typedef enum nss_shaper_config_fifo_drop_modes nss_shaper_config_fifo_drop_mode_t;
+
+/*
+ * struct pnode_h2c_shaper_config_fifo_param
+ */
+struct nss_shaper_config_fifo_param {
+	uint32_t limit;					/* Queue limit in packets */
+	nss_shaper_config_fifo_drop_mode_t drop_mode;	/* FIFO drop mode when queue is full */
+};
+
+/*
+ * struct nss_shaper_node_config
+ *	Configurartion messages for shaper nodes, which one depends on the type of configuration message
+ *
+ * This structure contains all of the different node configuration messages that can be sent, though not to all shaper node types.
+ */
+struct nss_shaper_node_config {
+	uint32_t qos_tag;		/* Identifier of the shaper node to which the config is targetted */
+
+	union {
+		struct nss_shaper_config_prio_attach prio_attach;
+		struct nss_shaper_config_prio_detach prio_detach;
+		struct nss_shaper_config_codel_param codel_param;
+		struct nss_shaper_config_tbl_attach tbl_attach;
+		struct nss_shaper_config_tbl_param tbl_param;
+		struct nss_shaper_config_bf_attach bf_attach;
+		struct nss_shaper_config_bf_detach bf_detach;
+		struct nss_shaper_config_bf_group_attach bf_group_attach;
+		struct nss_shaper_config_bf_group_param bf_group_param;
+		struct nss_shaper_config_fifo_param fifo_param;
+	} snc;
+};
+
+/*
+ * enum nss_shaper_config_types
+ *	Types of shaper configuration messages
+ */
+enum nss_shaper_config_types {
+	NSS_SHAPER_CONFIG_TYPE_ASSIGN_SHAPER,		/* Assign a shaper to an interface (B or I) */
+	NSS_SHAPER_CONFIG_TYPE_ALLOC_SHAPER_NODE,	/* Allocate a type of shaper node and give it a qos tag */
+	NSS_SHAPER_CONFIG_TYPE_FREE_SHAPER_NODE,	/* Free a shaper node */
+	NSS_SHAPER_CONFIG_TYPE_PRIO_ATTACH,		/* Configure prio to attach a node with a given priority */
+	NSS_SHAPER_CONFIG_TYPE_PRIO_DETACH,		/* Configure prio to detach a node at a given priority */
+	NSS_SHAPER_CONFIG_TYPE_SET_DEFAULT,		/* Configure shaper to have a default node */
+	NSS_SHAPER_CONFIG_TYPE_SET_ROOT,		/* Configure shaper to have a root node */
+	NSS_SHAPER_CONFIG_TYPE_UNASSIGN_SHAPER,		/* Unassign a shaper from an interface (B or I) */
+	NSS_SHAPER_CONFIG_TYPE_CODEL_CHANGE_PARAM,	/* Configure codel parameters */
+	NSS_SHAPER_CONFIG_TYPE_TBL_ATTACH,		/* Configure tbl to attach a child node */
+	NSS_SHAPER_CONFIG_TYPE_TBL_DETACH,		/* Configure tbl to detach its child node */
+	NSS_SHAPER_CONFIG_TYPE_TBL_CHANGE_PARAM,	/* Configure tbl to tune its parameters */
+	NSS_SHAPER_CONFIG_TYPE_BF_ATTACH,		/* Configure bf to attach a node to its round robin list */
+	NSS_SHAPER_CONFIG_TYPE_BF_DETACH,		/* Configure bf to detach a node with a particular QoS tag */
+	NSS_SHAPER_CONFIG_TYPE_BF_GROUP_ATTACH,	/* Configure bf group to attach a node as child */
+	NSS_SHAPER_CONFIG_TYPE_BF_GROUP_DETACH,	/* Configure bf group to detach its child */
+	NSS_SHAPER_CONFIG_TYPE_BF_GROUP_CHANGE_PARAM,	/* Configure bf group to tune its parameters */
+	NSS_SHAPER_CONFIG_TYPE_FIFO_CHANGE_PARAM,		/* Configure fifo queue limit */
+	NSS_SHAPER_CONFIG_TYPE_SHAPER_NODE_BASIC_STATS_GET,
+							/* Get shaper node basic stats */
+};
+
+typedef enum nss_shaper_config_types nss_shaper_config_type_t;
+
+struct nss_shaper_response;				/* Forward declaration */
+
+typedef void (*nss_shaper_config_response_callback_t)(void *arg, struct nss_shaper_response *response);
+							/* Function that is invoked when a shaper configuration command has been processed */
+
+/*
+ * struct nss_shaper_configure
+ *	Shaper configuration messages
+ */
+struct nss_shaper_configure {
+	uint32_t interface_num;		/* Interface (pnode) number for which the shaper config message is targetted */
+	bool i_shaper;			/* true when I shaper, false when B shaper */
+	nss_shaper_config_type_t type;
+					/* Type of configuration message mt */
+	nss_shaper_config_response_callback_t cb;
+					/* Invoked when command has been processed by the NSS */
+	void *app_data;			/* Context argument returned to cb */
+	struct module *owner;		/* Module that is sending the configuration command */
+
+	union {
+		struct nss_shaper_config_assign_shaper assign_shaper;
+		struct nss_shaper_config_unassign_shaper unassign_shaper;
+		struct nss_shaper_config_alloc_shaper_node alloc_shaper_node;
+		struct nss_shaper_config_free_shaper_node free_shaper_node;
+		struct nss_shaper_config_set_default_node set_default_node;
+		struct nss_shaper_config_set_root_node set_root_node;
+		struct nss_shaper_node_config shaper_node_config;
+		struct nss_shaper_shaper_node_basic_stats_get shaper_node_basic_stats_get;
+	} mt;
+};
+
+/*
+ * enum nss_shaper_response_types
+ *	Types of shaper configuration response messages
+ */
+enum nss_shaper_response_types {
+	/*
+	 * Failure messages are < 0
+	 */
+	NSS_SHAPER_RESPONSE_TYPE_NO_SHAPERS = -65536,			/* No shaper available for a shaper assign command to succeed */
+	NSS_SHAPER_RESPONSE_TYPE_NO_SHAPER,				/* No shaper to which to issue a shaper or node configuration message */
+	NSS_SHAPER_RESPONSE_TYPE_NO_SHAPER_NODE,			/* No shaper node to which to issue a configuration message */
+	NSS_SHAPER_RESPONSE_TYPE_NO_SHAPER_NODES,			/* No available shaper nodes available of the type requested */
+	NSS_SHAPER_RESPONSE_TYPE_OLD,					/* Request is old / environment changed by the time the request was processed */
+	NSS_SHAPER_RESPONSE_TYPE_UNRECOGNISED,				/* Request is not recognised by the recipient */
+	NSS_SHAPER_RESPONSE_TYPE_FIFO_QUEUE_LIMIT_INVALID,		/* Fifo queue Limit is bad */
+	NSS_SHAPER_RESPONSE_TYPE_FIFO_DROP_MODE_INVALID,		/* Fifo Drop mode is bad */
+	NSS_SHAPER_RESPONSE_TYPE_BAD_DEFAULT_CHOICE,			/* Node selected has no queue to enqueue to */
+	NSS_SHAPER_RESPONSE_TYPE_DUPLICATE_QOS_TAG,			/* Duplicate QoS Tag as another node */
+        NSS_SHAPER_RESPONSE_TYPE_TBL_CIR_RATE_AND_BURST_REQUIRED,	/* CIR rate and burst are mandatory */
+	NSS_SHAPER_RESPONSE_TYPE_TBL_CIR_BURST_LESS_THAN_MTU,		/* CIR burst size is smaller than MTU */
+	NSS_SHAPER_RESPONSE_TYPE_TBL_PIR_BURST_LESS_THAN_MTU,		/* PIR burst size is smaller than MTU */
+	NSS_SHAPER_RESPONSE_TYPE_TBL_PIR_BURST_REQUIRED,		/* PIR burst size must be provided if peakrate
+									 * limiting is required.
+									 */
+	NSS_SHAPER_RESPONSE_TYPE_CODEL_ALL_PARAMS_REQUIRED,		/* Codel requires non-zero value for target,
+									 * interval and limit.
+									 */
+	/*
+	 * Success messages are >= 0
+	 */
+	NSS_SHAPER_RESPONSE_TYPE_SHAPER_ASSIGN_SUCCESS = 0,	/* Successfully assigned a shaper */
+	NSS_SHAPER_RESPONSE_TYPE_SHAPER_NODE_ALLOC_SUCCESS,	/* Alloc shaper node request successful */
+	NSS_SHAPER_RESPONSE_TYPE_PRIO_ATTACH_SUCCESS,		/* Prio attach success */
+	NSS_SHAPER_RESPONSE_TYPE_PRIO_DETACH_SUCCESS,		/* Prio detach success */
+	NSS_SHAPER_RESPONSE_TYPE_CODEL_CHANGE_PARAM_SUCCESS,	/* Codel parameter configuration success */
+	NSS_SHAPER_RESPONSE_TYPE_TBL_ATTACH_SUCCESS,		/* Tbl attach success */
+	NSS_SHAPER_RESPONSE_TYPE_TBL_DETACH_SUCCESS,		/* Tbl detach success */
+	NSS_SHAPER_RESPONSE_TYPE_TBL_CHANGE_PARAM_SUCCESS,	/* Tbl parameter configuration success */
+	NSS_SHAPER_RESPONSE_TYPE_BF_ATTACH_SUCCESS,	/* Bigfoot attach success */
+	NSS_SHAPER_RESPONSE_TYPE_BF_DETACH_SUCCESS,	/* Bigfoot detach success */
+	NSS_SHAPER_RESPONSE_TYPE_BF_GROUP_ATTACH_SUCCESS,	/* Bigfoot group attach success */
+	NSS_SHAPER_RESPONSE_TYPE_BF_GROUP_DETACH_SUCCESS,	/* Bigfoot group detach success */
+	NSS_SHAPER_RESPONSE_TYPE_BF_GROUP_CHANGE_PARAM_SUCCESS,
+								/* Bigfoot group parameter configuration success */
+	NSS_SHAPER_RESPONSE_TYPE_SHAPER_SET_ROOT_SUCCESS,	/* Setting of root successful */
+	NSS_SHAPER_RESPONSE_TYPE_SHAPER_SET_DEFAULT_SUCCESS,	/* Setting of default successful */
+	NSS_SHAPER_RESPONSE_TYPE_SHAPER_NODE_FREE_SUCCESS,	/* Free shaper node request successful */
+	NSS_SHAPER_RESPONSE_TYPE_SHAPER_UNASSIGN_SUCCESS,	/* Successfully unassigned a shaper */
+	NSS_SHAPER_RESPONSE_TYPE_FIFO_CHANGE_PARAM_SUCCESS,	/* Fifo limit set success */
+	NSS_SHAPER_RESPONSE_TYPE_SHAPER_NODE_BASIC_STATS_GET_SUCCESS,	/* Success response for a shaper node basic stats get request */
+};
+typedef enum nss_shaper_response_types nss_shaper_response_type_t;
+
+/*
+ * struct nss_shaper_response_shaper_assign_success
+ *	Shaper successfully assigned
+ */
+struct nss_shaper_response_shaper_assign_success {
+	uint32_t shaper_num;		/* Number of the shaper assigned */
+};
+
+/*
+ * struct nss_shaper_node_basic_statistics_delta
+ *	Statistics that are sent as deltas
+ */
+struct nss_shaper_node_basic_statistics_delta {
+	uint32_t enqueued_bytes;			/* Bytes enqueued successfully */
+	uint32_t enqueued_packets;			/* Packets enqueued successfully */
+	uint32_t enqueued_bytes_dropped;		/* Bytes dropped during an enqueue operation due to node limits */
+	uint32_t enqueued_packets_dropped;		/* Packets dropped during an enqueue operation due to node limits */
+	uint32_t dequeued_bytes;			/* Bytes dequeued successfully from a shaper node */
+	uint32_t dequeued_packets;			/* Packets dequeued successfully from a shaper node */
+	uint32_t dequeued_bytes_dropped;		/* Bytes dropped by this node during dequeue (some nodes drop packets during dequeue rather than enqueue) */
+	uint32_t dequeued_packets_dropped;		/* Packets dropped by this node during dequeue (some nodes drop packets during dequeue rather than enqueue) */
+	uint32_t queue_overrun;				/* Number of times any queue limit has been overrun / perhaps leading to a drop of packet(s) */
+};
+
+/*
+ * struct nss_shaper_response_shaper_node_basic_stats_get_success
+ *	Response to a request for basic stats of a shaper node
+ */
+struct nss_shaper_response_shaper_node_basic_stats_get_success {
+	uint32_t qlen_bytes;				/* Total size of packets waiting in queue */
+	uint32_t qlen_packets;				/* Number of packets waiting in queue */
+	uint32_t packet_latency_peak_msec_dequeued;	/* Maximum milliseconds a packet was in this shaper node before being dequeued */
+	uint32_t packet_latency_minimum_msec_dequeued;	/* Minimum milliseconds a packet was in this shaper node before being dequeued */
+	uint32_t packet_latency_peak_msec_dropped;	/* Maximum milliseconds a packet was in this shaper node before being dropped */
+	uint32_t packet_latency_minimum_msec_dropped;	/* Minimum milliseconds a packet was in this shaper node before being dropped */
+	struct nss_shaper_node_basic_statistics_delta delta;
+							/* Stastics that are sent as deltas */
+};
+
+/*
+ * union nss_shaper_responses
+ *	Types of response message
+ */
+union nss_shaper_responses {
+	struct nss_shaper_response_shaper_assign_success shaper_assign_success;
+	struct nss_shaper_response_shaper_node_basic_stats_get_success shaper_node_basic_stats_get_success;
+};
+
+/*
+ * struct nss_shaper_response
+ *	Shaper configuration response messages
+ */
+struct nss_shaper_response {
+	struct nss_shaper_configure request;
+					/* Original request to which this response relates */
+	nss_shaper_response_type_t type;
+					/* The response type (rt) being issued to the request */
+	union nss_shaper_responses rt;
+};
+
+typedef void (*nss_shaper_bounced_callback_t)(void *app_data, struct sk_buff *skb);	/* Registrant callback to receive shaper bounced packets */
+
+/**
  * General utilities
  */
 
@@ -641,6 +1030,16 @@ typedef enum {
  * @return int32_t Interface number
  */
 extern int32_t nss_get_interface_number(void *nss_ctx, void *dev);
+
+/**
+ * @brief Determine if the interface number is a represented as a virtual interface in the NSS
+ *
+ * @param nss_ctx NSS context
+ * @param int32_t The NSS interface number
+ *
+ * @return bool true if it is a virtual.
+ */
+extern bool nss_interface_is_virtual(void *nss_ctx, int32_t interface_num);
 
 /**
  * @brief Obtain interface device pointer
@@ -984,6 +1383,15 @@ extern nss_tx_status_t nss_tx_phys_if_get_napi_ctx(void *nss_ctx, struct napi_st
 extern void *nss_create_virt_if(struct net_device *if_ctx);
 
 /**
+ * @brief Obtain NSS Interface number for a virtual interface context
+ *
+ * @param context Interface context
+ *
+ * @return int32_t The NSS interface number
+ */
+int32_t nss_virt_if_get_interface_num(void *if_ctx);
+
+/**
  * @brief Destroy virtual interface (VAPs)
  *
  * @param ctx Context provided by NSS driver during registration
@@ -1216,6 +1624,78 @@ int nss_pm_client_unregister(nss_pm_client_t client_id);
  * @param lvl - Perf Level
  */
 extern nss_pm_interface_status_t nss_pm_set_perf_level(void *handle, nss_pm_perf_level_t lvl);
+
+/**
+ * @brief Register for basic shaping operations
+ *
+ * @return void* NSS context
+ */
+extern void *nss_register_shaping(void);
+
+/**
+ * @brief Unregister for basic shaping operations
+ * @param ctx NSS context
+ */
+extern void nss_unregister_shaping(void *ctx);
+
+/**
+ * @brief Register to received shaper bounced packets for (interface bounce)
+ * @param if_num Interface to be registered on
+ * @param cb Callback invoked when the NSS returns a sk_buff after shaping
+ * @param app_data Given to the callback along with the sk_buff to provide context to the registrant (state)
+ * @param owner Pass THIS_MODULE for this parameter - your module is held until you unregister
+ * @return void * NSS context or NULL on failure
+ */
+extern void *nss_register_shaper_bounce_interface(uint32_t if_num, nss_shaper_bounced_callback_t cb, void *app_data, struct module *owner);
+
+/**
+ * @brief Unregister for interface shaper bouncing
+ * @param if_num Interface to be unregistered
+ */
+extern void nss_unregister_shaper_bounce_interface(uint32_t if_num);
+
+/**
+ * @brief Register to received shaper bounced packets for (bridge bounce)
+ * @param if_num Interface to be registered on
+ * @param cb Callback invoked when the NSS returns a sk_buff after shaping
+ * @param app_data Given to the callback along with the sk_buff to provide context to the registrant (state)
+ * @param owner Pass THIS_MODULE for this parameter - your module is held until you unregister
+ * @return void * NSS context or NULL on failure
+ */
+extern void *nss_register_shaper_bounce_bridge(uint32_t if_num, nss_shaper_bounced_callback_t cb, void *app_data, struct module *owner);
+
+/**
+ * @brief Unregister for bridge shaper bouncing
+ * @param if_num Interface to be unregistered
+ */
+extern void nss_unregister_shaper_bounce_bridge(uint32_t if_num);
+
+/**
+ * @brief Issue a packet for shaping via a bounce operation
+ * @param ctx NSS context you were given when you registered for shaper bouncing
+ * @param if_num Interface to be bounced to
+ * @param skb The packet
+ * @return nss_tx_status_t Succes or failure to issue packet to NSS
+ */
+extern nss_tx_status_t nss_shaper_bounce_interface_packet(void *ctx, uint32_t if_num, struct sk_buff *skb);
+
+/**
+ * @brief Issue a packet for shaping via a bounce operation
+ * @param ctx NSS context you were given when you registered for shaper bouncing
+ * @param if_num Interface to be bounced to
+ * @param skb The packet
+ * @return nss_tx_status_t Succes or failure to issue packet to NSS
+ */
+extern nss_tx_status_t nss_shaper_bounce_bridge_packet(void *ctx, uint32_t if_num, struct sk_buff *skb);
+
+/**
+ * @brief Send a shaping configuration message
+ * @param ctx NSS context
+ * @param config The config message
+ * 
+ * @return nss_tx_status_t Indication if the configuration message was issued.  This does not mean that the configuration message was successfully processed, that will be determined by the response issued to your given callback function as specified in the config structure.
+ */
+nss_tx_status_t nss_shaper_config_send(void *ctx, struct nss_shaper_configure *config);
 
 /**@}*/
 #endif /** __NSS_API_IF_H */

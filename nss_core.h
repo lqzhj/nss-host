@@ -426,6 +426,18 @@ struct hlos_h2n_desc_rings {
 #define NSS_H2N_DESC_RING_FLAGS_TX_STOPPED 0x1	/* Tx has been stopped for this queue */
 
 /*
+ * struct nss_shaper_bounce_registrant
+ *	Registrant detail for shaper bounce operations
+ */
+struct nss_shaper_bounce_registrant {
+	nss_shaper_bounced_callback_t bounced_callback;		/* Invoked for each shaper bounced packet returned from the NSS */
+	void *app_data;						/* Argument given to the callback */
+	struct module *owner;					/* Owning module of the callback + arg */
+	bool registered;
+	volatile bool callback_active;				/* true when the bounce callback is being called */
+};
+
+/*
  * NSS context instance (one per NSS core)
  */
 struct nss_ctx_instance {
@@ -481,6 +493,7 @@ struct nss_top_instance {
 	/*
 	 * Network processing handler core ids (CORE0/CORE1)
 	 */
+	uint8_t shaping_handler_id;
 	uint8_t ipv4_handler_id;
 	uint8_t ipv6_handler_id;
 	uint8_t crypto_handler_id;
@@ -490,6 +503,7 @@ struct nss_top_instance {
 	uint8_t tunipip6_handler_id;
 	uint8_t phys_if_handler_id[4];
 	uint8_t frequency_handler_id;
+
 	nss_ipv4_callback_t ipv4_callback;
 					/* IPv4 sync/establish callback function */
 	nss_ipv6_callback_t ipv6_callback;
@@ -510,6 +524,10 @@ struct nss_top_instance {
 					/* 6rd tunnel interface event callback function */
 	nss_tunipip6_if_event_callback_t tunipip6_if_event_callback;
 					/* ipip6 tunnel interface event callback function */
+	struct nss_shaper_bounce_registrant bounce_interface_registrants[NSS_MAX_NET_INTERFACES];
+					/* Registrants for interface shaper bounce operations */
+	struct nss_shaper_bounce_registrant bounce_bridge_registrants[NSS_MAX_NET_INTERFACES];
+					/* Registrants for bridge shaper bounce operations */
 	void *crypto_ctx;		/* Crypto interface context */
 	void *if_ctx[NSS_MAX_NET_INTERFACES];
 					/* Phys/Virt interface context */
