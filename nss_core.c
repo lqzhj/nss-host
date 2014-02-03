@@ -22,6 +22,7 @@
 #include "nss_core.h"
 #include <nss_hal.h>
 #include <net/dst.h>
+#include <linux/etherdevice.h>
 
 /*
  * nss_send_c2c_map()
@@ -282,20 +283,6 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 					 */
 
 					/*
-					 * Reset MAC header
-					 *
-					 * NOTE: This may or may not be required depending
-					 *	on whether alignment WAR is enabled on WLAN
-					 */
-					skb_reset_mac_header(nbuf);
-
-					/*
-					 * Pull inline as stack expects us to point
-					 * to next layer header
-					 */
-					skb_pull_inline(nbuf, ETH_HLEN);
-
-					/*
 					 * Give the packet to stack
 					 *
 					 * TODO: Change to gro receive later
@@ -303,6 +290,8 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 					ctx = nss_top->if_ctx[interface_num];
 					if (ctx) {
 						dev_hold(ctx);
+						nbuf->dev = (struct net_device*) ctx;
+						nbuf->protocol = eth_type_trans(nbuf, ctx);
 						netif_receive_skb(nbuf);
 						dev_put(ctx);
 					} else {

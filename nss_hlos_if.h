@@ -934,6 +934,7 @@ struct nss_rx_metadata_object {
 #define H2N_BUFFER_PACKET	2
 #define H2N_BUFFER_CTRL		4
 #define H2N_BUFFER_CRYPTO_REQ	7
+#define H2N_BUFFER_NATIVE_WIFI	8
 #define H2N_BUFFER_MAX		16
 
 /*

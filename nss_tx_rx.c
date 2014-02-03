@@ -1904,14 +1904,15 @@ nss_tx_status_t nss_tx_generic_if_buf(void *ctx, uint32_t if_num, uint8_t *buf, 
 }
 
 /*
- * nss_tx_virt_if_rxbuf()
+ * nss_tx_virt_if_recvbuf()
  *	HLOS interface has received a packet which we redirect to the NSS, if appropriate to do so.
  */
-nss_tx_status_t nss_tx_virt_if_rxbuf(void *ctx, struct sk_buff *os_buf)
+nss_tx_status_t nss_tx_virt_if_recvbuf(void *ctx, struct sk_buff *os_buf, uint32_t nwifi)
 {
 	int32_t status;
 	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[nss_top_main.ipv4_handler_id];
 	int32_t if_num = (int32_t)ctx;
+	uint32_t bufftype;
 
 	if (unlikely(nss_ctl_redirect == 0) || unlikely(os_buf->vlan_tci)) {
 		return NSS_TX_FAILURE_NOT_SUPPORTED;
@@ -1946,19 +1947,27 @@ nss_tx_status_t nss_tx_virt_if_rxbuf(void *ctx, struct sk_buff *os_buf)
 		return NSS_TX_FAILURE_NOT_SUPPORTED;
 	}
 
-	/*
-	 * NSS expects to see buffer from Ethernet header onwards
-	 * Assumption: eth_type_trans has been done by WLAN driver
-	 *
-	 */
-	skb_push(os_buf, ETH_HLEN);
+	if (nwifi) {
+		bufftype = H2N_BUFFER_NATIVE_WIFI;
+	} else {
+		bufftype = H2N_BUFFER_PACKET;
+  	   /*
+	    * NSS expects to see buffer from Ethernet header onwards
+	    * Assumption: eth_type_trans has been done by WLAN driver
+	    *
+	    */
+		skb_push(os_buf, ETH_HLEN);
+	}
 
 	/*
 	 * Direct the buffer to the NSS
 	 */
-	status = nss_core_send_buffer(nss_ctx, if_num, os_buf, NSS_IF_DATA_QUEUE, H2N_BUFFER_PACKET, H2N_BIT_FLAG_VIRTUAL_BUFFER);
+	status = nss_core_send_buffer(nss_ctx, if_num, os_buf, NSS_IF_DATA_QUEUE, bufftype, H2N_BIT_FLAG_VIRTUAL_BUFFER);
 	if (unlikely(status != NSS_CORE_STATUS_SUCCESS)) {
 		nss_warning("%p: Virtual Rx packet unable to enqueue\n", nss_ctx);
+		if (!nwifi) {
+			skb_pull(os_buf, ETH_HLEN);
+		}
 		return NSS_TX_FAILURE_QUEUE;
 	}
 
@@ -1970,6 +1979,36 @@ nss_tx_status_t nss_tx_virt_if_rxbuf(void *ctx, struct sk_buff *os_buf)
 	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_PACKET]);
 	return NSS_TX_SUCCESS;
 }
+
+/**
+ * @brief Forward virtual interface packets
+ *    -This function expects packet with L3 header and eth_type_trans
+ *     has been called before calling this api
+ *
+ *
+ * @param nss_ctx NSS context (provided during registeration)
+ * @param os_buf OS buffer (e.g. skbuff)
+ * @return nss_tx_status_t Tx status
+ */
+nss_tx_status_t nss_tx_virt_if_rxbuf(void *ctx, struct sk_buff *os_buf)
+{
+
+	return nss_tx_virt_if_recvbuf(ctx, os_buf, 0);
+}
+
+/**
+ * @brief Forward Native wifi packet from virtual interface
+ *    -Expects packet with qca-nwifi format
+ * @param nss_ctx NSS context (provided during registeration)
+ * @param os_buf OS buffer (e.g. skbuff)
+ * @return nss_tx_status_t Tx status
+ */
+nss_tx_status_t nss_tx_virt_if_rx_nwifibuf(void *ctx, struct sk_buff *os_buf)
+{
+
+	return nss_tx_virt_if_recvbuf(ctx, os_buf, 1);
+}
+
 
 /*
  * nss_get_interface_number()
@@ -2526,6 +2565,7 @@ EXPORT_SYMBOL(nss_tx_phys_if_get_napi_ctx);
 EXPORT_SYMBOL(nss_create_virt_if);
 EXPORT_SYMBOL(nss_destroy_virt_if);
 EXPORT_SYMBOL(nss_tx_virt_if_rxbuf);
+EXPORT_SYMBOL(nss_tx_virt_if_rx_nwifibuf);
 
 EXPORT_SYMBOL(nss_register_ipsec_if);
 EXPORT_SYMBOL(nss_register_ipsec_event_if);

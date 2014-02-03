@@ -993,6 +993,15 @@ extern void *nss_create_virt_if(struct net_device *if_ctx);
 extern nss_tx_status_t nss_destroy_virt_if(void *ctx);
 
 /**
+ * @brief Forward Native wifi packet from virtual interface
+ *    -Expects packet with qca-nwifi format
+ * @param nss_ctx NSS context (provided during registeration)
+ * @param os_buf OS buffer (e.g. skbuff)
+ * @return nss_tx_status_t Tx status
+ */
+extern nss_tx_status_t nss_tx_virt_if_rx_nwifibuf(void *nss_ctx, struct sk_buff *os_buf);
+
+/**
  * @brief Forward virtual interface packets
  *
  * @param nss_ctx NSS context (provided during registeration)
