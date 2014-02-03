@@ -85,7 +85,7 @@ static void nss_rx_metadata_nss_freq_ack(struct nss_ctx_instance *nss_ctx, struc
 		 * NSS finished end notification - Done
 		 */
 		nss_info("%p: NSS ACK Received: %d - End Notification ACK - Running: %dmhz\n", nss_ctx, nfa->ack_status, nfa->freq_current);
-
+		nss_runtime_samples.freq_scale_ready = 1;
 		return;
 	}
 
@@ -885,6 +885,7 @@ static void nss_rx_metadata_nss_core_stats(struct nss_ctx_instance *nss_ctx, str
 
 			if ((sample > maximum) && (nss_runtime_samples.freq_scale_index < (nss_runtime_samples.freq_scale_sup_max - 1))) {
 				nss_runtime_samples.freq_scale_index++;
+				nss_runtime_samples.freq_scale_ready = 0;
 				nss_frequency_workqueue();
 				nss_info("%p: Switch Up with Sample %x \n", nss_ctx, sample);
 			} else {
@@ -904,6 +905,7 @@ static void nss_rx_metadata_nss_core_stats(struct nss_ctx_instance *nss_ctx, str
 
 			if (nss_runtime_samples.freq_scale_rate_limit_down == NSS_FREQUENCY_SCALE_RATE_LIMIT_DOWN) {
 				nss_runtime_samples.freq_scale_index--;
+				nss_runtime_samples.freq_scale_ready = 0;
 				nss_frequency_workqueue();
 				nss_runtime_samples.freq_scale_rate_limit_down = 0;
 			}
