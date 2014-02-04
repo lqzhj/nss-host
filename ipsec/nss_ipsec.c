@@ -324,6 +324,11 @@ static int nss_ipsec_push_rule(struct nss_ipsec_rule *rule, uint32_t if_num)
 	const uint32_t size = sizeof(struct nss_ipsec_rule);
 	nss_tx_status_t status;
 
+	if (gbl_nss_ctx == NULL) {
+		nss_cfi_err("nss ctx is NULL, not able to push rule\n");
+		return -1;
+	}
+
 	nss_cfi_dbg("pushing rule_op %d, for if_num %d with size %d\n", rule->op, if_num, size);
 
 	status = nss_tx_ipsec_rule(gbl_nss_ctx, if_num, 0, (uint8_t *)rule, size);
@@ -343,6 +348,11 @@ static int nss_ipsec_push_rule_sync(struct nss_ipsec_rule *rule, struct nss_ipse
 {
 	const uint32_t size = sizeof(struct nss_ipsec_rule);
 	nss_tx_status_t status;
+
+	if (gbl_nss_ctx == NULL) {
+		nss_cfi_err("nss ctx is NULL, not able to push rule\n");
+		return -1;
+	}
 
 	tbl->num_pending_sync++;
 
