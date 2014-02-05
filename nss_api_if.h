@@ -1206,17 +1206,33 @@ extern nss_tx_status_t nss_tx_destroy_ipv6_rule(void *nss_ctx, struct nss_ipv6_d
 /**
  * Callback to receive crypto buffers
  */
-typedef void (*nss_crypto_callback_t)(void *ctx, void *buf, uint32_t buf_paddr, uint16_t len);
+typedef void (*nss_crypto_data_callback_t)(void *ctx, void *buf, uint32_t buf_paddr, uint16_t len);
+
+/**
+ * Callback to receive crypto sync messages
+ */
+typedef void (*nss_crypto_sync_callback_t)(void *ctx, void *buf, uint32_t len);
 
 /**
  * @brief Register for sending/receiving crypto buffers
  *
- * @param crypto_callback Callback
+ * @param crypto_data_callback data callback
+ * @param crypto_sync_callback sync callback
  * @param ctx Crypto context
  *
  * @return void* NSS context to be provided with every message
  */
-extern void *nss_register_crypto_if(nss_crypto_callback_t crypto_callback, void *ctx);
+extern void *nss_register_crypto_if(nss_crypto_data_callback_t crypto_data_callback, void *ctx);
+
+/**
+ * @brief Register for sending/receiving crypto sync messages
+ *
+ * @param crypto_data_callback data callback
+ * @param crypto_sync_callback sync callback
+ * @param ctx Crypto context
+ *
+ */
+extern void nss_register_crypto_sync_if(nss_crypto_sync_callback_t crypto_sync_callback, void *ctx);
 
 /**
  * @brief Unregister for sending/receiving crypto buffers
@@ -1224,7 +1240,7 @@ extern void *nss_register_crypto_if(nss_crypto_callback_t crypto_callback, void 
 extern void nss_unregister_crypto_if(void);
 
 /**
- * @brief Open crypto interface
+ * @brief Configure crypto interface
  *
  * @param ctx NSS context
  * @param buf Buffer to send to NSS
@@ -1233,16 +1249,6 @@ extern void nss_unregister_crypto_if(void);
  * @return nss_tx_status_t Tx status
  */
 extern nss_tx_status_t nss_tx_crypto_if_open(void *ctx, uint8_t *buf, uint32_t len);
-
-/**
- * @brief Close crypto interface
- *
- * @param ctx NSS context
- * @param eng Engine number
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_crypto_if_close(void *ctx, uint32_t eng);
 
 /**
  * @brief Send crypto buffer to NSS

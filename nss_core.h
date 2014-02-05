@@ -510,10 +510,12 @@ struct nss_top_instance {
 					/* IPv6 sync/establish callback function */
 	nss_connection_expire_all_callback_t conn_expire;
 					/* Connection all expire callback function */
-	nss_crypto_callback_t crypto_callback;
-					/* crypto interface callback function */
 	nss_ipsec_event_callback_t ipsec_event_callback;
 					/* IPsec event callback function */
+	nss_crypto_data_callback_t crypto_data_callback;
+					/* crypto interface data callback function */
+	nss_crypto_sync_callback_t crypto_sync_callback;
+					/* crypto interface sync callback function */
 	nss_phys_if_rx_callback_t if_rx_callback[NSS_MAX_NET_INTERFACES];
 					/* Physical interface packet callback functions */
 	nss_phys_if_event_callback_t phys_if_event_callback[NSS_MAX_PHYSICAL_INTERFACES];

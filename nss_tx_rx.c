@@ -479,6 +479,31 @@ static void nss_rx_metadata_tunipip6_stats_sync(struct nss_ctx_instance *nss_ctx
 }
 
 /*
+ * nss_rx_metadata_crypto_sync()
+ * 	Handle the syncing of Crypto stats.
+ */
+static void nss_rx_metadata_crypto_sync(struct nss_ctx_instance *nss_ctx, struct nss_crypto_sync *ncss)
+{
+	void *ctx;
+	nss_crypto_sync_callback_t cb;
+
+	nss_trace("%p: Callback received for interface %d", nss_ctx, ncss->interface_num);
+
+	ctx = nss_ctx->nss_top->crypto_ctx;
+	cb = nss_ctx->nss_top->crypto_sync_callback;
+
+	/*
+	 * Call Crypto sync callback
+	 */
+	if (!cb || !ctx) {
+		nss_warning("%p: sync rcvd for crypto if %d before registration", nss_ctx, ncss->interface_num);
+		return;
+	}
+
+	cb(ctx, ncss->buf, ncss->len);
+}
+
+/*
  * nss_rx_metadata_gmac_stats_sync()
  *	Handle the syncing of GMAC stats.
  */
@@ -1337,6 +1362,11 @@ void nss_rx_handle_status_pkt(struct nss_ctx_instance *nss_ctx, struct sk_buff *
 	case NSS_RX_METADATA_TYPE_SHAPER_RESPONSE:
 		nss_rx_metadata_shaper_response(nss_ctx, &nrmo->sub.shaper_response);
 		break;
+
+	case NSS_RX_METADATA_TYPE_CRYPTO_SYNC:
+		nss_rx_metadata_crypto_sync(nss_ctx, &nrmo->sub.crypto_sync);
+		break;
+
 	default:
 		/*
 		 * WARN: Unknown metadata type
@@ -1352,7 +1382,7 @@ void nss_rx_handle_status_pkt(struct nss_ctx_instance *nss_ctx, struct sk_buff *
 void nss_rx_handle_crypto_buf(struct nss_ctx_instance *nss_ctx, uint32_t buf, uint32_t paddr, uint32_t len)
 {
 	void *ctx = nss_ctx->nss_top->crypto_ctx;
-	nss_crypto_callback_t cb = nss_ctx->nss_top->crypto_callback;
+	nss_crypto_data_callback_t cb = nss_ctx->nss_top->crypto_data_callback;
 
 	nss_assert(cb != 0);
 	if (likely(cb) && likely(ctx)) {
@@ -2054,7 +2084,7 @@ nss_tx_status_t nss_tx_phys_if_get_napi_ctx(void *ctx, struct napi_struct **napi
 
 /*
  * nss_tx_crypto_if_open()
- *	NSS crypto open API. Opens a crypto session.
+ *	NSS crypto configure API.
  */
 nss_tx_status_t nss_tx_crypto_if_open(void *ctx, uint8_t *buf, uint32_t len)
 {
@@ -2062,13 +2092,13 @@ nss_tx_status_t nss_tx_crypto_if_open(void *ctx, uint8_t *buf, uint32_t len)
 	struct sk_buff *nbuf;
 	int32_t status;
 	struct nss_tx_metadata_object *ntmo;
-	struct nss_crypto_open *nco;
+	struct nss_crypto_config *nco;
 
-	nss_info("%p: Crypto If Open: buf: %p, len: %d\n", nss_ctx, buf, len);
+	nss_info("%p: Crypto If Config: buf: %p, len: %d\n", nss_ctx, buf, len);
 
 	NSS_VERIFY_CTX_MAGIC(nss_ctx);
 	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
-		nss_warning("%p: 'Crypto If Open' rule dropped as core not ready", nss_ctx);
+		nss_warning("%p: 'Crypto If Config' rule dropped as core not ready", nss_ctx);
 		return NSS_TX_FAILURE_NOT_READY;
 	}
 
@@ -2077,14 +2107,14 @@ nss_tx_status_t nss_tx_crypto_if_open(void *ctx, uint8_t *buf, uint32_t len)
 		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
 		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
 		spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_warning("%p: 'Crypto If Open' rule dropped as command allocation failed", nss_ctx);
+		nss_warning("%p: 'Crypto If Config' rule dropped as command allocation failed", nss_ctx);
 		return NSS_TX_FAILURE;
 	}
 
 	ntmo = (struct nss_tx_metadata_object *)skb_put(nbuf, sizeof(struct nss_tx_metadata_object));
-	ntmo->type = NSS_TX_METADATA_TYPE_CRYPTO_OPEN;
+	ntmo->type = NSS_TX_METADATA_TYPE_CRYPTO_CONFIG;
 
-	nco = &ntmo->sub.crypto_open;
+	nco = &ntmo->sub.crypto_config;
 	nco->len = len;
 	memcpy(nco->buf, buf, len);
 
@@ -2092,55 +2122,6 @@ nss_tx_status_t nss_tx_crypto_if_open(void *ctx, uint8_t *buf, uint32_t len)
 	if (status != NSS_CORE_STATUS_SUCCESS) {
 		dev_kfree_skb_any(nbuf);
 		nss_warning("%p: Unable to enqueue 'Crypto If Open' rule\n", nss_ctx);
-		return NSS_TX_FAILURE;
-	}
-
-	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
-								NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
-
-	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_CMD_REQ]);
-	return NSS_TX_SUCCESS;
-}
-
-/*
- * nss_tx_crypto_if_close()
- *	NSS crypto if close API. Closes a crypto session.
- */
-nss_tx_status_t nss_tx_crypto_if_close(void *ctx, uint32_t eng)
-{
-	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) ctx;
-	struct sk_buff *nbuf;
-	int32_t status;
-	struct nss_tx_metadata_object *ntmo;
-	struct nss_crypto_close *ncc;
-
-	nss_info("%p: Crypto If Close:%d\n", nss_ctx, eng);
-
-	NSS_VERIFY_CTX_MAGIC(nss_ctx);
-	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
-		nss_warning("%p: 'Crypto If Close' rule dropped as core not ready", nss_ctx);
-		return NSS_TX_FAILURE_NOT_READY;
-	}
-
-	nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
-	if (unlikely(!nbuf)) {
-		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
-		spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_warning("%p: 'Crypto If Close' rule dropped as command allocation failed", nss_ctx);
-		return NSS_TX_FAILURE;
-	}
-
-	ntmo = (struct nss_tx_metadata_object *)skb_put(nbuf, sizeof(struct nss_tx_metadata_object));
-	ntmo->type = NSS_TX_METADATA_TYPE_CRYPTO_CLOSE;
-
-	ncc = &ntmo->sub.crypto_close;
-	ncc->eng = eng;
-
-	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
-	if (status != NSS_CORE_STATUS_SUCCESS) {
-		dev_kfree_skb_any(nbuf);
-		nss_warning("%p: Unable to enqueue 'Crypto If Close' rule\n", nss_ctx);
 		return NSS_TX_FAILURE;
 	}
 
@@ -2605,12 +2586,21 @@ nss_cb_unregister_status_t nss_unregister_queue_decongestion(void *ctx, nss_queu
 /*
  * nss_register_crypto_mgr()
  */
-void *nss_register_crypto_if(nss_crypto_callback_t crypto_callback, void *ctx)
+void *nss_register_crypto_if(nss_crypto_data_callback_t crypto_data_callback, void *ctx)
 {
 	nss_top_main.crypto_ctx = ctx;
-	nss_top_main.crypto_callback = crypto_callback;
+	nss_top_main.crypto_data_callback = crypto_data_callback;
 
 	return (void *)&nss_top_main.nss[nss_top_main.crypto_handler_id];
+}
+
+/*
+ * nss_register_crypto_sync_if()
+ */
+void nss_register_crypto_sync_if(nss_crypto_sync_callback_t crypto_sync_callback, void *ctx)
+{
+	nss_top_main.crypto_ctx = ctx;
+	nss_top_main.crypto_sync_callback = crypto_sync_callback;
 }
 
 /*
@@ -2618,7 +2608,8 @@ void *nss_register_crypto_if(nss_crypto_callback_t crypto_callback, void *ctx)
  */
 void nss_unregister_crypto_if(void)
 {
-	nss_top_main.crypto_callback = NULL;
+	nss_top_main.crypto_data_callback = NULL;
+	nss_top_main.crypto_sync_callback = NULL;
 	nss_top_main.crypto_ctx = NULL;
 }
 
@@ -3238,7 +3229,7 @@ void *nss_register_shaper_bounce_interface(uint32_t if_num, nss_shaper_bounced_c
 	reg->owner = owner;
 	reg->registered = true;
 	spin_unlock_bh(&nss_top->lock);
-	
+
 	return (void *)&nss_top->nss[nss_top->shaping_handler_id];
 }
 
@@ -3281,7 +3272,7 @@ void nss_unregister_shaper_bounce_interface(uint32_t if_num)
 	reg->owner = NULL;
 	reg->registered = false;
 	spin_unlock_bh(&nss_top->lock);
-	
+
 	module_put(owner);
 }
 
@@ -3396,7 +3387,7 @@ void nss_unregister_shaper_bounce_bridge(uint32_t if_num)
 	reg->owner = NULL;
 	reg->registered = false;
 	spin_unlock_bh(&nss_top->lock);
-	
+
 	module_put(owner);
 }
 
@@ -3534,10 +3525,10 @@ EXPORT_SYMBOL(nss_tx_create_ipv6_rule);
 EXPORT_SYMBOL(nss_tx_destroy_ipv6_rule);
 
 EXPORT_SYMBOL(nss_register_crypto_if);
+EXPORT_SYMBOL(nss_register_crypto_sync_if);
 EXPORT_SYMBOL(nss_unregister_crypto_if);
 EXPORT_SYMBOL(nss_tx_crypto_if_buf);
 EXPORT_SYMBOL(nss_tx_crypto_if_open);
-EXPORT_SYMBOL(nss_tx_crypto_if_close);
 
 EXPORT_SYMBOL(nss_register_phys_if);
 EXPORT_SYMBOL(nss_unregister_phys_if);

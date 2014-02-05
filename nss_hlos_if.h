@@ -226,18 +226,11 @@ struct nss_if_mtu_change {
 };
 
 /*
- * Crypto open command
+ * Crypto config command
  */
-struct nss_crypto_open {
+struct nss_crypto_config {
 	uint32_t len;			/* Valid information length */
 	uint8_t buf[1];			/* Buffer */
-};
-
-/*
- * Crypto open command
- */
-struct nss_crypto_close {
-	uint32_t eng;			/* Engine number */
 };
 
 /*
@@ -308,7 +301,7 @@ struct nss_tx_shaper_config_unassign_shaper {
 
 /*
  * enum nss_tx_shaper_node_types
- *	Types of shaper node we export to the HLOS 
+ *	Types of shaper node we export to the HLOS
  */
 enum nss_tx_shaper_node_types {
 	NSS_TX_SHAPER_NODE_TYPE_CODEL = 1,		/* Matched SHAPER_NODE_TYPE_CODEL */
@@ -563,7 +556,7 @@ enum nss_tx_metadata_types {
 	NSS_TX_METADATA_TYPE_INTERFACE_OPEN,
 	NSS_TX_METADATA_TYPE_INTERFACE_CLOSE,
 	NSS_TX_METADATA_TYPE_INTERFACE_LINK_STATE_NOTIFY,
-	NSS_TX_METADATA_TYPE_CRYPTO_OPEN,
+	NSS_TX_METADATA_TYPE_CRYPTO_CONFIG,
 	NSS_TX_METADATA_TYPE_CRYPTO_CLOSE,
 	NSS_TX_METADATA_TYPE_MSS_SET,
 	NSS_TX_METADATA_TYPE_C2C_TX_MAP,
@@ -594,8 +587,7 @@ struct nss_tx_metadata_object {
 		struct nss_if_open if_open;
 		struct nss_if_close if_close;
 		struct nss_if_link_state_notify if_link_state_notify;
-		struct nss_crypto_open crypto_open;
-		struct nss_crypto_close crypto_close;
+		struct nss_crypto_config crypto_config;
 		struct nss_mss_set mss_set;
 		struct nss_c2c_tx_map c2c_tx_map;
 		struct nss_ipsec_rule ipsec_rule;
@@ -1260,6 +1252,15 @@ struct nss_rx_shaper_response {
 };
 
 /*
+ * Crypto stats sync structure
+ */
+struct nss_crypto_sync {
+	uint32_t interface_num;
+	uint32_t len;
+	uint8_t buf[1];
+};
+
+/*
  * Types of RX metadata.
  */
 enum nss_rx_metadata_types {
@@ -1280,6 +1281,7 @@ enum nss_rx_metadata_types {
 	NSS_RX_METADATA_TYPE_TUN6RD_STATS_SYNC,
 	NSS_RX_METADATA_TYPE_TUNIPIP6_STATS_SYNC,
 	NSS_RX_METADATA_TYPE_IPSEC_EVENTS_SYNC,
+	NSS_RX_METADATA_TYPE_CRYPTO_SYNC,
 	NSS_RX_METADATA_TYPE_SHAPER_RESPONSE,
 };
 
@@ -1306,6 +1308,7 @@ struct nss_rx_metadata_object {
 		struct nss_tun6rd_stats_sync tun6rd_stats_sync;
 		struct nss_tunipip6_stats_sync tunipip6_stats_sync;
 		struct nss_ipsec_events_sync ipsec_events_sync;
+		struct nss_crypto_sync crypto_sync;
 		struct nss_rx_shaper_response shaper_response;
 	} sub;
 };
