@@ -59,6 +59,16 @@ static struct net_device *gbl_except_dev = NULL;
 static spinlock_t gbl_dev_lock;
 
 /*
+ * IPsec stats param structure
+ */
+struct nss_ipsec_stats_param {
+	uint32_t rule_drop;	/* push rule failed due to NSS driver */
+	uint32_t rule_fail;	/* other push rule errors */
+};
+
+static struct nss_ipsec_stats_param param;
+
+/*
  * This is used by KLIPS for communicate the device along with the
  * packet. We need this to derive the mapping of the incoming flow
  * to the IPsec tunnel
@@ -325,6 +335,7 @@ static int nss_ipsec_push_rule(struct nss_ipsec_rule *rule, uint32_t if_num)
 	nss_tx_status_t status;
 
 	if (gbl_nss_ctx == NULL) {
+		param.rule_fail++;
 		nss_cfi_err("nss ctx is NULL, not able to push rule\n");
 		return -1;
 	}
@@ -333,7 +344,8 @@ static int nss_ipsec_push_rule(struct nss_ipsec_rule *rule, uint32_t if_num)
 
 	status = nss_tx_ipsec_rule(gbl_nss_ctx, if_num, 0, (uint8_t *)rule, size);
 	if (status != NSS_TX_SUCCESS) {
-		nss_cfi_err("push rule(%d) failed for if_num: %d\n", rule->op, if_num);
+		param.rule_drop++;
+		nss_cfi_dbg("push rule(%d) failed for if_num: %d\n", rule->op, if_num);
 		return -1;
 	}
 
@@ -350,6 +362,7 @@ static int nss_ipsec_push_rule_sync(struct nss_ipsec_rule *rule, struct nss_ipse
 	nss_tx_status_t status;
 
 	if (gbl_nss_ctx == NULL) {
+		param.rule_fail++;
 		nss_cfi_err("nss ctx is NULL, not able to push rule\n");
 		return -1;
 	}
@@ -358,7 +371,8 @@ static int nss_ipsec_push_rule_sync(struct nss_ipsec_rule *rule, struct nss_ipse
 
 	status = nss_tx_ipsec_rule(gbl_nss_ctx, tbl->if_num, 0, (uint8_t *)rule, size);
 	if (status != NSS_TX_SUCCESS) {
-		nss_cfi_err("push rule failed for if_num: %d\n", tbl->if_num);
+		param.rule_drop++;
+		nss_cfi_dbg("push rule failed for if_num: %d\n", tbl->if_num);
 		return -1;
 	}
 
@@ -781,6 +795,8 @@ int __init nss_ipsec_init_module(void)
 	nss_ipsec_table_init(&gbl_rule_tbl[NSS_IPSEC_TBL_TYPE_DECAP], NSS_IPSEC_DECAP_INTERFACE);
 
 	spin_lock_init(&gbl_dev_lock);
+
+	memset(&param, 0, sizeof(struct nss_ipsec_stats_param));
 
 	return 0;
 }
