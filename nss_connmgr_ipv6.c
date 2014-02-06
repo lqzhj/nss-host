@@ -582,12 +582,26 @@ static void nss_connmgr_link_down(struct net_device *dev)
 	uint32_t i = 0;
 	int32_t if_src = 0;
 	int32_t if_dst = 0;
+	uint16_t vlan_id = 0;
 	struct nss_connmgr_ipv6_connection *connection = NULL;
 	nss_connmgr_ipv6_conn_state_t cstate;
+	struct net_device *phys_dev = dev;
 
-	if_num = nss_get_interface_number(nss_connmgr_ipv6.nss_context, dev);
+	/*
+	 * Get the physical device and VLAN ID for vlan interfaces
+	 */
+	if (is_vlan_dev(dev)) {
+		phys_dev = vlan_dev_priv(dev)->real_dev;
+		vlan_id = vlan_dev_priv(dev)->vlan_id;
+		if (phys_dev == NULL) {
+			NSS_CONNMGR_DEBUG_WARN("Invalid physical device for VLAN device %s\n",dev->name);
+			return;
+		}
+	}
+
+	if_num = nss_get_interface_number(nss_connmgr_ipv6.nss_context, phys_dev);
 	if (if_num < 0) {
-		NSS_CONNMGR_DEBUG_WARN("Cannot find NSS if num for dev %s\n", dev->name);
+		NSS_CONNMGR_DEBUG_WARN("Cannot find NSS if num for dev %s\n", phys_dev->name);
 		return;
 	}
 
@@ -605,6 +619,16 @@ static void nss_connmgr_link_down(struct net_device *dev)
 
 		if (if_num == if_src
 			|| if_num == if_dst) {
+			/*
+			 * Check if we have a VLAN rule to delete
+			 */
+			if (is_vlan_dev(dev)) {
+				if ((vlan_id != connection->ingress_vlan_tag)
+					&& (vlan_id != connection->egress_vlan_tag)) {
+					spin_unlock_bh(&nss_connmgr_ipv6.lock);
+					continue;
+				}
+			}
 			NSS_CONNMGR_DEBUG_INFO("destroy NSS rule at index %d\n", i);
 			nss_connmgr_destroy_ipv6_rule(connection);
 		}
