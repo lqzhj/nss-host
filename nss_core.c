@@ -686,6 +686,11 @@ static uint32_t nss_core_get_prioritized_cause(uint32_t cause, uint32_t *type, i
 		return NSS_REGS_N2H_INTR_STATUS_DATA_COMMAND_QUEUE;
 	}
 
+	if (cause & NSS_REGS_H2N_INTR_STATUS_COREDUMP_END) {
+		printk("COREDUMP SIGNAL END");
+		return NSS_REGS_H2N_INTR_STATUS_COREDUMP_END;
+	}
+
 
 	return 0;
 }

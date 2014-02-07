@@ -659,6 +659,26 @@ static int nss_debug_handler(ctl_table *ctl, int write, void __user *buffer, siz
 }
 
 /*
+ * nss_coredump_handler()
+ *	Send Signal To Coredump NSS Cores
+ */
+static int nss_coredump_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) nss_freq_change_context;
+	int ret;
+
+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+	if (!ret) {
+		if ((write) && (nss_ctl_debug != 0)) {
+			printk("Coredumping to DDR\n");
+			nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit, NSS_REGS_H2N_INTR_STATUS_COREDUMP_START);
+		}
+	}
+
+	return ret;
+}
+
+/*
  * sysctl-tuning infrastructure.
  */
 static ctl_table nss_freq_table[] = {
@@ -707,6 +727,13 @@ static ctl_table nss_general_table[] = {
 		.maxlen                 = sizeof(int),
 		.mode                   = 0644,
 		.proc_handler   = &nss_debug_handler,
+	},
+	{
+		.procname               = "coredump",
+		.data                   = &nss_cmd_buf.coredump,
+		.maxlen                 = sizeof(int),
+		.mode                   = 0644,
+		.proc_handler   = &nss_coredump_handler,
 	},
 	{ }
 };
