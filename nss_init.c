@@ -811,9 +811,6 @@ static int __init nss_init(void)
 	 */
 	nss_pm_init();
 
-	// GGG EARLY DEBUG ENABLE HACK - TODO REMOVE
-	nss_hal_debug_enable();
-
 	/*
 	 * Register with Bus driver
 	 */
