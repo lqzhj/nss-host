@@ -284,6 +284,8 @@ void nss_gmac_linkup(nss_gmac_dev *gmacdev)
 		nss_gmac_disable_mmc_rx_interrupt(gmacdev, 0xFFFFFFFF);
 		nss_gmac_disable_mmc_ipc_rx_interrupt(gmacdev, 0xFFFFFFFF);
 
+		/* Restore the Jumbo support settings as per corresponding interface mtu */
+		nss_gmac_linux_change_mtu(gmacdev->netdev, gmacdev->netdev->mtu);
 		gmacdev->first_linkup_done = 1;
 	}
 

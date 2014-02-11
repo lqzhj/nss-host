@@ -1300,7 +1300,6 @@ void nss_gmac_mac_init(nss_gmac_dev *gmacdev)
 	nss_gmac_wd_enable(gmacdev);
 	nss_gmac_jab_enable(gmacdev);
 	nss_gmac_frame_burst_enable(gmacdev);
-	nss_gmac_jumbo_frame_disable(gmacdev);
 	nss_gmac_loopback_off(gmacdev);
 
 	if (gmacdev->speed == SPEED1000) {
