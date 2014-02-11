@@ -848,6 +848,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	struct h2n_descriptor *desc_ring;
 	struct h2n_descriptor *desc;
 	struct nss_if_mem_map *if_map = (struct nss_if_mem_map *)nss_ctx->vmap;
+	uint16_t mss = 0;
 	uint32_t frag0phyaddr = 0;
 
 	nr_frags = skb_shinfo(nbuf)->nr_frags;
@@ -902,8 +903,31 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	desc = &desc_ring[hlos_index];
 
 	/*
-	 * Is this a conventional unfragmented nbuf?
+	 * Check if segmentation enabled.
+	 * Configure descriptor bit flags accordingly
 	 */
+
+	/*
+	 * When CONFIG_HIGHMEM is enabled OS is giving a single big chunk buffer without
+	 * any scattered frames
+	 */
+	if (skb_is_gso(nbuf)) {
+		mss = skb_shinfo(nbuf)->gso_size;
+		flags |= H2N_BIT_FLAG_SEGMENTATION_ENABLE;
+		if (skb_shinfo(nbuf)->gso_type & SKB_GSO_TCPV4) {
+			flags |= H2N_BIT_FLAG_SEGMENT_TSO;
+		} else if (skb_shinfo(nbuf)->gso_type & SKB_GSO_TCPV6) {
+			flags |= H2N_BIT_FLAG_SEGMENT_TSO6;
+		} else if (skb_shinfo(nbuf)->gso_type & SKB_GSO_UDP) {
+			flags |= H2N_BIT_FLAG_SEGMENT_UFO;
+		} else {
+			/*
+			 * Invalid segmentation type
+			 */
+			nss_assert(0);
+		}
+	}
+
 	if (likely(nr_frags == 0)) {
 		uint16_t bit_flags;
 
@@ -920,6 +944,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		desc->payload_offs = (uint16_t)(nbuf->data - nbuf->head);
 		desc->payload_len = nbuf->len;
 		desc->buffer_len = (uint16_t)(nbuf->end - nbuf->head);
+		desc->mss = mss;
 		desc->qos_tag = (uint32_t)nbuf->priority;
 
 		if (unlikely(!NSS_IS_IF_TYPE(VIRTUAL, if_num))) {
@@ -938,30 +963,8 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		 */
 		uint32_t i = 0;
 		const skb_frag_t *frag;
-		uint16_t mss = 0;
 		dma_addr_t buffer;
 		uint16_t bit_flags;
-
-		/*
-		 * Check if segmentation enabled.
-		 * Configure descriptor bit flags accordingly
-		 */
-		if (skb_is_gso(nbuf)) {
-			mss = skb_shinfo(nbuf)->gso_size;
-			flags |= H2N_BIT_FLAG_SEGMENTATION_ENABLE;
-			if (skb_shinfo(nbuf)->gso_type & SKB_GSO_TCPV4) {
-				flags |= H2N_BIT_FLAG_SEGMENT_TSO;
-			} else if (skb_shinfo(nbuf)->gso_type & SKB_GSO_TCPV6) {
-				flags |= H2N_BIT_FLAG_SEGMENT_TSO6;
-			} else if (skb_shinfo(nbuf)->gso_type & SKB_GSO_UDP) {
-				flags |= H2N_BIT_FLAG_SEGMENT_UFO;
-			} else {
-				/*
-				 * Invalid segmentation type
-				 */
-				nss_assert(0);
-			}
-		}
 
 		/*
 		 * Handle all fragments
