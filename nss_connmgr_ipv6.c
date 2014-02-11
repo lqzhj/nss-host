@@ -623,12 +623,11 @@ static void nss_connmgr_bond_link_up(struct net_device *slave_dev)
 	uint32_t if_num = 0;
 	uint32_t i = 0;
 	struct nss_connmgr_ipv6_connection *connection = NULL;
-	struct net_device *dest_dev = NULL;
-	uint8_t src_mac[ETH_ALEN];
-	uint8_t dst_mac[ETH_ALEN];
-	uint32_t src[4];
-	uint32_t dst[4];
-	uint16_t proto;
+	uint8_t flush_rule;
+	uint32_t src_if;
+	uint32_t dst_if;
+	struct net_device *indev;
+	struct net_device *outdev;
 	nss_connmgr_ipv6_conn_state_t cstate;
 
 	if_num = nss_get_interface_number(nss_connmgr_ipv6.nss_context, slave_dev);
@@ -642,34 +641,31 @@ static void nss_connmgr_bond_link_up(struct net_device *slave_dev)
 		spin_lock_bh(&nss_connmgr_ipv6.lock);
 		connection = &nss_connmgr_ipv6.connection[i];
 		cstate = connection->state;
-		IPV6_ADDR_NTOH(src, connection->src_addr);
-		IPV6_ADDR_NTOH(dst, connection->dest_addr);
-		proto = connection->protocol;
+		src_if = connection->src_interface;
+		dst_if = connection->dest_interface;
 		spin_unlock_bh(&nss_connmgr_ipv6.lock);
 
 		if (cstate != NSS_CONNMGR_IPV6_STATE_ESTABLISHED) {
 			continue;
 		}
 
-		if (nss_connmgr_ipv6_mac_addr_get(src, src_mac)) {
-			NSS_CONNMGR_DEBUG_INFO("Unable to get src mac addr, index %d \n", i);
-			continue;
+		flush_rule = 0;
+
+		indev = nss_get_interface_dev(nss_connmgr_ipv6.nss_context, src_if);
+		if (indev != NULL) {
+			if (is_lag_slave(indev)) {
+				flush_rule = 1;
+			}
 		}
 
-		if (nss_connmgr_ipv6_mac_addr_get(dst, dst_mac)) {
-			NSS_CONNMGR_DEBUG_INFO("Unable to get dst mac addr, index %d \n", i);
-			continue;
+		outdev = nss_get_interface_dev(nss_connmgr_ipv6.nss_context, dst_if);
+		if (outdev != NULL) {
+			if (is_lag_slave(outdev)) {
+				flush_rule = 1;
+			}
 		}
 
-		/* get egress interface for this flow */
-		dest_dev = bond_get_tx_dev(NULL, src_mac, dst_mac, (void *)src,
-					   (void *)dst, proto,
-					   slave_dev->master);
-		if (!dest_dev) {
-			continue;
-		}
-
-		if (slave_dev == dest_dev) {
+		if (flush_rule) {
 			spin_lock_bh(&nss_connmgr_ipv6.lock);
 			if (connection->state != NSS_CONNMGR_IPV6_STATE_ESTABLISHED) {
 				spin_unlock_bh(&nss_connmgr_ipv6.lock);
