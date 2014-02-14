@@ -39,6 +39,7 @@
 #include <linux/string.h>
 #include <linux/debugfs.h>
 #include <linux/netdevice.h>
+#include <linux/notifier.h>
 
 #include <net/route.h>
 #include <net/ip.h>
@@ -291,10 +292,16 @@ struct nss_connmgr_ipv4_instance {
 	struct task_struct *thread;
 	/* Control thread */
 	void *nss_context;		/* Registration context used to identify the manager in calls to the NSS driver */
+#ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
+	struct notifier_block conntrack_notifier;
+#else
 	struct nf_ct_event_notifier conntrack_notifier;
+#endif
 					/* NF conntrack event system to monitor connection tracking changes */
+#ifndef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
 	int (*conntrack_event_cb) (struct nf_conn *ct);
 					/* conntrack event callback to propagate events to other clients (ipv6) */
+#endif
 	struct notifier_block netdev_notifier;
 	struct nss_connmgr_ipv4_connection connection[NSS_CONNMGR_IPV4_CONN_MAX];
 					/* Connection Table */
@@ -328,7 +335,12 @@ static ssize_t nss_connmgr_ipv4_read_debug_stats(struct file *fp, char __user *u
 
 static ssize_t nss_connmgr_ipv4_clear_stats(struct file *fp, const char __user *ubuf, size_t count, loff_t *ppos);
 
+#ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
+static int nss_connmgr_ipv4_conntrack_event(struct notifier_block *this,
+		unsigned long events, void *ptr);
+#else
 static int nss_connmgr_ipv4_conntrack_event(unsigned int events, struct nf_ct_event *item);
+#endif
 
 
 static struct nss_connmgr_ipv4_instance nss_connmgr_ipv4 = {
@@ -337,7 +349,11 @@ static struct nss_connmgr_ipv4_instance nss_connmgr_ipv4 = {
 		.thread = NULL,
 		.nss_context = NULL,
 		.conntrack_notifier = {
+#ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
+			.notifier_call = nss_connmgr_ipv4_conntrack_event,
+#else
 			.fcn = nss_connmgr_ipv4_conntrack_event,
+#endif
 		},
 		.need_mark = 0,
 };
@@ -2718,15 +2734,24 @@ out:
  * nss_connmgr_ipv4_conntrack_event()
  *	Callback event invoked when conntrack connection state changes, currently we handle destroy events to quickly release state
  */
+#ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
+static int nss_connmgr_ipv4_conntrack_event(struct notifier_block *this,
+                                unsigned long events, void *ptr)
+#else
 static int nss_connmgr_ipv4_conntrack_event(unsigned int events, struct nf_ct_event *item)
+#endif
 {
+#ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
+	struct nf_ct_event *item = ptr;
+#endif
 	struct nss_ipv4_destroy unid;
 	struct nf_conn *ct = item->ct;
 	struct nf_conntrack_tuple orig_tuple;
 	struct nf_conntrack_tuple reply_tuple;
+#ifndef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
 	int (*event_cb) (struct nf_conn *ct);
+#endif
 
-	int ret = 0;
 
 	nss_tx_status_t nss_tx_status;
 
@@ -2752,14 +2777,16 @@ static int nss_connmgr_ipv4_conntrack_event(unsigned int events, struct nf_ct_ev
 	/*
 	 * Invoke ipv6 callback, if registered
 	 */
+#ifndef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
 	event_cb = nss_connmgr_ipv4.conntrack_event_cb;
 	if ((nf_ct_l3num(ct) == AF_INET6) && event_cb) {
-		ret = event_cb(ct);
+		int ret = event_cb(ct);
 		if (ret) {
 			NSS_CONNMGR_DEBUG_WARN("conntrack_event_cb failed %d \n", ret);
 		}
 		return NOTIFY_DONE;
 	}
+#endif
 
 	/*
 	 * Only interested if this is IPv4
@@ -2864,6 +2891,7 @@ out:
 	return NOTIFY_DONE;
 }
 
+#ifndef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
 /*
  * nss_connmgr_ipv4_register_conntrack_event_cb
  * 	Registers a callback for NF conntrack destoy event
@@ -2890,6 +2918,7 @@ void nss_connmgr_ipv4_unregister_conntrack_event_cb(void)
 	return;
 }
 EXPORT_SYMBOL(nss_connmgr_ipv4_unregister_conntrack_event_cb);
+#endif
 #endif
 
 /*
@@ -3288,11 +3317,13 @@ static int nss_connmgr_ipv4_thread_fn(void *arg)
 		goto task_cleanup_7;
 	}
 
+#ifndef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
 	/*
 	 * Initialize the conntrack event callback function to NULL.
 	 * This will remain NULL unless other clients (ipv6 conn mgr) register a CB
 	 */
 	nss_connmgr_ipv4.conntrack_event_cb = NULL;
+#endif
 
 	/*
 	 * Allow wakeup signals
