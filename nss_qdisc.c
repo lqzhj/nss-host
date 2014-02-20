@@ -2400,7 +2400,7 @@ static void nsstbl_destroy(struct Qdisc *sch)
 	/*
 	 * Stop the polling of basic stats
 	 */
-	nssqdisc_start_basic_stats_polling(sch);
+	nssqdisc_stop_basic_stats_polling(sch);
 	nssqdisc_destroy(sch);
 }
 
