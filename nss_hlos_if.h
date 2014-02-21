@@ -40,6 +40,10 @@ enum nss_lro_modes {
 					/* This is a pure bridge forwarding flow */
 #define NSS_IPV4_RULE_CREATE_FLAG_ROUTED 0x04
 					/* Rule is for a routed connection. */
+#define NSS_IPV4_RULE_CREATE_FLAG_DSCP_MARKING 0x08
+					/* Rule is for a DSCP marking . */
+#define NSS_IPV4_RULE_CREATE_FLAG_VLAN_MARKING 0x10
+					/* Rule is for a VLAN marking . */
 
 /*
  * The NSS IPv4 rule creation structure.
@@ -79,6 +83,51 @@ struct nss_ipv4_rule_create {
 };
 
 /*
+ * The NSS IPv4 rule creation structure.
+ */
+struct nss_ipv4_rule_create1 {
+	uint8_t protocol;			/* Protocol number */
+	int32_t flow_interface_num;		/* Flow interface number */
+	uint32_t flow_ip;			/* Flow IP address */
+	uint32_t flow_ip_xlate;			/* Translated flow IP address */
+	uint32_t flow_ident;			/* Flow ident (e.g. port) */
+	uint32_t flow_ident_xlate;		/* Translated flow ident (e.g. port) */
+	uint16_t flow_mac[3];			/* Flow MAC address */
+	uint8_t flow_window_scale;		/* Flow direction's window scaling factor */
+	uint32_t flow_max_window;		/* Flow direction's largest seen window */
+	uint32_t flow_end;			/* Flow direction's largest seen sequence + segment length */
+	uint32_t flow_max_end;			/* Flow direction's largest seen ack + max(1, win) */
+	uint32_t flow_mtu;			/* Flow interface`s MTU */
+	uint16_t flow_pppoe_session_id;		/* PPPoE session ID. */
+	uint16_t flow_pppoe_remote_mac[3];	/* PPPoE Server MAC address */
+	uint16_t ingress_vlan_tag;		/* Ingress VLAN tag expected for this flow */
+	int32_t return_interface_num;		/* Return interface number */
+	uint32_t return_ip;			/* Return IP address */
+	uint32_t return_ip_xlate;		/* Translated return IP address */
+	uint32_t return_ident;			/* Return ident (e.g. port) */
+	uint32_t return_ident_xlate;		/* Translated return ident (e.g. port) */
+	uint16_t return_mac[3];			/* Return MAC address */
+	uint8_t return_window_scale;		/* Return direction's window scaling factor */
+	uint32_t return_max_window;		/* Return direction's largest seen window */
+	uint32_t return_end;			/* Return direction's largest seen sequence + segment length */
+	uint32_t return_max_end;		/* Return direction's largest seen ack + max(1, win) */
+	uint32_t return_mtu;			/* Return interface`s MTU */
+	uint16_t return_pppoe_session_id;	/* PPPoE session ID. */
+	uint16_t return_pppoe_remote_mac[3];	/* PPPoE Server MAC address */
+	uint16_t egress_vlan_tag;		/* Egress VLAN tag expected for this flow */
+	uint8_t flags;				/* Bit flags associated with the rule */
+	uint32_t qos_tag;			/* QoS tag value */
+	uint8_t dscp_itag;			/* DSCP marking tag */
+	uint8_t dscp_imask;			/* DSCP marking input mask */
+	uint8_t dscp_omask;			/* DSCP marking output mask */
+	uint8_t dscp_oval;			/* DSCP marking output val */
+	uint16_t vlan_itag;			/* VLAN marking tag */
+	uint16_t vlan_imask;			/* VLAN marking input mask */
+	uint16_t vlan_omask;			/* VLAN marking output mask */
+	uint16_t vlan_oval;			/* VLAN marking output val */
+};
+
+/*
  * The NA IPv4 rule destruction structure.
  */
 struct nss_ipv4_rule_destroy {
@@ -98,6 +147,10 @@ struct nss_ipv4_rule_destroy {
 					/* This is a pure bridge forwarding flow */
 #define NSS_IPV6_RULE_CREATE_FLAG_ROUTED 0x04
 					/* Rule is for a routed connection. */
+#define NSS_IPV6_RULE_CREATE_FLAG_DSCP_MARKING 0x08
+					/* Rule is for a DSCP marking . */
+#define NSS_IPV6_RULE_CREATE_FLAG_VLAN_MARKING 0x10
+					/* Rule is for a VLAN marking . */
 
 /*
  * The NSS IPv6 rule creation structure.
@@ -130,6 +183,50 @@ struct nss_ipv6_rule_create {
 	uint16_t egress_vlan_tag;		/* Egress VLAN tag expected for this flow */
 	uint8_t flags;				/* Bit flags associated with the rule */
 	uint32_t qos_tag;			/* QoS tag value */
+};
+
+/*
+ * The NSS IPv6 rule creation structure.
+ * This structure is just created to be compatible with older firmware,
+ * whose lifespan will be for few hours, or may survive for few days more
+ * than new host.
+ */
+struct nss_ipv6_rule_create1 {
+	uint8_t protocol;			/* Protocol number */
+	int32_t flow_interface_num;		/* Flow interface number */
+	uint32_t flow_ip[4];			/* Flow IP address */
+	uint32_t flow_ident;			/* Flow ident (e.g. port) */
+	uint16_t flow_mac[3];			/* Flow MAC address */
+	uint8_t flow_window_scale;		/* Flow direction's window scaling factor */
+	uint32_t flow_max_window;		/* Flow direction's largest seen window */
+	uint32_t flow_end;			/* Flow direction's largest seen sequence + segment length */
+	uint32_t flow_max_end;			/* Flow direction's largest seen ack + max(1, win) */
+	uint32_t flow_mtu;			/* Flow interface`s MTU */
+	uint16_t flow_pppoe_session_id;		/* PPPoE session ID. */
+	uint16_t flow_pppoe_remote_mac[3];	/* PPPoE Server MAC address */
+	uint16_t ingress_vlan_tag;		/* Ingress VLAN tag expected for this flow */
+	int32_t return_interface_num;		/* Return interface number */
+	uint32_t return_ip[4];			/* Return IP address */
+	uint32_t return_ident;			/* Return ident (e.g. port) */
+	uint16_t return_mac[3];			/* Return MAC address */
+	uint8_t return_window_scale;		/* Return direction's window scaling factor */
+	uint32_t return_max_window;		/* Return direction's largest seen window */
+	uint32_t return_end;			/* Return direction's largest seen sequence + segment length */
+	uint32_t return_max_end;		/* Return direction's largest seen ack + max(1, win) */
+	uint32_t return_mtu;			/* Return interface`s MTU */
+	uint16_t return_pppoe_session_id;	/* PPPoE session ID. */
+	uint16_t return_pppoe_remote_mac[3];	/* PPPoE Server MAC address */
+	uint16_t egress_vlan_tag;		/* Egress VLAN tag expected for this flow */
+	uint8_t flags;				/* Bit flags associated with the rule */
+	uint32_t qos_tag;			/* QoS tag value */
+	uint8_t dscp_itag;			/* DSCP marking tag */
+	uint8_t dscp_imask;			/* DSCP marking input mask */
+	uint8_t dscp_omask;			/* DSCP marking output mask */
+	uint8_t dscp_oval;			/* DSCP marking output val */
+	uint16_t vlan_itag;			/* VLAN marking tag */
+	uint16_t vlan_imask;			/* VLAN marking input mask */
+	uint16_t vlan_omask;			/* VLAN marking output mask */
+	uint16_t vlan_oval;			/* VLAN marking output val */
 };
 
 /*
@@ -566,6 +663,8 @@ enum nss_tx_metadata_types {
 	NSS_TX_METADATA_TYPE_NSS_FREQ_CHANGE,
 	NSS_TX_METADATA_TYPE_INTERFACE_MTU_CHANGE,
 	NSS_TX_METADATA_TYPE_SHAPER_CONFIGURE,
+	NSS_TX_METADATA_TYPE_IPV4_RULE_CREATE1,
+	NSS_TX_METADATA_TYPE_IPV6_RULE_CREATE1,
 };
 
 /*
@@ -577,6 +676,37 @@ struct nss_tx_metadata_object {
 		struct nss_ipv4_rule_create ipv4_rule_create;
 		struct nss_ipv4_rule_destroy ipv4_rule_destroy;
 		struct nss_ipv6_rule_create ipv6_rule_create;
+		struct nss_ipv6_rule_destroy ipv6_rule_destroy;
+		struct nss_l2switch_rule_create l2switch_rule_create;
+		struct nss_l2switch_rule_destroy l2switch_rule_destroy;
+		struct nss_mac_address_set mac_address_set;
+		struct nss_virtual_interface_create virtual_interface_create;
+		struct nss_virtual_interface_destroy virtual_interface_destroy;
+		struct nss_pppoe_rule_destroy pppoe_rule_destroy;
+		struct nss_if_open if_open;
+		struct nss_if_close if_close;
+		struct nss_if_link_state_notify if_link_state_notify;
+		struct nss_crypto_config crypto_config;
+		struct nss_mss_set mss_set;
+		struct nss_c2c_tx_map c2c_tx_map;
+		struct nss_ipsec_rule ipsec_rule;
+		struct nss_profiler_tx profiler_tx;
+		struct nss_generic_if_params generic_if_params;
+		struct nss_freq_change freq_change;
+		struct nss_if_mtu_change if_mtu_change;
+		struct nss_tx_shaper_configure shaper_configure;
+	} sub;
+};
+
+/*
+ * Structure that describes all TX metadata objects.
+ */
+struct nss_tx_metadata_object1 {
+	enum nss_tx_metadata_types type;	/* Object type */
+	union {				/* Sub-message type */
+		struct nss_ipv4_rule_create1 ipv4_rule_create;
+		struct nss_ipv4_rule_destroy ipv4_rule_destroy;
+		struct nss_ipv6_rule_create1 ipv6_rule_create;
 		struct nss_ipv6_rule_destroy ipv6_rule_destroy;
 		struct nss_l2switch_rule_create l2switch_rule_create;
 		struct nss_l2switch_rule_destroy l2switch_rule_destroy;
@@ -921,6 +1051,8 @@ enum exception_events_ipv4 {
 	NSS_EXCEPTION_EVENT_IPV4_6RD_IP_OPTION,
 	NSS_EXCEPTION_EVENT_IPV4_6RD_IP_FRAGMENT,
 	NSS_EXCEPTION_EVENT_IPV4_6RD_NEEDS_FRAGMENTATION,
+	NSS_EXCEPTION_EVENT_IPV4_DSCP_MARKING_MISMATCH,
+	NSS_EXCEPTION_EVENT_IPV4_VLAN_MARKING_MISMATCH,
 	NSS_EXCEPTION_EVENT_IPV4_MAX
 };
 
@@ -956,6 +1088,8 @@ enum exception_events_ipv6 {
 	NSS_EXCEPTION_EVENT_IPV6_HEADER_INCOMPLETE,
 	NSS_EXCEPTION_EVENT_IPV6_UNKNOWN_PROTOCOL,
 	NSS_EXCEPTION_EVENT_IPV6_IVID_MISMATCH,
+	NSS_EXCEPTION_EVENT_IPV6_DSCP_MARKING_MISMATCH,
+	NSS_EXCEPTION_EVENT_IPV6_VLAN_MARKING_MISMATCH,
 	NSS_EXCEPTION_EVENT_IPV6_MAX
 };
 

@@ -225,6 +225,14 @@ struct nss_ipv4_create {
 	uint32_t param_a3;		/**< Custom extra parameter 3 */
 	uint32_t param_a4;		/**< Custom extra parameter 4 */
 	uint32_t qos_tag;		/**< QoS tag value */
+	uint8_t dscp_itag;		/**< DSCP marking tag */
+	uint8_t dscp_imask;		/**< DSCP marking input mask */
+	uint8_t dscp_omask;		/**< DSCP marking output mask */
+	uint8_t dscp_oval;		/**< DSCP marking output val */
+	uint16_t vlan_itag;		/**< VLAN marking tag */
+	uint16_t vlan_imask;		/**< VLAN marking input mask */
+	uint16_t vlan_omask;		/**< VLAN marking output mask */
+	uint16_t vlan_oval;		/**< VLAN marking output val */
 };
 
 /**
@@ -239,6 +247,12 @@ struct nss_ipv4_create {
 
 /** Rule is for a routed connection. */
 #define NSS_IPV4_CREATE_FLAG_ROUTED 0x04
+
+/** Rule for VLAN marking */
+#define NSS_IPV4_CREATE_FLAG_DSCP_MARKING 0x08
+
+/** Rule for VLAN marking */
+#define NSS_IPV4_CREATE_FLAG_VLAN_MARKING 0x10
 
 /**
  * Structure to be used while sending an IPv4 flow/connection destroy rule.
@@ -302,6 +316,14 @@ struct nss_ipv6_create {
 	uint8_t return_pppoe_remote_mac[ETH_ALEN];	/**< Remote PPPoE peer MAC address for return */
 	uint16_t egress_vlan_tag;	/**< Egress VLAN tag expected for this flow */
 	uint32_t qos_tag;		/**< QoS tag value */
+	uint8_t dscp_itag;		/**< DSCP marking tag */
+	uint8_t dscp_imask;		/**< DSCP marking input mask */
+	uint8_t dscp_omask;		/**< DSCP marking output mask */
+	uint8_t dscp_oval;		/**< DSCP marking output val */
+	uint16_t vlan_itag;		/**< VLAN marking tag */
+	uint16_t vlan_imask;		/**< VLAN marking input mask */
+	uint16_t vlan_omask;		/**< VLAN marking output mask */
+	uint16_t vlan_oval;		/**< VLAN marking output val */
 };
 
 /**
@@ -313,6 +335,11 @@ struct nss_ipv6_create {
 					/**< Indicates that this is a pure bridge flow (no routing involved) */
 #define NSS_IPV6_CREATE_FLAG_ROUTED 0x04
 					/**< Rule is for a routed connection. */
+#define NSS_IPV6_CREATE_FLAG_DSCP_MARKING 0x08
+					/** Rule for VLAN marking */
+#define NSS_IPV6_CREATE_FLAG_VLAN_MARKING 0x10
+					/** Rule for VLAN marking */
+
 
 /**
  * Structure to be used while sending an IPv6 flow/connection destroy rule.
@@ -665,7 +692,7 @@ struct nss_shaper_config_unassign_shaper {
 
 /*
  * enum nss_shaper_node_types
- *	Types of shaper node we export to the HLOS 
+ *	Types of shaper node we export to the HLOS
  */
 enum nss_shaper_node_types {
 	NSS_SHAPER_NODE_TYPE_CODEL = 1,
@@ -920,7 +947,7 @@ enum nss_shaper_response_types {
 	NSS_SHAPER_RESPONSE_TYPE_FIFO_DROP_MODE_INVALID,		/* Fifo Drop mode is bad */
 	NSS_SHAPER_RESPONSE_TYPE_BAD_DEFAULT_CHOICE,			/* Node selected has no queue to enqueue to */
 	NSS_SHAPER_RESPONSE_TYPE_DUPLICATE_QOS_TAG,			/* Duplicate QoS Tag as another node */
-        NSS_SHAPER_RESPONSE_TYPE_TBL_CIR_RATE_AND_BURST_REQUIRED,	/* CIR rate and burst are mandatory */
+	NSS_SHAPER_RESPONSE_TYPE_TBL_CIR_RATE_AND_BURST_REQUIRED,	/* CIR rate and burst are mandatory */
 	NSS_SHAPER_RESPONSE_TYPE_TBL_CIR_BURST_LESS_THAN_MTU,		/* CIR burst size is smaller than MTU */
 	NSS_SHAPER_RESPONSE_TYPE_TBL_PIR_BURST_LESS_THAN_MTU,		/* PIR burst size is smaller than MTU */
 	NSS_SHAPER_RESPONSE_TYPE_TBL_PIR_BURST_REQUIRED,		/* PIR burst size must be provided if peakrate
@@ -1147,6 +1174,17 @@ extern void nss_unregister_ipv4_mgr(void);
 extern nss_tx_status_t nss_tx_create_ipv4_rule(void *nss_ctx, struct nss_ipv4_create *unic);
 
 /**
+ * @brief Send extended IPv4 connection setup rule
+ *
+ * @param nss_ctx NSS context
+ * @param unic Rule parameters
+ *
+ * @return nss_tx_status_t Tx status
+ */
+extern nss_tx_status_t nss_tx_create_ipv4_rule1(void *nss_ctx, struct nss_ipv4_create *unic);
+
+
+/**
  * @brief Send IPv4 connection destroy rule
  *
  * @param nss_ctx NSS context
@@ -1188,6 +1226,17 @@ extern void nss_unregister_ipv6_mgr(void);
  * @return nss_tx_status_t Tx status
  */
 extern nss_tx_status_t nss_tx_create_ipv6_rule(void *nss_ctx, struct nss_ipv6_create *unic);
+
+/**
+ * @brief Send extended IPv6 connection setup rule
+ *
+ * @param nss_ctx NSS context
+ * @param unic Rule parameters
+ *
+ * @return nss_tx_status_t Tx status
+ */
+extern nss_tx_status_t nss_tx_create_ipv6_rule1(void *nss_ctx, struct nss_ipv6_create *unic);
+
 
 /**
  * @brief Send IPv6 connection destroy rule
@@ -1698,7 +1747,7 @@ extern nss_tx_status_t nss_shaper_bounce_bridge_packet(void *ctx, uint32_t if_nu
  * @brief Send a shaping configuration message
  * @param ctx NSS context
  * @param config The config message
- * 
+ *
  * @return nss_tx_status_t Indication if the configuration message was issued.  This does not mean that the configuration message was successfully processed, that will be determined by the response issued to your given callback function as specified in the config structure.
  */
 nss_tx_status_t nss_shaper_config_send(void *ctx, struct nss_shaper_configure *config);

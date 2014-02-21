@@ -66,6 +66,7 @@
 #include "nss_api_if.h"
 #include <linux/../../net/8021q/vlan.h>
 #include <linux/if_vlan.h>
+#include <linux/../../net/offload/offload.h>
 
 /*
  * Debug output levels
@@ -170,6 +171,8 @@ typedef uint32_t ipv4_addr_t;
  */
 #define NSS_CONNMGR_IPV4_MAX_STR_LENGTH 96
 #define NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED 0xFFF
+#define NSS_CONNMGR_VLAN_MARKING_NOT_CONFIGURED 0xFFFF
+#define NSS_CONNMGR_DSCP_MARKING_NOT_CONFIGURED 0xFF
 
 /*
  * Device Type for IPSec Tunnel devices
@@ -821,6 +824,17 @@ static unsigned int nss_connmgr_ipv4_bridge_post_routing_hook(unsigned int hookn
 	 */
 	unic.ingress_vlan_tag = NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED;
 	unic.egress_vlan_tag = NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED;
+	/*
+	 * Initialize DSCP and VLAN MARKING information
+	 */
+	unic.dscp_itag =  NSS_CONNMGR_DSCP_MARKING_NOT_CONFIGURED;
+	unic.dscp_imask =  NSS_CONNMGR_DSCP_MARKING_NOT_CONFIGURED;
+	unic.dscp_omask =  NSS_CONNMGR_DSCP_MARKING_NOT_CONFIGURED;
+	unic.dscp_oval =  NSS_CONNMGR_DSCP_MARKING_NOT_CONFIGURED;
+	unic.vlan_itag =  NSS_CONNMGR_VLAN_MARKING_NOT_CONFIGURED;
+	unic.vlan_imask=  NSS_CONNMGR_VLAN_MARKING_NOT_CONFIGURED;
+	unic.vlan_omask =  NSS_CONNMGR_VLAN_MARKING_NOT_CONFIGURED;
+	unic.vlan_oval =  NSS_CONNMGR_VLAN_MARKING_NOT_CONFIGURED;
 
 	/*
 	 * Access the ingress routed interface
@@ -1151,6 +1165,28 @@ static unsigned int nss_connmgr_ipv4_bridge_post_routing_hook(unsigned int hookn
 			unic.egress_vlan_tag,
 			unic.qos_tag);
 
+	if (!offload_dscpremark_get_target_info(ct, &unic.dscp_imask, &unic.dscp_itag, &unic.dscp_omask, &unic.dscp_oval)) {
+		NSS_CONNMGR_DEBUG_INFO("DSCP remark information is not present\n");
+	}
+
+	if (!offload_vlantag_get_target_info(ct, &unic.vlan_imask, &unic.vlan_itag, &unic.vlan_omask, &unic.vlan_oval)) {
+		NSS_CONNMGR_DEBUG_INFO("VLAN tagging information is not present\n");
+	}
+
+	NSS_CONNMGR_DEBUG_INFO("unic.dscp_imask = %d\n", unic.dscp_imask);
+	NSS_CONNMGR_DEBUG_INFO("unic.dscp_itag = %d\n", unic.dscp_itag);
+	NSS_CONNMGR_DEBUG_INFO("unic.dscp_omask = %d\n", unic.dscp_omask);
+	NSS_CONNMGR_DEBUG_INFO("unic.dscp_oval = %d\n", unic.dscp_oval);
+
+	/*
+	 * Setting the appropriate flags for  DSCP and VLAN marking.
+	 * API's to set the data for remarking should be called before this.
+	 */
+	if(unic.dscp_oval != NSS_CONNMGR_DSCP_MARKING_NOT_CONFIGURED)
+		unic.flags |= NSS_IPV4_CREATE_FLAG_DSCP_MARKING;
+	if(unic.vlan_oval != NSS_CONNMGR_VLAN_MARKING_NOT_CONFIGURED)
+		unic.flags |= NSS_IPV4_CREATE_FLAG_VLAN_MARKING;
+
 	/*
 	 * Create the Network Accelerator connection cache entries
 	 *
@@ -1187,7 +1223,16 @@ static unsigned int nss_connmgr_ipv4_bridge_post_routing_hook(unsigned int hookn
 	}
 	spin_unlock_bh(&nss_connmgr_ipv4.lock);
 
-	nss_tx_status = nss_tx_create_ipv4_rule(nss_connmgr_ipv4.nss_context, &unic);
+	/*
+	 * Calling ipv4_rule1 for DSCP and VLAN marking else we use the regular
+	 * ipv4_rule
+	 */
+	if(unic.dscp_oval == NSS_CONNMGR_DSCP_MARKING_NOT_CONFIGURED &&
+		unic.vlan_oval == NSS_CONNMGR_VLAN_MARKING_NOT_CONFIGURED) {
+		nss_tx_status = nss_tx_create_ipv4_rule(nss_connmgr_ipv4.nss_context, &unic);
+	} else {
+		nss_tx_status = nss_tx_create_ipv4_rule1(nss_connmgr_ipv4.nss_context, &unic);
+	}
 
 	if (nss_tx_status == NSS_TX_SUCCESS) {
 		goto out;
@@ -1782,6 +1827,17 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 	 */
 	unic.ingress_vlan_tag = NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED;
 	unic.egress_vlan_tag = NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED;
+	/*
+	 * Initialize DSCP and VLAN MARKING information
+	 */
+	unic.dscp_itag =  NSS_CONNMGR_DSCP_MARKING_NOT_CONFIGURED;
+	unic.dscp_imask =  NSS_CONNMGR_DSCP_MARKING_NOT_CONFIGURED;
+	unic.dscp_omask =  NSS_CONNMGR_DSCP_MARKING_NOT_CONFIGURED;
+	unic.dscp_oval =  NSS_CONNMGR_DSCP_MARKING_NOT_CONFIGURED;
+	unic.vlan_itag =  NSS_CONNMGR_VLAN_MARKING_NOT_CONFIGURED;
+	unic.vlan_imask=  NSS_CONNMGR_VLAN_MARKING_NOT_CONFIGURED;
+	unic.vlan_omask =  NSS_CONNMGR_VLAN_MARKING_NOT_CONFIGURED;
+	unic.vlan_oval =  NSS_CONNMGR_VLAN_MARKING_NOT_CONFIGURED;
 
 	/*
 	 * Get MAC addresses
@@ -2129,6 +2185,23 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 			unic.return_pppoe_session_id,
 			unic.qos_tag);
 
+	if (!offload_dscpremark_get_target_info(ct, &unic.dscp_imask, &unic.dscp_itag, &unic.dscp_omask, &unic.dscp_oval)) {
+		NSS_CONNMGR_DEBUG_INFO("DSCP remark information is not present\n");
+	}
+
+	if (!offload_vlantag_get_target_info(ct, &unic.vlan_imask, &unic.vlan_itag, &unic.vlan_omask, &unic.vlan_oval)) {
+		NSS_CONNMGR_DEBUG_INFO("VLAN tagging information is not present\n");
+	}
+
+	/*
+	 * Setting the appropriate flags dfoe DSCP and VLAN marking.
+	 * API's to set the data for remarking should be called before this.
+	 */
+	if(unic.dscp_oval != NSS_CONNMGR_DSCP_MARKING_NOT_CONFIGURED)
+		unic.flags |= NSS_IPV4_CREATE_FLAG_DSCP_MARKING;
+	if(unic.vlan_oval != NSS_CONNMGR_VLAN_MARKING_NOT_CONFIGURED)
+		unic.flags |= NSS_IPV4_CREATE_FLAG_VLAN_MARKING;
+
 	/*
 	 * If operations have stopped then do not proceed further
 	 */
@@ -2140,7 +2213,16 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 	}
 	spin_unlock_bh(&nss_connmgr_ipv4.lock);
 
-	nss_tx_status = nss_tx_create_ipv4_rule(nss_connmgr_ipv4.nss_context, &unic);
+	/*
+	 * Calling ipv4_rule1 for DSCP and VLAN marking else we use the regular
+	 * ipv4_rule
+	 */
+	if(unic.dscp_oval == NSS_CONNMGR_DSCP_MARKING_NOT_CONFIGURED &&
+		unic.vlan_oval == NSS_CONNMGR_VLAN_MARKING_NOT_CONFIGURED) {
+		nss_tx_status = nss_tx_create_ipv4_rule(nss_connmgr_ipv4.nss_context, &unic);
+	} else {
+		nss_tx_status = nss_tx_create_ipv4_rule1(nss_connmgr_ipv4.nss_context, &unic);
+	}
 
 	if (nss_tx_status == NSS_TX_SUCCESS) {
 		goto out;
