@@ -217,7 +217,6 @@ struct nss_n2h_stats_sync {
 	uint32_t iterations;		/* Number of iterations around the PE */
 	uint32_t pbuf_alloc_fails;	/* Number of pbuf allocations that have failed */
 	uint32_t payload_alloc_fails;
-					/* Number of payload allocations that have failed */
 };
 
 /*

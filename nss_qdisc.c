@@ -678,7 +678,6 @@ static void nssqdisc_root_init_root_assign_callback(void *app_data,
 
 	nssqdisc_info("%s: Qdisc %p (type %d): set as root is done. Response - %d"
 			, __func__, nq->qdisc, nq->type, nim->msg.shaper_configure.config.response_type);
-
 	atomic_set(&nq->state, NSSQDISC_STATE_READY);
 }
 
@@ -1305,15 +1304,6 @@ static int nssqdisc_node_attach(struct nssqdisc_qdisc *nq,
 				nssqdisc_node_attach_callback, nq);
 	nim->msg.shaper_configure.config.request_type = attach_type;
 	rc = nss_if_tx_msg(nq->nss_shaping_ctx, nim);
-
-	/*
-	 * Send the message to the right type of interface
-	 */
-	if (nq->is_virtual) {
-		nim->cm.len = sizeof(struct nss_virt_if_msg);
-		rc = nss_virt_if_tx_msg((struct nss_virt_if_msg *)nim);
-	} else {
-	}
 
 	if (rc != NSS_TX_SUCCESS) {
 		nssqdisc_warning("%s: Failed to send configure message for "
@@ -1956,6 +1946,21 @@ static void nssqdisc_basic_stats_callback(void *app_data,
 	 * Record latest basic stats
 	 */
 	nq->basic_stats_latest = nim->msg.shaper_configure.config.msg.shaper_node_basic_stats_get;
+
+	/*
+	 * Get the right stats pointers based on whether it is a class
+	 * or a qdisc.
+	 */
+	if (nq->is_class) {
+		bstats = &nq->bstats;
+		qstats = &nq->qstats;
+		refcnt = &nq->refcnt;
+	} else {
+		bstats = &qdisc->bstats;
+		qstats = &qdisc->qstats;
+		refcnt = &qdisc->refcnt;
+		qdisc->q.qlen = nq->basic_stats_latest.qlen_packets;
+	}
 
 	/*
 	 * Get the right stats pointers based on whether it is a class

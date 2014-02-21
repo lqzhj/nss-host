@@ -957,6 +957,23 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	uint32_t frag0phyaddr = 0;
 
 	nr_frags = skb_shinfo(nbuf)->nr_frags;
+
+	/*
+	 * Temporary fix to get past the LSO issues in
+	 * NSS. TODO: Fix LSO and remove this segment.
+	 */
+	if (nr_frags != 0) {
+		struct sk_buff *old_skb = nbuf;
+
+		nss_info("Remove ME!! - Performing skb_copy packets\n");
+		nbuf = skb_copy(nbuf, GFP_KERNEL);
+		if (!nbuf) {
+			return NSS_CORE_STATUS_FAILURE_QUEUE;
+		}
+		dev_kfree_skb_any(old_skb);
+		nr_frags = 0;
+	}
+
 	BUG_ON(nr_frags > MAX_SKB_FRAGS);
 
 	desc_ring = desc_if->desc;
