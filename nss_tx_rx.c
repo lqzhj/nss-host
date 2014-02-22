@@ -1493,6 +1493,127 @@ nss_tx_status_t nss_tx_create_ipv4_rule(void *ctx, struct nss_ipv4_create *unic)
 }
 
 /*
+ * nss_tx_create_ipv4_rule1()
+ *	Create a nss entry to accelerate the given connection
+ */
+nss_tx_status_t nss_tx_create_ipv4_rule1(void *ctx, struct nss_ipv4_create *unic)
+{
+	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) ctx;
+	struct sk_buff *nbuf;
+	int32_t status;
+	struct nss_tx_metadata_object1 *ntmo;
+	struct nss_ipv4_rule_create1 *nirc;
+
+	nss_info("%p: Create IPv4: %pI4:%d (%pI4:%d), %pI4:%d (%pI4:%d), p: %d\n", nss_ctx,
+		&unic->src_ip, unic->src_port, &unic->src_ip_xlate, unic->src_port_xlate,
+		&unic->dest_ip, unic->dest_port, &unic->dest_ip_xlate, unic->dest_port_xlate, unic->protocol);
+
+	NSS_VERIFY_CTX_MAGIC(nss_ctx);
+	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
+		nss_warning("%p: 'Create IPv4' rule dropped as core not ready", nss_ctx);
+		return NSS_TX_FAILURE_NOT_READY;
+	}
+
+	nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
+	if (unlikely(!nbuf)) {
+		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
+		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
+		spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
+		nss_warning("%p: 'Create IPv4' rule dropped as command allocation failed", nss_ctx);
+		return NSS_TX_FAILURE;
+	}
+
+	ntmo = (struct nss_tx_metadata_object1 *)skb_put(nbuf, sizeof(struct nss_tx_metadata_object1));
+	ntmo->type = NSS_TX_METADATA_TYPE_IPV4_RULE_CREATE1;
+
+	nirc = &ntmo->sub.ipv4_rule_create;
+	nirc->protocol = (uint8_t)unic->protocol;
+	nirc->qos_tag = unic->qos_tag;
+
+	nirc->flow_pppoe_session_id = unic->flow_pppoe_session_id;
+	memcpy(nirc->flow_pppoe_remote_mac, unic->flow_pppoe_remote_mac, ETH_ALEN);
+	nirc->flow_interface_num = unic->src_interface_num;
+	nirc->flow_ip = unic->src_ip;
+	nirc->flow_ip_xlate = unic->src_ip_xlate;
+	nirc->flow_ident = (uint32_t)unic->src_port;
+	nirc->flow_ident_xlate = (uint32_t)unic->src_port_xlate;
+	nirc->flow_window_scale = unic->flow_window_scale;
+	nirc->flow_max_window = unic->flow_max_window;
+	nirc->flow_end = unic->flow_end;
+	nirc->flow_max_end = unic->flow_max_end;
+	nirc->flow_mtu = unic->from_mtu;
+	memcpy(nirc->flow_mac, unic->src_mac, 6);
+	nirc->ingress_vlan_tag = unic->ingress_vlan_tag;
+
+	nirc->return_pppoe_session_id = unic->return_pppoe_session_id;
+	memcpy(nirc->return_pppoe_remote_mac, unic->return_pppoe_remote_mac, ETH_ALEN);
+	nirc->return_interface_num = unic->dest_interface_num;
+	nirc->return_ip = unic->dest_ip;
+	nirc->return_ip_xlate = unic->dest_ip_xlate;
+	nirc->return_ident = (uint32_t)unic->dest_port;
+	nirc->return_ident_xlate = (uint32_t)unic->dest_port_xlate;
+	nirc->return_window_scale = unic->return_window_scale;
+	nirc->return_max_window = unic->return_max_window;
+	nirc->return_end = unic->return_end;
+	nirc->return_max_end = unic->return_max_end;
+	nirc->return_mtu = unic->to_mtu;
+	if (nirc->return_ip != nirc->return_ip_xlate || nirc->return_ident != nirc->return_ident_xlate) {
+		memcpy(nirc->return_mac, unic->dest_mac_xlate, 6);
+	} else {
+		memcpy(nirc->return_mac, unic->dest_mac, 6);
+	}
+
+	nirc->egress_vlan_tag = unic->egress_vlan_tag;
+
+	nirc->flags = 0;
+	if (unic->flags & NSS_IPV4_CREATE_FLAG_NO_SEQ_CHECK) {
+		nirc->flags |= NSS_IPV4_RULE_CREATE_FLAG_NO_SEQ_CHECK;
+	}
+
+	if (unic->flags & NSS_IPV4_CREATE_FLAG_BRIDGE_FLOW) {
+		nirc->flags |= NSS_IPV4_RULE_CREATE_FLAG_BRIDGE_FLOW;
+	}
+
+	if (unic->flags & NSS_IPV4_CREATE_FLAG_ROUTED) {
+		nirc->flags |= NSS_IPV4_RULE_CREATE_FLAG_ROUTED;
+	}
+
+	if (unic->flags & NSS_IPV4_CREATE_FLAG_DSCP_MARKING) {
+		nirc->flags |= NSS_IPV4_RULE_CREATE_FLAG_DSCP_MARKING;
+	}
+
+	if (unic->flags & NSS_IPV4_CREATE_FLAG_VLAN_MARKING) {
+		nirc->flags |= NSS_IPV4_RULE_CREATE_FLAG_VLAN_MARKING;
+	}
+
+	/*
+	 * Initialize DSCP and VLAN marking data
+	 */
+	nirc->dscp_itag = unic->dscp_itag ;
+	nirc->dscp_imask = unic->dscp_imask;
+	nirc->dscp_omask = unic->dscp_omask ;
+	nirc->dscp_oval = unic->dscp_oval ;
+	nirc->vlan_imask = unic->vlan_imask;
+	nirc->vlan_itag = unic->vlan_itag;
+	nirc->vlan_omask = unic->vlan_omask ;
+	nirc->vlan_oval = unic->vlan_oval ;
+
+	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
+	if (status != NSS_CORE_STATUS_SUCCESS) {
+		dev_kfree_skb_any(nbuf);
+		nss_warning("%p: Unable to enqueue 'Create IPv4' rule\n", nss_ctx);
+		return NSS_TX_FAILURE;
+	}
+
+	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
+								NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
+
+	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_CMD_REQ]);
+	return NSS_TX_SUCCESS;
+}
+
+
+/*
  * nss_tx_destroy_ipv4_rule()
  *	Destroy the given connection in the NSS
  */
@@ -1628,6 +1749,124 @@ nss_tx_status_t nss_tx_create_ipv6_rule(void *ctx, struct nss_ipv6_create *unic)
 	if (unic->flags & NSS_IPV6_CREATE_FLAG_ROUTED) {
 		nirc->flags |= NSS_IPV6_RULE_CREATE_FLAG_ROUTED;
 	}
+
+	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
+	if (status != NSS_CORE_STATUS_SUCCESS) {
+		dev_kfree_skb_any(nbuf);
+		nss_warning("%p: Unable to enqueue 'Create IPv6' rule\n", nss_ctx);
+		return NSS_TX_FAILURE;
+	}
+
+	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
+								NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
+
+	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_CMD_REQ]);
+	return NSS_TX_SUCCESS;
+}
+
+/*
+ * nss_tx_create_ipv6_rule1()
+ *	Create a NSS entry to accelerate the given connection
+ *  This function has been just added to serve the puropose of backward compatibility
+ */
+nss_tx_status_t nss_tx_create_ipv6_rule1(void *ctx, struct nss_ipv6_create *unic)
+{
+	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) ctx;
+	struct sk_buff *nbuf;
+	int32_t status;
+	struct nss_tx_metadata_object1 *ntmo;
+	struct nss_ipv6_rule_create1 *nirc;
+
+	nss_info("%p: Create IPv6: %pI6:%d, %pI6:%d, p: %d\n", nss_ctx,
+		unic->src_ip, unic->src_port, unic->dest_ip, unic->dest_port, unic->protocol);
+
+	NSS_VERIFY_CTX_MAGIC(nss_ctx);
+	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
+		nss_warning("%p: 'Create IPv6' rule dropped as core not ready", nss_ctx);
+		return NSS_TX_FAILURE_NOT_READY;
+	}
+
+	nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
+	if (unlikely(!nbuf)) {
+		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
+		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
+		spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
+		nss_warning("%p: 'Create IPv6' rule dropped as command allocation failed", nss_ctx);
+		return NSS_TX_FAILURE;
+	}
+
+	ntmo = (struct nss_tx_metadata_object1 *)skb_put(nbuf, sizeof(struct nss_tx_metadata_object1));
+	ntmo->type = NSS_TX_METADATA_TYPE_IPV6_RULE_CREATE1;
+
+	nirc = &ntmo->sub.ipv6_rule_create;
+	nirc->protocol = (uint8_t)unic->protocol;
+	nirc->qos_tag = unic->qos_tag;
+
+	nirc->flow_pppoe_session_id = unic->flow_pppoe_session_id;
+	memcpy(nirc->flow_pppoe_remote_mac, unic->flow_pppoe_remote_mac, ETH_ALEN);
+	nirc->flow_interface_num = unic->src_interface_num;
+	nirc->flow_ip[0] = unic->src_ip[0];
+	nirc->flow_ip[1] = unic->src_ip[1];
+	nirc->flow_ip[2] = unic->src_ip[2];
+	nirc->flow_ip[3] = unic->src_ip[3];
+	nirc->flow_ident = (uint32_t)unic->src_port;
+	nirc->flow_window_scale = unic->flow_window_scale;
+	nirc->flow_max_window = unic->flow_max_window;
+	nirc->flow_end = unic->flow_end;
+	nirc->flow_max_end = unic->flow_max_end;
+	nirc->flow_mtu = unic->from_mtu;
+	memcpy(nirc->flow_mac, unic->src_mac, 6);
+	nirc->ingress_vlan_tag = unic->ingress_vlan_tag;
+
+	nirc->return_pppoe_session_id = unic->return_pppoe_session_id;
+	memcpy(nirc->return_pppoe_remote_mac, unic->return_pppoe_remote_mac, ETH_ALEN);
+	nirc->return_interface_num = unic->dest_interface_num;
+	nirc->return_ip[0] = unic->dest_ip[0];
+	nirc->return_ip[1] = unic->dest_ip[1];
+	nirc->return_ip[2] = unic->dest_ip[2];
+	nirc->return_ip[3] = unic->dest_ip[3];
+	nirc->return_ident = (uint32_t)unic->dest_port;
+	nirc->return_window_scale = unic->return_window_scale;
+	nirc->return_max_window = unic->return_max_window;
+	nirc->return_end = unic->return_end;
+	nirc->return_max_end = unic->return_max_end;
+	nirc->return_mtu = unic->to_mtu;
+	memcpy(nirc->return_mac, unic->dest_mac, 6);
+
+	nirc->egress_vlan_tag = unic->egress_vlan_tag;
+
+	nirc->flags = 0;
+	if (unic->flags & NSS_IPV6_CREATE_FLAG_NO_SEQ_CHECK) {
+		nirc->flags |= NSS_IPV6_RULE_CREATE_FLAG_NO_SEQ_CHECK;
+	}
+
+	if (unic->flags & NSS_IPV6_CREATE_FLAG_BRIDGE_FLOW) {
+		nirc->flags |= NSS_IPV6_RULE_CREATE_FLAG_BRIDGE_FLOW;
+	}
+
+	if (unic->flags & NSS_IPV6_CREATE_FLAG_ROUTED) {
+		nirc->flags |= NSS_IPV6_RULE_CREATE_FLAG_ROUTED;
+	}
+
+	if (unic->flags & NSS_IPV4_CREATE_FLAG_DSCP_MARKING) {
+		nirc->flags |= NSS_IPV4_RULE_CREATE_FLAG_DSCP_MARKING;
+	}
+
+	if (unic->flags & NSS_IPV4_CREATE_FLAG_VLAN_MARKING) {
+		nirc->flags |= NSS_IPV4_RULE_CREATE_FLAG_VLAN_MARKING;
+	}
+
+	/*
+	 * Initialize DSCP and VLAN marking data
+	 */
+	nirc->dscp_itag = unic->dscp_itag ;
+	nirc->dscp_imask = unic->dscp_imask;
+	nirc->dscp_omask = unic->dscp_omask ;
+	nirc->dscp_oval = unic->dscp_oval ;
+	nirc->vlan_imask = unic->vlan_imask;
+	nirc->vlan_itag = unic->vlan_itag;
+	nirc->vlan_omask = unic->vlan_omask ;
+	nirc->vlan_oval = unic->vlan_oval ;
 
 	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
 	if (status != NSS_CORE_STATUS_SUCCESS) {
@@ -3519,11 +3758,13 @@ EXPORT_SYMBOL(nss_unregister_queue_decongestion);
 EXPORT_SYMBOL(nss_register_ipv4_mgr);
 EXPORT_SYMBOL(nss_unregister_ipv4_mgr);
 EXPORT_SYMBOL(nss_tx_create_ipv4_rule);
+EXPORT_SYMBOL(nss_tx_create_ipv4_rule1);
 EXPORT_SYMBOL(nss_tx_destroy_ipv4_rule);
 
 EXPORT_SYMBOL(nss_register_ipv6_mgr);
 EXPORT_SYMBOL(nss_unregister_ipv6_mgr);
 EXPORT_SYMBOL(nss_tx_create_ipv6_rule);
+EXPORT_SYMBOL(nss_tx_create_ipv6_rule1);
 EXPORT_SYMBOL(nss_tx_destroy_ipv6_rule);
 
 EXPORT_SYMBOL(nss_register_crypto_if);
