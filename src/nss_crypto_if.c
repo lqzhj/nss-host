@@ -368,8 +368,12 @@ nss_crypto_status_t nss_crypto_transform_payload(nss_crypto_handle_t crypto, str
 	paddr = dma_map_single(NULL, buf, sizeof(struct nss_crypto_buf), DMA_TO_DEVICE);
 
 	nss_status = nss_tx_crypto_if_buf(nss_drv_hdl, buf, paddr, sizeof(struct nss_crypto_buf));
+	if (nss_status != NSS_TX_SUCCESS) {
+		nss_crypto_dbg("Not able to send crypto buf to NSS\n");
+		return NSS_CRYPTO_STATUS_FAIL;
+	}
 
-	return (nss_status == NSS_TX_FAILURE) ? NSS_CRYPTO_STATUS_FAIL : NSS_CRYPTO_STATUS_OK;
+	return NSS_CRYPTO_STATUS_OK;
 }
 EXPORT_SYMBOL(nss_crypto_transform_payload);
 
