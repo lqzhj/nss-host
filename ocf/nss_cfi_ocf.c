@@ -362,7 +362,7 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 	 */
 	buf = nss_crypto_buf_alloc(sc->crypto);
 	if (buf == NULL) {
-		nss_cfi_err("not able to allocate crypto buffer\n");
+		nss_cfi_dbg("not able to allocate crypto buffer\n");
 		crp->crp_etype = ENOENT;
 		crypto_done(crp);
 
@@ -426,7 +426,7 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 	 *  Send the buffer to CORE layer for processing
 	 */
 	if (nss_crypto_transform_payload(sc->crypto, buf) !=  NSS_CRYPTO_STATUS_OK) {
-		nss_cfi_err("Not enough resources with driver\n");
+		nss_cfi_dbg("Not enough resources with driver\n");
 		nss_crypto_buf_free(sc->crypto, buf);
 
 		crp->crp_etype = ENOENT;
