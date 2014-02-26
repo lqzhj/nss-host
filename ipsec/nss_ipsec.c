@@ -75,7 +75,6 @@ static struct nss_ipsec_stats_param param;
  */
 struct nss_ipsec_skb_cb {
 	struct net_device *ipsec_dev;
-	struct net_device *eth_dev;
 };
 
 /*
@@ -105,18 +104,6 @@ static inline struct net_device * nss_ipsec_get_ipsec_dev(struct sk_buff *skb)
 {
 	struct net_device *dev;
 	dev = (((struct nss_ipsec_skb_cb *)skb->cb)->ipsec_dev);
-
-	return dev;
-}
-
-/*
- * nss_ipsec_get_eth_dev()
- * 	get eth netdevice from skb. Openswan stack fills up eth_dev in skb.
- */
-static inline struct net_device * nss_ipsec_get_eth_dev(struct sk_buff *skb)
-{
-	struct net_device *dev;
-	dev = (((struct nss_ipsec_skb_cb *)skb->cb)->eth_dev);
 
 	return dev;
 }
@@ -528,10 +515,14 @@ static int32_t nss_ipsec_trap_encap(struct sk_buff *skb, uint32_t crypto_sid)
 	struct net_device *ipsec_dev;
 	uint32_t op;
 
+	ipsec_dev = nss_ipsec_get_ipsec_dev(skb);
+	if (ipsec_dev == NULL) {
+		nss_cfi_dbg("ipsec_dev is NULL , returning\n");
+		return -1;
+	}
+
 	tun = (struct nss_ipsec_ipv4_hdr *)skb->data;
 	ip = (struct nss_ipsec_ipv4_hdr *)(skb->data + NSS_IPSEC_IPHDR_SZ + NSS_IPSEC_ESPHDR_SZ);
-
-	ipsec_dev = nss_ipsec_get_ipsec_dev(skb);
 
 	memset(&rule, 0, sizeof(struct nss_ipsec_rule));
 	push = &rule.type.push;
@@ -575,10 +566,14 @@ static int32_t nss_ipsec_trap_decap(struct sk_buff *skb, uint32_t crypto_sid)
 	struct net_device *ipsec_dev;
 	uint32_t op;
 
+	ipsec_dev = nss_ipsec_get_ipsec_dev(skb);
+	if (ipsec_dev == NULL) {
+		nss_cfi_dbg("ipsec_dev is NULL , so returning\n");
+		return -1;
+	};
+
 	tun = (struct nss_ipsec_ipv4_hdr *)skb_network_header(skb);
 	ip = (struct nss_ipsec_ipv4_hdr *)(skb->data + NSS_IPSEC_ESPHDR_SZ);
-
-	ipsec_dev = nss_ipsec_get_ipsec_dev(skb);
 
 	memset(&rule, 0, sizeof(struct nss_ipsec_rule));
 
