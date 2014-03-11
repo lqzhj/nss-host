@@ -575,6 +575,7 @@ static unsigned int nss_connmgr_ipv4_bridge_post_routing_hook(unsigned int hookn
 	struct net_device *dest_slave = NULL;
 	struct net_device *src_slave = NULL;
 	nss_tx_status_t	nss_tx_status;
+	ipv4_addr_t src_ipaddr;
 
 	/*
 	 * Variables needed for PPPoE WAN mode.
@@ -864,9 +865,18 @@ static unsigned int nss_connmgr_ipv4_bridge_post_routing_hook(unsigned int hookn
 	unic.vlan_oval =  NSS_CONNMGR_VLAN_MARKING_NOT_CONFIGURED;
 
 	/*
+	 * Access the original source IP address before any NAT translation
+	 */
+	if (ctinfo < IP_CT_IS_REPLY) {
+		src_ipaddr = (ipv4_addr_t)orig_tuple.src.u3.ip;
+	} else {
+		src_ipaddr = (ipv4_addr_t)reply_tuple.src.u3.ip;
+	}
+
+	/*
 	 * Access the ingress routed interface
 	 */
-	rt_dev = nss_connmgr_get_dev_from_ip_address(ip_hdr(skb)->saddr);
+	rt_dev = nss_connmgr_get_dev_from_ip_address(src_ipaddr);
 
 	/*
 	 * Is this pure bridge flow with no Layer-3 routing involved in the path?
@@ -1496,6 +1506,7 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 	struct nf_conntrack_tuple orig_tuple;
 	struct nf_conntrack_tuple reply_tuple;
 	struct iphdr *iph;
+	ipv4_addr_t src_ipaddr;
 
 	nss_tx_status_t nss_tx_status;
 
@@ -1816,17 +1827,20 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 	unic.vlan_oval =  NSS_CONNMGR_VLAN_MARKING_NOT_CONFIGURED;
 
 	/*
-	 * Get MAC addresses
+	 * Set the source and destination interfaces, and the original source
+	 * IP address before any NAT translation.
 	 * NOTE: We are dealing with the ORIGINAL direction here so 'in' and 'out' dev may need
 	 * to be swapped if this packet is a reply
 	 */
 	if (ctinfo < IP_CT_IS_REPLY) {
 		src_dev = in;
 		dest_dev = new_out;
+		src_ipaddr = (ipv4_addr_t)orig_tuple.src.u3.ip;
 		NSS_CONNMGR_DEBUG_TRACE("%p: dir: Original\n", ct);
 	} else {
 		src_dev = new_out;
 		dest_dev = in;
+		src_ipaddr = (ipv4_addr_t)reply_tuple.src.u3.ip;
 		NSS_CONNMGR_DEBUG_TRACE("%p: dir: Reply\n", ct);
 
 		/*
@@ -1896,7 +1910,7 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 	/*
 	 * Access the ingress routed interface
 	 */
-	rt_dev = nss_connmgr_get_dev_from_ip_address(ip_hdr(skb)->saddr);
+	rt_dev = nss_connmgr_get_dev_from_ip_address(src_ipaddr);
 	if (!rt_dev) {
 		/*
 		 * This should not happen
