@@ -133,6 +133,42 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 
 	nss_info("%p: NSS_DEV_ID %s \n", nss_ctx, dev_name(&nss_dev->dev));
 
+        /*
+	 * F/W load from NSS Driver
+	 */
+	if (nss_dev->id == 0) {
+		rc = request_firmware(&nss_fw, NETAP0_IMAGE, &(nss_dev->dev));
+	} else if (nss_dev->id == 1) {
+		rc = request_firmware(&nss_fw, NETAP1_IMAGE, &(nss_dev->dev));
+	} else {
+		nss_warning("%p: Invalid nss context \n", nss_ctx);
+	}
+
+	/*
+	 *  Check if the file read is successful
+	 */
+	if (rc) {
+		nss_warning("%p: request_firmware failed with err code: %d", nss_ctx, rc);
+		err = rc;
+		goto err_init_0;
+	} else {
+		if (nss_fw->size < MIN_IMG_SIZE) {
+			nss_warning("%p: nss firmware is deprecated, size:%d", nss_ctx, nss_fw->size);
+		}
+		load_mem = ioremap_nocache(npd->load_addr, nss_fw->size);
+
+		if (load_mem == NULL) {
+			nss_warning("%p: ioremap_nocache failed: %x", nss_ctx, npd->load_addr);
+			release_firmware(nss_fw);
+			goto err_init_0;
+		} else {
+			memcpy_toio(load_mem, nss_fw->data, nss_fw->size);
+			release_firmware(nss_fw);
+			iounmap(load_mem);
+			printk("nss_driver - fw of size %d  bytes copied to load addr: %x", nss_fw->size, npd->load_addr);
+		}
+	}
+
 	/*
 	 * F/W load from NSS Driver
 	 */
