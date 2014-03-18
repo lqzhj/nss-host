@@ -15,7 +15,7 @@
  */
 
 /*
- * na_core.c
+ * nss_core.c
  *	NSS driver core APIs source file.
  */
 
@@ -24,6 +24,102 @@
 #include <nss_hal.h>
 #include <net/dst.h>
 #include <linux/etherdevice.h>
+#include "nss_tx_rx_common.h"
+
+/*
+ * local structure declarations
+ */
+
+/*
+ * NSS Rx per interface callback structure
+ */
+struct nss_rx_cb_list {
+	nss_core_rx_callback_t cb;
+	void *app_data;
+};
+
+struct nss_rx_cb_list nss_rx_interface_handlers[NSS_MAX_NET_INTERFACES];
+
+/*
+ * nss_core_register_handler()
+ *	Register a callback per interface code. Only one per interface.
+ */
+uint32_t nss_core_register_handler(uint32_t interface, nss_core_rx_callback_t cb, void *app_data)
+{
+	nss_assert(cb != NULL, "Interface %d has attempted to register a NULL CB handler", interface);
+
+	/*
+	 * Validate interface id
+	 */
+	if (interface > NSS_MAX_NET_INTERFACES) {
+		printk("Error - Interface %d not Supported\n", interface);
+		return NSS_CORE_STATUS_FAILURE;
+	}
+
+	/*
+	 * Check if already registered
+	 */
+	if (nss_rx_interface_handlers[interface].cb != NULL) {
+		printk("Error - Duplicate Interface CB Registered for interface %d\n", interface);
+		return NSS_CORE_STATUS_FAILURE;
+	}
+
+	nss_rx_interface_handlers[interface].cb = cb;
+	nss_rx_interface_handlers[interface].app_data = app_data;
+
+	return NSS_CORE_STATUS_SUCCESS;
+}
+
+/*
+ * nss_core_handle_nss_status_pkt()
+ *	Handle the metadata/status packet.
+ */
+void nss_core_handle_nss_status_pkt(struct nss_ctx_instance *nss_ctx, struct sk_buff *nbuf)
+{
+	struct nss_cmn_msg *ncm;
+	uint32_t expected_version = NSS_HLOS_MESSAGE_VERSION;
+	nss_core_rx_callback_t cb;
+	void *app_data;
+
+	ncm = (struct nss_cmn_msg *)nbuf->data;
+
+	/*
+	 * Check for version number
+	 */
+	if (ncm->version != expected_version) {
+		nss_warning("%p: Message %d for interface %d received with invalid version %d, expected version %d",
+							nss_ctx, ncm->request, ncm->interface, ncm->version, expected_version);
+		return;
+	}
+
+	/*
+	 * Validate message size
+	 */
+	if (ncm->len > nbuf->len) {
+		nss_warning("%p: Message %d for interface %d received with invalid length %d, expected length %d",
+							nss_ctx, ncm->request, ncm->interface, nbuf->len, ncm->len);
+		return;
+	}
+
+	/*
+	 * Check for validity of interface number
+	 */
+	if (ncm->interface > NSS_MAX_NET_INTERFACES) {
+		nss_warning("%p: Message %d received with invalid interface number %d", nss_ctx, ncm->request, ncm->interface);
+		return;
+	}
+
+	cb = nss_rx_interface_handlers[ncm->interface].cb;
+	app_data = nss_rx_interface_handlers[ncm->interface].app_data;
+
+	if (!cb) {
+		nss_warning("%p: Callback not registered for interface %d", nss_ctx, ncm->interface);
+		return;
+	}
+
+	cb(nss_ctx, ncm, app_data);
+	return;
+}
 
 /*
  * nss_send_c2c_map()
@@ -33,7 +129,7 @@ static int32_t nss_send_c2c_map(struct nss_ctx_instance *nss_own, struct nss_ctx
 {
 	struct sk_buff *nbuf;
 	int32_t status;
-	struct nss_tx_metadata_object *ntmo;
+	struct nss_c2c_msg *ncm;
 	struct nss_c2c_tx_map *nctm;
 
 	nss_info("%p: C2C map:%x\n", nss_own, nss_other->c2c_start);
@@ -49,10 +145,14 @@ static int32_t nss_send_c2c_map(struct nss_ctx_instance *nss_own, struct nss_ctx
 		return NSS_CORE_STATUS_FAILURE;
 	}
 
-	ntmo = (struct nss_tx_metadata_object *)skb_put(nbuf, sizeof(struct nss_tx_metadata_object));
-	ntmo->type = NSS_TX_METADATA_TYPE_C2C_TX_MAP;
+	ncm = (struct nss_c2c_msg *)skb_put(nbuf, sizeof(struct nss_c2c_msg));
+	ncm->cm.interface = NSS_C2C_TX_INTERFACE;
+	ncm->cm.version = NSS_HLOS_MESSAGE_VERSION;
+	ncm->cm.request = NSS_TX_METADATA_TYPE_C2C_TX_MAP;
+	ncm->cm.len = sizeof(struct nss_c2c_msg);
 
-	nctm = &ntmo->sub.c2c_tx_map;
+	ncm->type = NSS_TX_METADATA_TYPE_C2C_TX_MAP;
+	nctm = &ncm->msg.tx_map;
 	nctm->c2c_start = nss_other->c2c_start;
 	nctm->c2c_int_addr = (uint32_t)(nss_other->nphys) + NSS_REGS_C2C_INTR_SET_OFFSET;
 
@@ -412,7 +512,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 
 			case N2H_BUFFER_STATUS:
 				NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_STATUS]);
-				nss_rx_handle_status_pkt(nss_ctx, nbuf);
+				nss_core_handle_nss_status_pkt(nss_ctx, nbuf);
 				dev_kfree_skb_any(nbuf);
 				break;
 

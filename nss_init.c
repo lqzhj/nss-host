@@ -21,6 +21,7 @@
  */
 #include "nss_core.h"
 #include "nss_pm.h"
+#include "nss_tx_rx_common.h"
 
 #include <nss_hal.h>
 #include <nss_clocks.h>
@@ -286,18 +287,24 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 
 	if (npd->ipv4_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->ipv4_handler_id = nss_dev->id;
+		nss_ipv4_register_handler();
+		nss_pppoe_register_handler();
+		nss_offload_stats_register_handler();
 	}
 
 	if (npd->ipv6_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->ipv6_handler_id = nss_dev->id;
+		nss_ipv6_register_handler();
 	}
 
 	if (npd->crypto_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->crypto_handler_id = nss_dev->id;
+		nss_crypto_register_handler();
 	}
 
 	if (npd->ipsec_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->ipsec_handler_id = nss_dev->id;
+		nss_ipsec_register_handler();
 	}
 
 	if (npd->wlan_enabled == NSS_FEATURE_ENABLED) {
@@ -306,26 +313,32 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 
 	if (npd->tun6rd_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->tun6rd_handler_id = nss_dev->id;
+		nss_tun6rd_register_handler();
 	}
 
 	if (npd->tunipip6_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->tunipip6_handler_id = nss_dev->id;
+		nss_tunipip6_register_handler();
 	}
 
 	if (npd->gmac_enabled[0] == NSS_FEATURE_ENABLED) {
 		nss_top->phys_if_handler_id[0] = nss_dev->id;
+		nss_phys_if_register_handler(0);
 	}
 
 	if (npd->gmac_enabled[1] == NSS_FEATURE_ENABLED) {
 		nss_top->phys_if_handler_id[1] = nss_dev->id;
+		nss_phys_if_register_handler(1);
 	}
 
 	if (npd->gmac_enabled[2] == NSS_FEATURE_ENABLED) {
 		nss_top->phys_if_handler_id[2] = nss_dev->id;
+		nss_phys_if_register_handler(2);
 	}
 
 	if (npd->gmac_enabled[3] == NSS_FEATURE_ENABLED) {
 		nss_top->phys_if_handler_id[3] = nss_dev->id;
+		nss_phys_if_register_handler(3);
 	}
 
 	nss_top->frequency_handler_id = nss_dev->id;
