@@ -70,5 +70,6 @@ extern void nss_phys_if_register_handler(uint32_t if_num);
 extern void nss_tun6rd_register_handler(void);
 extern void nss_tunipip6_register_handler(void);
 extern void nss_pppoe_register_handler(void);
+extern void nss_core_freq_register_handler(void);
 
 #endif /* __NSS_TX_RX_COMMON_H */

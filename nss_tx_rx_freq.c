@@ -35,7 +35,7 @@ extern void *nss_freq_change_context;
  * nss_rx_metadata_nss_freq_ack()
  *	Handle the nss ack of frequency change.
  */
-static void nss_rx_metadata_nss_freq_ack(struct nss_ctx_instance *nss_ctx, struct nss_freq_ack *nfa)
+static void nss_rx_metadata_nss_freq_ack(struct nss_ctx_instance *nss_ctx, struct nss_freq_change *nfa)
 {
 	if (nfa->ack_status == NSS_ACK_STARTED) {
 		/*
@@ -229,6 +229,40 @@ static void nss_rx_metadata_nss_core_stats(struct nss_ctx_instance *nss_ctx, str
 			nss_runtime_samples.freq_scale_rate_limit_down = 0;
 		}
 	}
+}
+
+/*
+ * nss_rx_freq_interface_handler()
+ *	Handle NSS -> HLOS messages for Frequency Changes and Statistics
+ */
+static void nss_rx_freq_interface_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm, __attribute__((unused))void *app_data) {
+
+	struct nss_corefreq_msg *ncfm = (struct nss_corefreq_msg *)ncm;
+
+	switch (ncfm->type) {
+	case COREFREQ_METADATA_TYPE_TX_FREQ_ACK:
+		nss_rx_metadata_nss_freq_ack(nss_ctx, &ncfm->msg.nfc);
+		break;
+	case COREFREQ_METADATA_TYPE_TX_CORE_STATS:
+		nss_rx_metadata_nss_core_stats(nss_ctx, &ncfm->msg.ncs);
+		break;
+
+	default:
+		if (ncm->response != NSS_CMN_RESPONSE_ACK) {
+			/*
+			 * Check response
+			 */
+			nss_info("%p: Received response %d for request %d, interface %d", nss_ctx, ncm->response, ncm->request, ncm->interface);
+		}
+	}
+}
+
+/*
+ * nss_tunipip6_register_handler()
+ */
+void nss_core_freq_register_handler(void)
+{
+	nss_core_register_handler(NSS_COREFREQ_INTERFACE, nss_rx_freq_interface_handler, NULL);
 }
 
 /*

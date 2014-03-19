@@ -1175,22 +1175,11 @@ struct nss_profiler_sync {
 /*
  * NSS frequency scaling messages
  */
-
-/*
- * The NSS freq start or stop strcture
- */
-struct nss_freq_change {
-	uint32_t frequency;
-	uint32_t start_or_end;
-	uint32_t stats_enable;
-};
-
-/*
- * The NSS freq ack structure
- */
-struct nss_freq_ack {
-	uint32_t freq_current;
-	int32_t ack_status;
+enum nss_freq_stats_metadata_types {
+	COREFREQ_METADATA_TYPE_ERROR = 0,
+	COREFREQ_METADATA_TYPE_RX_FREQ_CHANGE = 1,
+	COREFREQ_METADATA_TYPE_TX_FREQ_ACK = 2,
+	COREFREQ_METADATA_TYPE_TX_CORE_STATS = 3,
 };
 
 /*
@@ -1201,8 +1190,30 @@ struct nss_core_stats {
 };
 
 /*
- * NSS QoS/Shaper messages
+ * The NSS freq start or stop strcture
  */
+struct nss_freq_change {
+	/* Request */
+	uint32_t frequency;
+	uint32_t start_or_end;
+	uint32_t stats_enable;
+
+	/* Response */
+	uint32_t freq_current;
+	int32_t ack_status;
+};
+
+/*
+ * Message structure to send/receive NSS Freq commands
+ */
+struct nss_corefreq_msg {
+	struct nss_cmn_msg cm;			/* Message Header */
+	enum nss_freq_stats_metadata_types type;	/* Message Type */
+	union {
+		struct nss_freq_change nfc;	/* Message: freq stats */
+		struct nss_core_stats ncs;	/* Message: NSS stats sync */
+	} msg;
+};
 
 /*
  * struct nss_tx_shaper_config_assign_shaper
@@ -1607,8 +1618,6 @@ struct nss_rx_shaper_response {
  */
 enum nss_rx_metadata_types {
 	NSS_RX_METADATA_TYPE_PROFILER_SYNC,
-	NSS_RX_METADATA_TYPE_FREQ_ACK,
-	NSS_RX_METADATA_TYPE_CORE_STATS,
 	NSS_RX_METADATA_TYPE_SHAPER_RESPONSE,
 };
 
@@ -1619,8 +1628,6 @@ struct nss_rx_metadata_object {
 	enum nss_rx_metadata_types type;	/* Object type */
 	union {				/* Sub-message type */
 		struct nss_profiler_sync profiler_sync;
-		struct nss_freq_ack freq_ack;
-		struct nss_core_stats core_stats;
 		struct nss_rx_shaper_response shaper_response;
 	} sub;
 };
