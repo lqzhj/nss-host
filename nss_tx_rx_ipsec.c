@@ -63,10 +63,9 @@ nss_tx_status_t nss_tx_ipsec_rule(void *ctx, uint32_t interface_num, uint32_t ty
 	nim = (struct nss_ipsec_msg *)skb_put(nbuf, (sizeof(struct nss_ipsec_msg) + len));
 	nim->cm.interface = interface_num;
 	nim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nim->cm.request = NSS_TX_METADATA_TYPE_IPSEC_RULE;
+	nim->cm.type = NSS_TX_METADATA_TYPE_IPSEC_RULE;
 	nim->cm.len = sizeof(struct nss_ipsec_rule) + (len - 1);
 
-	nim->type = NSS_TX_METADATA_TYPE_IPSEC_RULE;
 	nir = &nim->msg.rule;
 	nir->type = type;
 	nir->len = len;
@@ -131,12 +130,12 @@ static void nss_rx_ipsec_interface_handler(struct nss_ctx_instance *nss_ctx, str
 	/*
 	 * Is this a valid request/response packet?
 	 */
-	if (nim->type >= NSS_METADATA_TYPE_IPSEC_MAX) {
+	if (nim->cm.type >= NSS_METADATA_TYPE_IPSEC_MAX) {
 		nss_warning("%p: received invalid message %d for IPsec interface", nss_ctx, nim->type);
 		return;
 	}
 
-	switch (nim->type) {
+	switch (nim->cm.type) {
 	case NSS_RX_METADATA_TYPE_IPSEC_EVENTS_SYNC:
 		nss_rx_metadata_ipsec_events_sync(nss_ctx, &nim->msg.sync);
 		break;
@@ -146,8 +145,8 @@ static void nss_rx_ipsec_interface_handler(struct nss_ctx_instance *nss_ctx, str
 			/*
 			 * Check response
 			 */
-			nss_info("%p: Received response %d for request %d, interface %d",
-						nss_ctx, ncm->response, ncm->request, ncm->interface);
+			nss_info("%p: Received response %d for type %d, interface %d",
+						nss_ctx, ncm->response, ncm->type, ncm->interface);
 		}
 	}
 }

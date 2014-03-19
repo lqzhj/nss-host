@@ -68,12 +68,12 @@ static void nss_rx_tun6rd_interface_handler(struct nss_ctx_instance *nss_ctx, st
 	/*
 	 * Is this a valid request/response packet?
 	 */
-	if (ntm->type >= NSS_METADATA_TYPE_TUN6RD_MAX) {
-		nss_warning("%p: received invalid message %d for Tun6RD interface", nss_ctx, ntm->type);
+	if (ntm->cm.type >= NSS_METADATA_TYPE_TUN6RD_MAX) {
+		nss_warning("%p: received invalid message %d for Tun6RD interface", nss_ctx, ntm->cm.type);
 		return;
 	}
 
-	switch (ntm->type) {
+	switch (ntm->cm.type) {
 	case NSS_RX_METADATA_TYPE_TUN6RD_STATS_SYNC:
 		nss_rx_metadata_tun6rd_stats_sync(nss_ctx, &ntm->msg.stats_sync, ncm->interface);
 		break;
@@ -82,8 +82,8 @@ static void nss_rx_tun6rd_interface_handler(struct nss_ctx_instance *nss_ctx, st
 			/*
 			 * Check response
 			 */
-			nss_info("%p: Received response %d for request %d, interface %d",
-						nss_ctx, ncm->response, ncm->request, ncm->interface);
+			nss_info("%p: Received response %d for type %d, interface %d",
+						nss_ctx, ncm->response, ncm->type, ncm->interface);
 		}
 	}
 }

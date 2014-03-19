@@ -142,12 +142,12 @@ static void nss_rx_offload_stats_interface_handler(struct nss_ctx_instance *nss_
 	/*
 	 * Is this a valid request/response packet?
 	 */
-	if (nom->type >= NSS_METADATA_TYPE_OFFLOAD_STATS_MAX) {
+	if (nom->cm.type >= NSS_METADATA_TYPE_OFFLOAD_STATS_MAX) {
 		nss_warning("%p: received invalid message %d for Offload stats interface", nss_ctx, nom->type);
 		return;
 	}
 
-	switch (nom->type) {
+	switch (nom->cm.type) {
 	case NSS_RX_METADATA_TYPE_PER_INTERFACE_STATS_SYNC:
 		nss_rx_metadata_interface_stats_sync(nss_ctx, &nom->msg.per_if_stats_sync, ncm->interface);
 		break;
@@ -161,8 +161,8 @@ static void nss_rx_offload_stats_interface_handler(struct nss_ctx_instance *nss_
 			/*
 			 * Check response
 			 */
-			nss_info("%p: Received response %d for request %d, interface %d",
-						nss_ctx, ncm->response, ncm->request, ncm->interface);
+			nss_info("%p: Received response %d for type %d, interface %d",
+						nss_ctx, ncm->response, ncm->type, ncm->interface);
 		}
 	}
 }

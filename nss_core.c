@@ -88,7 +88,7 @@ void nss_core_handle_nss_status_pkt(struct nss_ctx_instance *nss_ctx, struct sk_
 	 */
 	if (ncm->version != expected_version) {
 		nss_warning("%p: Message %d for interface %d received with invalid version %d, expected version %d",
-							nss_ctx, ncm->request, ncm->interface, ncm->version, expected_version);
+							nss_ctx, ncm->cm.type, ncm->interface, ncm->version, expected_version);
 		return;
 	}
 
@@ -97,7 +97,7 @@ void nss_core_handle_nss_status_pkt(struct nss_ctx_instance *nss_ctx, struct sk_
 	 */
 	if (ncm->len > nbuf->len) {
 		nss_warning("%p: Message %d for interface %d received with invalid length %d, expected length %d",
-							nss_ctx, ncm->request, ncm->interface, nbuf->len, ncm->len);
+							nss_ctx, ncm->cm.type, ncm->interface, nbuf->len, ncm->len);
 		return;
 	}
 
@@ -105,7 +105,7 @@ void nss_core_handle_nss_status_pkt(struct nss_ctx_instance *nss_ctx, struct sk_
 	 * Check for validity of interface number
 	 */
 	if (ncm->interface > NSS_MAX_NET_INTERFACES) {
-		nss_warning("%p: Message %d received with invalid interface number %d", nss_ctx, ncm->request, ncm->interface);
+		nss_warning("%p: Message %d received with invalid interface number %d", nss_ctx, ncm->cm.type, ncm->interface);
 		return;
 	}
 
@@ -148,10 +148,9 @@ static int32_t nss_send_c2c_map(struct nss_ctx_instance *nss_own, struct nss_ctx
 	ncm = (struct nss_c2c_msg *)skb_put(nbuf, sizeof(struct nss_c2c_msg));
 	ncm->cm.interface = NSS_C2C_TX_INTERFACE;
 	ncm->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	ncm->cm.request = NSS_TX_METADATA_TYPE_C2C_TX_MAP;
+	ncm->cm.type = NSS_TX_METADATA_TYPE_C2C_TX_MAP;
 	ncm->cm.len = sizeof(struct nss_c2c_msg);
 
-	ncm->type = NSS_TX_METADATA_TYPE_C2C_TX_MAP;
 	nctm = &ncm->msg.tx_map;
 	nctm->c2c_start = nss_other->c2c_start;
 	nctm->c2c_int_addr = (uint32_t)(nss_other->nphys) + NSS_REGS_C2C_INTR_SET_OFFSET;

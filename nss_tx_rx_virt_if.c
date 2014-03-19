@@ -189,10 +189,9 @@ void *nss_create_virt_if(struct net_device *if_ctx)
 	nvim = (struct nss_virtual_if_msg *)skb_put(nbuf, sizeof(struct nss_virtual_if_msg));
 	nvim->cm.interface = if_num;
 	nvim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nvim->cm.request = NSS_TX_METADATA_TYPE_VIRTUAL_INTERFACE_CREATE;
+	nvim->cm.type = NSS_TX_METADATA_TYPE_VIRTUAL_INTERFACE_CREATE;
 	nvim->cm.len = sizeof(struct nss_virtual_if_create);
 
-	nvim->type = NSS_TX_METADATA_TYPE_VIRTUAL_INTERFACE_CREATE;
 	nvic = &nvim->msg.create;
 	nvic->flags = 0;
 	memcpy(nvic->mac_addr, if_ctx->dev_addr, ETH_HLEN);
@@ -267,10 +266,9 @@ nss_tx_status_t nss_destroy_virt_if(void *ctx)
 	nvim = (struct nss_virtual_if_msg *)skb_put(nbuf, sizeof(struct nss_virtual_if_msg));
 	nvim->cm.interface = if_num;
 	nvim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nvim->cm.request = NSS_TX_METADATA_TYPE_VIRTUAL_INTERFACE_DESTROY;
+	nvim->cm.type = NSS_TX_METADATA_TYPE_VIRTUAL_INTERFACE_DESTROY;
 	nvim->cm.len = sizeof(struct nss_virtual_if_destroy);
 
-	nvim->type = NSS_TX_METADATA_TYPE_VIRTUAL_INTERFACE_DESTROY;
 	nvid = &nvim->msg.destroy;
 
 	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);

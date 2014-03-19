@@ -38,7 +38,7 @@ nss_tx_status_t nss_tx_create_ipv4_rule(void *ctx, struct nss_ipv4_create *unic)
 	struct sk_buff *nbuf;
 	int32_t status;
 	struct nss_ipv4_msg *nim;
-	struct nss_ipv4_rule_create *nirc;
+	struct nss_ipv4_rule_create_msg *nircm;
 
 	nss_info("%p: Create IPv4: %pI4:%d (%pI4:%d), %pI4:%d (%pI4:%d), p: %d\n", nss_ctx,
 		&unic->src_ip, unic->src_port, &unic->src_ip_xlate, unic->src_port_xlate,
@@ -62,60 +62,87 @@ nss_tx_status_t nss_tx_create_ipv4_rule(void *ctx, struct nss_ipv4_create *unic)
 	nim = (struct nss_ipv4_msg *)skb_put(nbuf, sizeof(struct nss_ipv4_msg));
 	nim->cm.interface = NSS_IPV4_RX_INTERFACE;
 	nim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nim->cm.request = NSS_TX_METADATA_TYPE_IPV4_RULE_CREATE;
-	nim->cm.len = sizeof(struct nss_ipv4_rule_create);
+	nim->cm.type = NSS_TX_METADATA_TYPE_IPV4_RULE_CREATE;
+	nim->cm.len = sizeof(struct nss_ipv4_rule_create_msg);
 
-	nim->type = NSS_TX_METADATA_TYPE_IPV4_RULE_CREATE;
-	nirc = &nim->msg.rule_create;
-	nirc->protocol = (uint8_t)unic->protocol;
-	nirc->qos_tag = unic->qos_tag;
+	nircm = &nim->msg.rule_create;
 
-	nirc->flow_pppoe_session_id = unic->flow_pppoe_session_id;
-	memcpy(nirc->flow_pppoe_remote_mac, unic->flow_pppoe_remote_mac, ETH_ALEN);
-	nirc->flow_interface_num = unic->src_interface_num;
-	nirc->flow_ip = unic->src_ip;
-	nirc->flow_ip_xlate = unic->src_ip_xlate;
-	nirc->flow_ident = (uint32_t)unic->src_port;
-	nirc->flow_ident_xlate = (uint32_t)unic->src_port_xlate;
-	nirc->flow_window_scale = unic->flow_window_scale;
-	nirc->flow_max_window = unic->flow_max_window;
-	nirc->flow_end = unic->flow_end;
-	nirc->flow_max_end = unic->flow_max_end;
-	nirc->flow_mtu = unic->from_mtu;
-	memcpy(nirc->flow_mac, unic->src_mac, 6);
-	nirc->ingress_vlan_tag = unic->ingress_vlan_tag;
+	nircm->valid_flags = 0;
 
-	nirc->return_pppoe_session_id = unic->return_pppoe_session_id;
-	memcpy(nirc->return_pppoe_remote_mac, unic->return_pppoe_remote_mac, ETH_ALEN);
-	nirc->return_interface_num = unic->dest_interface_num;
-	nirc->return_ip = unic->dest_ip;
-	nirc->return_ip_xlate = unic->dest_ip_xlate;
-	nirc->return_ident = (uint32_t)unic->dest_port;
-	nirc->return_ident_xlate = (uint32_t)unic->dest_port_xlate;
-	nirc->return_window_scale = unic->return_window_scale;
-	nirc->return_max_window = unic->return_max_window;
-	nirc->return_end = unic->return_end;
-	nirc->return_max_end = unic->return_max_end;
-	nirc->return_mtu = unic->to_mtu;
-	if (nirc->return_ip != nirc->return_ip_xlate || nirc->return_ident != nirc->return_ident_xlate) {
-		memcpy(nirc->return_mac, unic->dest_mac_xlate, 6);
+	/*
+	 * Copy over the 5 tuple details.
+	 */
+	nircm->tuple.protocol = (uint8_t)unic->protocol;
+	nircm->tuple.flow_ip = unic->src_ip;
+	nircm->tuple.flow_ident = (uint32_t)unic->src_port;
+	nircm->tuple.return_ip = unic->dest_ip;
+	nircm->tuple.return_ident = (uint32_t)unic->dest_port;
+
+	/*
+	 * Copy over the connection rules and set the CONN_VALID flag
+	 */
+	nircm->conn_rule.flow_interface_num = unic->src_interface_num;
+	nircm->conn_rule.flow_ip_xlate = unic->src_ip_xlate;
+	nircm->conn_rule.flow_ident_xlate = (uint32_t)unic->src_port_xlate;
+	memcpy(nircm->conn_rule.flow_mac, unic->src_mac, 6);
+	nircm->conn_rule.return_interface_num = unic->dest_interface_num;
+	nircm->conn_rule.return_ip_xlate = unic->dest_ip_xlate;
+	nircm->conn_rule.return_ident_xlate = (uint32_t)unic->dest_port_xlate;
+	if (nircm->tuple.return_ip != nircm->conn_rule.return_ip_xlate || nircm->tuple.return_ident != nircm->conn_rule.return_ident_xlate) {
+		memcpy(nircm->conn_rule.return_mac, unic->dest_mac_xlate, 6);
 	} else {
-		memcpy(nirc->return_mac, unic->dest_mac, 6);
+		memcpy(nircm->conn_rule.return_mac, unic->dest_mac, 6);
 	}
+	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_CONN_VALID;
 
-	nirc->egress_vlan_tag = unic->egress_vlan_tag;
+	/*
+	 * Copy over the pppoe rules and set the PPPOE_VALID flag.
+	 */
+	nircm->pppoe_rule.flow_pppoe_session_id = unic->flow_pppoe_session_id;
+	memcpy(nircm->pppoe_rule.flow_pppoe_remote_mac, unic->flow_pppoe_remote_mac, ETH_ALEN);
+	nircm->pppoe_rule.return_pppoe_session_id = unic->return_pppoe_session_id;
+	memcpy(nircm->pppoe_rule.return_pppoe_remote_mac, unic->return_pppoe_remote_mac, ETH_ALEN);
+	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_PPPOE_VALID;
 
-	nirc->flags = 0;
+	/*
+	 * Copy over the tcp rules and set the TCP_VALID flag.
+	 */
+	nircm->tcp_rule.flow_window_scale = unic->flow_window_scale;
+	nircm->tcp_rule.flow_max_window = unic->flow_max_window;
+	nircm->tcp_rule.flow_end = unic->flow_end;
+	nircm->tcp_rule.flow_max_end = unic->flow_max_end;
+	nircm->tcp_rule.flow_mtu = unic->from_mtu;
+	nircm->tcp_rule.return_window_scale = unic->return_window_scale;
+	nircm->tcp_rule.return_max_window = unic->return_max_window;
+	nircm->tcp_rule.return_end = unic->return_end;
+	nircm->tcp_rule.return_max_end = unic->return_max_end;
+	nircm->tcp_rule.return_mtu = unic->to_mtu;
+	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_TCP_VALID;
+
+	/*
+	 * Copy over the vlan rules and set the VLAN_VALID flag
+	 */
+	nircm->vlan_rule.ingress_vlan_tag = unic->ingress_vlan_tag;
+	nircm->vlan_rule.egress_vlan_tag = unic->egress_vlan_tag;
+	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_VLAN_VALID;
+
+	/*
+	 * Copy over the qos rules and set the QOS_VALID flag
+	 */
+	nircm->qos_rule.qos_tag = unic->qos_tag;
+	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_QOS_VALID;
+
+	nircm->rule_flags = 0;
 	if (unic->flags & NSS_IPV4_CREATE_FLAG_NO_SEQ_CHECK) {
-		nirc->flags |= NSS_IPV4_RULE_CREATE_FLAG_NO_SEQ_CHECK;
+		nircm->rule_flags |= NSS_IPV4_RULE_CREATE_FLAG_NO_SEQ_CHECK;
 	}
 
 	if (unic->flags & NSS_IPV4_CREATE_FLAG_BRIDGE_FLOW) {
-		nirc->flags |= NSS_IPV4_RULE_CREATE_FLAG_BRIDGE_FLOW;
+		nircm->rule_flags |= NSS_IPV4_RULE_CREATE_FLAG_BRIDGE_FLOW;
 	}
 
 	if (unic->flags & NSS_IPV4_CREATE_FLAG_ROUTED) {
-		nirc->flags |= NSS_IPV4_RULE_CREATE_FLAG_ROUTED;
+		nircm->rule_flags |= NSS_IPV4_RULE_CREATE_FLAG_ROUTED;
 	}
 
 	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
@@ -142,7 +169,7 @@ nss_tx_status_t nss_tx_create_ipv4_rule1(void *ctx, struct nss_ipv4_create *unic
 	struct sk_buff *nbuf;
 	int32_t status;
 	struct nss_ipv4_msg *nim;
-	struct nss_ipv4_rule_create1 *nirc;
+	struct nss_ipv4_rule_create_msg *nircm;
 
 	nss_info("%p: Create IPv4: %pI4:%d (%pI4:%d), %pI4:%d (%pI4:%d), p: %d\n", nss_ctx,
 		&unic->src_ip, unic->src_port, &unic->src_ip_xlate, unic->src_port_xlate,
@@ -166,81 +193,112 @@ nss_tx_status_t nss_tx_create_ipv4_rule1(void *ctx, struct nss_ipv4_create *unic
 	nim = (struct nss_ipv4_msg *)skb_put(nbuf, sizeof(struct nss_ipv4_msg));
 	nim->cm.interface = NSS_IPV4_RX_INTERFACE;
 	nim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nim->cm.request = NSS_TX_METADATA_TYPE_IPV4_RULE_CREATE1;
-	nim->cm.len = sizeof(struct nss_ipv4_rule_create1);
+	nim->cm.type = NSS_TX_METADATA_TYPE_IPV4_RULE_CREATE;
+	nim->cm.len = sizeof(struct nss_ipv4_rule_create_msg);
 
-	nim->type = NSS_TX_METADATA_TYPE_IPV4_RULE_CREATE1;
-	nirc = &nim->msg.rule_create1;
-	nirc->protocol = (uint8_t)unic->protocol;
-	nirc->qos_tag = unic->qos_tag;
+	nircm = &nim->msg.rule_create;
 
-	nirc->flow_pppoe_session_id = unic->flow_pppoe_session_id;
-	memcpy(nirc->flow_pppoe_remote_mac, unic->flow_pppoe_remote_mac, ETH_ALEN);
-	nirc->flow_interface_num = unic->src_interface_num;
-	nirc->flow_ip = unic->src_ip;
-	nirc->flow_ip_xlate = unic->src_ip_xlate;
-	nirc->flow_ident = (uint32_t)unic->src_port;
-	nirc->flow_ident_xlate = (uint32_t)unic->src_port_xlate;
-	nirc->flow_window_scale = unic->flow_window_scale;
-	nirc->flow_max_window = unic->flow_max_window;
-	nirc->flow_end = unic->flow_end;
-	nirc->flow_max_end = unic->flow_max_end;
-	nirc->flow_mtu = unic->from_mtu;
-	memcpy(nirc->flow_mac, unic->src_mac, 6);
-	nirc->ingress_vlan_tag = unic->ingress_vlan_tag;
+	nircm->valid_flags = 0;
+	nircm->rule_flags = 0;
 
-	nirc->return_pppoe_session_id = unic->return_pppoe_session_id;
-	memcpy(nirc->return_pppoe_remote_mac, unic->return_pppoe_remote_mac, ETH_ALEN);
-	nirc->return_interface_num = unic->dest_interface_num;
-	nirc->return_ip = unic->dest_ip;
-	nirc->return_ip_xlate = unic->dest_ip_xlate;
-	nirc->return_ident = (uint32_t)unic->dest_port;
-	nirc->return_ident_xlate = (uint32_t)unic->dest_port_xlate;
-	nirc->return_window_scale = unic->return_window_scale;
-	nirc->return_max_window = unic->return_max_window;
-	nirc->return_end = unic->return_end;
-	nirc->return_max_end = unic->return_max_end;
-	nirc->return_mtu = unic->to_mtu;
-	if (nirc->return_ip != nirc->return_ip_xlate || nirc->return_ident != nirc->return_ident_xlate) {
-		memcpy(nirc->return_mac, unic->dest_mac_xlate, 6);
+	/*
+	 * Copy over the 5 tuple details.
+	 */
+	nircm->tuple.protocol = (uint8_t)unic->protocol;
+	nircm->tuple.flow_ip = unic->src_ip;
+	nircm->tuple.flow_ident = (uint32_t)unic->src_port;
+	nircm->tuple.return_ip = unic->dest_ip;
+	nircm->tuple.return_ident = (uint32_t)unic->dest_port;
+
+	/*
+	 * Copy over the connection rules and set the CONN_VALID flag
+	 */
+	nircm->conn_rule.flow_interface_num = unic->src_interface_num;
+	nircm->conn_rule.flow_ip_xlate = unic->src_ip_xlate;
+	nircm->conn_rule.flow_ident_xlate = (uint32_t)unic->src_port_xlate;
+	memcpy(nircm->conn_rule.flow_mac, unic->src_mac, 6);
+	nircm->conn_rule.return_interface_num = unic->dest_interface_num;
+	nircm->conn_rule.return_ip_xlate = unic->dest_ip_xlate;
+	nircm->conn_rule.return_ident_xlate = (uint32_t)unic->dest_port_xlate;
+	if (nircm->tuple.return_ip != nircm->conn_rule.return_ip_xlate || nircm->tuple.return_ident != nircm->conn_rule.return_ident_xlate) {
+		memcpy(nircm->conn_rule.return_mac, unic->dest_mac_xlate, 6);
 	} else {
-		memcpy(nirc->return_mac, unic->dest_mac, 6);
+		memcpy(nircm->conn_rule.return_mac, unic->dest_mac, 6);
 	}
+	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_CONN_VALID;
 
-	nirc->egress_vlan_tag = unic->egress_vlan_tag;
+	/*
+	 * Copy over the pppoe rules and set the PPPOE_VALID flag.
+	 */
+	nircm->pppoe_rule.flow_pppoe_session_id = unic->flow_pppoe_session_id;
+	memcpy(nircm->pppoe_rule.flow_pppoe_remote_mac, unic->flow_pppoe_remote_mac, ETH_ALEN);
+	nircm->pppoe_rule.return_pppoe_session_id = unic->return_pppoe_session_id;
+	memcpy(nircm->pppoe_rule.return_pppoe_remote_mac, unic->return_pppoe_remote_mac, ETH_ALEN);
+	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_PPPOE_VALID;
 
-	nirc->flags = 0;
-	if (unic->flags & NSS_IPV4_CREATE_FLAG_NO_SEQ_CHECK) {
-		nirc->flags |= NSS_IPV4_RULE_CREATE_FLAG_NO_SEQ_CHECK;
-	}
+	/*
+	 * Copy over the tcp rules and set the TCP_VALID flag.
+	 */
+	nircm->tcp_rule.flow_window_scale = unic->flow_window_scale;
+	nircm->tcp_rule.flow_max_window = unic->flow_max_window;
+	nircm->tcp_rule.flow_end = unic->flow_end;
+	nircm->tcp_rule.flow_max_end = unic->flow_max_end;
+	nircm->tcp_rule.flow_mtu = unic->from_mtu;
+	nircm->tcp_rule.return_window_scale = unic->return_window_scale;
+	nircm->tcp_rule.return_max_window = unic->return_max_window;
+	nircm->tcp_rule.return_end = unic->return_end;
+	nircm->tcp_rule.return_max_end = unic->return_max_end;
+	nircm->tcp_rule.return_mtu = unic->to_mtu;
+	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_TCP_VALID;
 
-	if (unic->flags & NSS_IPV4_CREATE_FLAG_BRIDGE_FLOW) {
-		nirc->flags |= NSS_IPV4_RULE_CREATE_FLAG_BRIDGE_FLOW;
-	}
+	/*
+	 * Copy over the vlan rules and set the VLAN_VALID flag
+	 */
+	nircm->vlan_rule.ingress_vlan_tag = unic->ingress_vlan_tag;
+	nircm->vlan_rule.egress_vlan_tag = unic->egress_vlan_tag;
+	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_VLAN_VALID;
 
-	if (unic->flags & NSS_IPV4_CREATE_FLAG_ROUTED) {
-		nirc->flags |= NSS_IPV4_RULE_CREATE_FLAG_ROUTED;
-	}
+	/*
+	 * Copy over the qos rules and set the QOS_VALID flag
+	 */
+	nircm->qos_rule.qos_tag = unic->qos_tag;
+	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_QOS_VALID;
 
+	/*
+	 * Copy over the dscp marking rules and set the DSCP_MARKING_VALID flag.
+	 */
+	nircm->dscp_rule.dscp_itag = unic->dscp_itag ;
+	nircm->dscp_rule.dscp_imask = unic->dscp_imask;
+	nircm->dscp_rule.dscp_omask = unic->dscp_omask;
+	nircm->dscp_rule.dscp_oval = unic->dscp_oval;
 	if (unic->flags & NSS_IPV4_CREATE_FLAG_DSCP_MARKING) {
-		nirc->flags |= NSS_IPV4_RULE_CREATE_FLAG_DSCP_MARKING;
-	}
-
-	if (unic->flags & NSS_IPV4_CREATE_FLAG_VLAN_MARKING) {
-		nirc->flags |= NSS_IPV4_RULE_CREATE_FLAG_VLAN_MARKING;
+		nircm->rule_flags |= NSS_IPV4_RULE_CREATE_FLAG_DSCP_MARKING;
+		nircm->valid_flags |= NSS_IPV4_RULE_CREATE_DSCP_MARKING_VALID;
 	}
 
 	/*
-	 * Initialize DSCP and VLAN marking data
+	 * Copy over the vlan marking rules and set the VLAN_MARKING_VALID flag.
 	 */
-	nirc->dscp_itag = unic->dscp_itag ;
-	nirc->dscp_imask = unic->dscp_imask;
-	nirc->dscp_omask = unic->dscp_omask ;
-	nirc->dscp_oval = unic->dscp_oval ;
-	nirc->vlan_imask = unic->vlan_imask;
-	nirc->vlan_itag = unic->vlan_itag;
-	nirc->vlan_omask = unic->vlan_omask ;
-	nirc->vlan_oval = unic->vlan_oval ;
+	nircm->vlan_rule.vlan_imask = unic->vlan_imask;
+	nircm->vlan_rule.vlan_itag = unic->vlan_itag;
+	nircm->vlan_rule.vlan_omask = unic->vlan_omask ;
+	nircm->vlan_rule.vlan_oval = unic->vlan_oval ;
+	if (unic->flags & NSS_IPV4_CREATE_FLAG_VLAN_MARKING) {
+		nircm->rule_flags |= NSS_IPV4_RULE_CREATE_FLAG_VLAN_MARKING;
+		nircm->valid_flags |= NSS_IPV4_RULE_CREATE_VLAN_MARKING_VALID;
+	}
+
+	if (unic->flags & NSS_IPV4_CREATE_FLAG_NO_SEQ_CHECK) {
+		nircm->rule_flags |= NSS_IPV4_RULE_CREATE_FLAG_NO_SEQ_CHECK;
+	}
+
+	if (unic->flags & NSS_IPV4_CREATE_FLAG_BRIDGE_FLOW) {
+		nircm->rule_flags |= NSS_IPV4_RULE_CREATE_FLAG_BRIDGE_FLOW;
+	}
+
+	if (unic->flags & NSS_IPV4_CREATE_FLAG_ROUTED) {
+		nircm->rule_flags |= NSS_IPV4_RULE_CREATE_FLAG_ROUTED;
+	}
 
 	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
 	if (status != NSS_CORE_STATUS_SUCCESS) {
@@ -266,7 +324,7 @@ nss_tx_status_t nss_tx_destroy_ipv4_rule(void *ctx, struct nss_ipv4_destroy *uni
 	struct sk_buff *nbuf;
 	int32_t status;
 	struct nss_ipv4_msg *nim;
-	struct nss_ipv4_rule_destroy *nird;
+	struct nss_ipv4_rule_destroy_msg *nirdm;
 
 	nss_info("%p: Destroy IPv4: %pI4:%d, %pI4:%d, p: %d\n", nss_ctx,
 		&unid->src_ip, unid->src_port, &unid->dest_ip, unid->dest_port, unid->protocol);
@@ -289,17 +347,16 @@ nss_tx_status_t nss_tx_destroy_ipv4_rule(void *ctx, struct nss_ipv4_destroy *uni
 	nim = (struct nss_ipv4_msg *)skb_put(nbuf, sizeof(struct nss_ipv4_msg));
 	nim->cm.interface = NSS_IPV4_RX_INTERFACE;
 	nim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nim->cm.request = NSS_TX_METADATA_TYPE_IPV4_RULE_DESTROY;
-	nim->cm.len = sizeof(struct nss_ipv4_rule_destroy);
+	nim->cm.type = NSS_TX_METADATA_TYPE_IPV4_RULE_DESTROY;
+	nim->cm.len = sizeof(struct nss_ipv4_rule_destroy_msg);
 
-	nim->type = NSS_TX_METADATA_TYPE_IPV4_RULE_DESTROY;
-	nird = &nim->msg.rule_destroy;
+	nirdm = &nim->msg.rule_destroy;
 
-	nird->protocol = (uint8_t)unid->protocol;
-	nird->flow_ip = unid->src_ip;
-	nird->flow_ident = (uint32_t)unid->src_port;
-	nird->return_ip = unid->dest_ip;
-	nird->return_ident = (uint32_t)unid->dest_port;
+	nirdm->tuple.protocol = (uint8_t)unid->protocol;
+	nirdm->tuple.flow_ip = unid->src_ip;
+	nirdm->tuple.flow_ident = (uint32_t)unid->src_port;
+	nirdm->tuple.return_ip = unid->dest_ip;
+	nirdm->tuple.return_ident = (uint32_t)unid->dest_port;
 
 	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
 	if (status != NSS_CORE_STATUS_SUCCESS) {
@@ -474,12 +531,12 @@ static void nss_rx_ipv4_interface_handler(struct nss_ctx_instance *nss_ctx, stru
 	/*
 	 * Is this a valid request/response packet?
 	 */
-	if (nim->type >= NSS_METADATA_TYPE_IPV4_MAX) {
-		nss_warning("%p: received invalid message %d for IPv4 interface", nss_ctx, nim->type);
+	if (nim->cm.type >= NSS_METADATA_TYPE_IPV4_MAX) {
+		nss_warning("%p: received invalid message %d for IPv4 interface", nss_ctx, nim->cm.type);
 		return;
 	}
 
-	switch (nim->type) {
+	switch (nim->cm.type) {
 	case NSS_RX_METADATA_TYPE_IPV4_RULE_ESTABLISH:
 		nss_rx_metadata_ipv4_rule_establish(nss_ctx, &nim->msg.rule_establish);
 		break;
@@ -493,8 +550,8 @@ static void nss_rx_ipv4_interface_handler(struct nss_ctx_instance *nss_ctx, stru
 			/*
 			 * Check response
 			 */
-			nss_info("%p: Received response %d for request %d, interface %d",
-						nss_ctx, ncm->response, ncm->request, ncm->interface);
+			nss_info("%p: Received response %d for type %d, interface %d",
+						nss_ctx, ncm->response, ncm->type, ncm->interface);
 		}
 	}
 }

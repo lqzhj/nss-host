@@ -65,10 +65,9 @@ static void nss_tx_destroy_pppoe_connection_rule(void *ctx, uint16_t pppoe_sessi
 	npm = (struct nss_pppoe_msg *)skb_put(nbuf, sizeof(struct nss_pppoe_msg));
 	npm->cm.interface = NSS_PPPOE_RX_INTERFACE;
 	npm->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	npm->cm.request = NSS_TX_METADATA_TYPE_PPPOE_DESTROY_SESSION;
+	npm->cm.type = NSS_TX_METADATA_TYPE_PPPOE_DESTROY_SESSION;
 	npm->cm.len = sizeof(struct nss_pppoe_destroy);
 
-	npm->type = NSS_TX_METADATA_TYPE_PPPOE_DESTROY_SESSION;
 	nprd = &npm->msg.destroy;
 	nprd->pppoe_session_id = pppoe_session_id;
 	nprd->pppoe_remote_mac[0] = pppoe_remote_mac_uint16_t[0];
@@ -174,12 +173,12 @@ static void nss_rx_pppoe_interface_handler(struct nss_ctx_instance *nss_ctx, str
 	/*
 	 * Is this a valid request/response packet?
 	 */
-	if (npm->type >= NSS_METADATA_TYPE_PPPOE_MAX) {
+	if (npm->cm.type >= NSS_METADATA_TYPE_PPPOE_MAX) {
 		nss_warning("%p: received invalid message %d for PPPoE interface", nss_ctx, npm->type);
 		return;
 	}
 
-	switch (npm->type) {
+	switch (npm->cm.type) {
 	case NSS_RX_METADATA_TYPE_PPPOE_STATS_SYNC:
 		nss_rx_metadata_pppoe_exception_stats_sync(nss_ctx, &npm->msg.stats_sync);
 		break;
@@ -193,8 +192,8 @@ static void nss_rx_pppoe_interface_handler(struct nss_ctx_instance *nss_ctx, str
 			/*
 			 * Check response
 			 */
-			nss_info("%p: Received response %d for request %d, interface %d",
-						nss_ctx, ncm->response, ncm->request, ncm->interface);
+			nss_info("%p: Received response %d for type %d, interface %d",
+						nss_ctx, ncm->response, ncm->type, ncm->interface);
 		}
 	}
 }

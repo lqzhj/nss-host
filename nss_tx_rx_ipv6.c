@@ -38,7 +38,7 @@ nss_tx_status_t nss_tx_create_ipv6_rule(void *ctx, struct nss_ipv6_create *unic)
 	struct sk_buff *nbuf;
 	int32_t status;
 	struct nss_ipv6_msg *nim;
-	struct nss_ipv6_rule_create *nirc;
+	struct nss_ipv6_rule_create_msg *nircm;
 
 	nss_info("%p: Create IPv6: %pI6:%d, %pI6:%d, p: %d\n", nss_ctx,
 		unic->src_ip, unic->src_port, unic->dest_ip, unic->dest_port, unic->protocol);
@@ -61,58 +61,85 @@ nss_tx_status_t nss_tx_create_ipv6_rule(void *ctx, struct nss_ipv6_create *unic)
 	nim = (struct nss_ipv6_msg *)skb_put(nbuf, sizeof(struct nss_ipv6_msg));
 	nim->cm.interface = NSS_IPV6_RX_INTERFACE;
 	nim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nim->cm.request = NSS_TX_METADATA_TYPE_IPV6_RULE_CREATE;
-	nim->cm.len = sizeof(struct nss_ipv6_rule_create);
+	nim->cm.type = NSS_TX_METADATA_TYPE_IPV6_RULE_CREATE;
+	nim->cm.len = sizeof(struct nss_ipv6_rule_create_msg);
 
-	nim->type = NSS_TX_METADATA_TYPE_IPV6_RULE_CREATE;
-	nirc = &nim->msg.rule_create;
-	nirc->protocol = (uint8_t)unic->protocol;
-	nirc->qos_tag = unic->qos_tag;
+	nircm = &nim->msg.rule_create;
 
-	nirc->flow_pppoe_session_id = unic->flow_pppoe_session_id;
-	memcpy(nirc->flow_pppoe_remote_mac, unic->flow_pppoe_remote_mac, ETH_ALEN);
-	nirc->flow_interface_num = unic->src_interface_num;
-	nirc->flow_ip[0] = unic->src_ip[0];
-	nirc->flow_ip[1] = unic->src_ip[1];
-	nirc->flow_ip[2] = unic->src_ip[2];
-	nirc->flow_ip[3] = unic->src_ip[3];
-	nirc->flow_ident = (uint32_t)unic->src_port;
-	nirc->flow_window_scale = unic->flow_window_scale;
-	nirc->flow_max_window = unic->flow_max_window;
-	nirc->flow_end = unic->flow_end;
-	nirc->flow_max_end = unic->flow_max_end;
-	nirc->flow_mtu = unic->from_mtu;
-	memcpy(nirc->flow_mac, unic->src_mac, 6);
-	nirc->ingress_vlan_tag = unic->ingress_vlan_tag;
+	nircm->rule_flags = 0;
+	nircm->valid_flags = 0;
 
-	nirc->return_pppoe_session_id = unic->return_pppoe_session_id;
-	memcpy(nirc->return_pppoe_remote_mac, unic->return_pppoe_remote_mac, ETH_ALEN);
-	nirc->return_interface_num = unic->dest_interface_num;
-	nirc->return_ip[0] = unic->dest_ip[0];
-	nirc->return_ip[1] = unic->dest_ip[1];
-	nirc->return_ip[2] = unic->dest_ip[2];
-	nirc->return_ip[3] = unic->dest_ip[3];
-	nirc->return_ident = (uint32_t)unic->dest_port;
-	nirc->return_window_scale = unic->return_window_scale;
-	nirc->return_max_window = unic->return_max_window;
-	nirc->return_end = unic->return_end;
-	nirc->return_max_end = unic->return_max_end;
-	nirc->return_mtu = unic->to_mtu;
-	memcpy(nirc->return_mac, unic->dest_mac, 6);
+	/*
+	 * Copy over the 5 tuple information.
+	 */
+	nircm->tuple.protocol = (uint8_t)unic->protocol;
+	nircm->tuple.flow_ip[0] = unic->src_ip[0];
+	nircm->tuple.flow_ip[1] = unic->src_ip[1];
+	nircm->tuple.flow_ip[2] = unic->src_ip[2];
+	nircm->tuple.flow_ip[3] = unic->src_ip[3];
+	nircm->tuple.flow_ident = (uint32_t)unic->src_port;
+	nircm->tuple.return_ip[0] = unic->dest_ip[0];
+	nircm->tuple.return_ip[1] = unic->dest_ip[1];
+	nircm->tuple.return_ip[2] = unic->dest_ip[2];
+	nircm->tuple.return_ip[3] = unic->dest_ip[3];
+	nircm->tuple.return_ident = (uint32_t)unic->dest_port;
 
-	nirc->egress_vlan_tag = unic->egress_vlan_tag;
+	/*
+	 * Copy over the connection rules and set CONN_VALID flag
+	 */
+	nircm->conn_rule.flow_interface_num = unic->src_interface_num;
+	nircm->conn_rule.return_interface_num = unic->dest_interface_num;
+	memcpy(nircm->conn_rule.flow_mac, unic->src_mac, 6);
+	memcpy(nircm->conn_rule.return_mac, unic->dest_mac, 6);
+	nircm->valid_flags |= NSS_IPV6_RULE_CREATE_CONN_VALID;
 
-	nirc->flags = 0;
+	/*
+	 * Copy over the pppoe rules and set PPPOE_VALID flag
+	 */
+	nircm->pppoe_rule.flow_pppoe_session_id = unic->flow_pppoe_session_id;
+	memcpy(nircm->pppoe_rule.flow_pppoe_remote_mac, unic->flow_pppoe_remote_mac, ETH_ALEN);
+	nircm->pppoe_rule.return_pppoe_session_id = unic->return_pppoe_session_id;
+	memcpy(nircm->pppoe_rule.return_pppoe_remote_mac, unic->return_pppoe_remote_mac, ETH_ALEN);
+	nircm->valid_flags |= NSS_IPV6_RULE_CREATE_PPPOE_VALID;
+
+	/*
+	 * Copy over the tcp rules and set TCP_VALID flag
+	 */
+	nircm->tcp_rule.flow_window_scale = unic->flow_window_scale;
+	nircm->tcp_rule.flow_max_window = unic->flow_max_window;
+	nircm->tcp_rule.flow_end = unic->flow_end;
+	nircm->tcp_rule.flow_max_end = unic->flow_max_end;
+	nircm->tcp_rule.flow_mtu = unic->from_mtu;
+	nircm->tcp_rule.return_window_scale = unic->return_window_scale;
+	nircm->tcp_rule.return_max_window = unic->return_max_window;
+	nircm->tcp_rule.return_end = unic->return_end;
+	nircm->tcp_rule.return_max_end = unic->return_max_end;
+	nircm->tcp_rule.return_mtu = unic->to_mtu;
+	nircm->valid_flags |= NSS_IPV6_RULE_CREATE_TCP_VALID;
+
+	/*
+	 * Copy over the vlan rules and set the VLAN_VALID flag
+	 */
+	nircm->vlan_rule.egress_vlan_tag = unic->egress_vlan_tag;
+	nircm->vlan_rule.ingress_vlan_tag = unic->ingress_vlan_tag;
+	nircm->valid_flags |= NSS_IPV6_RULE_CREATE_VLAN_VALID;
+
+	/*
+	 * Copy over the qos rules and set the QOS_VALID flag
+	 */
+	nircm->qos_rule.qos_tag = unic->qos_tag;
+	nircm->valid_flags |= NSS_IPV6_RULE_CREATE_QOS_VALID;
+
 	if (unic->flags & NSS_IPV6_CREATE_FLAG_NO_SEQ_CHECK) {
-		nirc->flags |= NSS_IPV6_RULE_CREATE_FLAG_NO_SEQ_CHECK;
+		nircm->rule_flags |= NSS_IPV6_RULE_CREATE_FLAG_NO_SEQ_CHECK;
 	}
 
 	if (unic->flags & NSS_IPV6_CREATE_FLAG_BRIDGE_FLOW) {
-		nirc->flags |= NSS_IPV6_RULE_CREATE_FLAG_BRIDGE_FLOW;
+		nircm->rule_flags |= NSS_IPV6_RULE_CREATE_FLAG_BRIDGE_FLOW;
 	}
 
 	if (unic->flags & NSS_IPV6_CREATE_FLAG_ROUTED) {
-		nirc->flags |= NSS_IPV6_RULE_CREATE_FLAG_ROUTED;
+		nircm->rule_flags |= NSS_IPV6_RULE_CREATE_FLAG_ROUTED;
 	}
 
 	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
@@ -140,7 +167,7 @@ nss_tx_status_t nss_tx_create_ipv6_rule1(void *ctx, struct nss_ipv6_create *unic
 	struct sk_buff *nbuf;
 	int32_t status;
 	struct nss_ipv6_msg *nim;
-	struct nss_ipv6_rule_create1 *nirc;
+	struct nss_ipv6_rule_create_msg *nircm;
 
 	nss_info("%p: Create IPv6: %pI6:%d, %pI6:%d, p: %d\n", nss_ctx,
 		unic->src_ip, unic->src_port, unic->dest_ip, unic->dest_port, unic->protocol);
@@ -163,79 +190,113 @@ nss_tx_status_t nss_tx_create_ipv6_rule1(void *ctx, struct nss_ipv6_create *unic
 	nim = (struct nss_ipv6_msg *)skb_put(nbuf, sizeof(struct nss_ipv6_msg));
 	nim->cm.interface = NSS_IPV6_RX_INTERFACE;
 	nim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nim->cm.request = NSS_TX_METADATA_TYPE_IPV6_RULE_CREATE1;
-	nim->cm.len = sizeof(struct nss_ipv6_rule_create1);
+	nim->cm.type = NSS_TX_METADATA_TYPE_IPV6_RULE_CREATE;
+	nim->cm.len = sizeof(struct nss_ipv6_rule_create_msg);
 
-	nim->type = NSS_TX_METADATA_TYPE_IPV6_RULE_CREATE1;
-	nirc = &nim->msg.rule_create1;
-	nirc->protocol = (uint8_t)unic->protocol;
-	nirc->qos_tag = unic->qos_tag;
+	nircm = &nim->msg.rule_create;
 
-	nirc->flow_pppoe_session_id = unic->flow_pppoe_session_id;
-	memcpy(nirc->flow_pppoe_remote_mac, unic->flow_pppoe_remote_mac, ETH_ALEN);
-	nirc->flow_interface_num = unic->src_interface_num;
-	nirc->flow_ip[0] = unic->src_ip[0];
-	nirc->flow_ip[1] = unic->src_ip[1];
-	nirc->flow_ip[2] = unic->src_ip[2];
-	nirc->flow_ip[3] = unic->src_ip[3];
-	nirc->flow_ident = (uint32_t)unic->src_port;
-	nirc->flow_window_scale = unic->flow_window_scale;
-	nirc->flow_max_window = unic->flow_max_window;
-	nirc->flow_end = unic->flow_end;
-	nirc->flow_max_end = unic->flow_max_end;
-	nirc->flow_mtu = unic->from_mtu;
-	memcpy(nirc->flow_mac, unic->src_mac, 6);
-	nirc->ingress_vlan_tag = unic->ingress_vlan_tag;
+	/*
+	 * Initialize the flags
+	 */
+	nircm->rule_flags = 0;
+	nircm->valid_flags = 0;
 
-	nirc->return_pppoe_session_id = unic->return_pppoe_session_id;
-	memcpy(nirc->return_pppoe_remote_mac, unic->return_pppoe_remote_mac, ETH_ALEN);
-	nirc->return_interface_num = unic->dest_interface_num;
-	nirc->return_ip[0] = unic->dest_ip[0];
-	nirc->return_ip[1] = unic->dest_ip[1];
-	nirc->return_ip[2] = unic->dest_ip[2];
-	nirc->return_ip[3] = unic->dest_ip[3];
-	nirc->return_ident = (uint32_t)unic->dest_port;
-	nirc->return_window_scale = unic->return_window_scale;
-	nirc->return_max_window = unic->return_max_window;
-	nirc->return_end = unic->return_end;
-	nirc->return_max_end = unic->return_max_end;
-	nirc->return_mtu = unic->to_mtu;
-	memcpy(nirc->return_mac, unic->dest_mac, 6);
+	/*
+	 * Copy over the 5 tuple information.
+	 */
+	nircm->tuple.protocol = (uint8_t)unic->protocol;
+	nircm->tuple.flow_ip[0] = unic->src_ip[0];
+	nircm->tuple.flow_ip[1] = unic->src_ip[1];
+	nircm->tuple.flow_ip[2] = unic->src_ip[2];
+	nircm->tuple.flow_ip[3] = unic->src_ip[3];
+	nircm->tuple.flow_ident = (uint32_t)unic->src_port;
+	nircm->tuple.return_ip[0] = unic->dest_ip[0];
+	nircm->tuple.return_ip[1] = unic->dest_ip[1];
+	nircm->tuple.return_ip[2] = unic->dest_ip[2];
+	nircm->tuple.return_ip[3] = unic->dest_ip[3];
+	nircm->tuple.return_ident = (uint32_t)unic->dest_port;
 
-	nirc->egress_vlan_tag = unic->egress_vlan_tag;
+	/*
+	 * Copy over the connection rules and set CONN_VALID flag
+	 */
+	nircm->conn_rule.flow_interface_num = unic->src_interface_num;
+	nircm->conn_rule.return_interface_num = unic->dest_interface_num;
+	memcpy(nircm->conn_rule.flow_mac, unic->src_mac, 6);
+	memcpy(nircm->conn_rule.return_mac, unic->dest_mac, 6);
+	nircm->valid_flags |= NSS_IPV6_RULE_CREATE_CONN_VALID;
 
-	nirc->flags = 0;
-	if (unic->flags & NSS_IPV6_CREATE_FLAG_NO_SEQ_CHECK) {
-		nirc->flags |= NSS_IPV6_RULE_CREATE_FLAG_NO_SEQ_CHECK;
-	}
+	/*
+	 * Copy over the pppoe rules and set PPPOE_VALID flag
+	 */
+	nircm->pppoe_rule.flow_pppoe_session_id = unic->flow_pppoe_session_id;
+	memcpy(nircm->pppoe_rule.flow_pppoe_remote_mac, unic->flow_pppoe_remote_mac, ETH_ALEN);
+	nircm->pppoe_rule.return_pppoe_session_id = unic->return_pppoe_session_id;
+	memcpy(nircm->pppoe_rule.return_pppoe_remote_mac, unic->return_pppoe_remote_mac, ETH_ALEN);
+	nircm->valid_flags |= NSS_IPV6_RULE_CREATE_PPPOE_VALID;
 
-	if (unic->flags & NSS_IPV6_CREATE_FLAG_BRIDGE_FLOW) {
-		nirc->flags |= NSS_IPV6_RULE_CREATE_FLAG_BRIDGE_FLOW;
-	}
+	/*
+	 * Copy over the tcp rules and set TCP_VALID flag
+	 */
+	nircm->tcp_rule.flow_window_scale = unic->flow_window_scale;
+	nircm->tcp_rule.flow_max_window = unic->flow_max_window;
+	nircm->tcp_rule.flow_end = unic->flow_end;
+	nircm->tcp_rule.flow_max_end = unic->flow_max_end;
+	nircm->tcp_rule.flow_mtu = unic->from_mtu;
+	nircm->tcp_rule.return_window_scale = unic->return_window_scale;
+	nircm->tcp_rule.return_max_window = unic->return_max_window;
+	nircm->tcp_rule.return_end = unic->return_end;
+	nircm->tcp_rule.return_max_end = unic->return_max_end;
+	nircm->tcp_rule.return_mtu = unic->to_mtu;
+	nircm->valid_flags |= NSS_IPV6_RULE_CREATE_TCP_VALID;
 
-	if (unic->flags & NSS_IPV6_CREATE_FLAG_ROUTED) {
-		nirc->flags |= NSS_IPV6_RULE_CREATE_FLAG_ROUTED;
-	}
+	/*
+	 * Copy over the vlan rules and set the VLAN_VALID flag
+	 */
+	nircm->vlan_rule.egress_vlan_tag = unic->egress_vlan_tag;
+	nircm->vlan_rule.ingress_vlan_tag = unic->ingress_vlan_tag;
+	nircm->valid_flags |= NSS_IPV6_RULE_CREATE_VLAN_VALID;
 
+	/*
+	 * Copy over the qos rules and set the QOS_VALID flag
+	 */
+	nircm->qos_rule.qos_tag = unic->qos_tag;
+	nircm->valid_flags |= NSS_IPV6_RULE_CREATE_QOS_VALID;
+
+	/*
+	 * Copy over the dscp marking rules and set the DSCP_MARKING_VALID flag
+	 */
+	nircm->dscp_rule.dscp_itag = unic->dscp_itag ;
+	nircm->dscp_rule.dscp_imask = unic->dscp_imask;
+	nircm->dscp_rule.dscp_omask = unic->dscp_omask;
+	nircm->dscp_rule.dscp_oval = unic->dscp_oval;
 	if (unic->flags & NSS_IPV4_CREATE_FLAG_DSCP_MARKING) {
-		nirc->flags |= NSS_IPV4_RULE_CREATE_FLAG_DSCP_MARKING;
-	}
-
-	if (unic->flags & NSS_IPV4_CREATE_FLAG_VLAN_MARKING) {
-		nirc->flags |= NSS_IPV4_RULE_CREATE_FLAG_VLAN_MARKING;
+		nircm->rule_flags |= NSS_IPV4_RULE_CREATE_FLAG_DSCP_MARKING;
+		nircm->valid_flags |= NSS_IPV6_RULE_CREATE_DSCP_MARKING_VALID;
 	}
 
 	/*
-	 * Initialize DSCP and VLAN marking data
+	 * Copy over the vlan marking rules and set the VLAN_MARKING_VALID flag
 	 */
-	nirc->dscp_itag = unic->dscp_itag ;
-	nirc->dscp_imask = unic->dscp_imask;
-	nirc->dscp_omask = unic->dscp_omask ;
-	nirc->dscp_oval = unic->dscp_oval ;
-	nirc->vlan_imask = unic->vlan_imask;
-	nirc->vlan_itag = unic->vlan_itag;
-	nirc->vlan_omask = unic->vlan_omask ;
-	nirc->vlan_oval = unic->vlan_oval ;
+	nircm->vlan_rule.vlan_imask = unic->vlan_imask;
+	nircm->vlan_rule.vlan_itag = unic->vlan_itag;
+	nircm->vlan_rule.vlan_omask = unic->vlan_omask;
+	nircm->vlan_rule.vlan_oval = unic->vlan_oval;
+	if (unic->flags & NSS_IPV4_CREATE_FLAG_VLAN_MARKING) {
+		nircm->rule_flags |= NSS_IPV4_RULE_CREATE_FLAG_VLAN_MARKING;
+		nircm->valid_flags |= NSS_IPV6_RULE_CREATE_VLAN_MARKING_VALID;
+	}
+
+	if (unic->flags & NSS_IPV6_CREATE_FLAG_NO_SEQ_CHECK) {
+		nircm->rule_flags |= NSS_IPV6_RULE_CREATE_FLAG_NO_SEQ_CHECK;
+	}
+
+	if (unic->flags & NSS_IPV6_CREATE_FLAG_BRIDGE_FLOW) {
+		nircm->rule_flags |= NSS_IPV6_RULE_CREATE_FLAG_BRIDGE_FLOW;
+	}
+
+	if (unic->flags & NSS_IPV6_CREATE_FLAG_ROUTED) {
+		nircm->rule_flags |= NSS_IPV6_RULE_CREATE_FLAG_ROUTED;
+	}
 
 	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
 	if (status != NSS_CORE_STATUS_SUCCESS) {
@@ -261,7 +322,7 @@ nss_tx_status_t nss_tx_destroy_ipv6_rule(void *ctx, struct nss_ipv6_destroy *uni
 	struct sk_buff *nbuf;
 	int32_t status;
 	struct nss_ipv6_msg *nim;
-	struct nss_ipv6_rule_destroy *nird;
+	struct nss_ipv6_rule_destroy_msg *nirdm;
 
 	nss_info("%p: Destroy IPv6: %pI6:%d, %pI6:%d, p: %d\n", nss_ctx,
 		unid->src_ip, unid->src_port, unid->dest_ip, unid->dest_port, unid->protocol);
@@ -284,22 +345,21 @@ nss_tx_status_t nss_tx_destroy_ipv6_rule(void *ctx, struct nss_ipv6_destroy *uni
 	nim = (struct nss_ipv6_msg *)skb_put(nbuf, sizeof(struct nss_ipv6_msg));
 	nim->cm.interface = NSS_IPV6_RX_INTERFACE;
 	nim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nim->cm.request = NSS_TX_METADATA_TYPE_IPV6_RULE_DESTROY;
-	nim->cm.len = sizeof(struct nss_ipv6_rule_destroy);
+	nim->cm.type = NSS_TX_METADATA_TYPE_IPV6_RULE_DESTROY;
+	nim->cm.len = sizeof(struct nss_ipv6_rule_destroy_msg);
 
-	nim->type = NSS_TX_METADATA_TYPE_IPV6_RULE_DESTROY;
-	nird = &nim->msg.rule_destroy;
-	nird->protocol = (uint8_t)unid->protocol;
-	nird->flow_ip[0] = unid->src_ip[0];
-	nird->flow_ip[1] = unid->src_ip[1];
-	nird->flow_ip[2] = unid->src_ip[2];
-	nird->flow_ip[3] = unid->src_ip[3];
-	nird->flow_ident = (uint32_t)unid->src_port;
-	nird->return_ip[0] = unid->dest_ip[0];
-	nird->return_ip[1] = unid->dest_ip[1];
-	nird->return_ip[2] = unid->dest_ip[2];
-	nird->return_ip[3] = unid->dest_ip[3];
-	nird->return_ident = (uint32_t)unid->dest_port;
+	nirdm = &nim->msg.rule_destroy;
+	nirdm->tuple.protocol = (uint8_t)unid->protocol;
+	nirdm->tuple.flow_ip[0] = unid->src_ip[0];
+	nirdm->tuple.flow_ip[1] = unid->src_ip[1];
+	nirdm->tuple.flow_ip[2] = unid->src_ip[2];
+	nirdm->tuple.flow_ip[3] = unid->src_ip[3];
+	nirdm->tuple.flow_ident = (uint32_t)unid->src_port;
+	nirdm->tuple.return_ip[0] = unid->dest_ip[0];
+	nirdm->tuple.return_ip[1] = unid->dest_ip[1];
+	nirdm->tuple.return_ip[2] = unid->dest_ip[2];
+	nirdm->tuple.return_ip[3] = unid->dest_ip[3];
+	nirdm->tuple.return_ident = (uint32_t)unid->dest_port;
 
 	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
 	if (status != NSS_CORE_STATUS_SUCCESS) {
@@ -468,12 +528,12 @@ static void nss_rx_ipv6_interface_handler(struct nss_ctx_instance *nss_ctx, stru
 	/*
 	 * Is this a valid request/response packet?
 	 */
-	if (nim->type >= NSS_METADATA_TYPE_IPV6_MAX) {
-		nss_warning("%p: received invalid message %d for IPv6 interface", nss_ctx, nim->type);
+	if (nim->cm.type >= NSS_METADATA_TYPE_IPV6_MAX) {
+		nss_warning("%p: received invalid message %d for IPv6 interface", nss_ctx, nim->cm.type);
 		return;
 	}
 
-	switch (nim->type) {
+	switch (nim->cm.type) {
 	case NSS_RX_METADATA_TYPE_IPV6_RULE_ESTABLISH:
 		nss_rx_metadata_ipv6_rule_establish(nss_ctx, &nim->msg.rule_establish);
 		break;
@@ -487,8 +547,8 @@ static void nss_rx_ipv6_interface_handler(struct nss_ctx_instance *nss_ctx, stru
 			/*
 			 * Check response
 			 */
-			nss_info("%p: Received response %d for request %d, interface %d",
-						nss_ctx, ncm->response, ncm->request, ncm->interface);
+			nss_info("%p: Received response %d for type %d, interface %d",
+						nss_ctx, ncm->response, ncm->type, ncm->interface);
 		}
 	}
 }

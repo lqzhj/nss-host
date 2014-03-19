@@ -59,10 +59,9 @@ nss_tx_status_t nss_tx_crypto_if_open(void *ctx, uint8_t *buf, uint32_t len)
 	ncm = (struct nss_crypto_msg *)skb_put(nbuf, sizeof(struct nss_crypto_msg) + len);
 	ncm->cm.interface = NSS_CRYPTO_INTERFACE;
 	ncm->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	ncm->cm.request = NSS_TX_METADATA_TYPE_CRYPTO_CONFIG;
+	ncm->cm.type = NSS_TX_METADATA_TYPE_CRYPTO_CONFIG;
 	ncm->cm.len = sizeof(struct nss_crypto_config) + (len - 1);
 
-	ncm->type = NSS_TX_METADATA_TYPE_CRYPTO_CONFIG;
 	nco = &ncm->msg.config;
 	nco->len = len;
 	memcpy(nco->buf, buf, len);
@@ -175,12 +174,12 @@ static void nss_rx_crypto_interface_handler(struct nss_ctx_instance *nss_ctx, st
 	/*
 	 * Is this a valid request/response packet?
 	 */
-	if (ncrm->type >= NSS_METADATA_TYPE_CRYPTO_MAX) {
+	if (ncrm->cm.type >= NSS_METADATA_TYPE_CRYPTO_MAX) {
 		nss_warning("%p: received invalid message %d for crypto interface", nss_ctx, ncrm->type);
 		return;
 	}
 
-	switch (ncrm->type) {
+	switch (ncrm->cm.type) {
 	case NSS_RX_METADATA_TYPE_CRYPTO_SYNC:
 		nss_rx_metadata_crypto_sync(nss_ctx, &ncrm->msg.sync);
 		break;
@@ -190,8 +189,8 @@ static void nss_rx_crypto_interface_handler(struct nss_ctx_instance *nss_ctx, st
 		 * Check response
 		 */
 		if (ncm->response != NSS_CMN_RESPONSE_ACK) {
-			nss_info("%p: Received response %d for request %d, interface %d",
-							nss_ctx, ncm->response, ncm->request, ncm->interface);
+			nss_info("%p: Received response %d for type %d, interface %d",
+							nss_ctx, ncm->response, ncm->cm.type, ncm->interface);
 		}
 	}
 }

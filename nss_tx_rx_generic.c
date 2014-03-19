@@ -57,10 +57,9 @@ nss_tx_status_t nss_tx_generic_if_buf(void *ctx, uint32_t if_num, uint8_t *buf, 
 	ngm = (struct nss_generic_msg *)skb_put(nbuf, sizeof(struct nss_generic_msg) + len);
 	ngm->cm.interface = if_num;
 	ngm->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	ngm->cm.request = NSS_TX_METADATA_TYPE_GENERIC_IF_PARAMS;
+	ngm->cm.type = NSS_TX_METADATA_TYPE_GENERIC_IF_PARAMS;
 	ngm->cm.len = sizeof(struct nss_generic_if_params) + (len - 1);
 
-	ngm->type = NSS_TX_METADATA_TYPE_GENERIC_IF_PARAMS;
 	ngip = &ngm->msg.rule;
 	ngip->len = len;
 	memcpy(ngip->buf, buf, len);

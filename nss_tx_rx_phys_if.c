@@ -96,10 +96,9 @@ nss_tx_status_t nss_tx_phys_if_open(void *ctx, uint32_t tx_desc_ring, uint32_t r
 	nim = (struct nss_if_msg *)skb_put(nbuf, sizeof(struct nss_if_msg));
 	nim->cm.interface = if_num;
 	nim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nim->cm.request = NSS_TX_METADATA_TYPE_INTERFACE_OPEN;
+	nim->cm.type = NSS_TX_METADATA_TYPE_INTERFACE_OPEN;
 	nim->cm.len = sizeof(struct nss_if_open);
 
-	nim->type = NSS_TX_METADATA_TYPE_INTERFACE_OPEN;
 	nio = &nim->msg.open;
 
 	nio->tx_desc_ring = tx_desc_ring;
@@ -151,10 +150,9 @@ nss_tx_status_t nss_tx_phys_if_close(void *ctx, uint32_t if_num)
 	nim = (struct nss_if_msg *)skb_put(nbuf, sizeof(struct nss_if_msg));
 	nim->cm.interface = if_num;
 	nim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nim->cm.request = NSS_TX_METADATA_TYPE_INTERFACE_CLOSE;
+	nim->cm.type = NSS_TX_METADATA_TYPE_INTERFACE_CLOSE;
 	nim->cm.len = sizeof(struct nss_if_close);
 
-	nim->type = NSS_TX_METADATA_TYPE_INTERFACE_CLOSE;
 	nic = &nim->msg.close;
 
 	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
@@ -203,10 +201,9 @@ nss_tx_status_t nss_tx_phys_if_link_state(void *ctx, uint32_t link_state, uint32
 	nim = (struct nss_if_msg *)skb_put(nbuf, sizeof(struct nss_if_msg));
 	nim->cm.interface = if_num;
 	nim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nim->cm.request = NSS_TX_METADATA_TYPE_INTERFACE_LINK_STATE_NOTIFY;
+	nim->cm.type = NSS_TX_METADATA_TYPE_INTERFACE_LINK_STATE_NOTIFY;
 	nim->cm.len = sizeof(struct nss_if_link_state_notify);
 
-	nim->type = NSS_TX_METADATA_TYPE_INTERFACE_LINK_STATE_NOTIFY;
 	nils = &nim->msg.link_state_notify;
 	nils->state = link_state;
 
@@ -257,10 +254,9 @@ nss_tx_status_t nss_tx_phys_if_mac_addr(void *ctx, uint8_t *addr, uint32_t if_nu
 	nim = (struct nss_if_msg *)skb_put(nbuf, sizeof(struct nss_if_msg));
 	nim->cm.interface = if_num;
 	nim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nim->cm.request = NSS_TX_METADATA_TYPE_INTERFACE_MAC_ADDR_SET;
+	nim->cm.type = NSS_TX_METADATA_TYPE_INTERFACE_MAC_ADDR_SET;
 	nim->cm.len = sizeof(struct nss_if_mac_address_set);
 
-	nim->type = NSS_TX_METADATA_TYPE_INTERFACE_MAC_ADDR_SET;
 	nmas = &nim->msg.mac_address_set;
 	memcpy(nmas->mac_addr, addr, ETH_ALEN);
 
@@ -310,10 +306,9 @@ nss_tx_status_t nss_tx_phys_if_change_mtu(void *ctx, uint32_t mtu, uint32_t if_n
 	nim = (struct nss_if_msg *)skb_put(nbuf, sizeof(struct nss_if_msg));
 	nim->cm.interface = if_num;
 	nim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nim->cm.request = NSS_TX_METADATA_TYPE_INTERFACE_MTU_CHANGE;
+	nim->cm.type = NSS_TX_METADATA_TYPE_INTERFACE_MTU_CHANGE;
 	nim->cm.len = sizeof(struct nss_if_mtu_change);
 
-	nim->type = NSS_TX_METADATA_TYPE_INTERFACE_MTU_CHANGE;
 	nimc = &nim->msg.mtu_change;
 	nimc->min_buf_size = (uint16_t)mtu + NSS_NBUF_ETH_EXTRA;
 
@@ -405,13 +400,13 @@ static void nss_rx_phys_if_interface_handler(struct nss_ctx_instance *nss_ctx, s
 	/*
 	 * Is this a valid request/response packet?
 	 */
-	if (nim->type >= NSS_METADATA_TYPE_INTERFACE_MAX) {
+	if (nim->cm.type >= NSS_METADATA_TYPE_INTERFACE_MAX) {
 		nss_warning("%p: received invalid message %d for physical interface", nss_ctx, nim->type);
 		return;
 	}
 
 
-	switch (nim->type) {
+	switch (nim->cm.type) {
 	case NSS_RX_METADATA_TYPE_INTERFACE_STATS_SYNC:
 		nss_rx_metadata_gmac_stats_sync(nss_ctx, &nim->msg.stats_sync, ncm->interface);
 		break;
@@ -420,8 +415,8 @@ static void nss_rx_phys_if_interface_handler(struct nss_ctx_instance *nss_ctx, s
 			/*
 			 * Check response
 			 */
-			nss_info("%p: Received response %d for request %d, interface %d",
-						nss_ctx, ncm->response, ncm->request, ncm->interface);
+			nss_info("%p: Received response %d for type %d, interface %d",
+						nss_ctx, ncm->response, ncm->type, ncm->interface);
 		}
 	}
 }

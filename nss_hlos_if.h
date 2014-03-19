@@ -40,7 +40,7 @@ struct nss_cmn_msg {
 	uint16_t version;		/* Version id for main message format */
 	uint16_t interface;		/* Primary Key for all messages */
 	enum nss_cmn_response response;	/* Primary response */
-	uint32_t request;	/* Decetralized request #, to be used to match response # */
+	uint32_t type;		/* Decetralized request #, to be used to match response # */
 	uint32_t error;		/* Decentralized specific error message, response == EMSG */
 	uint32_t len;		/* What is the length of the message excluding this header */
 };
@@ -51,7 +51,6 @@ struct nss_cmn_msg {
 
 enum nss_ipv4_metadata_types {
 	NSS_TX_METADATA_TYPE_IPV4_RULE_CREATE,
-	NSS_TX_METADATA_TYPE_IPV4_RULE_CREATE1,
 	NSS_TX_METADATA_TYPE_IPV4_RULE_DESTROY,
 	NSS_RX_METADATA_TYPE_IPV4_RULE_ESTABLISH,
 	NSS_RX_METADATA_TYPE_IPV4_RULE_SYNC,
@@ -73,97 +72,150 @@ enum nss_ipv4_metadata_types {
 					/* Rule is for a VLAN marking . */
 
 /*
- * The NSS IPv4 rule creation structure.
+ * IPv4 rule creation validity flags.
  */
-struct nss_ipv4_rule_create {
-	uint8_t protocol;			/* Protocol number */
-	int32_t flow_interface_num;		/* Flow interface number */
-	uint32_t flow_ip;			/* Flow IP address */
-	uint32_t flow_ip_xlate;			/* Translated flow IP address */
-	uint32_t flow_ident;			/* Flow ident (e.g. port) */
-	uint32_t flow_ident_xlate;		/* Translated flow ident (e.g. port) */
-	uint16_t flow_mac[3];			/* Flow MAC address */
-	uint8_t flow_window_scale;		/* Flow direction's window scaling factor */
-	uint32_t flow_max_window;		/* Flow direction's largest seen window */
-	uint32_t flow_end;			/* Flow direction's largest seen sequence + segment length */
-	uint32_t flow_max_end;			/* Flow direction's largest seen ack + max(1, win) */
-	uint32_t flow_mtu;			/* Flow interface`s MTU */
-	uint16_t flow_pppoe_session_id;		/* PPPoE session ID. */
-	uint16_t flow_pppoe_remote_mac[3];	/* PPPoE Server MAC address */
-	uint16_t ingress_vlan_tag;		/* Ingress VLAN tag expected for this flow */
-	int32_t return_interface_num;		/* Return interface number */
-	uint32_t return_ip;			/* Return IP address */
-	uint32_t return_ip_xlate;		/* Translated return IP address */
-	uint32_t return_ident;			/* Return ident (e.g. port) */
-	uint32_t return_ident_xlate;		/* Translated return ident (e.g. port) */
-	uint16_t return_mac[3];			/* Return MAC address */
-	uint8_t return_window_scale;		/* Return direction's window scaling factor */
-	uint32_t return_max_window;		/* Return direction's largest seen window */
-	uint32_t return_end;			/* Return direction's largest seen sequence + segment length */
-	uint32_t return_max_end;		/* Return direction's largest seen ack + max(1, win) */
-	uint32_t return_mtu;			/* Return interface`s MTU */
-	uint16_t return_pppoe_session_id;	/* PPPoE session ID. */
-	uint16_t return_pppoe_remote_mac[3];	/* PPPoE Server MAC address */
-	uint16_t egress_vlan_tag;		/* Egress VLAN tag expected for this flow */
-	uint8_t flags;				/* Bit flags associated with the rule */
-	uint32_t qos_tag;			/* QoS tag value */
-};
+#define NSS_IPV4_RULE_CREATE_CONN_VALID 0x01	/* Protocol fields are valid */
+#define NSS_IPV4_RULE_CREATE_TCP_VALID 0x02	/* Protocol fields are valid */
+#define NSS_IPV4_RULE_CREATE_PPPOE_VALID 0x04	/* PPPoE fields are valid */
+#define NSS_IPV4_RULE_CREATE_QOS_VALID 0x08	/* QoS fields are valid */
+#define NSS_IPV4_RULE_CREATE_VLAN_VALID 0x10	/* VLAN fields are valid */
+#define NSS_IPV4_RULE_CREATE_DSCP_MARKING_VALID 0x20	/* DSCP fields are valid */
+#define NSS_IPV4_RULE_CREATE_VLAN_MARKING_VALID 0x40	/* VLAN fields are valid */
 
 /*
- * The NSS IPv4 rule creation structure.
+ * Common 5 tuple structure
  */
-struct nss_ipv4_rule_create1 {
-	uint8_t protocol;			/* Protocol number */
-	int32_t flow_interface_num;		/* Flow interface number */
-	uint32_t flow_ip;			/* Flow IP address */
-	uint32_t flow_ip_xlate;			/* Translated flow IP address */
-	uint32_t flow_ident;			/* Flow ident (e.g. port) */
-	uint32_t flow_ident_xlate;		/* Translated flow ident (e.g. port) */
-	uint16_t flow_mac[3];			/* Flow MAC address */
-	uint8_t flow_window_scale;		/* Flow direction's window scaling factor */
-	uint32_t flow_max_window;		/* Flow direction's largest seen window */
-	uint32_t flow_end;			/* Flow direction's largest seen sequence + segment length */
-	uint32_t flow_max_end;			/* Flow direction's largest seen ack + max(1, win) */
-	uint32_t flow_mtu;			/* Flow interface`s MTU */
-	uint16_t flow_pppoe_session_id;		/* PPPoE session ID. */
-	uint16_t flow_pppoe_remote_mac[3];	/* PPPoE Server MAC address */
-	uint16_t ingress_vlan_tag;		/* Ingress VLAN tag expected for this flow */
-	int32_t return_interface_num;		/* Return interface number */
-	uint32_t return_ip;			/* Return IP address */
-	uint32_t return_ip_xlate;		/* Translated return IP address */
-	uint32_t return_ident;			/* Return ident (e.g. port) */
-	uint32_t return_ident_xlate;		/* Translated return ident (e.g. port) */
-	uint16_t return_mac[3];			/* Return MAC address */
-	uint8_t return_window_scale;		/* Return direction's window scaling factor */
-	uint32_t return_max_window;		/* Return direction's largest seen window */
-	uint32_t return_end;			/* Return direction's largest seen sequence + segment length */
-	uint32_t return_max_end;		/* Return direction's largest seen ack + max(1, win) */
-	uint32_t return_mtu;			/* Return interface`s MTU */
-	uint16_t return_pppoe_session_id;	/* PPPoE session ID. */
-	uint16_t return_pppoe_remote_mac[3];	/* PPPoE Server MAC address */
-	uint16_t egress_vlan_tag;		/* Egress VLAN tag expected for this flow */
-	uint8_t flags;				/* Bit flags associated with the rule */
-	uint32_t qos_tag;			/* QoS tag value */
-	uint8_t dscp_itag;			/* DSCP marking tag */
-	uint8_t dscp_imask;			/* DSCP marking input mask */
-	uint8_t dscp_omask;			/* DSCP marking output mask */
-	uint8_t dscp_oval;			/* DSCP marking output val */
-	uint16_t vlan_itag;			/* VLAN marking tag */
-	uint16_t vlan_imask;			/* VLAN marking input mask */
-	uint16_t vlan_omask;			/* VLAN marking output mask */
-	uint16_t vlan_oval;			/* VLAN marking output val */
-};
-
-/*
- * The NA IPv4 rule destruction structure.
- */
-struct nss_ipv4_rule_destroy {
-	uint8_t protocol;		/* Protocol number */
+struct nss_ipv4_5tuple {
 	uint32_t flow_ip;		/* Flow IP address */
 	uint32_t flow_ident;		/* Flow ident (e.g. port) */
 	uint32_t return_ip;		/* Return IP address */
 	uint32_t return_ident;		/* Return ident (e.g. port) */
+	uint8_t protocol;		/* Protocol number */
 };
+
+/*
+ * Connection create structure
+ */
+struct nss_ipv4_connection_rule {
+	uint8_t flags;
+	uint16_t flow_mac[3];		/* Flow MAC address */
+	int32_t flow_interface_num;	/* Flow interface number */
+	uint32_t flow_ip_xlate;		/* Translated flow IP address */
+	uint32_t flow_ident_xlate;	/* Translated flow ident (e.g. port) */
+	uint16_t return_mac[3];		/* Return MAC address */
+	int32_t return_interface_num;	/* Return interface number */
+	uint32_t return_ip_xlate;	/* Translated return IP address */
+	uint32_t return_ident_xlate;	/* Translated return ident (e.g. port) */
+};
+
+/*
+ * PPPoE connection rules structure
+ */
+struct nss_ipv4_pppoe_rule {
+	uint16_t flow_pppoe_session_id;	/* Flow direction`s PPPoE session ID. */
+	uint16_t flow_pppoe_remote_mac[3];
+					/* Flow direction`s PPPoE Server MAC address */
+	uint16_t return_pppoe_session_id;
+					/* Return direction's PPPoE session ID. */
+	uint16_t return_pppoe_remote_mac[3];
+					/* Return direction's PPPoE Server MAC address */
+};
+
+/*
+ * DSCP connection rule structure
+ */
+struct nss_ipv4_dscp_rule {
+	uint8_t dscp_itag;		/* Input tag for DSCP marking */
+	uint8_t dscp_imask;		/* Input mask for DSCP marking */
+	uint8_t dscp_omask;		/* Output mask for DSCP marking */
+	uint8_t dscp_oval;		/* Output value of DSCP marking */
+};
+
+/*
+ * VLAN connection rule structure
+ */
+struct nss_ipv4_vlan_rule {
+	uint16_t ingress_vlan_tag;	/* VLAN Tag for the ingress packets */
+	uint16_t egress_vlan_tag;	/* VLAN Tag for egress packets */
+	uint16_t vlan_itag;		/* Input tag for VLAN marking */
+	uint16_t vlan_imask;		/* Input mask for VLAN marking */
+	uint16_t vlan_omask;		/* Output mask for VLAN marking */
+	uint16_t vlan_oval;		/* Output value of VLAN marking */
+};
+
+/*
+ * TCP connection rulr structure
+ */
+struct nss_ipv4_protocol_tcp_rule {
+	uint8_t flow_window_scale;	/* Flow direction's window scaling factor */
+	uint32_t flow_max_window;	/* Flow direction's largest seen window */
+	uint32_t flow_end;		/* Flow direction's largest seen sequence + segment length */
+	uint32_t flow_max_end;		/* Flow direction's largest seen ack + max(1, win) */
+	uint32_t flow_mtu;		/* Flow interface`s MTU */
+	uint8_t return_window_scale;	/* Return direction's window scaling factor */
+	uint32_t return_max_window;	/* Return direction's largest seen window */
+	uint32_t return_end;		/* Return direction's largest seen sequence + segment length */
+	uint32_t return_max_end;	/* Return direction's largest seen ack + max(1, win) */
+	uint32_t return_mtu;		/* Return interface`s MTU */
+};
+
+/*
+ * QoS connection rule structure
+ */
+struct nss_ipv4_qos_rule {
+	uint32_t qos_tag;			/* QoS tag associated with this rule */
+};
+
+/*
+ * Error types for create rule (CR) msg
+ */
+enum {
+	NSS_IPV4_CR_INVALID_PNODE_ERROR = 1,
+	NSS_IPV4_CR_MISSING_CONNECTION_RULE_ERROR,
+	NSS_IPV4_CR_BUFFER_ALLOC_FAIL_ERROR,
+	NSS_IPV4_CR_PPPOE_SESSION_CREATION_ERROR,
+};
+
+/*
+ * The IPv4 rule create sub-message structure.
+ */
+struct nss_ipv4_rule_create_msg {
+	struct nss_ipv4_5tuple tuple;			/* Holds values of the 5 tuple */
+
+	struct nss_ipv4_connection_rule conn_rule;	/* Basic connection specific data */
+	struct nss_ipv4_protocol_tcp_rule tcp_rule;	/* TCP related accleration parameters */
+	struct nss_ipv4_pppoe_rule pppoe_rule;		/* PPPoE related accleration parameters */
+	struct nss_ipv4_qos_rule qos_rule;		/* QoS related accleration parameters */
+	struct nss_ipv4_dscp_rule dscp_rule;		/* DSCP related accleration parameters */
+	struct nss_ipv4_vlan_rule vlan_rule;		/* VLAN related accleration parameters */
+
+	uint32_t opaque[2];			/* NSS driver opaques */
+	uint16_t valid_flags;			/* Bit flags associated with the validity of parameters */
+	uint8_t rule_flags;			/* Bit flags associated with the rule */
+};
+
+/*
+ * Error types for destroy rule (DR) msg
+ */
+enum {
+	NSS_IPV4_DR_NO_CONNECTION_ENTRY_ERROR = 1,
+};
+
+/*
+ * The IPv4 rule destroy sub-message structure.
+ */
+struct nss_ipv4_rule_destroy_msg {
+	struct nss_ipv4_5tuple tuple;	/* Holds values of the 5 tuple */
+	uint32_t opaque[2];			/* NSS driver opaques */
+};
+
+/*
+ * Message types for ipv4
+ */
+typedef enum {
+	NSS_IPV4_CREATE_RULE_MSG,		/* Message type - create rule */
+	NSS_IPV4_DESTROY_RULE_MSG,		/* Message type - destroy rule */
+} nss_ipv4_msg_types_t;
 
 /*
  * The NSS IPv4 rule establish structure.
@@ -250,11 +302,9 @@ struct nss_ipv4_rule_sync {
  */
 struct nss_ipv4_msg {
 	struct nss_cmn_msg cm;		/* Message Header */
-	enum nss_ipv4_metadata_types type;	/* Message Type */
 	union {
-		struct nss_ipv4_rule_create rule_create;	/* Message: rule create */
-		struct nss_ipv4_rule_create1 rule_create1;	/* Message: rule create1 */
-		struct nss_ipv4_rule_destroy rule_destroy;	/* Message: rule destroy */
+		struct nss_ipv4_rule_create_msg rule_create;	/* Message: rule create */
+		struct nss_ipv4_rule_destroy_msg rule_destroy;	/* Message: rule destroy */
 		struct nss_ipv4_rule_establish rule_establish;	/* Message: rule establish confirmation */
 		struct nss_ipv4_rule_sync rule_sync;	/* Message: stats sync */
 	} msg;
@@ -266,7 +316,6 @@ struct nss_ipv4_msg {
 
  enum nss_ipv6_metadata_types {
 	NSS_TX_METADATA_TYPE_IPV6_RULE_CREATE,
-	NSS_TX_METADATA_TYPE_IPV6_RULE_CREATE1,
 	NSS_TX_METADATA_TYPE_IPV6_RULE_DESTROY,
 	NSS_RX_METADATA_TYPE_IPV6_RULE_ESTABLISH,
 	NSS_RX_METADATA_TYPE_IPV6_RULE_SYNC,
@@ -288,92 +337,145 @@ struct nss_ipv4_msg {
 					/* Rule is for a VLAN marking . */
 
 /*
- * The NSS IPv6 rule creation structure.
+ * IPv6 rule creation validity flags.
  */
-struct nss_ipv6_rule_create {
-	uint8_t protocol;			/* Protocol number */
-	int32_t flow_interface_num;		/* Flow interface number */
-	uint32_t flow_ip[4];			/* Flow IP address */
-	uint32_t flow_ident;			/* Flow ident (e.g. port) */
-	uint16_t flow_mac[3];			/* Flow MAC address */
-	uint8_t flow_window_scale;		/* Flow direction's window scaling factor */
-	uint32_t flow_max_window;		/* Flow direction's largest seen window */
-	uint32_t flow_end;			/* Flow direction's largest seen sequence + segment length */
-	uint32_t flow_max_end;			/* Flow direction's largest seen ack + max(1, win) */
-	uint32_t flow_mtu;			/* Flow interface`s MTU */
-	uint16_t flow_pppoe_session_id;		/* PPPoE session ID. */
-	uint16_t flow_pppoe_remote_mac[3];	/* PPPoE Server MAC address */
-	uint16_t ingress_vlan_tag;		/* Ingress VLAN tag expected for this flow */
-	int32_t return_interface_num;		/* Return interface number */
-	uint32_t return_ip[4];			/* Return IP address */
-	uint32_t return_ident;			/* Return ident (e.g. port) */
-	uint16_t return_mac[3];			/* Return MAC address */
-	uint8_t return_window_scale;		/* Return direction's window scaling factor */
-	uint32_t return_max_window;		/* Return direction's largest seen window */
-	uint32_t return_end;			/* Return direction's largest seen sequence + segment length */
-	uint32_t return_max_end;		/* Return direction's largest seen ack + max(1, win) */
-	uint32_t return_mtu;			/* Return interface`s MTU */
-	uint16_t return_pppoe_session_id;	/* PPPoE session ID. */
-	uint16_t return_pppoe_remote_mac[3];	/* PPPoE Server MAC address */
-	uint16_t egress_vlan_tag;		/* Egress VLAN tag expected for this flow */
-	uint8_t flags;				/* Bit flags associated with the rule */
-	uint32_t qos_tag;			/* QoS tag value */
-};
+#define NSS_IPV6_RULE_CREATE_CONN_VALID 0x01	/* Protocol fields are valid */
+#define NSS_IPV6_RULE_CREATE_TCP_VALID 0x02	/* Protocol fields are valid */
+#define NSS_IPV6_RULE_CREATE_PPPOE_VALID 0x04	/* PPPoE fields are valid */
+#define NSS_IPV6_RULE_CREATE_QOS_VALID 0x08	/* QoS fields are valid */
+#define NSS_IPV6_RULE_CREATE_VLAN_VALID 0x10	/* VLAN fields are valid */
+#define NSS_IPV6_RULE_CREATE_DSCP_MARKING_VALID 0x20	/* DSCP fields are valid */
+#define NSS_IPV6_RULE_CREATE_VLAN_MARKING_VALID 0x40	/* VLAN fields are valid */
 
 /*
- * The NSS IPv6 rule creation structure.
- * This structure is just created to be compatible with older firmware,
- * whose lifespan will be for few hours, or may survive for few days more
- * than new host.
+ * Common 5 tuple structure
  */
-struct nss_ipv6_rule_create1 {
-	uint8_t protocol;			/* Protocol number */
-	int32_t flow_interface_num;		/* Flow interface number */
-	uint32_t flow_ip[4];			/* Flow IP address */
-	uint32_t flow_ident;			/* Flow ident (e.g. port) */
-	uint16_t flow_mac[3];			/* Flow MAC address */
-	uint8_t flow_window_scale;		/* Flow direction's window scaling factor */
-	uint32_t flow_max_window;		/* Flow direction's largest seen window */
-	uint32_t flow_end;			/* Flow direction's largest seen sequence + segment length */
-	uint32_t flow_max_end;			/* Flow direction's largest seen ack + max(1, win) */
-	uint32_t flow_mtu;			/* Flow interface`s MTU */
-	uint16_t flow_pppoe_session_id;		/* PPPoE session ID. */
-	uint16_t flow_pppoe_remote_mac[3];	/* PPPoE Server MAC address */
-	uint16_t ingress_vlan_tag;		/* Ingress VLAN tag expected for this flow */
-	int32_t return_interface_num;		/* Return interface number */
-	uint32_t return_ip[4];			/* Return IP address */
-	uint32_t return_ident;			/* Return ident (e.g. port) */
-	uint16_t return_mac[3];			/* Return MAC address */
-	uint8_t return_window_scale;		/* Return direction's window scaling factor */
-	uint32_t return_max_window;		/* Return direction's largest seen window */
-	uint32_t return_end;			/* Return direction's largest seen sequence + segment length */
-	uint32_t return_max_end;		/* Return direction's largest seen ack + max(1, win) */
-	uint32_t return_mtu;			/* Return interface`s MTU */
-	uint16_t return_pppoe_session_id;	/* PPPoE session ID. */
-	uint16_t return_pppoe_remote_mac[3];	/* PPPoE Server MAC address */
-	uint16_t egress_vlan_tag;		/* Egress VLAN tag expected for this flow */
-	uint8_t flags;				/* Bit flags associated with the rule */
-	uint32_t qos_tag;			/* QoS tag value */
-	uint8_t dscp_itag;			/* DSCP marking tag */
-	uint8_t dscp_imask;			/* DSCP marking input mask */
-	uint8_t dscp_omask;			/* DSCP marking output mask */
-	uint8_t dscp_oval;			/* DSCP marking output val */
-	uint16_t vlan_itag;			/* VLAN marking tag */
-	uint16_t vlan_imask;			/* VLAN marking input mask */
-	uint16_t vlan_omask;			/* VLAN marking output mask */
-	uint16_t vlan_oval;			/* VLAN marking output val */
-};
-
-/*
- * The NSS IPv6 rule destruction structure.
- */
-struct nss_ipv6_rule_destroy {
-	uint8_t protocol;		/* Protocol number */
+struct nss_ipv6_5tuple {
 	uint32_t flow_ip[4];		/* Flow IP address */
 	uint32_t flow_ident;		/* Flow ident (e.g. port) */
 	uint32_t return_ip[4];		/* Return IP address */
 	uint32_t return_ident;		/* Return ident (e.g. port) */
+	uint8_t protocol;		/* Protocol number */
 };
+
+/*
+ * Connection create structure
+ */
+struct nss_ipv6_connection_rule {
+	uint16_t flow_mac[3];		/* Flow MAC address */
+	int32_t flow_interface_num;	/* Flow interface number */
+	uint16_t return_mac[3];		/* Return MAC address */
+	int32_t return_interface_num;	/* Return interface number */
+};
+
+/*
+ * PPPoE connection rules structure
+ */
+struct nss_ipv6_pppoe_rule {
+	uint16_t flow_pppoe_session_id;	/* Flow direction`s PPPoE session ID. */
+	uint16_t flow_pppoe_remote_mac[3];
+					/* Flow direction`s PPPoE Server MAC address */
+	uint16_t return_pppoe_session_id;
+					/* Return direction's PPPoE session ID. */
+	uint16_t return_pppoe_remote_mac[3];
+					/* Return direction's PPPoE Server MAC address */
+};
+
+/*
+ * DSCP connection rule structure
+ */
+struct nss_ipv6_dscp_rule {
+	uint8_t dscp_itag;		/* Input tag for DSCP marking */
+	uint8_t dscp_imask;		/* Input mask for DSCP marking */
+	uint8_t dscp_omask;		/* Output mask for DSCP marking */
+	uint8_t dscp_oval;		/* Output value of DSCP marking */
+};
+
+/*
+ * VLAN connection rule structure
+ */
+struct nss_ipv6_vlan_rule {
+	uint16_t ingress_vlan_tag;	/* VLAN Tag for the ingress packets */
+	uint16_t egress_vlan_tag;	/* VLAN Tag for egress packets */
+	uint16_t vlan_itag;		/* Input tag for VLAN marking */
+	uint16_t vlan_imask;		/* Input mask for VLAN marking */
+	uint16_t vlan_omask;		/* Output mask for VLAN marking */
+	uint16_t vlan_oval;		/* Output value of VLAN marking */
+};
+
+/*
+ * TCP connection rulr structure
+ */
+struct nss_ipv6_protocol_tcp_rule {
+	uint8_t flow_window_scale;	/* Flow direction's window scaling factor */
+	uint32_t flow_max_window;	/* Flow direction's largest seen window */
+	uint32_t flow_end;		/* Flow direction's largest seen sequence + segment length */
+	uint32_t flow_max_end;		/* Flow direction's largest seen ack + max(1, win) */
+	uint32_t flow_mtu;		/* Flow interface`s MTU */
+	uint8_t return_window_scale;	/* Return direction's window scaling factor */
+	uint32_t return_max_window;	/* Return direction's largest seen window */
+	uint32_t return_end;		/* Return direction's largest seen sequence + segment length */
+	uint32_t return_max_end;	/* Return direction's largest seen ack + max(1, win) */
+	uint32_t return_mtu;		/* Return interface`s MTU */
+};
+
+/*
+ * QoS connection rule structure
+ */
+struct nss_ipv6_qos_rule {
+	uint32_t qos_tag;			/* QoS tag associated with this rule */
+};
+
+/*
+ * Error types for create rule (CR) msg
+ */
+enum {
+	NSS_IPV6_CR_INVALID_PNODE_ERROR = 1,
+	NSS_IPV6_CR_MISSING_CONNECTION_RULE_ERROR,
+	NSS_IPV6_CR_BUFFER_ALLOC_FAIL_ERROR,
+	NSS_IPV6_CR_PPPOE_SESSION_CREATION_ERROR,
+};
+
+/*
+ * The IPv6 rule create sub-message structure.
+ */
+struct nss_ipv6_rule_create_msg {
+	struct nss_ipv6_5tuple tuple;			/* Holds values of the 5 tuple */
+
+	struct nss_ipv6_connection_rule conn_rule;	/* Basic connection specific data */
+	struct nss_ipv6_protocol_tcp_rule tcp_rule;	/* Protocol related accleration parameters */
+	struct nss_ipv6_pppoe_rule pppoe_rule;		/* PPPoE related accleration parameters */
+	struct nss_ipv6_qos_rule qos_rule;		/* QoS related accleration parameters */
+	struct nss_ipv6_dscp_rule dscp_rule;		/* DSCP related accleration parameters */
+	struct nss_ipv6_vlan_rule vlan_rule;		/* VLAN related accleration parameters */
+
+	uint32_t opaque[2];			/* NSS driver opaques */
+	uint16_t valid_flags;			/* Bit flags associated with the validity of parameters */
+	uint8_t rule_flags;			/* Bit flags associated with the rule */
+};
+
+/*
+ * Error types for destroy rule (DR) msg
+ */
+enum {
+	NSS_IPV6_DR_NO_CONNECTION_ENTRY_ERROR = 1,
+};
+
+/*
+ * The IPv6 rule destroy sub-message structure.
+ */
+struct nss_ipv6_rule_destroy_msg {
+	struct nss_ipv6_5tuple tuple;	/* Holds values of the 5 tuple */
+	uint32_t opaque[2];		/* NSS driver opaques */
+};
+
+/*
+ * Message types for ipv6
+ */
+typedef enum {
+	NSS_IPV6_CREATE_RULE_MSG,		/* Message type - Rule create */
+	NSS_IPV6_DESTROY_RULE_MSG,		/* Message type - Rule destroy */
+} nss_ipv6_msg_types_t;
 
 /*
  * The NSS IPv6 rule establish structure.
@@ -456,11 +558,9 @@ struct nss_ipv6_rule_sync {
  */
 struct nss_ipv6_msg {
 	struct nss_cmn_msg cm;		/* Message Header */
-	enum nss_ipv6_metadata_types type;	/* Message Type */
 	union {
-		struct nss_ipv6_rule_create rule_create;	/* Message: rule create */
-		struct nss_ipv6_rule_create1 rule_create1;	/* Message: rule create1 */
-		struct nss_ipv6_rule_destroy rule_destroy;	/* Message: rule destroy */
+		struct nss_ipv6_rule_create_msg rule_create;	/* Message: rule create */
+		struct nss_ipv6_rule_destroy_msg rule_destroy;	/* Message: rule destroy */
 		struct nss_ipv6_rule_establish rule_establish;	/* Message: rule establish confirmation */
 		struct nss_ipv6_rule_sync rule_sync;	/* Message: stats sync */
 	} msg;
@@ -499,7 +599,6 @@ struct nss_virtual_if_destroy {
  */
 struct nss_virtual_if_msg {
 	struct nss_cmn_msg cm;				/* Message Header */
-	enum nss_virtual_if_metadata_types type;	/* Message Type */
 	union {
 		struct nss_virtual_if_create create;	/* Message: create virt if rule */
 		struct nss_virtual_if_destroy destroy;	/* Message: destroy virt if rule */
@@ -567,7 +666,6 @@ struct nss_pppoe_exception_stats_sync {
  */
 struct nss_pppoe_msg {
 	struct nss_cmn_msg cm;		/* Message Header */
-	enum nss_pppoe_metadata_types type;	/* Message Type */
 	union {
 		struct nss_pppoe_destroy destroy;	/* Message: destroy pppoe rule */
 		struct nss_pppoe_rule_status rule_status;	/* Message: rule status response */
@@ -693,7 +791,6 @@ struct nss_if_stats_sync {
  */
 struct nss_if_msg {
 	struct nss_cmn_msg cm;			/* Message Header */
-	enum nss_if_metadata_types type;	/* Message Type */
 	union {
 		struct nss_if_link_state_notify link_state_notify;	/* Message: notify link status */
 		struct nss_if_open open;	/* Message: open interface */
@@ -730,7 +827,6 @@ struct nss_c2c_tx_map {
  */
 struct nss_c2c_msg {
 	struct nss_cmn_msg cm;              /* Message Header */
-	enum nss_c2c_metadata_types type;     /* Message Type */
 	union {
 		struct nss_c2c_tx_map tx_map;
 	} msg;
@@ -964,7 +1060,6 @@ struct nss_offload_stats_sync {
  */
 struct nss_offload_msg {
 	struct nss_cmn_msg cm;			/* Message Header */
-	enum nss_offload_stats_metadata_types type;	/* Message Type */
 	union {
 		struct nss_per_if_stats_sync per_if_stats_sync;		/* Message: interface stats sync */
 		struct nss_offload_stats_sync offload_stats_sync;	/* Message: offload stats sync */
@@ -998,7 +1093,6 @@ struct nss_tun6rd_stats_sync {
  */
 struct nss_tun6rd_msg {
 	struct nss_cmn_msg cm;			/* Message Header */
-	enum nss_tun6rd_metadata_types type;	/* Message Type */
 	union {
 		struct nss_tun6rd_stats_sync stats_sync;		/* Message: interface stats sync */
 	} msg;
@@ -1031,7 +1125,6 @@ struct nss_tunipip6_stats_sync {
  */
 struct nss_tunipip6_msg {
 	struct nss_cmn_msg cm;			/* Message Header */
-	enum nss_tunipip6_metadata_types type;	/* Message Type */
 	union {
 		struct nss_tunipip6_stats_sync stats_sync;	/* Message: NSS stats sync */
 	} msg;
@@ -1073,7 +1166,6 @@ struct nss_crypto_sync {
  */
 struct nss_crypto_msg {
 	struct nss_cmn_msg cm;			/* Message Header */
-	enum nss_crypto_metadata_types type;	/* Message Type */
 	union {
 		struct nss_crypto_config config;	/* Message: configure crypto rule */
 		struct nss_crypto_sync sync;	/* Message: Crypto stats sync */
@@ -1118,7 +1210,6 @@ struct nss_ipsec_events_sync {
  */
 struct nss_ipsec_msg {
 	struct nss_cmn_msg cm;			/* Message Header */
-	enum nss_ipsec_metadata_types type;	/* Message Type */
 	union {
 		struct nss_ipsec_rule rule;	/* Message: IPsec rule */
 		struct nss_ipsec_events_sync sync;	/* Message: IPsec events sync */
@@ -1146,7 +1237,6 @@ struct nss_generic_if_params {
  */
 struct nss_generic_msg {
 	struct nss_cmn_msg cm;			/* Message Header */
-	enum nss_generic_metadata_types type;	/* Message Type */
 	union {
 		struct nss_generic_if_params rule;	/* Message: generic rule */
 	} msg;
@@ -1394,7 +1484,6 @@ struct nss_tx_shaper_config_fifo_param {
  */
 struct nss_tx_shaper_node_config {
 	uint32_t qos_tag;		/* Identifier of the shaper node to which the config is targetted */
-
 	union {
 		struct nss_tx_shaper_config_prio_attach prio_attach;
 		struct nss_tx_shaper_config_prio_detach prio_detach;
