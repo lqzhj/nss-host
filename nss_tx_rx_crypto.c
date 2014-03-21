@@ -175,7 +175,7 @@ static void nss_rx_crypto_interface_handler(struct nss_ctx_instance *nss_ctx, st
 	 * Is this a valid request/response packet?
 	 */
 	if (ncrm->cm.type >= NSS_METADATA_TYPE_CRYPTO_MAX) {
-		nss_warning("%p: received invalid message %d for crypto interface", nss_ctx, ncrm->type);
+		nss_warning("%p: received invalid message %d for crypto interface", nss_ctx, ncrm->cm.type);
 		return;
 	}
 

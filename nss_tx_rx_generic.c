@@ -61,7 +61,6 @@ nss_tx_status_t nss_tx_generic_if_buf(void *ctx, uint32_t if_num, uint8_t *buf, 
 	ngm->cm.len = sizeof(struct nss_generic_if_params) + (len - 1);
 
 	ngip = &ngm->msg.rule;
-	ngip->len = len;
 	memcpy(ngip->buf, buf, len);
 
 	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);

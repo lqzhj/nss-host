@@ -174,7 +174,7 @@ static void nss_rx_pppoe_interface_handler(struct nss_ctx_instance *nss_ctx, str
 	 * Is this a valid request/response packet?
 	 */
 	if (npm->cm.type >= NSS_METADATA_TYPE_PPPOE_MAX) {
-		nss_warning("%p: received invalid message %d for PPPoE interface", nss_ctx, npm->type);
+		nss_warning("%p: received invalid message %d for PPPoE interface", nss_ctx, npm->cm.type);
 		return;
 	}
 

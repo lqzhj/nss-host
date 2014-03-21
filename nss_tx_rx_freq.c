@@ -37,20 +37,20 @@ extern void *nss_freq_change_context;
  */
 static void nss_rx_metadata_nss_freq_ack(struct nss_ctx_instance *nss_ctx, struct nss_freq_change *nfa)
 {
-	if (nfa->ack_status == NSS_ACK_STARTED) {
+	if (nfa->ack == NSS_ACK_STARTED) {
 		/*
 		 * NSS finished start noficiation - HW change clocks and send end notification
 		 */
-		nss_info("%p: NSS ACK Received: %d - Change HW CLK/Send Finish to NSS\n", nss_ctx, nfa->ack_status);
+		nss_info("%p: NSS ACK Received: %d - Change HW CLK/Send Finish to NSS\n", nss_ctx, nfa->ack);
 
 		return;
 	}
 
-	if (nfa->ack_status == NSS_ACK_FINISHED) {
+	if (nfa->ack == NSS_ACK_FINISHED) {
 		/*
 		 * NSS finished end notification - Done
 		 */
-		nss_info("%p: NSS ACK Received: %d - End Notification ACK - Running: %dmhz\n", nss_ctx, nfa->ack_status, nfa->freq_current);
+		nss_info("%p: NSS ACK Received: %d - End Notification ACK - Running: %dmhz\n", nss_ctx, nfa->ack, nfa->freq_current);
 		nss_runtime_samples.freq_scale_ready = 1;
 		return;
 	}
@@ -67,7 +67,7 @@ nss_tx_status_t nss_freq_change(void *ctx, uint32_t eng, uint32_t stats_enable, 
 	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) ctx;
 	struct sk_buff *nbuf;
 	int32_t status;
-	struct nss_tx_metadata_object *ntmo;
+	struct nss_corefreq_msg *ncm;
 	struct nss_freq_change *nfc;
 
 	nss_info("%p: Frequency Changing to: %d\n", nss_ctx, eng);
@@ -85,10 +85,13 @@ nss_tx_status_t nss_freq_change(void *ctx, uint32_t eng, uint32_t stats_enable, 
 		return NSS_TX_FAILURE;
 	}
 
-	ntmo = (struct nss_tx_metadata_object *)skb_put(nbuf, sizeof(struct nss_tx_metadata_object));
-	ntmo->type = NSS_TX_METADATA_TYPE_NSS_FREQ_CHANGE;
+	ncm = (struct nss_corefreq_msg *)skb_put(nbuf, sizeof(struct nss_corefreq_msg));
+	ncm->cm.type = NSS_TX_METADATA_TYPE_NSS_FREQ_CHANGE;
+	ncm->cm.version = NSS_HLOS_MESSAGE_VERSION;
+	ncm->cm.interface = NSS_COREFREQ_INTERFACE;
+	ncm->cm.len = nbuf->len;
 
-	nfc = &ntmo->sub.freq_change;
+	nfc = &ncm->msg.nfc;
 	nfc->frequency = eng;
 	nfc->start_or_end = start_or_end;
 	nfc->stats_enable = stats_enable;
@@ -239,7 +242,7 @@ static void nss_rx_freq_interface_handler(struct nss_ctx_instance *nss_ctx, stru
 
 	struct nss_corefreq_msg *ncfm = (struct nss_corefreq_msg *)ncm;
 
-	switch (ncfm->type) {
+	switch (ncfm->cm.type) {
 	case COREFREQ_METADATA_TYPE_TX_FREQ_ACK:
 		nss_rx_metadata_nss_freq_ack(nss_ctx, &ncfm->msg.nfc);
 		break;

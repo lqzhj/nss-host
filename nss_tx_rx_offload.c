@@ -143,7 +143,7 @@ static void nss_rx_offload_stats_interface_handler(struct nss_ctx_instance *nss_
 	 * Is this a valid request/response packet?
 	 */
 	if (nom->cm.type >= NSS_METADATA_TYPE_OFFLOAD_STATS_MAX) {
-		nss_warning("%p: received invalid message %d for Offload stats interface", nss_ctx, nom->type);
+		nss_warning("%p: received invalid message %d for Offload stats interface", nss_ctx, nom->cm.type);
 		return;
 	}
 

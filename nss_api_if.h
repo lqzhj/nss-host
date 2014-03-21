@@ -76,7 +76,7 @@
 #define NSS_LAG0_INTERFACE_NUM (NSS_SPECIAL_IF_START + 10) /* Special IF number for LAG0 */
 #define NSS_LAG1_INTERFACE_NUM (NSS_SPECIAL_IF_START + 11) /* Special IF number for LAG1 */
 #define NSS_C2C_TX_INTERFACE (NSS_SPECIAL_IF_START + 12) /* Virtual Interface Number for IPSec Tunnel */
-#define NSS_COREFREQ_INTERFACE (NSS_SPECIAL_IF_START + 13) /* Virtual Interface Number for Corefreq */
+#define NSS_COREFREQ_INTERFACE (NSS_SPECIAL_IF_START + 19) /* Virtual Interface Number for Corefreq */
 
 /**
  * Tunnel interface numbers

@@ -401,7 +401,7 @@ static void nss_rx_phys_if_interface_handler(struct nss_ctx_instance *nss_ctx, s
 	 * Is this a valid request/response packet?
 	 */
 	if (nim->cm.type >= NSS_METADATA_TYPE_INTERFACE_MAX) {
-		nss_warning("%p: received invalid message %d for physical interface", nss_ctx, nim->type);
+		nss_warning("%p: received invalid message %d for physical interface", nss_ctx, nim->cm.type);
 		return;
 	}
 

@@ -131,7 +131,7 @@ static void nss_rx_ipsec_interface_handler(struct nss_ctx_instance *nss_ctx, str
 	 * Is this a valid request/response packet?
 	 */
 	if (nim->cm.type >= NSS_METADATA_TYPE_IPSEC_MAX) {
-		nss_warning("%p: received invalid message %d for IPsec interface", nss_ctx, nim->type);
+		nss_warning("%p: received invalid message %d for IPsec interface", nss_ctx, nim->cm.type);
 		return;
 	}
 

@@ -51,7 +51,7 @@ static void nss_rx_metadata_tunipip6_stats_sync(struct nss_ctx_instance *nss_ctx
 	 */
 
 	if (!cb || !ctx) {
-		nss_warning("%p: Event received for ipip6 tunnel interface %d before registration", nss_ctx, ntunipip6ss->interface);
+		nss_warning("%p: Event received for ipip6 tunnel interface %d before registration", nss_ctx, interface);
 		return;
 	}
 

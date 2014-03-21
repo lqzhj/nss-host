@@ -29,7 +29,7 @@
 /*
  * Global definitions
  */
-#define NSS_HLOS_MESSAGE_VERSION 1
+#define NSS_HLOS_MESSAGE_VERSION 0
 
 /*
  * Global variables/extern declarations

@@ -50,7 +50,7 @@ static void nss_rx_metadata_tun6rd_stats_sync(struct nss_ctx_instance *nss_ctx, 
 	 * call 6rd tunnel callback
 	 */
 	if (!cb || !ctx) {
-		nss_warning("%p: Event received for 6rd tunnel interface %d before registration", nss_ctx, ntun6rdss->interface);
+		nss_warning("%p: Event received for 6rd tunnel interface %d before registration", nss_ctx, interface);
 		return;
 	}
 

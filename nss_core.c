@@ -46,7 +46,8 @@ struct nss_rx_cb_list nss_rx_interface_handlers[NSS_MAX_NET_INTERFACES];
  */
 uint32_t nss_core_register_handler(uint32_t interface, nss_core_rx_callback_t cb, void *app_data)
 {
-	nss_assert(cb != NULL, "Interface %d has attempted to register a NULL CB handler", interface);
+	nss_warning("Interface %d has attempted to register a NULL CB handler", interface);
+	nss_assert(cb != NULL);
 
 	/*
 	 * Validate interface id
@@ -88,7 +89,7 @@ void nss_core_handle_nss_status_pkt(struct nss_ctx_instance *nss_ctx, struct sk_
 	 */
 	if (ncm->version != expected_version) {
 		nss_warning("%p: Message %d for interface %d received with invalid version %d, expected version %d",
-							nss_ctx, ncm->cm.type, ncm->interface, ncm->version, expected_version);
+							nss_ctx, ncm->type, ncm->interface, ncm->version, expected_version);
 		return;
 	}
 
@@ -97,15 +98,15 @@ void nss_core_handle_nss_status_pkt(struct nss_ctx_instance *nss_ctx, struct sk_
 	 */
 	if (ncm->len > nbuf->len) {
 		nss_warning("%p: Message %d for interface %d received with invalid length %d, expected length %d",
-							nss_ctx, ncm->cm.type, ncm->interface, nbuf->len, ncm->len);
+							nss_ctx, ncm->type, ncm->interface, nbuf->len, ncm->len);
 		return;
 	}
 
 	/*
 	 * Check for validity of interface number
 	 */
-	if (ncm->interface > NSS_MAX_NET_INTERFACES) {
-		nss_warning("%p: Message %d received with invalid interface number %d", nss_ctx, ncm->cm.type, ncm->interface);
+	if (ncm->interface > NSS_MAX_NET_INTERFACES && ncm->interface < 0) {
+		nss_warning("%p: Message %d received with invalid interface number %d", nss_ctx, ncm->type, ncm->interface);
 		return;
 	}
 
@@ -118,6 +119,7 @@ void nss_core_handle_nss_status_pkt(struct nss_ctx_instance *nss_ctx, struct sk_
 	}
 
 	cb(nss_ctx, ncm, app_data);
+
 	return;
 }
 

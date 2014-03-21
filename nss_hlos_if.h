@@ -31,6 +31,7 @@ enum nss_cmn_response {
 	NSS_CMN_RESPONSE_EINTERFACE = 2,	/* Message Interface Error */
 	NSS_CMN_RESPONSE_ELENGTH = 3,	/* Message Length Error */
 	NSS_CMN_RESPONSE_EMSG = 4,		/* Message Error */
+	NSS_CMM_RESPONSE_NOTIFY = 5		/* Message Independant of Request */
 };
 
 /*
@@ -1228,7 +1229,6 @@ enum nss_generic_metadata_types {
  * Interface params command
  */
 struct nss_generic_if_params {
-	uint32_t len;		/* Valid information length */
 	uint8_t buf[1];		/* Buffer */
 };
 
@@ -1273,13 +1273,6 @@ enum nss_freq_stats_metadata_types {
 };
 
 /*
- * NSS core stats
- */
-struct nss_core_stats {
-	uint32_t inst_cnt_total;
-};
-
-/*
  * The NSS freq start or stop strcture
  */
 struct nss_freq_change {
@@ -1290,7 +1283,14 @@ struct nss_freq_change {
 
 	/* Response */
 	uint32_t freq_current;
-	int32_t ack_status;
+	int32_t ack;
+};
+
+/*
+ * NSS core stats
+ */
+struct nss_core_stats {
+	uint32_t inst_cnt_total;
 };
 
 /*
@@ -1298,7 +1298,6 @@ struct nss_freq_change {
  */
 struct nss_corefreq_msg {
 	struct nss_cmn_msg cm;			/* Message Header */
-	enum nss_freq_stats_metadata_types type;	/* Message Type */
 	union {
 		struct nss_freq_change nfc;	/* Message: freq stats */
 		struct nss_core_stats ncs;	/* Message: NSS stats sync */
