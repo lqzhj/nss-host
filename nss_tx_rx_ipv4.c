@@ -82,10 +82,12 @@ nss_tx_status_t nss_tx_create_ipv4_rule(void *ctx, struct nss_ipv4_create *unic)
 	 * Copy over the connection rules and set the CONN_VALID flag
 	 */
 	nircm->conn_rule.flow_interface_num = unic->src_interface_num;
+	nircm->conn_rule.flow_mtu = unic->from_mtu;
 	nircm->conn_rule.flow_ip_xlate = unic->src_ip_xlate;
 	nircm->conn_rule.flow_ident_xlate = (uint32_t)unic->src_port_xlate;
 	memcpy(nircm->conn_rule.flow_mac, unic->src_mac, 6);
 	nircm->conn_rule.return_interface_num = unic->dest_interface_num;
+	nircm->conn_rule.return_mtu = unic->to_mtu;
 	nircm->conn_rule.return_ip_xlate = unic->dest_ip_xlate;
 	nircm->conn_rule.return_ident_xlate = (uint32_t)unic->dest_port_xlate;
 	if (nircm->tuple.return_ip != nircm->conn_rule.return_ip_xlate || nircm->tuple.return_ident != nircm->conn_rule.return_ident_xlate) {
@@ -111,12 +113,10 @@ nss_tx_status_t nss_tx_create_ipv4_rule(void *ctx, struct nss_ipv4_create *unic)
 	nircm->tcp_rule.flow_max_window = unic->flow_max_window;
 	nircm->tcp_rule.flow_end = unic->flow_end;
 	nircm->tcp_rule.flow_max_end = unic->flow_max_end;
-	nircm->tcp_rule.flow_mtu = unic->from_mtu;
 	nircm->tcp_rule.return_window_scale = unic->return_window_scale;
 	nircm->tcp_rule.return_max_window = unic->return_max_window;
 	nircm->tcp_rule.return_end = unic->return_end;
 	nircm->tcp_rule.return_max_end = unic->return_max_end;
-	nircm->tcp_rule.return_mtu = unic->to_mtu;
 	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_TCP_VALID;
 
 	/*
@@ -214,10 +214,12 @@ nss_tx_status_t nss_tx_create_ipv4_rule1(void *ctx, struct nss_ipv4_create *unic
 	 * Copy over the connection rules and set the CONN_VALID flag
 	 */
 	nircm->conn_rule.flow_interface_num = unic->src_interface_num;
+	nircm->conn_rule.flow_mtu = unic->from_mtu;
 	nircm->conn_rule.flow_ip_xlate = unic->src_ip_xlate;
 	nircm->conn_rule.flow_ident_xlate = (uint32_t)unic->src_port_xlate;
 	memcpy(nircm->conn_rule.flow_mac, unic->src_mac, 6);
 	nircm->conn_rule.return_interface_num = unic->dest_interface_num;
+	nircm->conn_rule.return_mtu = unic->to_mtu;
 	nircm->conn_rule.return_ip_xlate = unic->dest_ip_xlate;
 	nircm->conn_rule.return_ident_xlate = (uint32_t)unic->dest_port_xlate;
 	if (nircm->tuple.return_ip != nircm->conn_rule.return_ip_xlate || nircm->tuple.return_ident != nircm->conn_rule.return_ident_xlate) {
@@ -243,12 +245,10 @@ nss_tx_status_t nss_tx_create_ipv4_rule1(void *ctx, struct nss_ipv4_create *unic
 	nircm->tcp_rule.flow_max_window = unic->flow_max_window;
 	nircm->tcp_rule.flow_end = unic->flow_end;
 	nircm->tcp_rule.flow_max_end = unic->flow_max_end;
-	nircm->tcp_rule.flow_mtu = unic->from_mtu;
 	nircm->tcp_rule.return_window_scale = unic->return_window_scale;
 	nircm->tcp_rule.return_max_window = unic->return_max_window;
 	nircm->tcp_rule.return_end = unic->return_end;
 	nircm->tcp_rule.return_max_end = unic->return_max_end;
-	nircm->tcp_rule.return_mtu = unic->to_mtu;
 	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_TCP_VALID;
 
 	/*

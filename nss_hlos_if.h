@@ -101,10 +101,12 @@ struct nss_ipv4_connection_rule {
 	uint8_t flags;
 	uint16_t flow_mac[3];		/* Flow MAC address */
 	int32_t flow_interface_num;	/* Flow interface number */
+	uint32_t flow_mtu;		/* Flow interface`s MTU */
 	uint32_t flow_ip_xlate;		/* Translated flow IP address */
 	uint32_t flow_ident_xlate;	/* Translated flow ident (e.g. port) */
 	uint16_t return_mac[3];		/* Return MAC address */
 	int32_t return_interface_num;	/* Return interface number */
+	uint32_t return_mtu;		/* Return interface`s MTU */
 	uint32_t return_ip_xlate;	/* Translated return IP address */
 	uint32_t return_ident_xlate;	/* Translated return ident (e.g. port) */
 };
@@ -152,12 +154,10 @@ struct nss_ipv4_protocol_tcp_rule {
 	uint32_t flow_max_window;	/* Flow direction's largest seen window */
 	uint32_t flow_end;		/* Flow direction's largest seen sequence + segment length */
 	uint32_t flow_max_end;		/* Flow direction's largest seen ack + max(1, win) */
-	uint32_t flow_mtu;		/* Flow interface`s MTU */
 	uint8_t return_window_scale;	/* Return direction's window scaling factor */
 	uint32_t return_max_window;	/* Return direction's largest seen window */
 	uint32_t return_end;		/* Return direction's largest seen sequence + segment length */
 	uint32_t return_max_end;	/* Return direction's largest seen ack + max(1, win) */
-	uint32_t return_mtu;		/* Return interface`s MTU */
 };
 
 /*
@@ -365,8 +365,10 @@ struct nss_ipv6_5tuple {
 struct nss_ipv6_connection_rule {
 	uint16_t flow_mac[3];		/* Flow MAC address */
 	int32_t flow_interface_num;	/* Flow interface number */
+	uint32_t flow_mtu;		/* Flow interface`s MTU */
 	uint16_t return_mac[3];		/* Return MAC address */
 	int32_t return_interface_num;	/* Return interface number */
+	uint32_t return_mtu;		/* Return interface`s MTU */
 };
 
 /*
@@ -412,12 +414,10 @@ struct nss_ipv6_protocol_tcp_rule {
 	uint32_t flow_max_window;	/* Flow direction's largest seen window */
 	uint32_t flow_end;		/* Flow direction's largest seen sequence + segment length */
 	uint32_t flow_max_end;		/* Flow direction's largest seen ack + max(1, win) */
-	uint32_t flow_mtu;		/* Flow interface`s MTU */
 	uint8_t return_window_scale;	/* Return direction's window scaling factor */
 	uint32_t return_max_window;	/* Return direction's largest seen window */
 	uint32_t return_end;		/* Return direction's largest seen sequence + segment length */
 	uint32_t return_max_end;	/* Return direction's largest seen ack + max(1, win) */
-	uint32_t return_mtu;		/* Return interface`s MTU */
 };
 
 /*

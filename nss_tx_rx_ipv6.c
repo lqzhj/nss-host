@@ -88,7 +88,9 @@ nss_tx_status_t nss_tx_create_ipv6_rule(void *ctx, struct nss_ipv6_create *unic)
 	 * Copy over the connection rules and set CONN_VALID flag
 	 */
 	nircm->conn_rule.flow_interface_num = unic->src_interface_num;
+	nircm->conn_rule.flow_mtu = unic->from_mtu;
 	nircm->conn_rule.return_interface_num = unic->dest_interface_num;
+	nircm->conn_rule.return_mtu = unic->to_mtu;
 	memcpy(nircm->conn_rule.flow_mac, unic->src_mac, 6);
 	memcpy(nircm->conn_rule.return_mac, unic->dest_mac, 6);
 	nircm->valid_flags |= NSS_IPV6_RULE_CREATE_CONN_VALID;
@@ -109,12 +111,10 @@ nss_tx_status_t nss_tx_create_ipv6_rule(void *ctx, struct nss_ipv6_create *unic)
 	nircm->tcp_rule.flow_max_window = unic->flow_max_window;
 	nircm->tcp_rule.flow_end = unic->flow_end;
 	nircm->tcp_rule.flow_max_end = unic->flow_max_end;
-	nircm->tcp_rule.flow_mtu = unic->from_mtu;
 	nircm->tcp_rule.return_window_scale = unic->return_window_scale;
 	nircm->tcp_rule.return_max_window = unic->return_max_window;
 	nircm->tcp_rule.return_end = unic->return_end;
 	nircm->tcp_rule.return_max_end = unic->return_max_end;
-	nircm->tcp_rule.return_mtu = unic->to_mtu;
 	nircm->valid_flags |= NSS_IPV6_RULE_CREATE_TCP_VALID;
 
 	/*
@@ -220,7 +220,9 @@ nss_tx_status_t nss_tx_create_ipv6_rule1(void *ctx, struct nss_ipv6_create *unic
 	 * Copy over the connection rules and set CONN_VALID flag
 	 */
 	nircm->conn_rule.flow_interface_num = unic->src_interface_num;
+	nircm->conn_rule.flow_mtu = unic->from_mtu;
 	nircm->conn_rule.return_interface_num = unic->dest_interface_num;
+	nircm->conn_rule.return_mtu = unic->to_mtu;
 	memcpy(nircm->conn_rule.flow_mac, unic->src_mac, 6);
 	memcpy(nircm->conn_rule.return_mac, unic->dest_mac, 6);
 	nircm->valid_flags |= NSS_IPV6_RULE_CREATE_CONN_VALID;
@@ -241,12 +243,10 @@ nss_tx_status_t nss_tx_create_ipv6_rule1(void *ctx, struct nss_ipv6_create *unic
 	nircm->tcp_rule.flow_max_window = unic->flow_max_window;
 	nircm->tcp_rule.flow_end = unic->flow_end;
 	nircm->tcp_rule.flow_max_end = unic->flow_max_end;
-	nircm->tcp_rule.flow_mtu = unic->from_mtu;
 	nircm->tcp_rule.return_window_scale = unic->return_window_scale;
 	nircm->tcp_rule.return_max_window = unic->return_max_window;
 	nircm->tcp_rule.return_end = unic->return_end;
 	nircm->tcp_rule.return_max_end = unic->return_max_end;
-	nircm->tcp_rule.return_mtu = unic->to_mtu;
 	nircm->valid_flags |= NSS_IPV6_RULE_CREATE_TCP_VALID;
 
 	/*
