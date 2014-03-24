@@ -221,6 +221,21 @@ typedef struct _nss_gmac_dev {
 
 
 /**
+ * @brief Events from the NSS GMAC
+ */
+#define NSS_GMAC_SPEED_SET		0x0001
+
+/**
+ * @brief GMAC speed context
+ */
+struct nss_gmac_speed_ctx {
+	uint32_t mac_id;
+	uint32_t speed;
+};
+
+extern struct nss_gmac_global_ctx ctx;
+
+/**
  * @brief GMAC driver context
  */
 struct nss_gmac_global_ctx {
@@ -229,6 +244,7 @@ struct nss_gmac_global_ctx {
 	uint8_t *nss_base;		/* Base address of NSS GMACs'
 					   global interface registers		*/
 	uint32_t *qsgmii_base;
+	spinlock_t reg_lock;	/* Lock to protect NSS register	*/
 	nss_gmac_dev *nss_gmac[NSS_MAX_GMACS];
 };
 
@@ -1741,10 +1757,13 @@ static inline void nss_gmac_tx_checksum_offload_tcp_pseudo(nss_gmac_dev *
 static uint32_t __inline__ nss_gmac_read_reg(uint32_t *regbase,
 					     uint32_t regoffset)
 {
-	uint32_t addr = (uint32_t)regbase + regoffset;
+	uint32_t addr = 0;
 	uint32_t data;
 
+	spin_lock(&ctx.reg_lock);
+	addr = (uint32_t)regbase + regoffset;
 	data = readl((unsigned char *)addr);
+	spin_unlock(&ctx.reg_lock);
 
 	return data;
 }
@@ -1761,9 +1780,12 @@ static void __inline__ nss_gmac_write_reg(uint32_t *regbase,
 					  uint32_t regoffset,
 					  uint32_t regdata)
 {
-	uint32_t addr = (uint32_t)regbase + regoffset;
+	uint32_t addr = 0;
 
+	spin_lock(&ctx.reg_lock);
+	addr = (uint32_t)regbase + regoffset;
 	writel(regdata, (unsigned char *)addr);
+	spin_unlock(&ctx.reg_lock);
 }
 
 

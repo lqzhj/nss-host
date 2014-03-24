@@ -482,7 +482,9 @@ static int32_t nss_gmac_set_settings(struct net_device *netdev,
 
 	phydev = gmacdev->phydev;
 
+	spin_lock(&gmacdev->slock);
 	nss_gmac_linkdown(gmacdev);
+	spin_unlock(&gmacdev->slock);
 
 	phydev->advertising = ecmd->advertising;
 	phydev->autoneg = ecmd->autoneg;

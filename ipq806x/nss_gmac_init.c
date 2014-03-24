@@ -21,11 +21,19 @@
  * Qualcomm Atheros         01/Mar/2013              Created
  */
 
+#include <linux/module.h>
 #include <linux/types.h>
+#include <linux/kernel.h>
+#include <linux/notifier.h>
 #include <mach/msm_nss_gmac.h>
 
 #include <nss_gmac_dev.h>
 #include <nss_gmac_clocks.h>
+#include <mach/msm_nss_macsec.h>
+#include <nss_gmac_network_interface.h>
+
+/* Initialize notifier list for NSS GMAC */
+static BLOCKING_NOTIFIER_HEAD(nss_gmac_notifier_list);
 
 /**
  * @brief Emulation specific initialization.
@@ -362,6 +370,7 @@ int32_t nss_gmac_common_init(struct nss_gmac_global_ctx *ctx)
 	volatile uint32_t val;
 	uint32_t *msm_tcsr_base;
 
+	spin_lock_init(&ctx->reg_lock);
 	ctx->nss_base = (uint8_t *)ioremap_nocache(NSS_REG_BASE, NSS_REG_LEN);
 	if (!ctx->nss_base) {
 		nss_gmac_early_dbg("Error mapping NSS GMAC registers");
@@ -593,6 +602,7 @@ int32_t nss_gmac_dev_set_speed(nss_gmac_dev *gmacdev)
 	uint32_t clk = 0;
 	uint32_t *nss_base = (uint32_t *)(gmacdev->ctx->nss_base);
 	uint32_t *qsgmii_base = (uint32_t *)(gmacdev->ctx->qsgmii_base);
+	struct nss_gmac_speed_ctx gmac_speed_ctx = {0, 0};
 
 	switch (gmacdev->phy_mii_type) {
 	case GMAC_INTF_RGMII:
@@ -662,6 +672,11 @@ int32_t nss_gmac_dev_set_speed(nss_gmac_dev *gmacdev)
 		       __FUNCTION__, (uint32_t)qsgmii_base, (uint32_t)PCS_MODE_CTL, val);
 
 	}
+
+	/* Notify link speed change to notifier list */
+	gmac_speed_ctx.mac_id = gmacdev->macid;
+	gmac_speed_ctx.speed = gmacdev->speed;
+	blocking_notifier_call_chain(&nss_gmac_notifier_list, NSS_GMAC_SPEED_SET, &gmac_speed_ctx);
 
 	return 0;
 }
@@ -837,3 +852,221 @@ void nss_gmac_dev_init(nss_gmac_dev *gmacdev)
 		nss_gmac_info(gmacdev, "SGMII Specific Init for GMAC%d Done!", id);
 	}
 }
+
+/**
+ * @brief Do macsec related initialization in gmac register scope.
+ * @return void.
+ */
+void nss_macsec_pre_init(void)
+{
+	uint32_t val = 0;
+	uint32_t *nss_base = (uint32_t *)ctx.nss_base;
+
+	/*
+	 * Initialize wake and sleep counter values of
+	 * MACSEC memory footswitch control.
+	 */
+	nss_gmac_write_reg(nss_base, NSS_MACSEC1_CORE_CLK_FS_CTL, MACSEC_CLK_FS_CTL_S_W_VAL);
+	nss_gmac_write_reg(nss_base, NSS_MACSEC2_CORE_CLK_FS_CTL, MACSEC_CLK_FS_CTL_S_W_VAL);
+	nss_gmac_write_reg(nss_base, NSS_MACSEC3_CORE_CLK_FS_CTL, MACSEC_CLK_FS_CTL_S_W_VAL);
+
+	/* MACSEC reset */
+	nss_gmac_write_reg(MSM_CLK_CTL_BASE, MACSEC_CORE1_RESET, 1);
+	nss_gmac_write_reg(MSM_CLK_CTL_BASE, MACSEC_CORE2_RESET, 1);
+	nss_gmac_write_reg(MSM_CLK_CTL_BASE, MACSEC_CORE3_RESET, 1);
+	mdelay(100);
+
+	/* Deassert MACSEC reset */
+	nss_gmac_write_reg(MSM_CLK_CTL_BASE, MACSEC_CORE1_RESET, 0);
+	nss_gmac_write_reg(MSM_CLK_CTL_BASE, MACSEC_CORE2_RESET, 0);
+	nss_gmac_write_reg(MSM_CLK_CTL_BASE, MACSEC_CORE3_RESET, 0);
+
+	/* Enable MACSEC clocks */
+	val = nss_gmac_read_reg(nss_base, NSS_ETH_CLK_GATE_CTL);
+	val |= (MACSEC_CORE_CLKEN_VAL | MACSEC_GMII_RX_CLKEN_VAL | MACSEC_GMII_TX_CLKEN_VAL);
+	nss_gmac_write_reg(nss_base, NSS_ETH_CLK_GATE_CTL, val);
+
+	/* Bypass all MACSECs */
+	nss_gmac_write_reg(nss_base, NSS_MACSEC_CTL, MACSEC_EXT_BYPASS_EN_MASK | MACSEC_DP_RST_VAL);
+}
+EXPORT_SYMBOL(nss_macsec_pre_init);
+
+/**
+ * @brief reset MACSEC IFG register
+ * @param[in] gmac_id
+ * @return void
+ */
+static void nss_gmac_ifg_reset(uint32_t gmac_id)
+{
+	uint32_t val = 0;
+	uint32_t *nss_base = (uint32_t *)ctx.nss_base;
+
+	val = nss_gmac_read_reg(nss_base, NSS_GMACn_CTL(gmac_id));
+	val &= ~(IFG_MASK | GMAC_IFG_LIMIT(IFG_MASK));
+	val |= (GMAC_IFG_CTL(GMAC_IFG) | GMAC_IFG_LIMIT(GMAC_IFG));
+	nss_gmac_write_reg(nss_base, NSS_GMACn_CTL(gmac_id), val);
+}
+
+/**
+ * @brief set gmac link status into expected state
+ * @param[in] gmac_id
+ * @param[in] link_state
+ * @return void
+ */
+static void nss_gmac_link_status_set(uint32_t gmac_id, uint32_t link_state)
+{
+	nss_gmac_dev *gmac_dev = NULL;
+
+	gmac_dev = ctx.nss_gmac[gmac_id];
+	if(gmac_dev == NULL)
+		return;
+
+	if (gmac_dev->nss_state != NSS_STATE_INITIALIZED
+		|| !test_bit(__NSS_GMAC_UP, &gmac_dev->flags)) {
+		return;
+	}
+
+	if (link_state == LINKDOWN && gmac_dev->link_state == LINKUP) {
+		nss_gmac_linkdown(gmac_dev);
+	} else if (link_state == LINKUP && gmac_dev->link_state == LINKDOWN) {
+		nss_gmac_linkup(gmac_dev);
+	}
+
+}
+
+/**
+ * @brief enable or disable MACSEC bypass function
+ * @param[in] gmac_id
+ * @param[in] enable
+ * @return void
+ */
+void nss_macsec_bypass_en_set(uint32_t gmac_id, bool enable)
+{
+	uint32_t val = 0;
+	uint32_t *nss_base = (uint32_t *)ctx.nss_base;
+	nss_gmac_dev *gmac_dev = NULL;
+	uint32_t link_reset_flag = 0;
+	struct nss_gmac_speed_ctx gmac_speed_ctx = {0, 0};
+
+	if((gmac_id == 0) || (gmac_id > 3))
+		return;
+
+	gmac_dev = ctx.nss_gmac[gmac_id];
+	if(gmac_dev == NULL)
+		return;
+
+	spin_lock(&gmac_dev->slock);
+
+	/* If gmac is in link up state, it need to simulate link down event
+	 * before setting IFG and simulate link up event after the operation
+	 */
+	if(gmac_dev->link_state == LINKUP)
+		link_reset_flag = 1;
+
+	/* simulate a gmac link down event */
+	if(link_reset_flag)
+		nss_gmac_link_status_set(gmac_id, LINKDOWN);
+
+	/* Set MACSEC_IFG value */
+	if(enable) {
+		nss_gmac_ifg_reset(gmac_id);
+	} else {
+		val = nss_gmac_read_reg(nss_base, NSS_GMACn_CTL(gmac_id));
+		val &= ~(IFG_MASK | GMAC_IFG_LIMIT(IFG_MASK));
+		val |= (GMAC_IFG_CTL(MACSEC_IFG) | GMAC_IFG_LIMIT(MACSEC_IFG));
+		nss_gmac_write_reg(nss_base, NSS_GMACn_CTL(gmac_id), val);
+	}
+
+	/* Enable/Disable MACSEC for related port */
+	val = nss_gmac_read_reg(nss_base, NSS_MACSEC_CTL);
+	val |= MACSEC_DP_RST_VAL;
+	if(enable)
+		val |= (1<<(gmac_id - 1));
+	else
+		val &= ~(1<<(gmac_id - 1));
+	nss_gmac_write_reg(nss_base, NSS_MACSEC_CTL, val);
+
+	/* simulate a gmac link up event */
+	if(link_reset_flag)
+		nss_gmac_link_status_set(gmac_id, LINKUP);
+
+	spin_unlock(&gmac_dev->slock);
+
+	/* Set MACSEC speed */
+	gmac_speed_ctx.mac_id = gmac_dev->macid;
+	gmac_speed_ctx.speed = gmac_dev->speed;
+	blocking_notifier_call_chain(&nss_gmac_notifier_list, NSS_GMAC_SPEED_SET, &gmac_speed_ctx);
+}
+EXPORT_SYMBOL(nss_macsec_bypass_en_set);
+
+/**
+ * @brief  Do macsec related exist function in gmac register scope
+ * @return void
+ */
+void nss_macsec_pre_exit(void)
+{
+	uint32_t *nss_base = (uint32_t *)ctx.nss_base;
+	nss_gmac_dev *gmac_dev = NULL;
+	uint32_t gmac_id = 0;
+	uint32_t link_reset_flag = 0;
+
+	/* MACSEC reset */
+	nss_gmac_write_reg(MSM_CLK_CTL_BASE, MACSEC_CORE1_RESET, 1);
+	nss_gmac_write_reg(MSM_CLK_CTL_BASE, MACSEC_CORE2_RESET, 1);
+	nss_gmac_write_reg(MSM_CLK_CTL_BASE, MACSEC_CORE3_RESET, 1);
+
+	/* Bypass all MACSECs */
+	nss_gmac_write_reg(nss_base, NSS_MACSEC_CTL, MACSEC_EXT_BYPASS_EN_MASK | MACSEC_DP_RST_VAL);
+
+	/* Reset GMAC_IFG value */
+	for(gmac_id = 1; gmac_id < 4; gmac_id++) {
+		gmac_dev = ctx.nss_gmac[gmac_id];
+		if(gmac_dev == NULL)
+			continue;
+
+		/* If gmac is in link up state, it need to simulate link down event
+		 * before setting IFG and simulate link up event after the operation
+		 */
+		link_reset_flag = 0;
+
+		spin_lock(&gmac_dev->slock);
+
+		if(gmac_dev->link_state == LINKUP)
+			link_reset_flag = 1;
+
+		/* simulate a gmac link down event */
+		if(link_reset_flag)
+			nss_gmac_link_status_set(gmac_id, LINKDOWN);
+
+		nss_gmac_ifg_reset(gmac_id);
+
+		/* simulate a gmac link up event */
+		if(link_reset_flag)
+			nss_gmac_link_status_set(gmac_id, LINKUP);
+
+		spin_unlock(&gmac_dev->slock);
+	}
+}
+EXPORT_SYMBOL(nss_macsec_pre_exit);
+
+/**
+ * @brief register notifier into gmac module
+ * @param[in] struct notifier_block *
+ * @return void
+ */
+void nss_gmac_link_state_change_notify_register(struct notifier_block *nb)
+{
+	blocking_notifier_chain_register(&nss_gmac_notifier_list, nb);
+}
+EXPORT_SYMBOL_GPL(nss_gmac_link_state_change_notify_register);
+
+/**
+ * @brief unregister notifier into gmac module
+ * @param[in] struct notifier_block *
+ * @return void
+ */
+void nss_gmac_link_state_change_notify_unregister(struct notifier_block *nb)
+{
+	blocking_notifier_chain_unregister(&nss_gmac_notifier_list, nb);
+}
+EXPORT_SYMBOL_GPL(nss_gmac_link_state_change_notify_unregister);

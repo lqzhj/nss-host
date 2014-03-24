@@ -257,6 +257,7 @@ void nss_gmac_linkup(nss_gmac_dev *gmacdev)
 {
 	struct net_device *netdev = gmacdev->netdev;
 	uint32_t gmac_tx_desc = 0, gmac_rx_desc = 0;
+
 	nss_gmac_spare_ctl(gmacdev);
 
 	if (nss_gmac_check_phy_init(gmacdev) != 0) {
@@ -360,11 +361,14 @@ void nss_gmac_adjust_link(struct net_device *netdev)
 	}
 
 	status = nss_gmac_check_link(gmacdev);
+
+	spin_lock(&gmacdev->slock);
 	if (status == LINKUP && gmacdev->link_state == LINKDOWN) {
 		nss_gmac_linkup(gmacdev);
 	} else if (status == LINKDOWN && gmacdev->link_state == LINKUP) {
 		nss_gmac_linkdown(gmacdev);
 	}
+	spin_unlock(&gmacdev->slock);
 }
 
 
@@ -403,7 +407,9 @@ void nss_gmac_work(struct work_struct *work)
 			/*
 			 * Force link up if link polling is disabled
 			 */
+			spin_lock(&gmacdev->slock);
 			nss_gmac_linkup(gmacdev);
+			spin_unlock(&gmacdev->slock);
 		}
 
 		return;
