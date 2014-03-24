@@ -27,9 +27,9 @@
  */
 enum nss_cmn_response {
 	NSS_CMN_RESPONSE_ACK = 0,		/* Message Acknowledge */
-	NSS_CMN_RESPONSE_EVERSION = 1,	/* Message Version Error */
+	NSS_CMN_RESPONSE_EVERSION = 1,		/* Message Version Error */
 	NSS_CMN_RESPONSE_EINTERFACE = 2,	/* Message Interface Error */
-	NSS_CMN_RESPONSE_ELENGTH = 3,	/* Message Length Error */
+	NSS_CMN_RESPONSE_ELENGTH = 3,		/* Message Length Error */
 	NSS_CMN_RESPONSE_EMSG = 4,		/* Message Error */
 	NSS_CMM_RESPONSE_NOTIFY = 5		/* Message Independant of Request */
 };
@@ -41,9 +41,11 @@ struct nss_cmn_msg {
 	uint16_t version;		/* Version id for main message format */
 	uint16_t interface;		/* Primary Key for all messages */
 	enum nss_cmn_response response;	/* Primary response */
-	uint32_t type;		/* Decetralized request #, to be used to match response # */
-	uint32_t error;		/* Decentralized specific error message, response == EMSG */
-	uint32_t len;		/* What is the length of the message excluding this header */
+	uint32_t type;			/* Decetralized request #, to be used to match response # */
+	uint32_t error;			/* Decentralized specific error message, response == EMSG */
+	uint32_t cb;			/* Place for callback pointer */
+	uint32_t app_data;		/* Place for app data */
+	uint32_t len;			/* What is the length of the message excluding this header */
 };
 
 /*
