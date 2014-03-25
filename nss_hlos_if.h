@@ -52,12 +52,12 @@ struct nss_cmn_msg {
  * IPv4 bridge/route rule messages
  */
 
-enum nss_ipv4_metadata_types {
-	NSS_TX_METADATA_TYPE_IPV4_RULE_CREATE,
-	NSS_TX_METADATA_TYPE_IPV4_RULE_DESTROY,
-	NSS_RX_METADATA_TYPE_IPV4_RULE_ESTABLISH,
-	NSS_RX_METADATA_TYPE_IPV4_RULE_SYNC,
-	NSS_METADATA_TYPE_IPV4_MAX,
+enum nss_ipv4_message_types {
+	NSS_IPV4_TX_CREATE_RULE_MSG,
+	NSS_IPV4_TX_DESTROY_RULE_MSG,
+	NSS_IPV4_RX_ESTABLISH_RULE_MSG,
+	NSS_IPV4_RX_SYNC_MSG,
+	NSS_IPV4_MAX_MSG_TYPES,
 };
 
 /*
@@ -94,22 +94,22 @@ struct nss_ipv4_5tuple {
 	uint32_t return_ip;		/* Return IP address */
 	uint32_t return_ident;		/* Return ident (e.g. port) */
 	uint8_t protocol;		/* Protocol number */
+	uint8_t reserved[3];		/* Padded for alignment */
 };
 
 /*
  * Connection create structure
  */
 struct nss_ipv4_connection_rule {
-	uint8_t flags;
 	uint16_t flow_mac[3];		/* Flow MAC address */
-	int32_t flow_interface_num;	/* Flow interface number */
-	uint32_t flow_mtu;		/* Flow interface`s MTU */
-	uint32_t flow_ip_xlate;		/* Translated flow IP address */
-	uint32_t flow_ident_xlate;	/* Translated flow ident (e.g. port) */
 	uint16_t return_mac[3];		/* Return MAC address */
+	int32_t flow_interface_num;	/* Flow interface number */
 	int32_t return_interface_num;	/* Return interface number */
+	uint32_t flow_mtu;		/* Flow interface`s MTU */
 	uint32_t return_mtu;		/* Return interface`s MTU */
+	uint32_t flow_ip_xlate;		/* Translated flow IP address */
 	uint32_t return_ip_xlate;	/* Translated return IP address */
+	uint32_t flow_ident_xlate;	/* Translated flow ident (e.g. port) */
 	uint32_t return_ident_xlate;	/* Translated return ident (e.g. port) */
 };
 
@@ -152,31 +152,34 @@ struct nss_ipv4_vlan_rule {
  * TCP connection rulr structure
  */
 struct nss_ipv4_protocol_tcp_rule {
-	uint8_t flow_window_scale;	/* Flow direction's window scaling factor */
 	uint32_t flow_max_window;	/* Flow direction's largest seen window */
-	uint32_t flow_end;		/* Flow direction's largest seen sequence + segment length */
-	uint32_t flow_max_end;		/* Flow direction's largest seen ack + max(1, win) */
-	uint8_t return_window_scale;	/* Return direction's window scaling factor */
 	uint32_t return_max_window;	/* Return direction's largest seen window */
+	uint32_t flow_end;		/* Flow direction's largest seen sequence + segment length */
 	uint32_t return_end;		/* Return direction's largest seen sequence + segment length */
+	uint32_t flow_max_end;		/* Flow direction's largest seen ack + max(1, win) */
 	uint32_t return_max_end;	/* Return direction's largest seen ack + max(1, win) */
+	uint8_t flow_window_scale;	/* Flow direction's window scaling factor */
+	uint8_t return_window_scale;	/* Return direction's window scaling factor */
+	uint16_t reserved;		/* Padded for alignment */
 };
 
 /*
  * QoS connection rule structure
  */
 struct nss_ipv4_qos_rule {
-	uint32_t qos_tag;			/* QoS tag associated with this rule */
+	uint32_t qos_tag;		/* QoS tag associated with this rule */
 };
 
 /*
- * Error types for create rule (CR) msg
+ * Error types for ipv4 messages
  */
-enum {
+enum nss_ipv4_error_response_types {
 	NSS_IPV4_CR_INVALID_PNODE_ERROR = 1,
 	NSS_IPV4_CR_MISSING_CONNECTION_RULE_ERROR,
 	NSS_IPV4_CR_BUFFER_ALLOC_FAIL_ERROR,
 	NSS_IPV4_CR_PPPOE_SESSION_CREATION_ERROR,
+	NSS_IPV4_DR_NO_CONNECTION_ENTRY_ERROR,
+	NSS_IPV4_UNKNOWN_MSG_TYPE
 };
 
 /*
@@ -192,16 +195,8 @@ struct nss_ipv4_rule_create_msg {
 	struct nss_ipv4_dscp_rule dscp_rule;		/* DSCP related accleration parameters */
 	struct nss_ipv4_vlan_rule vlan_rule;		/* VLAN related accleration parameters */
 
-	uint32_t opaque[2];			/* NSS driver opaques */
-	uint16_t valid_flags;			/* Bit flags associated with the validity of parameters */
-	uint8_t rule_flags;			/* Bit flags associated with the rule */
-};
-
-/*
- * Error types for destroy rule (DR) msg
- */
-enum {
-	NSS_IPV4_DR_NO_CONNECTION_ENTRY_ERROR = 1,
+	uint16_t valid_flags;				/* Bit flags associated with the validity of parameters */
+	uint16_t rule_flags;				/* Bit flags associated with the rule */
 };
 
 /*
@@ -209,16 +204,7 @@ enum {
  */
 struct nss_ipv4_rule_destroy_msg {
 	struct nss_ipv4_5tuple tuple;	/* Holds values of the 5 tuple */
-	uint32_t opaque[2];			/* NSS driver opaques */
 };
-
-/*
- * Message types for ipv4
- */
-typedef enum {
-	NSS_IPV4_CREATE_RULE_MSG,		/* Message type - create rule */
-	NSS_IPV4_DESTROY_RULE_MSG,		/* Message type - destroy rule */
-} nss_ipv4_msg_types_t;
 
 /*
  * The NSS IPv4 rule establish structure.
@@ -318,11 +304,11 @@ struct nss_ipv4_msg {
  */
 
  enum nss_ipv6_metadata_types {
-	NSS_TX_METADATA_TYPE_IPV6_RULE_CREATE,
-	NSS_TX_METADATA_TYPE_IPV6_RULE_DESTROY,
-	NSS_RX_METADATA_TYPE_IPV6_RULE_ESTABLISH,
-	NSS_RX_METADATA_TYPE_IPV6_RULE_SYNC,
-	NSS_METADATA_TYPE_IPV6_MAX,
+	NSS_IPV6_TX_CREATE_RULE_MSG,
+	NSS_IPV6_TX_DESTROY_RULE_MSG,
+	NSS_IPV6_RX_ESTABLISH_RULE_MSG,
+	NSS_IPV6_RX_SYNC_MSG,
+	NSS_IPV6_MAX_MSG_TYPES,
 };
 
 /*
@@ -358,7 +344,8 @@ struct nss_ipv6_5tuple {
 	uint32_t flow_ident;		/* Flow ident (e.g. port) */
 	uint32_t return_ip[4];		/* Return IP address */
 	uint32_t return_ident;		/* Return ident (e.g. port) */
-	uint8_t protocol;		/* Protocol number */
+	uint8_t  protocol;		/* Protocol number */
+	uint8_t  reserved[3];		/* Padded for alignment */
 };
 
 /*
@@ -366,10 +353,10 @@ struct nss_ipv6_5tuple {
  */
 struct nss_ipv6_connection_rule {
 	uint16_t flow_mac[3];		/* Flow MAC address */
-	int32_t flow_interface_num;	/* Flow interface number */
-	uint32_t flow_mtu;		/* Flow interface`s MTU */
 	uint16_t return_mac[3];		/* Return MAC address */
+	int32_t flow_interface_num;	/* Flow interface number */
 	int32_t return_interface_num;	/* Return interface number */
+	uint32_t flow_mtu;		/* Flow interface`s MTU */
 	uint32_t return_mtu;		/* Return interface`s MTU */
 };
 
@@ -412,14 +399,15 @@ struct nss_ipv6_vlan_rule {
  * TCP connection rulr structure
  */
 struct nss_ipv6_protocol_tcp_rule {
-	uint8_t flow_window_scale;	/* Flow direction's window scaling factor */
 	uint32_t flow_max_window;	/* Flow direction's largest seen window */
 	uint32_t flow_end;		/* Flow direction's largest seen sequence + segment length */
 	uint32_t flow_max_end;		/* Flow direction's largest seen ack + max(1, win) */
-	uint8_t return_window_scale;	/* Return direction's window scaling factor */
 	uint32_t return_max_window;	/* Return direction's largest seen window */
 	uint32_t return_end;		/* Return direction's largest seen sequence + segment length */
 	uint32_t return_max_end;	/* Return direction's largest seen ack + max(1, win) */
+	uint8_t flow_window_scale;	/* Flow direction's window scaling factor */
+	uint8_t return_window_scale;	/* Return direction's window scaling factor */
+	uint16_t reserved;		/* Padded for alignment */
 };
 
 /*
@@ -430,13 +418,15 @@ struct nss_ipv6_qos_rule {
 };
 
 /*
- * Error types for create rule (CR) msg
+ * Error types for ipv6 messages
  */
-enum {
+enum nss_ipv6_error_response_types {
 	NSS_IPV6_CR_INVALID_PNODE_ERROR = 1,
 	NSS_IPV6_CR_MISSING_CONNECTION_RULE_ERROR,
 	NSS_IPV6_CR_BUFFER_ALLOC_FAIL_ERROR,
 	NSS_IPV6_CR_PPPOE_SESSION_CREATION_ERROR,
+	NSS_IPV6_DR_NO_CONNECTION_ENTRY_ERROR,
+	NSS_IPV6_UNKNOWN_MSG_TYPE,
 };
 
 /*
@@ -452,16 +442,8 @@ struct nss_ipv6_rule_create_msg {
 	struct nss_ipv6_dscp_rule dscp_rule;		/* DSCP related accleration parameters */
 	struct nss_ipv6_vlan_rule vlan_rule;		/* VLAN related accleration parameters */
 
-	uint32_t opaque[2];			/* NSS driver opaques */
 	uint16_t valid_flags;			/* Bit flags associated with the validity of parameters */
-	uint8_t rule_flags;			/* Bit flags associated with the rule */
-};
-
-/*
- * Error types for destroy rule (DR) msg
- */
-enum {
-	NSS_IPV6_DR_NO_CONNECTION_ENTRY_ERROR = 1,
+	uint16_t rule_flags;			/* Bit flags associated with the rule */
 };
 
 /*
@@ -469,16 +451,7 @@ enum {
  */
 struct nss_ipv6_rule_destroy_msg {
 	struct nss_ipv6_5tuple tuple;	/* Holds values of the 5 tuple */
-	uint32_t opaque[2];		/* NSS driver opaques */
 };
-
-/*
- * Message types for ipv6
- */
-typedef enum {
-	NSS_IPV6_CREATE_RULE_MSG,		/* Message type - Rule create */
-	NSS_IPV6_DESTROY_RULE_MSG,		/* Message type - Rule destroy */
-} nss_ipv6_msg_types_t;
 
 /*
  * The NSS IPv6 rule establish structure.

@@ -62,7 +62,7 @@ nss_tx_status_t nss_tx_create_ipv4_rule(void *ctx, struct nss_ipv4_create *unic)
 	nim = (struct nss_ipv4_msg *)skb_put(nbuf, sizeof(struct nss_ipv4_msg));
 	nim->cm.interface = NSS_IPV4_RX_INTERFACE;
 	nim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nim->cm.type = NSS_TX_METADATA_TYPE_IPV4_RULE_CREATE;
+	nim->cm.type = NSS_IPV4_TX_CREATE_RULE_MSG;
 	nim->cm.len = sizeof(struct nss_ipv4_rule_create_msg);
 
 	nircm = &nim->msg.rule_create;
@@ -193,7 +193,7 @@ nss_tx_status_t nss_tx_create_ipv4_rule1(void *ctx, struct nss_ipv4_create *unic
 	nim = (struct nss_ipv4_msg *)skb_put(nbuf, sizeof(struct nss_ipv4_msg));
 	nim->cm.interface = NSS_IPV4_RX_INTERFACE;
 	nim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nim->cm.type = NSS_TX_METADATA_TYPE_IPV4_RULE_CREATE;
+	nim->cm.type = NSS_IPV4_TX_CREATE_RULE_MSG;
 	nim->cm.len = sizeof(struct nss_ipv4_rule_create_msg);
 
 	nircm = &nim->msg.rule_create;
@@ -347,7 +347,7 @@ nss_tx_status_t nss_tx_destroy_ipv4_rule(void *ctx, struct nss_ipv4_destroy *uni
 	nim = (struct nss_ipv4_msg *)skb_put(nbuf, sizeof(struct nss_ipv4_msg));
 	nim->cm.interface = NSS_IPV4_RX_INTERFACE;
 	nim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nim->cm.type = NSS_TX_METADATA_TYPE_IPV4_RULE_DESTROY;
+	nim->cm.type = NSS_IPV4_TX_DESTROY_RULE_MSG;
 	nim->cm.len = sizeof(struct nss_ipv4_rule_destroy_msg);
 
 	nirdm = &nim->msg.rule_destroy;
@@ -531,17 +531,17 @@ static void nss_rx_ipv4_interface_handler(struct nss_ctx_instance *nss_ctx, stru
 	/*
 	 * Is this a valid request/response packet?
 	 */
-	if (nim->cm.type >= NSS_METADATA_TYPE_IPV4_MAX) {
+	if (nim->cm.type >= NSS_IPV4_MAX_MSG_TYPES) {
 		nss_warning("%p: received invalid message %d for IPv4 interface", nss_ctx, nim->cm.type);
 		return;
 	}
 
 	switch (nim->cm.type) {
-	case NSS_RX_METADATA_TYPE_IPV4_RULE_ESTABLISH:
+	case NSS_IPV4_RX_ESTABLISH_RULE_MSG:
 		nss_rx_metadata_ipv4_rule_establish(nss_ctx, &nim->msg.rule_establish);
 		break;
 
-	case NSS_RX_METADATA_TYPE_IPV4_RULE_SYNC:
+	case NSS_IPV4_RX_SYNC_MSG:
 		nss_rx_metadata_ipv4_rule_sync(nss_ctx, &nim->msg.rule_sync);
 		break;
 
