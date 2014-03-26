@@ -49,6 +49,17 @@ struct nss_cmn_msg {
 };
 
 /*
+ * Common per node stats structure
+ */
+struct nss_cmn_node_stats {
+	uint32_t rx_packets;		/* Number of packets received */
+	uint32_t rx_bytes;		/* Number of bytes received */
+	uint32_t rx_dropped;		/* Number of receive drops due to queue full */
+	uint32_t tx_packets;		/* Number of packets transmitted */
+	uint32_t tx_bytes;		/* Number of bytes transmitted */
+};
+
+/*
  * IPv4 bridge/route rule messages
  */
 
@@ -56,7 +67,8 @@ enum nss_ipv4_message_types {
 	NSS_IPV4_TX_CREATE_RULE_MSG,
 	NSS_IPV4_TX_DESTROY_RULE_MSG,
 	NSS_IPV4_RX_ESTABLISH_RULE_MSG,
-	NSS_IPV4_RX_SYNC_MSG,
+	NSS_IPV4_RX_CONN_STATS_SYNC_MSG,
+	NSS_IPV4_RX_NODE_STATS_SYNC_MSG,
 	NSS_IPV4_MAX_MSG_TYPES,
 };
 
@@ -252,9 +264,9 @@ struct nss_ipv4_rule_establish {
 					/* Sync is to destroy a cache entry which belongs to a particular PPPoE session */
 
 /*
- * The NSS IPv4 rule sync structure.
+ * The NSS IPv4 connection sync structure.
  */
-struct nss_ipv4_rule_sync {
+struct nss_ipv4_conn_sync {
 	uint32_t index;			/* Slot ID for cache stats to host OS */
 	uint32_t flow_max_window;	/* Flow direction's largest seen window */
 	uint32_t flow_end;		/* Flow direction's largest seen sequence + segment length */
@@ -287,6 +299,90 @@ struct nss_ipv4_rule_sync {
 };
 
 /*
+ * Exception events from bridge/route handler
+ */
+enum exception_events_ipv4 {
+	NSS_EXCEPTION_EVENT_IPV4_ICMP_HEADER_INCOMPLETE,
+	NSS_EXCEPTION_EVENT_IPV4_ICMP_UNHANDLED_TYPE,
+	NSS_EXCEPTION_EVENT_IPV4_ICMP_IPV4_HEADER_INCOMPLETE,
+	NSS_EXCEPTION_EVENT_IPV4_ICMP_IPV4_UDP_HEADER_INCOMPLETE,
+	NSS_EXCEPTION_EVENT_IPV4_ICMP_IPV4_TCP_HEADER_INCOMPLETE,
+	NSS_EXCEPTION_EVENT_IPV4_ICMP_IPV4_UNKNOWN_PROTOCOL,
+	NSS_EXCEPTION_EVENT_IPV4_ICMP_NO_ICME,
+	NSS_EXCEPTION_EVENT_IPV4_ICMP_FLUSH_TO_HOST,
+	NSS_EXCEPTION_EVENT_IPV4_TCP_HEADER_INCOMPLETE,
+	NSS_EXCEPTION_EVENT_IPV4_TCP_NO_ICME,
+	NSS_EXCEPTION_EVENT_IPV4_TCP_IP_OPTION,
+	NSS_EXCEPTION_EVENT_IPV4_TCP_IP_FRAGMENT,
+	NSS_EXCEPTION_EVENT_IPV4_TCP_SMALL_TTL,
+	NSS_EXCEPTION_EVENT_IPV4_TCP_NEEDS_FRAGMENTATION,
+	NSS_EXCEPTION_EVENT_IPV4_TCP_FLAGS,
+	NSS_EXCEPTION_EVENT_IPV4_TCP_SEQ_EXCEEDS_RIGHT_EDGE,
+	NSS_EXCEPTION_EVENT_IPV4_TCP_SMALL_DATA_OFFS,
+	NSS_EXCEPTION_EVENT_IPV4_TCP_BAD_SACK,
+	NSS_EXCEPTION_EVENT_IPV4_TCP_BIG_DATA_OFFS,
+	NSS_EXCEPTION_EVENT_IPV4_TCP_SEQ_BEFORE_LEFT_EDGE,
+	NSS_EXCEPTION_EVENT_IPV4_TCP_ACK_EXCEEDS_RIGHT_EDGE,
+	NSS_EXCEPTION_EVENT_IPV4_TCP_ACK_BEFORE_LEFT_EDGE,
+	NSS_EXCEPTION_EVENT_IPV4_UDP_HEADER_INCOMPLETE,
+	NSS_EXCEPTION_EVENT_IPV4_UDP_NO_ICME,
+	NSS_EXCEPTION_EVENT_IPV4_UDP_IP_OPTION,
+	NSS_EXCEPTION_EVENT_IPV4_UDP_IP_FRAGMENT,
+	NSS_EXCEPTION_EVENT_IPV4_UDP_SMALL_TTL,
+	NSS_EXCEPTION_EVENT_IPV4_UDP_NEEDS_FRAGMENTATION,
+	NSS_EXCEPTION_EVENT_IPV4_WRONG_TARGET_MAC,
+	NSS_EXCEPTION_EVENT_IPV4_HEADER_INCOMPLETE,
+	NSS_EXCEPTION_EVENT_IPV4_BAD_TOTAL_LENGTH,
+	NSS_EXCEPTION_EVENT_IPV4_BAD_CHECKSUM,
+	NSS_EXCEPTION_EVENT_IPV4_NON_INITIAL_FRAGMENT,
+	NSS_EXCEPTION_EVENT_IPV4_DATAGRAM_INCOMPLETE,
+	NSS_EXCEPTION_EVENT_IPV4_OPTIONS_INCOMPLETE,
+	NSS_EXCEPTION_EVENT_IPV4_UNKNOWN_PROTOCOL,
+	NSS_EXCEPTION_EVENT_IPV4_ESP_HEADER_INCOMPLETE,
+	NSS_EXCEPTION_EVENT_IPV4_ESP_NO_ICME,
+	NSS_EXCEPTION_EVENT_IPV4_ESP_IP_OPTION,
+	NSS_EXCEPTION_EVENT_IPV4_ESP_IP_FRAGMENT,
+	NSS_EXCEPTION_EVENT_IPV4_ESP_SMALL_TTL,
+	NSS_EXCEPTION_EVENT_IPV4_ESP_NEEDS_FRAGMENTATION,
+	NSS_EXCEPTION_EVENT_IPV4_IVID_MISMATCH,
+	NSS_EXCEPTION_EVENT_IPV4_6RD_NO_ICME,
+	NSS_EXCEPTION_EVENT_IPV4_6RD_IP_OPTION,
+	NSS_EXCEPTION_EVENT_IPV4_6RD_IP_FRAGMENT,
+	NSS_EXCEPTION_EVENT_IPV4_6RD_NEEDS_FRAGMENTATION,
+	NSS_EXCEPTION_EVENT_IPV4_DSCP_MARKING_MISMATCH,
+	NSS_EXCEPTION_EVENT_IPV4_VLAN_MARKING_MISMATCH,
+	NSS_EXCEPTION_EVENT_IPV4_MAX
+};
+
+/*
+ * IPv4 node statistics structure
+ */
+struct nss_ipv4_node_sync {
+	struct nss_cmn_node_stats node_stats;
+				/* Common node stats for IPv4 */
+	uint32_t ipv4_connection_create_requests;
+				/* Number of IPv4 connection create requests */
+	uint32_t ipv4_connection_create_collisions;
+				/* Number of IPv4 connection create requests that collided with existing entries */
+	uint32_t ipv4_connection_create_invalid_interface;
+				/* Number of IPv4 connection create requests that had invalid interface */
+	uint32_t ipv4_connection_destroy_requests;
+				/* Number of IPv4 connection destroy requests */
+	uint32_t ipv4_connection_destroy_misses;
+				/* Number of IPv4 connection destroy requests that missed the cache */
+	uint32_t ipv4_connection_hash_hits;
+				/* Number of IPv4 connection hash hits */
+	uint32_t ipv4_connection_hash_reorders;
+				/* Number of IPv4 connection hash reorders */
+	uint32_t ipv4_connection_flushes;
+				/* Number of IPv4 connection flushes */
+	uint32_t ipv4_connection_evictions;
+				/* Number of IPv4 connection evictions */
+	uint32_t exception_events[NSS_EXCEPTION_EVENT_IPV4_MAX];
+				/* Number of IPv4 exception events */
+};
+
+/*
  * Message structure to send/receive IPv4 bridge/route commands
  */
 struct nss_ipv4_msg {
@@ -295,7 +391,8 @@ struct nss_ipv4_msg {
 		struct nss_ipv4_rule_create_msg rule_create;	/* Message: rule create */
 		struct nss_ipv4_rule_destroy_msg rule_destroy;	/* Message: rule destroy */
 		struct nss_ipv4_rule_establish rule_establish;	/* Message: rule establish confirmation */
-		struct nss_ipv4_rule_sync rule_sync;	/* Message: stats sync */
+		struct nss_ipv4_conn_sync conn_stats;	/* Message: connection stats sync */
+		struct nss_ipv4_node_sync node_stats;	/* Message: node stats sync */
 	} msg;
 };
 
@@ -303,11 +400,12 @@ struct nss_ipv4_msg {
  * IPv6 bridge/route rule messages
  */
 
- enum nss_ipv6_metadata_types {
+enum nss_ipv6_metadata_types {
 	NSS_IPV6_TX_CREATE_RULE_MSG,
 	NSS_IPV6_TX_DESTROY_RULE_MSG,
 	NSS_IPV6_RX_ESTABLISH_RULE_MSG,
-	NSS_IPV6_RX_SYNC_MSG,
+	NSS_IPV6_RX_CONN_STATS_SYNC_MSG,
+	NSS_IPV6_RX_NODE_STATS_SYNC_MSG,
 	NSS_IPV6_MAX_MSG_TYPES,
 };
 
@@ -497,7 +595,7 @@ struct nss_ipv6_rule_establish {
 /*
  * The NSS IPv6 rule sync structure.
  */
-struct nss_ipv6_rule_sync {
+struct nss_ipv6_conn_sync {
 	uint32_t index;			/* Slot ID for cache stats to host OS */
 	uint32_t flow_max_window;	/* Flow direction's largest seen window */
 	uint32_t flow_end;		/* Flow direction's largest seen sequence + segment length */
@@ -530,6 +628,71 @@ struct nss_ipv6_rule_sync {
 };
 
 /*
+ * Exception events from IPv6 bridge/route handler
+ */
+enum exception_events_ipv6 {
+	NSS_EXCEPTION_EVENT_IPV6_ICMP_HEADER_INCOMPLETE,
+	NSS_EXCEPTION_EVENT_IPV6_ICMP_UNHANDLED_TYPE,
+	NSS_EXCEPTION_EVENT_IPV6_ICMP_IPV6_HEADER_INCOMPLETE,
+	NSS_EXCEPTION_EVENT_IPV6_ICMP_IPV6_UDP_HEADER_INCOMPLETE,
+	NSS_EXCEPTION_EVENT_IPV6_ICMP_IPV6_TCP_HEADER_INCOMPLETE,
+	NSS_EXCEPTION_EVENT_IPV6_ICMP_IPV6_UNKNOWN_PROTOCOL,
+	NSS_EXCEPTION_EVENT_IPV6_ICMP_NO_ICME,
+	NSS_EXCEPTION_EVENT_IPV6_ICMP_FLUSH_TO_HOST,
+	NSS_EXCEPTION_EVENT_IPV6_TCP_HEADER_INCOMPLETE,
+	NSS_EXCEPTION_EVENT_IPV6_TCP_NO_ICME,
+	NSS_EXCEPTION_EVENT_IPV6_TCP_SMALL_HOP_LIMIT,
+	NSS_EXCEPTION_EVENT_IPV6_TCP_NEEDS_FRAGMENTATION,
+	NSS_EXCEPTION_EVENT_IPV6_TCP_FLAGS,
+	NSS_EXCEPTION_EVENT_IPV6_TCP_SEQ_EXCEEDS_RIGHT_EDGE,
+	NSS_EXCEPTION_EVENT_IPV6_TCP_SMALL_DATA_OFFS,
+	NSS_EXCEPTION_EVENT_IPV6_TCP_BAD_SACK,
+	NSS_EXCEPTION_EVENT_IPV6_TCP_BIG_DATA_OFFS,
+	NSS_EXCEPTION_EVENT_IPV6_TCP_SEQ_BEFORE_LEFT_EDGE,
+	NSS_EXCEPTION_EVENT_IPV6_TCP_ACK_EXCEEDS_RIGHT_EDGE,
+	NSS_EXCEPTION_EVENT_IPV6_TCP_ACK_BEFORE_LEFT_EDGE,
+	NSS_EXCEPTION_EVENT_IPV6_UDP_HEADER_INCOMPLETE,
+	NSS_EXCEPTION_EVENT_IPV6_UDP_NO_ICME,
+	NSS_EXCEPTION_EVENT_IPV6_UDP_SMALL_HOP_LIMIT,
+	NSS_EXCEPTION_EVENT_IPV6_UDP_NEEDS_FRAGMENTATION,
+	NSS_EXCEPTION_EVENT_IPV6_WRONG_TARGET_MAC,
+	NSS_EXCEPTION_EVENT_IPV6_HEADER_INCOMPLETE,
+	NSS_EXCEPTION_EVENT_IPV6_UNKNOWN_PROTOCOL,
+	NSS_EXCEPTION_EVENT_IPV6_IVID_MISMATCH,
+	NSS_EXCEPTION_EVENT_IPV6_DSCP_MARKING_MISMATCH,
+	NSS_EXCEPTION_EVENT_IPV6_VLAN_MARKING_MISMATCH,
+	NSS_EXCEPTION_EVENT_IPV6_MAX
+};
+
+/*
+ * NSS IPv6 node stats sync structure
+ */
+struct nss_ipv6_node_sync {
+	struct nss_cmn_node_stats node_stats;
+				/* Common node stats for IPv6 */
+	uint32_t ipv6_connection_create_requests;
+				/* Number of IPv6 connection create requests */
+	uint32_t ipv6_connection_create_collisions;
+				/* Number of IPv6 connection create requests that collided with existing entries */
+	uint32_t ipv6_connection_create_invalid_interface;
+				/* Number of IPv6 connection create requests that had invalid interface */
+	uint32_t ipv6_connection_destroy_requests;
+				/* Number of IPv6 connection destroy requests */
+	uint32_t ipv6_connection_destroy_misses;
+				/* Number of IPv6 connection destroy requests that missed the cache */
+	uint32_t ipv6_connection_hash_hits;
+				/* Number of IPv6 connection hash hits */
+	uint32_t ipv6_connection_hash_reorders;
+				/* Number of IPv6 connection hash reorders */
+	uint32_t ipv6_connection_flushes;
+				/* Number of IPv6 connection flushes */
+	uint32_t ipv6_connection_evictions;
+				/* Number of IPv6 connection evictions */
+	uint32_t exception_events[NSS_EXCEPTION_EVENT_IPV6_MAX];
+				/* Number of IPv6 exception events */
+};
+
+/*
  * Message structure to send/receive IPv6 bridge/route commands
  */
 struct nss_ipv6_msg {
@@ -538,7 +701,8 @@ struct nss_ipv6_msg {
 		struct nss_ipv6_rule_create_msg rule_create;	/* Message: rule create */
 		struct nss_ipv6_rule_destroy_msg rule_destroy;	/* Message: rule destroy */
 		struct nss_ipv6_rule_establish rule_establish;	/* Message: rule establish confirmation */
-		struct nss_ipv6_rule_sync rule_sync;	/* Message: stats sync */
+		struct nss_ipv6_conn_sync conn_stats;	/* Message: stats sync */
+		struct nss_ipv6_node_sync node_stats;	/* Message: node stats sync */
 	} msg;
 };
 
@@ -582,6 +746,46 @@ struct nss_virtual_if_msg {
 };
 
 /*
+ * ETH_RX
+*/
+
+/*
+ * Request/Response types
+ */
+enum nss_eth_rx_metadata_types {
+	NSS_RX_METADATA_TYPE_ETH_RX_STATS_SYNC,
+	NSS_METADATA_TYPE_ETH_RX_MAX,
+};
+
+/*
+ * Exception events from bridge/route handler
+ */
+enum exception_events_eth_rx {
+	NSS_EXCEPTION_EVENT_ETH_RX_UNKNOWN_L3_PROTOCOL,
+	NSS_EXCEPTION_EVENT_ETH_RX_MAX,
+};
+
+/*
+ * The NSS eth_rx node stats structure.
+ */
+struct nss_eth_rx_node_sync {
+	struct nss_cmn_node_stats node_stats;
+				/* Common node stats for ETH_RX */
+	uint32_t exception_events[NSS_EXCEPTION_EVENT_ETH_RX_MAX];
+				/* Number of ETH_RX exception events */
+};
+
+/*
+ * Message structure to send/receive eth_rx commands
+ */
+struct nss_eth_rx_msg {
+	struct nss_cmn_msg cm;		/* Message Header */
+	union {
+		struct nss_eth_rx_node_sync node_sync;	/* Message: node statistics sync */
+	} msg;
+};
+
+/*
  * PPPoE
  */
 
@@ -591,8 +795,9 @@ struct nss_virtual_if_msg {
 enum nss_pppoe_metadata_types {
 	NSS_TX_METADATA_TYPE_PPPOE_DESTROY_SESSION,
 	NSS_RX_METADATA_TYPE_PPPOE_RULE_STATUS,
-	NSS_RX_METADATA_TYPE_PPPOE_STATS_SYNC,
-	NSS_METADATA_TYPE_PPPOE_MAX
+	NSS_RX_METADATA_TYPE_PPPOE_CONN_STATS_SYNC,
+	NSS_RX_METADATA_TYPE_PPPOE_NODE_STATS_SYNC,
+	NSS_METADATA_TYPE_PPPOE_MAX,
 };
 
 /*
@@ -605,7 +810,6 @@ enum exception_events_pppoe {
 	NSS_EXCEPTION_EVENT_PPPOE_UNSUPPORTED_PPP_PROTOCOL,
 	NSS_EXCEPTION_EVENT_PPPOE_MAX,
 };
-
 
 /*
  * The NSS PPPoE rule destruction structure.
@@ -625,9 +829,24 @@ struct nss_pppoe_rule_status {
 };
 
 /*
+ * The NSS PPPoE node stats structure.
+ */
+struct nss_pppoe_node_sync {
+	struct nss_cmn_node_stats node_stats;
+	uint32_t pppoe_session_create_requests;
+					/* PPPoE session create requests */
+	uint32_t pppoe_session_create_failures;
+					/* PPPoE session create failures */
+	uint32_t pppoe_session_destroy_requests;
+					/* PPPoE session destroy requests */
+	uint32_t pppoe_session_destroy_misses;
+					/* PPPoE session destroy failures */
+};
+
+/*
  * The NSS PPPoE exception statistics sync structure.
  */
-struct nss_pppoe_exception_stats_sync {
+struct nss_pppoe_conn_sync {
 	uint16_t pppoe_session_id;	/* PPPoE session ID on which stats are based */
 	uint8_t pppoe_remote_mac[ETH_ALEN];
 					/* PPPoE server MAC address */
@@ -645,7 +864,8 @@ struct nss_pppoe_msg {
 	union {
 		struct nss_pppoe_destroy destroy;	/* Message: destroy pppoe rule */
 		struct nss_pppoe_rule_status rule_status;	/* Message: rule status response */
-		struct nss_pppoe_exception_stats_sync stats_sync;	/* Message: statistics sync */
+		struct nss_pppoe_conn_sync conn_sync;	/* Message: exception statistics sync */
+		struct nss_pppoe_node_sync node_sync;	/* Message: node statistics sync */
 	} msg;
 };
 
@@ -802,7 +1022,7 @@ struct nss_c2c_tx_map {
  * Message structure to send/receive phys i/f commands
  */
 struct nss_c2c_msg {
-	struct nss_cmn_msg cm;              /* Message Header */
+	struct nss_cmn_msg cm;		/* Message Header */
 	union {
 		struct nss_c2c_tx_map tx_map;
 	} msg;
@@ -815,230 +1035,33 @@ struct nss_c2c_msg {
 /*
  * Request/Response types
  */
-enum nss_offload_stats_metadata_types {
-	NSS_RX_METADATA_TYPE_PER_INTERFACE_STATS_SYNC,
-	NSS_RX_METADATA_TYPE_NSS_OFFLOAD_STATS_SYNC,
-	NSS_METADATA_TYPE_OFFLOAD_STATS_MAX
+enum nss_n2h_metadata_types {
+	NSS_RX_METADATA_TYPE_N2H_STATS_SYNC,
+	NSS_METADATA_TYPE_N2H_MAX,
 };
 
 /*
- * Exception events from bridge/route handler
+ * The NSS N2H statistics sync structure.
  */
-enum exception_events_unknown {
-	NSS_EXCEPTION_EVENT_UNKNOWN_L2_PROTOCOL,
-	NSS_EXCEPTION_EVENT_UNKNOWN_MAX
-};
-
-/*
- * Exception events from bridge/route handler
- */
-enum exception_events_ipv4 {
-	NSS_EXCEPTION_EVENT_IPV4_ICMP_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV4_ICMP_UNHANDLED_TYPE,
-	NSS_EXCEPTION_EVENT_IPV4_ICMP_IPV4_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV4_ICMP_IPV4_UDP_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV4_ICMP_IPV4_TCP_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV4_ICMP_IPV4_UNKNOWN_PROTOCOL,
-	NSS_EXCEPTION_EVENT_IPV4_ICMP_NO_ICME,
-	NSS_EXCEPTION_EVENT_IPV4_ICMP_FLUSH_TO_HOST,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_NO_ICME,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_IP_OPTION,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_IP_FRAGMENT,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_SMALL_TTL,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_NEEDS_FRAGMENTATION,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_FLAGS,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_SEQ_EXCEEDS_RIGHT_EDGE,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_SMALL_DATA_OFFS,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_BAD_SACK,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_BIG_DATA_OFFS,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_SEQ_BEFORE_LEFT_EDGE,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_ACK_EXCEEDS_RIGHT_EDGE,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_ACK_BEFORE_LEFT_EDGE,
-	NSS_EXCEPTION_EVENT_IPV4_UDP_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV4_UDP_NO_ICME,
-	NSS_EXCEPTION_EVENT_IPV4_UDP_IP_OPTION,
-	NSS_EXCEPTION_EVENT_IPV4_UDP_IP_FRAGMENT,
-	NSS_EXCEPTION_EVENT_IPV4_UDP_SMALL_TTL,
-	NSS_EXCEPTION_EVENT_IPV4_UDP_NEEDS_FRAGMENTATION,
-	NSS_EXCEPTION_EVENT_IPV4_WRONG_TARGET_MAC,
-	NSS_EXCEPTION_EVENT_IPV4_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV4_BAD_TOTAL_LENGTH,
-	NSS_EXCEPTION_EVENT_IPV4_BAD_CHECKSUM,
-	NSS_EXCEPTION_EVENT_IPV4_NON_INITIAL_FRAGMENT,
-	NSS_EXCEPTION_EVENT_IPV4_DATAGRAM_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV4_OPTIONS_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV4_UNKNOWN_PROTOCOL,
-	NSS_EXCEPTION_EVENT_IPV4_ESP_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV4_ESP_NO_ICME,
-	NSS_EXCEPTION_EVENT_IPV4_ESP_IP_OPTION,
-	NSS_EXCEPTION_EVENT_IPV4_ESP_IP_FRAGMENT,
-	NSS_EXCEPTION_EVENT_IPV4_ESP_SMALL_TTL,
-	NSS_EXCEPTION_EVENT_IPV4_ESP_NEEDS_FRAGMENTATION,
-	NSS_EXCEPTION_EVENT_IPV4_IVID_MISMATCH,
-	NSS_EXCEPTION_EVENT_IPV4_6RD_NO_ICME,
-	NSS_EXCEPTION_EVENT_IPV4_6RD_IP_OPTION,
-	NSS_EXCEPTION_EVENT_IPV4_6RD_IP_FRAGMENT,
-	NSS_EXCEPTION_EVENT_IPV4_6RD_NEEDS_FRAGMENTATION,
-	NSS_EXCEPTION_EVENT_IPV4_DSCP_MARKING_MISMATCH,
-	NSS_EXCEPTION_EVENT_IPV4_VLAN_MARKING_MISMATCH,
-	NSS_EXCEPTION_EVENT_IPV4_MAX
-};
-
-/*
- * Exception events from PE
- */
-enum exception_events_ipv6 {
-	NSS_EXCEPTION_EVENT_IPV6_ICMP_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV6_ICMP_UNHANDLED_TYPE,
-	NSS_EXCEPTION_EVENT_IPV6_ICMP_IPV6_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV6_ICMP_IPV6_UDP_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV6_ICMP_IPV6_TCP_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV6_ICMP_IPV6_UNKNOWN_PROTOCOL,
-	NSS_EXCEPTION_EVENT_IPV6_ICMP_NO_ICME,
-	NSS_EXCEPTION_EVENT_IPV6_ICMP_FLUSH_TO_HOST,
-	NSS_EXCEPTION_EVENT_IPV6_TCP_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV6_TCP_NO_ICME,
-	NSS_EXCEPTION_EVENT_IPV6_TCP_SMALL_HOP_LIMIT,
-	NSS_EXCEPTION_EVENT_IPV6_TCP_NEEDS_FRAGMENTATION,
-	NSS_EXCEPTION_EVENT_IPV6_TCP_FLAGS,
-	NSS_EXCEPTION_EVENT_IPV6_TCP_SEQ_EXCEEDS_RIGHT_EDGE,
-	NSS_EXCEPTION_EVENT_IPV6_TCP_SMALL_DATA_OFFS,
-	NSS_EXCEPTION_EVENT_IPV6_TCP_BAD_SACK,
-	NSS_EXCEPTION_EVENT_IPV6_TCP_BIG_DATA_OFFS,
-	NSS_EXCEPTION_EVENT_IPV6_TCP_SEQ_BEFORE_LEFT_EDGE,
-	NSS_EXCEPTION_EVENT_IPV6_TCP_ACK_EXCEEDS_RIGHT_EDGE,
-	NSS_EXCEPTION_EVENT_IPV6_TCP_ACK_BEFORE_LEFT_EDGE,
-	NSS_EXCEPTION_EVENT_IPV6_UDP_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV6_UDP_NO_ICME,
-	NSS_EXCEPTION_EVENT_IPV6_UDP_SMALL_HOP_LIMIT,
-	NSS_EXCEPTION_EVENT_IPV6_UDP_NEEDS_FRAGMENTATION,
-	NSS_EXCEPTION_EVENT_IPV6_WRONG_TARGET_MAC,
-	NSS_EXCEPTION_EVENT_IPV6_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV6_UNKNOWN_PROTOCOL,
-	NSS_EXCEPTION_EVENT_IPV6_IVID_MISMATCH,
-	NSS_EXCEPTION_EVENT_IPV6_DSCP_MARKING_MISMATCH,
-	NSS_EXCEPTION_EVENT_IPV6_VLAN_MARKING_MISMATCH,
-	NSS_EXCEPTION_EVENT_IPV6_MAX
-};
-
-/*
- * The NSS per-interface statistics sync structure.
- */
-struct nss_per_if_stats_sync {
-	uint32_t interface;		/* Interface number */
-	uint32_t rx_packets;		/* Number of packets received */
-	uint32_t rx_bytes;		/* Number of bytes received */
-	uint32_t tx_packets;		/* Number of packets transmitted */
-	uint32_t tx_bytes;		/* Number of bytes transmitted */
-	uint32_t rx_errors;		/* Number of receive errors */
-	uint32_t tx_errors;		/* Number of transmit errors */
-	uint32_t tx_dropped;		/* Number of TX dropped packets */
-	uint32_t collisions;		/* Number of TX and RX collisions */
-	uint32_t host_rx_packets;	/* Number of RX packets received by host OS */
-	uint32_t host_rx_bytes;		/* Number of RX bytes received by host OS */
-	uint32_t host_tx_packets;	/* Number of TX packets sent by host OS */
-	uint32_t host_tx_bytes;		/* Number of TX bytes sent by host OS */
-	uint32_t rx_length_errors;	/* Number of RX length errors */
-	uint32_t rx_overflow_errors;	/* Number of RX overflow errors */
-	uint32_t rx_crc_errors;		/* Number of RX CRC errors */
-	uint32_t exception_events_unknown[NSS_EXCEPTION_EVENT_UNKNOWN_MAX];
-					/* Number of unknown protocol exception events */
-	uint32_t exception_events_ipv4[NSS_EXCEPTION_EVENT_IPV4_MAX];
-					/* Number of IPv4 exception events */
-	uint32_t exception_events_ipv6[NSS_EXCEPTION_EVENT_IPV6_MAX];
-					/* Number of IPv6 exception events */
-};
-
-/*
- * The NSS NSS statistics sync structure.
- */
-struct nss_offload_stats_sync {
-	uint32_t ipv4_connection_create_requests;
-					/* Number of IPv4 connection create requests */
-	uint32_t ipv4_connection_create_collisions;
-					/* Number of IPv4 connection create requests that collided with existing entries */
-	uint32_t ipv4_connection_create_invalid_interface;
-					/* Number of IPv4 connection create requests that had invalid interface */
-	uint32_t ipv4_connection_destroy_requests;
-					/* Number of IPv4 connection destroy requests */
-	uint32_t ipv4_connection_destroy_misses;
-					/* Number of IPv4 connection destroy requests that missed the cache */
-	uint32_t ipv4_connection_hash_hits;
-					/* Number of IPv4 connection hash hits */
-	uint32_t ipv4_connection_hash_reorders;
-					/* Number of IPv4 connection hash reorders */
-	uint32_t ipv4_connection_flushes;
-					/* Number of IPv4 connection flushes */
-	uint32_t ipv4_connection_evictions;
-					/* Number of IPv4 connection evictions */
-	uint32_t ipv6_connection_create_requests;
-					/* Number of IPv6 connection create requests */
-	uint32_t ipv6_connection_create_collisions;
-					/* Number of IPv6 connection create requests that collided with existing entries */
-	uint32_t ipv6_connection_create_invalid_interface;
-					/* Number of IPv6 connection create requests that had invalid interface */
-	uint32_t ipv6_connection_destroy_requests;
-					/* Number of IPv6 connection destroy requests */
-	uint32_t ipv6_connection_destroy_misses;
-					/* Number of IPv6 connection destroy requests that missed the cache */
-	uint32_t ipv6_connection_hash_hits;
-					/* Number of IPv6 connection hash hits */
-	uint32_t ipv6_connection_hash_reorders;
-					/* Number of IPv6 connection hash reorders */
-	uint32_t ipv6_connection_flushes;
-					/* Number of IPv6 connection flushes */
-	uint32_t ipv6_connection_evictions;
-					/* Number of IPv6 connection evictions */
-	uint32_t l2switch_create_requests;
-					/* Number of l2 switch entry create requests */
-	uint32_t l2switch_create_collisions;
-					/* Number of l2 switch entry create requests that collided with existing entries */
-	uint32_t l2switch_create_invalid_interface;
-					/* Number of l2 switch entry create requests that had invalid interface */
-	uint32_t l2switch_destroy_requests;
-					/* Number of l2 switch entry destroy requests */
-	uint32_t l2switch_destroy_misses;
-					/* Number of l2 switch entry destroy requests that missed the cache */
-	uint32_t l2switch_hash_hits;	/* Number of l2 switch entry hash hits */
-	uint32_t l2switch_hash_reorders;/* Number of l2 switch entry hash reorders */
-	uint32_t l2switch_flushes;	/* Number of l2 switch entry flushes */
-	uint32_t l2switch_evictions;	/* Number of l2 switch entry evictions */
-	uint32_t pppoe_session_create_requests;
-					/* Number of PPPoE session create requests */
-	uint32_t pppoe_session_create_failures;
-					/* Number of PPPoE session create failures */
-	uint32_t pppoe_session_destroy_requests;
-					/* Number of PPPoE session destroy requests */
-	uint32_t pppoe_session_destroy_misses;
-					/* Number of PPPoE session destroy requests that missed the cache */
-	uint32_t pe_queue_dropped;	/* Number of packets dropped because the PE queue is too full */
-	uint32_t pe_total_ticks;	/* Total clock ticks spend inside the PE */
-	uint32_t pe_worst_case_ticks;	/* Worst case iteration of the PE in ticks */
-	uint32_t pe_iterations;		/* Number of iterations around the PE */
-	uint32_t except_queue_dropped;	/* Number of packets dropped because the exception queue is too full */
-	uint32_t except_total_ticks;	/* Total clock ticks spend inside the PE */
-	uint32_t except_worst_case_ticks;
-					/* Worst case iteration of the exception path in ticks */
-	uint32_t except_iterations;	/* Number of iterations around the PE */
-	uint32_t l2switch_queue_dropped;/* Number of packets dropped because the L2 switch queue is too full */
-	uint32_t l2switch_total_ticks;	/* Total clock ticks spend inside the L2 switch */
-	uint32_t l2switch_worst_case_ticks;
-					/* Worst case iteration of the L2 switch in ticks */
-	uint32_t l2switch_iterations;	/* Number of iterations around the L2 switch */
+struct nss_n2h_stats_sync {
+	struct nss_cmn_node_stats node_stats;
+					/* Common node stats for N2H */
+	uint32_t queue_dropped;		/* Number of packets dropped because the PE queue is too full */
+	uint32_t total_ticks;		/* Total clock ticks spend inside the PE */
+	uint32_t worst_case_ticks;	/* Worst case iteration of the PE in ticks */
+	uint32_t iterations;		/* Number of iterations around the PE */
 	uint32_t pbuf_alloc_fails;	/* Number of pbuf allocations that have failed */
-	uint32_t pbuf_payload_alloc_fails;
-					/* Number of pbuf allocations that have failed because there were no free payloads */
+	uint32_t payload_alloc_fails;
+					/* Number of payload allocations that have failed */
 };
 
 /*
  * Message structure to send/receive phys i/f commands
  */
-struct nss_offload_msg {
+struct nss_n2h_msg {
 	struct nss_cmn_msg cm;			/* Message Header */
 	union {
-		struct nss_per_if_stats_sync per_if_stats_sync;		/* Message: interface stats sync */
-		struct nss_offload_stats_sync offload_stats_sync;	/* Message: offload stats sync */
+		struct nss_n2h_stats_sync stats_sync;	/* Message: N2H stats sync */
 	} msg;
 };
 

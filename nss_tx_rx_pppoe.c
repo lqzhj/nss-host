@@ -90,10 +90,11 @@ static void nss_tx_destroy_pppoe_connection_rule(void *ctx, uint16_t pppoe_sessi
 	 * Reset the PPPoE statistics.
 	 */
 	spin_lock_bh(&nss_top->stats_lock);
+
 	/*
 	 * TODO: Don't reset all the statistics. Reset only the destroyed session's stats.
 	 */
-	for (i = 0; i < NSS_MAX_NET_INTERFACES; i++) {
+	for (i = 0; i < NSS_MAX_PHYSICAL_INTERFACES; i++) {
 		for (j = 0; j < NSS_PPPOE_NUM_SESSION_PER_INTERFACE; j++) {
 			for (k = 0; k < NSS_EXCEPTION_EVENT_PPPOE_MAX; k++) {
 				nss_top->stats_if_exception_pppoe[i][j][k] = 0;
@@ -122,9 +123,8 @@ static void nss_tx_destroy_pppoe_connection_rule(void *ctx, uint16_t pppoe_sessi
  * nss_rx_metadata_pppoe_exception_stats_sync()
  *	Handle the syncing of PPPoE exception statistics.
  */
-static void nss_rx_metadata_pppoe_exception_stats_sync(struct nss_ctx_instance *nss_ctx, struct nss_pppoe_exception_stats_sync *npess)
+static void nss_rx_metadata_pppoe_exception_stats_sync(struct nss_ctx_instance *nss_ctx, struct nss_pppoe_conn_sync *npess)
 {
-	/* Place holder */
 	struct nss_top_instance *nss_top = nss_ctx->nss_top;
 	uint32_t index = npess->index;
 	uint32_t interface_num = npess->interface_num;
@@ -132,9 +132,41 @@ static void nss_rx_metadata_pppoe_exception_stats_sync(struct nss_ctx_instance *
 
 	spin_lock_bh(&nss_top->stats_lock);
 
+	if (interface_num >= NSS_MAX_PHYSICAL_INTERFACES) {
+		nss_warning("%p: Incorrect interface number %d for PPPoE exception stats", nss_ctx, interface_num)
+		return;
+	}
+
+	/*
+	 * pppoe exception stats
+	 */
 	for (i = 0; i < NSS_EXCEPTION_EVENT_PPPOE_MAX; i++) {
 		nss_top->stats_if_exception_pppoe[interface_num][index][i] += npess->exception_events_pppoe[i];
 	}
+
+	spin_unlock_bh(&nss_top->stats_lock);
+}
+
+/*
+ * nss_rx_metadata_pppoe_node_stats_sync()
+ *	Handle the syncing of PPPoE node statistics.
+ */
+static void nss_rx_metadata_pppoe_node_stats_sync(struct nss_ctx_instance *nss_ctx, struct nss_pppoe_node_sync *npess)
+{
+	struct nss_top_instance *nss_top = nss_ctx->nss_top;
+
+	spin_lock_bh(&nss_top->stats_lock);
+
+	nss_top->stats_node[NSS_PPPOE_RX_INTERFACE][NSS_STATS_NODE_RX_PKTS] += npess->node_stats.rx_packets;
+	nss_top->stats_node[NSS_PPPOE_RX_INTERFACE][NSS_STATS_NODE_RX_BYTES] += npess->node_stats.rx_bytes;
+	nss_top->stats_node[NSS_PPPOE_RX_INTERFACE][NSS_STATS_NODE_RX_DROPPED] += npess->node_stats.rx_dropped;
+	nss_top->stats_node[NSS_PPPOE_RX_INTERFACE][NSS_STATS_NODE_TX_PKTS] += npess->node_stats.tx_packets;
+	nss_top->stats_node[NSS_PPPOE_RX_INTERFACE][NSS_STATS_NODE_TX_BYTES] += npess->node_stats.tx_bytes;
+
+	nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_CREATE_REQUESTS] += npess->pppoe_session_create_requests;
+	nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_CREATE_FAILURES] += npess->pppoe_session_create_failures;
+	nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_DESTROY_REQUESTS] += npess->pppoe_session_destroy_requests;
+	nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_DESTROY_MISSES] += npess->pppoe_session_destroy_misses;
 
 	spin_unlock_bh(&nss_top->stats_lock);
 }
@@ -179,8 +211,12 @@ static void nss_rx_pppoe_interface_handler(struct nss_ctx_instance *nss_ctx, str
 	}
 
 	switch (npm->cm.type) {
-	case NSS_RX_METADATA_TYPE_PPPOE_STATS_SYNC:
-		nss_rx_metadata_pppoe_exception_stats_sync(nss_ctx, &npm->msg.stats_sync);
+	case NSS_RX_METADATA_TYPE_PPPOE_CONN_STATS_SYNC:
+		nss_rx_metadata_pppoe_exception_stats_sync(nss_ctx, &npm->msg.conn_sync);
+		break;
+
+	case NSS_RX_METADATA_TYPE_PPPOE_NODE_STATS_SYNC:
+		nss_rx_metadata_pppoe_node_stats_sync(nss_ctx, &npm->msg.node_sync);
 		break;
 
 	case NSS_RX_METADATA_TYPE_PPPOE_RULE_STATUS:

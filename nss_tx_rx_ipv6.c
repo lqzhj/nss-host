@@ -404,48 +404,48 @@ static void nss_rx_metadata_ipv6_rule_establish(struct nss_ctx_instance *nss_ctx
 }
 
 /*
- * nss_rx_metadata_ipv6_rule_sync()
- *	Handle the syncing of an IPv6 rule.
+ * nss_rx_metadata_ipv6_conn_sync()
+ *	Handle the syncing of an IPv6 connection.
  */
-static void nss_rx_metadata_ipv6_rule_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_rule_sync *nirs)
+static void nss_rx_metadata_ipv6_conn_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_conn_sync *nics)
 {
 	struct nss_top_instance *nss_top = nss_ctx->nss_top;
 	struct nss_ipv6_cb_params nicp;
 	struct net_device *pppoe_dev = NULL;
 
 	nicp.reason = NSS_IPV6_CB_REASON_SYNC;
-	nicp.params.sync.index = nirs->index;
-	nicp.params.sync.flow_max_window = nirs->flow_max_window;
-	nicp.params.sync.flow_end = nirs->flow_end;
-	nicp.params.sync.flow_max_end = nirs->flow_max_end;
-	nicp.params.sync.flow_rx_packet_count = nirs->flow_rx_packet_count;
-	nicp.params.sync.flow_rx_byte_count = nirs->flow_rx_byte_count;
-	nicp.params.sync.flow_tx_packet_count = nirs->flow_tx_packet_count;
-	nicp.params.sync.flow_tx_byte_count = nirs->flow_tx_byte_count;
-	nicp.params.sync.return_max_window = nirs->return_max_window;
-	nicp.params.sync.return_end = nirs->return_end;
-	nicp.params.sync.return_max_end = nirs->return_max_end;
-	nicp.params.sync.return_rx_packet_count = nirs->return_rx_packet_count;
-	nicp.params.sync.return_rx_byte_count = nirs->return_rx_byte_count;
-	nicp.params.sync.return_tx_packet_count = nirs->return_tx_packet_count;
-	nicp.params.sync.return_tx_byte_count = nirs->return_tx_byte_count;
+	nicp.params.sync.index = nics->index;
+	nicp.params.sync.flow_max_window = nics->flow_max_window;
+	nicp.params.sync.flow_end = nics->flow_end;
+	nicp.params.sync.flow_max_end = nics->flow_max_end;
+	nicp.params.sync.flow_rx_packet_count = nics->flow_rx_packet_count;
+	nicp.params.sync.flow_rx_byte_count = nics->flow_rx_byte_count;
+	nicp.params.sync.flow_tx_packet_count = nics->flow_tx_packet_count;
+	nicp.params.sync.flow_tx_byte_count = nics->flow_tx_byte_count;
+	nicp.params.sync.return_max_window = nics->return_max_window;
+	nicp.params.sync.return_end = nics->return_end;
+	nicp.params.sync.return_max_end = nics->return_max_end;
+	nicp.params.sync.return_rx_packet_count = nics->return_rx_packet_count;
+	nicp.params.sync.return_rx_byte_count = nics->return_rx_byte_count;
+	nicp.params.sync.return_tx_packet_count = nics->return_tx_packet_count;
+	nicp.params.sync.return_tx_byte_count = nics->return_tx_byte_count;
 
-	nicp.params.sync.qos_tag = nirs->qos_tag;
+	nicp.params.sync.qos_tag = nics->qos_tag;
 
 	nicp.params.sync.flags = 0;
-	if (nirs->flags & NSS_IPV6_RULE_CREATE_FLAG_NO_SEQ_CHECK) {
+	if (nics->flags & NSS_IPV6_RULE_CREATE_FLAG_NO_SEQ_CHECK) {
 		nicp.params.sync.flags |= NSS_IPV6_CREATE_FLAG_NO_SEQ_CHECK;
 	}
 
-	if (nirs->flags & NSS_IPV6_RULE_CREATE_FLAG_BRIDGE_FLOW) {
+	if (nics->flags & NSS_IPV6_RULE_CREATE_FLAG_BRIDGE_FLOW) {
 		nicp.params.sync.flags |= NSS_IPV6_CREATE_FLAG_BRIDGE_FLOW;
 	}
 
-	if (nirs->flags & NSS_IPV6_RULE_CREATE_FLAG_ROUTED) {
+	if (nics->flags & NSS_IPV6_RULE_CREATE_FLAG_ROUTED) {
 		nicp.params.sync.flags |= NSS_IPV6_CREATE_FLAG_ROUTED;
 	}
 
-	switch(nirs->reason) {
+	switch(nics->reason) {
 	case NSS_IPV6_RULE_SYNC_REASON_FLUSH:
 	case NSS_IPV6_RULE_SYNC_REASON_DESTROY:
 	case NSS_IPV6_RULE_SYNC_REASON_EVICT:
@@ -457,7 +457,7 @@ static void nss_rx_metadata_ipv6_rule_sync(struct nss_ctx_instance *nss_ctx, str
 		break;
 
 	default:
-		nss_warning("Bad ipv6 sync reason: %d\n", nirs->reason);
+		nss_warning("Bad ipv6 sync reason: %d\n", nics->reason);
 		return;
 	}
 
@@ -468,7 +468,7 @@ static void nss_rx_metadata_ipv6_rule_sync(struct nss_ctx_instance *nss_ctx, str
 	 * time bases don't cause truncation errors.
 	 */
 	nss_assert(HZ <= 100000);
-	nicp.params.sync.delta_jiffies = ((nirs->inc_ticks * HZ) + (MSEC_PER_SEC / 2)) / MSEC_PER_SEC;
+	nicp.params.sync.delta_jiffies = ((nics->inc_ticks * HZ) + (MSEC_PER_SEC / 2)) / MSEC_PER_SEC;
 
 	/*
 	 * Call IPv6 manager callback function
@@ -484,28 +484,28 @@ static void nss_rx_metadata_ipv6_rule_sync(struct nss_ctx_instance *nss_ctx, str
 	 */
 	spin_lock_bh(&nss_top->stats_lock);
 
-	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_RX_PKTS] += nirs->flow_rx_packet_count + nirs->return_rx_packet_count;
-	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_RX_BYTES] += nirs->flow_rx_byte_count + nirs->return_rx_byte_count;
-	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_TX_PKTS] += nirs->flow_tx_packet_count + nirs->return_tx_packet_count;
-	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_TX_BYTES] += nirs->flow_tx_byte_count + nirs->return_tx_byte_count;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_RX_PKTS] += nics->flow_rx_packet_count + nics->return_rx_packet_count;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_RX_BYTES] += nics->flow_rx_byte_count + nics->return_rx_byte_count;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_TX_PKTS] += nics->flow_tx_packet_count + nics->return_tx_packet_count;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_TX_BYTES] += nics->flow_tx_byte_count + nics->return_tx_byte_count;
 
 	/*
 	 * Update the PPPoE interface stats, if there is any PPPoE session on the interfaces.
 	 */
-	if (nirs->flow_pppoe_session_id) {
-		pppoe_dev = ppp_session_to_netdev(nirs->flow_pppoe_session_id, (uint8_t *)nirs->flow_pppoe_remote_mac);
+	if (nics->flow_pppoe_session_id) {
+		pppoe_dev = ppp_session_to_netdev(nics->flow_pppoe_session_id, (uint8_t *)nics->flow_pppoe_remote_mac);
 		if (pppoe_dev) {
-			ppp_update_stats(pppoe_dev, nirs->flow_rx_packet_count, nirs->flow_rx_byte_count,
-					nirs->flow_tx_packet_count, nirs->flow_tx_byte_count);
+			ppp_update_stats(pppoe_dev, nics->flow_rx_packet_count, nics->flow_rx_byte_count,
+					nics->flow_tx_packet_count, nics->flow_tx_byte_count);
 			dev_put(pppoe_dev);
 		}
 	}
 
-	if (nirs->return_pppoe_session_id) {
-		pppoe_dev = ppp_session_to_netdev(nirs->return_pppoe_session_id, (uint8_t *)nirs->return_pppoe_remote_mac);
+	if (nics->return_pppoe_session_id) {
+		pppoe_dev = ppp_session_to_netdev(nics->return_pppoe_session_id, (uint8_t *)nics->return_pppoe_remote_mac);
 		if (pppoe_dev) {
-			ppp_update_stats(pppoe_dev, nirs->return_rx_packet_count, nirs->return_rx_byte_count,
-				nirs->return_tx_packet_count, nirs->return_tx_byte_count);
+			ppp_update_stats(pppoe_dev, nics->return_rx_packet_count, nics->return_rx_byte_count,
+				nics->return_tx_packet_count, nics->return_tx_byte_count);
 			dev_put(pppoe_dev);
 		}
 	}
@@ -513,6 +513,40 @@ static void nss_rx_metadata_ipv6_rule_sync(struct nss_ctx_instance *nss_ctx, str
 	/*
 	 * TODO: Update per dev accelerated statistics
 	 */
+
+	spin_unlock_bh(&nss_top->stats_lock);
+}
+
+/*
+ * nss_rx_metadata_ipv6_node_stats_sync()
+ *	Handle the syncing of an IPv6 connection.
+ */
+static void nss_rx_metadata_ipv6_node_stats_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_node_sync *nins)
+{
+	struct nss_top_instance *nss_top = nss_ctx->nss_top;
+	uint32_t i;
+
+	spin_lock_bh(&nss_top->stats_lock);
+
+	nss_top->stats_node[NSS_IPV6_RX_INTERFACE][NSS_STATS_NODE_RX_PKTS] += nins->node_stats.rx_packets;
+	nss_top->stats_node[NSS_IPV6_RX_INTERFACE][NSS_STATS_NODE_RX_BYTES] += nins->node_stats.rx_bytes;
+	nss_top->stats_node[NSS_IPV6_RX_INTERFACE][NSS_STATS_NODE_RX_DROPPED] += nins->node_stats.rx_dropped;
+	nss_top->stats_node[NSS_IPV6_RX_INTERFACE][NSS_STATS_NODE_TX_PKTS] += nins->node_stats.tx_packets;
+	nss_top->stats_node[NSS_IPV6_RX_INTERFACE][NSS_STATS_NODE_TX_BYTES] += nins->node_stats.tx_bytes;
+
+	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_CREATE_REQUESTS] += nins->ipv6_connection_create_requests;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_CREATE_COLLISIONS] += nins->ipv6_connection_create_collisions;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_CREATE_INVALID_INTERFACE] += nins->ipv6_connection_create_invalid_interface;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_DESTROY_REQUESTS] += nins->ipv6_connection_destroy_requests;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_DESTROY_MISSES] += nins->ipv6_connection_destroy_misses;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_HASH_HITS] += nins->ipv6_connection_hash_hits;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_HASH_REORDERS] += nins->ipv6_connection_hash_reorders;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_FLUSHES] += nins->ipv6_connection_flushes;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_EVICTIONS] += nins->ipv6_connection_evictions;
+
+	for (i = 0; i < NSS_EXCEPTION_EVENT_IPV6_MAX; i++) {
+		nss_top->stats_if_exception_ipv6[i] += nins->exception_events[i];
+	}
 
 	spin_unlock_bh(&nss_top->stats_lock);
 }
@@ -538,9 +572,14 @@ static void nss_rx_ipv6_interface_handler(struct nss_ctx_instance *nss_ctx, stru
 		nss_rx_metadata_ipv6_rule_establish(nss_ctx, &nim->msg.rule_establish);
 		break;
 
-	case NSS_IPV6_RX_SYNC_MSG:
-		nss_rx_metadata_ipv6_rule_sync(nss_ctx, &nim->msg.rule_sync);
+	case NSS_IPV6_RX_CONN_STATS_SYNC_MSG:
+		nss_rx_metadata_ipv6_conn_sync(nss_ctx, &nim->msg.conn_stats);
 		break;
+
+	case NSS_IPV6_RX_NODE_STATS_SYNC_MSG:
+		nss_rx_metadata_ipv6_node_stats_sync(nss_ctx, &nim->msg.node_stats);
+		break;
+
 
 	default:
 		if (ncm->response != NSS_CMN_RESPONSE_ACK) {

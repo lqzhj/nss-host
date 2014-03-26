@@ -289,7 +289,8 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 		nss_top->ipv4_handler_id = nss_dev->id;
 		nss_ipv4_register_handler();
 		nss_pppoe_register_handler();
-		nss_offload_stats_register_handler();
+		nss_eth_rx_register_handler();
+		nss_n2h_register_handler();
 	}
 
 	if (npd->ipv6_enabled == NSS_FEATURE_ENABLED) {

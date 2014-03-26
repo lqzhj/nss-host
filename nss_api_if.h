@@ -69,6 +69,7 @@
  * Special interface numbers
  */
 #define NSS_N2H_INTERFACE (NSS_SPECIAL_IF_START + 0) /* Special IF for N2H */
+#define NSS_ETH_RX_INTERFACE (NSS_SPECIAL_IF_START + 2) /* Special IF for ETH_RX */
 #define NSS_PPPOE_RX_INTERFACE (NSS_SPECIAL_IF_START + 3) /* Special IF for PPPoE sessions */
 #define NSS_IPV4_RX_INTERFACE (NSS_SPECIAL_IF_START + 5) /* Special IF number for IPv4 */
 #define NSS_IPV6_RX_INTERFACE (NSS_SPECIAL_IF_START + 7) /* Special IF number for IPv6 */

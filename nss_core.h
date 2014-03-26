@@ -231,34 +231,6 @@ enum nss_stats_ipv6 {
 };
 
 /*
- * Pbuf node statistics
- *
- * WARNING: There is a 1:1 mapping between values below and corresponding
- *	stats string array in nss_stats.c
- */
-enum nss_stats_pbuf {
-	NSS_STATS_PBUF_ALLOC_FAILS = 0,	/* Number of pbuf allocations that have failed */
-	NSS_STATS_PBUF_PAYLOAD_ALLOC_FAILS,
-					/* Number of pbuf allocations that have failed because there were no free payloads */
-	NSS_STATS_PBUF_MAX,
-};
-
-/*
- * N2H node statistics
- *
- * WARNING: There is a 1:1 mapping between values below and corresponding
- *	stats string array in nss_stats.c
- */
-enum nss_stats_n2h {
-	NSS_STATS_N2H_QUEUE_DROPPED = 0,
-					/* Number of packets dropped because the exception queue is too full */
-	NSS_STATS_N2H_TOTAL_TICKS,	/* Total clock ticks spend inside the N2H */
-	NSS_STATS_N2H_WORST_CASE_TICKS,	/* Worst case iteration of the exception path in ticks */
-	NSS_STATS_N2H_ITERATIONS,	/* Number of iterations around the N2H */
-	NSS_STATS_N2H_MAX,
-};
-
-/*
  * HLOS driver statistics
  *
  * WARNING: There is a 1:1 mapping between values below and corresponding
@@ -315,53 +287,41 @@ enum nss_stats_gmac {
 };
 
 /*
- * Interface host statistics
+ * Node statistics
  *
  * WARNING: There is a 1:1 mapping between values below and corresponding
  *	stats string array in nss_stats.c
  */
-enum nss_stats_if_host {
-	NSS_STATS_IF_HOST_RX_PKTS = 0,	/* Number of RX packets received by host OS */
-	NSS_STATS_IF_HOST_RX_BYTES,	/* Number of RX bytes received by host OS */
-	NSS_STATS_IF_HOST_TX_PKTS,	/* Number of TX packets sent by host OS */
-	NSS_STATS_IF_HOST_TX_BYTES,	/* Number of TX bytes sent by host OS */
-	NSS_STATS_IF_HOST_MAX,
+enum nss_stats_node {
+	NSS_STATS_NODE_RX_PKTS,
+					/* Accelerated node RX packets */
+	NSS_STATS_NODE_RX_BYTES,
+					/* Accelerated node RX bytes */
+	NSS_STATS_NODE_RX_DROPPED,
+					/* Accelerated node RX dropped */
+	NSS_STATS_NODE_TX_PKTS,
+					/* Accelerated node TX packets */
+	NSS_STATS_NODE_TX_BYTES,
+					/* Accelerated node TX bytes */
+	NSS_STATS_NODE_MAX,
 };
 
 /*
- * Interface IPv4 statistics
+ * N2H node statistics
  *
  * WARNING: There is a 1:1 mapping between values below and corresponding
  *	stats string array in nss_stats.c
  */
-enum nss_stats_if_ipv4 {
-	NSS_STATS_IF_IPV4_ACCELERATED_RX_PKTS,
-					/* Accelerated IPv4 RX packets */
-	NSS_STATS_IF_IPV4_ACCELERATED_RX_BYTES,
-					/* Accelerated IPv4 RX bytes */
-	NSS_STATS_IF_IPV4_ACCELERATED_TX_PKTS,
-					/* Accelerated IPv4 TX packets */
-	NSS_STATS_IF_IPV4_ACCELERATED_TX_BYTES,
-					/* Accelerated IPv4 TX bytes */
-	NSS_STATS_IF_IPV4_MAX,
-};
-
-/*
- * Interface IPv6 statistics
- *
- * WARNING: There is a 1:1 mapping between values below and corresponding
- *	stats string array in nss_stats.c
- */
-enum nss_stats_if_ipv6 {
-	NSS_STATS_IF_IPV6_ACCELERATED_RX_PKTS,
-					/* Accelerated IPv6 RX packets */
-	NSS_STATS_IF_IPV6_ACCELERATED_RX_BYTES,
-					/* Accelerated IPv6 RX bytes */
-	NSS_STATS_IF_IPV6_ACCELERATED_TX_PKTS,
-					/* Accelerated IPv6 TX packets */
-	NSS_STATS_IF_IPV6_ACCELERATED_TX_BYTES,
-					/* Accelerated IPv6 TX bytes */
-	NSS_STATS_IF_IPV6_MAX,
+enum nss_stats_n2h {
+	NSS_STATS_N2H_QUEUE_DROPPED = NSS_STATS_NODE_MAX,
+					/* Number of packets dropped because the exception queue is too full */
+	NSS_STATS_N2H_TOTAL_TICKS,	/* Total clock ticks spend inside the N2H */
+	NSS_STATS_N2H_WORST_CASE_TICKS,	/* Worst case iteration of the exception path in ticks */
+	NSS_STATS_N2H_ITERATIONS,	/* Number of iterations around the N2H */
+	NSS_STATS_N2H_PBUF_ALLOC_FAILS,	/* Number of pbuf allocations that have failed */
+	NSS_STATS_N2H_PAYLOAD_ALLOC_FAILS,
+					/* Number of pbuf allocations that have failed because there were no free payloads */
+	NSS_STATS_N2H_MAX,
 };
 
 /*
@@ -465,6 +425,8 @@ struct nss_ctx_instance {
 	spinlock_t decongest_cb_lock;	/* Lock to protect queue decongestion cb table */
 	uint16_t phys_if_mtu[NSS_MAX_PHYSICAL_INTERFACES];
 					/* Current MTU value of physical interface */
+	uint64_t stats_n2h[NSS_STATS_N2H_MAX];
+					/* N2H node stats: includes node, n2h, pbuf in this order */
 	uint32_t magic;
 					/* Magic protection */
 };
@@ -482,12 +444,11 @@ struct nss_top_instance {
 	struct dentry *stats_dentry;	/* Top dentry for nss stats */
 	struct dentry *ipv4_dentry;	/* IPv4 stats dentry */
 	struct dentry *ipv6_dentry;	/* IPv6 stats dentry */
-	struct dentry *pbuf_dentry;	/* Pbuf stats dentry */
+	struct dentry *eth_rx_dentry;	/* ETH_RX stats dentry */
 	struct dentry *n2h_dentry;	/* N2H stats dentry */
 	struct dentry *drv_dentry;	/* HLOS driver stats dentry */
 	struct dentry *pppoe_dentry;	/* PPPOE stats dentry */
 	struct dentry *gmac_dentry;	/* GMAC ethnode stats dentry */
-	struct dentry *if_dentry;	/* Interface pnode stats dentry */
 	struct nss_ctx_instance nss[NSS_MAX_CORES];
 					/* NSS contexts */
 	/*
@@ -539,35 +500,22 @@ struct nss_top_instance {
 					/* IPv4 statistics */
 	uint64_t stats_ipv6[NSS_STATS_IPV6_MAX];
 					/* IPv6 statistics */
-	uint64_t stats_pbuf[NSS_STATS_PBUF_MAX];
-					/* Pbuf manager statistics */
-	uint64_t stats_n2h[NSS_STATS_N2H_MAX];
-					/* N2H statistics */
 	uint64_t stats_drv[NSS_STATS_DRV_MAX];
 					/* Hlos driver statistics */
 	uint64_t stats_pppoe[NSS_STATS_PPPOE_MAX];
 					/* PPPoE statistics */
 	uint64_t stats_gmac[NSS_MAX_PHYSICAL_INTERFACES][NSS_STATS_GMAC_MAX];
 					/* GMAC statistics */
-	uint64_t stats_if_host[NSS_MAX_NET_INTERFACES][NSS_STATS_IF_HOST_MAX];
-					/* Host Tx/Rx statistics per interface */
-	uint64_t stats_if_ipv4[NSS_MAX_NET_INTERFACES][NSS_STATS_IF_IPV4_MAX];
+	uint64_t stats_node[NSS_MAX_NET_INTERFACES][NSS_STATS_NODE_MAX];
 					/* IPv4 statistics per interface */
-	uint64_t stats_if_ipv6[NSS_MAX_NET_INTERFACES][NSS_STATS_IF_IPV6_MAX];
-					/* IPv6 statistics per interface */
-	uint64_t stats_if_exception_unknown[NSS_MAX_NET_INTERFACES][NSS_EXCEPTION_EVENT_UNKNOWN_MAX];
+	uint64_t stats_if_exception_eth_rx[NSS_EXCEPTION_EVENT_ETH_RX_MAX];
 					/* Unknown protocol exception events per interface */
-	uint64_t stats_if_exception_ipv4[NSS_MAX_NET_INTERFACES][NSS_EXCEPTION_EVENT_IPV4_MAX];
+	uint64_t stats_if_exception_ipv4[NSS_EXCEPTION_EVENT_IPV4_MAX];
 					/* IPv4 protocol exception events per interface */
-	uint64_t stats_if_exception_ipv6[NSS_MAX_NET_INTERFACES][NSS_EXCEPTION_EVENT_IPV6_MAX];
+	uint64_t stats_if_exception_ipv6[NSS_EXCEPTION_EVENT_IPV6_MAX];
 					/* IPv6 protocol exception events per interface */
-	uint64_t stats_if_exception_pppoe[NSS_MAX_NET_INTERFACES][NSS_PPPOE_NUM_SESSION_PER_INTERFACE][NSS_EXCEPTION_EVENT_PPPOE_MAX];
+	uint64_t stats_if_exception_pppoe[NSS_MAX_PHYSICAL_INTERFACES][NSS_PPPOE_NUM_SESSION_PER_INTERFACE][NSS_EXCEPTION_EVENT_PPPOE_MAX];
 					/* PPPoE exception events for per session on per interface */
-	uint64_t pe_queue_dropped;	/* Number of packets dropped because the PE queue is too full */
-	uint64_t pe_total_ticks;	/* Total clock ticks spend inside the PE */
-	uint32_t pe_worst_case_ticks;	/* Worst case iteration of the PE in ticks */
-	uint64_t pe_iterations;		/* Number of iterations around the PE */
-
 	/*
 	 * TODO: Review and update following fields
 	 */
