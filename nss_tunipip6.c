@@ -71,51 +71,6 @@ void nss_tunipip6_exception(void *ctx, void *buf);
 void nss_tunipip6_event_receive(void *ctx, nss_tunipip6_event_t ev_type,
 			      void *os_buf, uint32_t len);
 
-enum tunipip6_metadata_types {
-	TUNIPIP6_METADATA_TYPE_IF_UP,
-	TUNIPIP6_METADATA_TYPE_IF_DOWN
-};
-
-/*
- * DS-lite and ipip6 configuration command structure
- */
-struct nss_tunnel_ipip6_cfg{
-	uint32_t saddr[4]; /* Tunnel source address */
-	uint32_t daddr[4]; /* Tunnel destination address */
-	uint32_t flowlabel; /* Tunnel ipv6 flowlabel */
-	uint32_t flags; /* Tunnel additional flags */
-	uint8_t  hop_limit; /* Tunnel ipv6 hop limit */
-
-};
-
-/*
- *  tunipip6 stats structure
- */
-struct nss_tunipip6_stats{
-	uint32_t rx_packets;
-	uint32_t rx_bytes;
-	uint32_t tx_packets;
-	uint32_t tx_bytes;
-};
-
-/*
- * DS-lite and ipip6 interface down command structure
- */
-struct tunipip6_if_down_param{
-	uint32_t dummy[4]; /* dummy parameter */
-};
-
-/*
- * DS-lite and ipip6 tunnel generic param
- */
-struct nss_tunnel_ipip6_param {
-	enum tunipip6_metadata_types  type;
-	union {
-		struct nss_tunnel_ipip6_cfg   cfg;
-		struct tunipip6_if_down_param ifdown_param;
-	}sub;
-};
-
 /*
  * nss_tunipip6_tunnel
  *	DS-lite and ipip 6tunnel host instance
@@ -151,8 +106,7 @@ struct notifier_block nss_tunipip6_notifier = {
 void nss_tunipip6_dev_up( struct net_device * netdev)
 {
 	struct ip6_tnl *tunnel;
-	struct nss_tunnel_ipip6_param tnlparam;
-	struct nss_tunnel_ipip6_cfg   *tnlcfg;
+	struct nss_tunipip6_cfg tnlcfg;
 	struct flowi6 *fl6;
 	nss_tx_status_t status;
 
@@ -182,26 +136,24 @@ void nss_tunipip6_dev_up( struct net_device * netdev)
 	/*
 	 *Prepare The Tunnel configuration parameter to send to nss
 	 */
-	memset( &tnlparam, 0, sizeof(struct nss_tunnel_ipip6_param));
-	tnlparam.type = TUNIPIP6_METADATA_TYPE_IF_UP;
-	tnlcfg = (struct nss_tunnel_ipip6_cfg *)&tnlparam.sub.cfg;
+	memset(&tnlcfg, 0, sizeof(struct nss_tunipip6_cfg));
 
-	tnlcfg->saddr[0] = ntohl(fl6->saddr.s6_addr32[0]);
-	tnlcfg->saddr[1] = ntohl(fl6->saddr.s6_addr32[1]);
-	tnlcfg->saddr[2] = ntohl(fl6->saddr.s6_addr32[2]);
-	tnlcfg->saddr[3] = ntohl(fl6->saddr.s6_addr32[3]);
-	tnlcfg->daddr[0] = ntohl(fl6->daddr.s6_addr32[0]);
-	tnlcfg->daddr[1] = ntohl(fl6->daddr.s6_addr32[1]);
-	tnlcfg->daddr[2] = ntohl(fl6->daddr.s6_addr32[2]);
-	tnlcfg->daddr[3] = ntohl(fl6->daddr.s6_addr32[3]);
-	tnlcfg->hop_limit = tunnel->parms.hop_limit;
-	tnlcfg->flags = ntohl(tunnel->parms.flags);
-	tnlcfg->flowlabel = fl6->flowlabel;  /*flow Label In kernel is stored in big endian format*/
+	tnlcfg.saddr[0] = ntohl(fl6->saddr.s6_addr32[0]);
+	tnlcfg.saddr[1] = ntohl(fl6->saddr.s6_addr32[1]);
+	tnlcfg.saddr[2] = ntohl(fl6->saddr.s6_addr32[2]);
+	tnlcfg.saddr[3] = ntohl(fl6->saddr.s6_addr32[3]);
+	tnlcfg.daddr[0] = ntohl(fl6->daddr.s6_addr32[0]);
+	tnlcfg.daddr[1] = ntohl(fl6->daddr.s6_addr32[1]);
+	tnlcfg.daddr[2] = ntohl(fl6->daddr.s6_addr32[2]);
+	tnlcfg.daddr[3] = ntohl(fl6->daddr.s6_addr32[3]);
+	tnlcfg.hop_limit = tunnel->parms.hop_limit;
+	tnlcfg.flags = ntohl(tunnel->parms.flags);
+	tnlcfg.flowlabel = fl6->flowlabel;  /*flow Label In kernel is stored in big endian format*/
 	nss_tunipip6_trace(" Tunnel Param srcaddr %x:%x:%x:%x  daddr %x:%x:%x:%x \n",
-			tnlcfg->saddr[0], tnlcfg->saddr[1],
-			tnlcfg->saddr[2], tnlcfg->saddr[3],
-			tnlcfg->daddr[0], tnlcfg->daddr[1],
-			tnlcfg->daddr[2], tnlcfg->daddr[3] );
+			tnlcfg.saddr[0], tnlcfg.saddr[1],
+			tnlcfg.saddr[2], tnlcfg.saddr[3],
+			tnlcfg.daddr[0], tnlcfg.daddr[1],
+			tnlcfg.daddr[2], tnlcfg.daddr[3] );
 
 	/*
 	 * Register ipip6 tunnel with NSS
@@ -223,10 +175,9 @@ void nss_tunipip6_dev_up( struct net_device * netdev)
 	/*
 	 * Send IPIP6 Tunnel UP command to NSS
 	 */
-	status = nss_tx_generic_if_buf(g_tunipip6.nss_ctx,
-			g_tunipip6.if_num,
-			(uint8_t *)&tnlparam,
-			sizeof(struct nss_tunnel_ipip6_param));
+	status = nss_tx_tunipip6_if_create(g_tunipip6.nss_ctx,
+			&tnlcfg,
+			g_tunipip6.if_num);
 	if (status != NSS_TX_SUCCESS) {
 		nss_tunipip6_error("Tunnel up command error %d \n", status);
 		return;
@@ -241,7 +192,7 @@ void nss_tunipip6_dev_up( struct net_device * netdev)
  */
 void nss_tunipip6_dev_down( struct net_device * netdev)
 {
-	struct nss_tunnel_ipip6_param tnlparam;
+	struct nss_tunipip6_cfg tnlcfg;
 	nss_tx_status_t status;
 
 	/*
@@ -263,14 +214,12 @@ void nss_tunipip6_dev_down( struct net_device * netdev)
 	 * registerd with us
 	 */
 
-	memset( &tnlparam, 0, sizeof(struct nss_tunnel_ipip6_param));
-	tnlparam.type = TUNIPIP6_METADATA_TYPE_IF_DOWN;
+	memset(&tnlcfg, 0, sizeof(struct nss_tunipip6_cfg));
 
 	nss_tunipip6_trace("Sending Tunnel ipip6 Down command %x \n",g_tunipip6.if_num);
-	status = nss_tx_generic_if_buf(g_tunipip6.nss_ctx,
-			g_tunipip6.if_num,
-			(uint8_t *)&tnlparam,
-			sizeof(struct nss_tunnel_ipip6_param));
+	status = nss_tx_tunipip6_if_destroy(g_tunipip6.nss_ctx,
+			&tnlcfg,
+			g_tunipip6.if_num);
 	if (status != NSS_TX_SUCCESS) {
 		nss_tunipip6_error("Tunnel down command error %d \n", status);
 		return;
@@ -353,16 +302,10 @@ void nss_tunipip6_exception(void *ctx, void *buf)
  *	Update the Dev stats received from NetAp
  */
 static void nss_tunipip6_update_dev_stats(struct net_device *dev,
-					struct nss_tunipip6_stats_sync *tunipip6stats)
+					struct nss_tunipip6_stats *stats)
 {
 	void *ptr;
-	struct nss_tunipip6_stats stats;
-
-	stats.rx_packets = tunipip6stats->rx_packets;
-	stats.rx_bytes = tunipip6stats->rx_bytes;
-	stats.tx_packets = tunipip6stats->tx_packets;
-	stats.tx_bytes = tunipip6stats->tx_bytes;
-	ptr = (void *)&stats;
+	ptr = (void *)stats;
 	ip6_update_offload_stats(dev, ptr);
 
 }
@@ -383,7 +326,7 @@ void nss_tunipip6_event_receive(void *if_ctx, nss_tunipip6_event_t ev_type,
 
 	switch (ev_type) {
 	case NSS_TUNIPIP6_EVENT_STATS:
-		 nss_tunipip6_update_dev_stats(netdev, (struct nss_tunipip6_stats_sync *)os_buf );
+		 nss_tunipip6_update_dev_stats(netdev, (struct nss_tunipip6_stats *)os_buf );
 		break;
 
 	default:
