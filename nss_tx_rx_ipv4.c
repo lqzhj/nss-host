@@ -68,6 +68,7 @@ nss_tx_status_t nss_tx_create_ipv4_rule(void *ctx, struct nss_ipv4_create *unic)
 	nircm = &nim->msg.rule_create;
 
 	nircm->valid_flags = 0;
+	nircm->rule_flags = 0;
 
 	/*
 	 * Copy over the 5 tuple details.
@@ -122,8 +123,8 @@ nss_tx_status_t nss_tx_create_ipv4_rule(void *ctx, struct nss_ipv4_create *unic)
 	/*
 	 * Copy over the vlan rules and set the VLAN_VALID flag
 	 */
-	nircm->vlan_rule.ingress_vlan_tag = unic->ingress_vlan_tag;
-	nircm->vlan_rule.egress_vlan_tag = unic->egress_vlan_tag;
+	nircm->vlan_primary_rule.ingress_vlan_tag = unic->ingress_vlan_tag;
+	nircm->vlan_primary_rule.egress_vlan_tag = unic->egress_vlan_tag;
 	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_VLAN_VALID;
 
 	/*
@@ -132,7 +133,6 @@ nss_tx_status_t nss_tx_create_ipv4_rule(void *ctx, struct nss_ipv4_create *unic)
 	nircm->qos_rule.qos_tag = unic->qos_tag;
 	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_QOS_VALID;
 
-	nircm->rule_flags = 0;
 	if (unic->flags & NSS_IPV4_CREATE_FLAG_NO_SEQ_CHECK) {
 		nircm->rule_flags |= NSS_IPV4_RULE_CREATE_FLAG_NO_SEQ_CHECK;
 	}
@@ -254,8 +254,8 @@ nss_tx_status_t nss_tx_create_ipv4_rule1(void *ctx, struct nss_ipv4_create *unic
 	/*
 	 * Copy over the vlan rules and set the VLAN_VALID flag
 	 */
-	nircm->vlan_rule.ingress_vlan_tag = unic->ingress_vlan_tag;
-	nircm->vlan_rule.egress_vlan_tag = unic->egress_vlan_tag;
+	nircm->vlan_primary_rule.ingress_vlan_tag = unic->ingress_vlan_tag;
+	nircm->vlan_primary_rule.egress_vlan_tag = unic->egress_vlan_tag;
 	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_VLAN_VALID;
 
 	/*
@@ -279,10 +279,10 @@ nss_tx_status_t nss_tx_create_ipv4_rule1(void *ctx, struct nss_ipv4_create *unic
 	/*
 	 * Copy over the vlan marking rules and set the VLAN_MARKING_VALID flag.
 	 */
-	nircm->vlan_rule.vlan_imask = unic->vlan_imask;
-	nircm->vlan_rule.vlan_itag = unic->vlan_itag;
-	nircm->vlan_rule.vlan_omask = unic->vlan_omask ;
-	nircm->vlan_rule.vlan_oval = unic->vlan_oval ;
+	nircm->vlan_primary_rule.vlan_imask = unic->vlan_imask;
+	nircm->vlan_primary_rule.vlan_itag = unic->vlan_itag;
+	nircm->vlan_primary_rule.vlan_omask = unic->vlan_omask ;
+	nircm->vlan_primary_rule.vlan_oval = unic->vlan_oval ;
 	if (unic->flags & NSS_IPV4_CREATE_FLAG_VLAN_MARKING) {
 		nircm->rule_flags |= NSS_IPV4_RULE_CREATE_FLAG_VLAN_MARKING;
 		nircm->valid_flags |= NSS_IPV4_RULE_CREATE_VLAN_MARKING_VALID;

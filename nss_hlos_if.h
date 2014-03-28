@@ -149,6 +149,15 @@ struct nss_ipv4_dscp_rule {
 };
 
 /*
+ * Action types for VLAN
+ */
+enum nss_ipv4_vlan_action_types {
+	NSS_IPV4_VLAN_MATCH = 0,
+	NSS_IPV4_VLAN_ADD = 1,
+	NSS_IPV4_VLAN_REMOVE = 2,
+};
+
+/*
  * VLAN connection rule structure
  */
 struct nss_ipv4_vlan_rule {
@@ -158,6 +167,8 @@ struct nss_ipv4_vlan_rule {
 	uint16_t vlan_imask;		/* Input mask for VLAN marking */
 	uint16_t vlan_omask;		/* Output mask for VLAN marking */
 	uint16_t vlan_oval;		/* Output value of VLAN marking */
+	uint8_t action;			/* The type of action to perform */
+	uint8_t reserved[3];		/* Padded for alignment */
 };
 
 /*
@@ -198,6 +209,9 @@ enum nss_ipv4_error_response_types {
  * The IPv4 rule create sub-message structure.
  */
 struct nss_ipv4_rule_create_msg {
+	/*
+	 * Request
+	 */
 	struct nss_ipv4_5tuple tuple;			/* Holds values of the 5 tuple */
 
 	struct nss_ipv4_connection_rule conn_rule;	/* Basic connection specific data */
@@ -205,10 +219,16 @@ struct nss_ipv4_rule_create_msg {
 	struct nss_ipv4_pppoe_rule pppoe_rule;		/* PPPoE related accleration parameters */
 	struct nss_ipv4_qos_rule qos_rule;		/* QoS related accleration parameters */
 	struct nss_ipv4_dscp_rule dscp_rule;		/* DSCP related accleration parameters */
-	struct nss_ipv4_vlan_rule vlan_rule;		/* VLAN related accleration parameters */
+	struct nss_ipv4_vlan_rule vlan_primary_rule;	/* Primary VLAN related accleration parameters */
+	struct nss_ipv4_vlan_rule vlan_secondary_rule;	/* Secondary VLAN related accleration parameters */
 
 	uint16_t valid_flags;				/* Bit flags associated with the validity of parameters */
 	uint16_t rule_flags;				/* Bit flags associated with the rule */
+
+	/*
+	 * Response
+	 */
+	uint32_t index;					/* Slot ID for cache stats to host OS */
 };
 
 /*
@@ -482,6 +502,15 @@ struct nss_ipv6_dscp_rule {
 };
 
 /*
+ * Action types for VLAN
+ */
+enum nss_ipv6_vlan_action_types {
+	NSS_IPV6_VLAN_MATCH = 0,
+	NSS_IPV6_VLAN_ADD = 1,
+	NSS_IPV6_VLAN_REMOVE = 2,
+};
+
+/*
  * VLAN connection rule structure
  */
 struct nss_ipv6_vlan_rule {
@@ -491,6 +520,8 @@ struct nss_ipv6_vlan_rule {
 	uint16_t vlan_imask;		/* Input mask for VLAN marking */
 	uint16_t vlan_omask;		/* Output mask for VLAN marking */
 	uint16_t vlan_oval;		/* Output value of VLAN marking */
+	uint8_t action;			/* The type of action to perform */
+	uint8_t reserved[3];		/* Padded for alignment */
 };
 
 /*
@@ -531,6 +562,9 @@ enum nss_ipv6_error_response_types {
  * The IPv6 rule create sub-message structure.
  */
 struct nss_ipv6_rule_create_msg {
+	/*
+	 * Request
+	 */
 	struct nss_ipv6_5tuple tuple;			/* Holds values of the 5 tuple */
 
 	struct nss_ipv6_connection_rule conn_rule;	/* Basic connection specific data */
@@ -538,10 +572,16 @@ struct nss_ipv6_rule_create_msg {
 	struct nss_ipv6_pppoe_rule pppoe_rule;		/* PPPoE related accleration parameters */
 	struct nss_ipv6_qos_rule qos_rule;		/* QoS related accleration parameters */
 	struct nss_ipv6_dscp_rule dscp_rule;		/* DSCP related accleration parameters */
-	struct nss_ipv6_vlan_rule vlan_rule;		/* VLAN related accleration parameters */
+	struct nss_ipv6_vlan_rule vlan_primary_rule;	/* Primary VLAN related accleration parameters */
+	struct nss_ipv6_vlan_rule vlan_secondary_rule;	/* Secondary VLAN related accleration parameters */
 
-	uint16_t valid_flags;			/* Bit flags associated with the validity of parameters */
-	uint16_t rule_flags;			/* Bit flags associated with the rule */
+	uint16_t valid_flags;				/* Bit flags associated with the validity of parameters */
+	uint16_t rule_flags;				/* Bit flags associated with the rule */
+
+	/*
+	 * Response
+	 */
+	uint32_t index;					/* Slot ID for cache stats to host OS */
 };
 
 /*
