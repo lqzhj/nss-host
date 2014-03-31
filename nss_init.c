@@ -48,7 +48,7 @@
  * Global declarations
  */
 int nss_ctl_redirect __read_mostly = 0;
-int nss_ctl_debug __read_mostly = 1;
+int nss_ctl_debug __read_mostly = 0;
 
 /*
  * PM client handle
@@ -901,11 +901,6 @@ static int __init nss_init(void)
 	 * Enable NSS statistics
 	 */
 	nss_stats_init();
-
-	/*
-	 * TODO: Remove before commit
-	 */
-	nss_hal_debug_enable();
 
 	/*
 	 * Register sysctl table.
