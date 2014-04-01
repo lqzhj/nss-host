@@ -286,12 +286,12 @@ static ssize_t nss_stats_ipv4_read(struct file *fp, char __user *ubuf, size_t sz
 		return 0;
 	}
 
-	size_wr = scnprintf(lbuf, size_al,"ipv4 stats start:\n\n");
+	size_wr = scnprintf(lbuf, size_al, "ipv4 stats start:\n\n");
 
 	/*
 	 * Common node stats
 	 */
-	size_wr += scnprintf(lbuf, size_al,"common node stats:\n\n");
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "common node stats:\n\n");
 	spin_lock_bh(&nss_top_main.stats_lock);
 	for (i = 0; (i < NSS_STATS_NODE_MAX); i++) {
 		stats_shadow[i] = nss_top_main.stats_node[NSS_IPV4_RX_INTERFACE][i];
@@ -307,7 +307,7 @@ static ssize_t nss_stats_ipv4_read(struct file *fp, char __user *ubuf, size_t sz
 	/*
 	 * IPv4 node stats
 	 */
-	size_wr += scnprintf(lbuf, size_al,"\nipv4 node stats:\n\n");
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nipv4 node stats:\n\n");
 
 	spin_lock_bh(&nss_top_main.stats_lock);
 	for (i = 0; (i < NSS_STATS_IPV4_MAX); i++) {
@@ -324,7 +324,7 @@ static ssize_t nss_stats_ipv4_read(struct file *fp, char __user *ubuf, size_t sz
 	/*
 	 * Exception stats
 	 */
-	size_wr += scnprintf(lbuf, size_al,"\nipv4 exception stats:\n\n");
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nipv4 exception stats:\n\n");
 
 	spin_lock_bh(&nss_top_main.stats_lock);
 	for (i = 0; (i < NSS_EXCEPTION_EVENT_IPV4_MAX); i++) {
@@ -338,7 +338,7 @@ static ssize_t nss_stats_ipv4_read(struct file *fp, char __user *ubuf, size_t sz
 					"%s = %llu\n", nss_stats_str_if_exception_ipv4[i], stats_shadow[i]);
 	}
 
-	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,"\nipv4 stats end\n\n");
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nipv4 stats end\n\n");
 	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, strlen(lbuf));
 	kfree(lbuf);
 	kfree(stats_shadow);
@@ -378,12 +378,12 @@ static ssize_t nss_stats_ipv6_read(struct file *fp, char __user *ubuf, size_t sz
 		return 0;
 	}
 
-	size_wr = scnprintf(lbuf, size_al,"ipv6 stats start:\n\n");
+	size_wr = scnprintf(lbuf, size_al, "ipv6 stats start:\n\n");
 
 	/*
 	 * Common node stats
 	 */
-	size_wr += scnprintf(lbuf, size_al,"common node stats:\n\n");
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "common node stats:\n\n");
 	spin_lock_bh(&nss_top_main.stats_lock);
 	for (i = 0; (i < NSS_STATS_NODE_MAX); i++) {
 		stats_shadow[i] = nss_top_main.stats_node[NSS_IPV6_RX_INTERFACE][i];
@@ -399,7 +399,7 @@ static ssize_t nss_stats_ipv6_read(struct file *fp, char __user *ubuf, size_t sz
 	/*
 	 * IPv6 node stats
 	 */
-	size_wr += scnprintf(lbuf, size_al,"\nipv6 node stats:\n\n");
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nipv6 node stats:\n\n");
 
 	spin_lock_bh(&nss_top_main.stats_lock);
 	for (i = 0; (i < NSS_STATS_IPV6_MAX); i++) {
@@ -416,7 +416,7 @@ static ssize_t nss_stats_ipv6_read(struct file *fp, char __user *ubuf, size_t sz
 	/*
 	 * Exception stats
 	 */
-	size_wr += scnprintf(lbuf, size_al,"\nipv6 exception stats:\n\n");
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nipv6 exception stats:\n\n");
 
 	spin_lock_bh(&nss_top_main.stats_lock);
 	for (i = 0; (i < NSS_EXCEPTION_EVENT_IPV6_MAX); i++) {
@@ -475,7 +475,7 @@ static ssize_t nss_stats_eth_rx_read(struct file *fp, char __user *ubuf, size_t 
 	/*
 	 * Common node stats
 	 */
-	size_wr += scnprintf(lbuf, size_al,"common node stats:\n\n");
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "common node stats:\n\n");
 	spin_lock_bh(&nss_top_main.stats_lock);
 	for (i = 0; (i < NSS_STATS_NODE_MAX); i++) {
 		stats_shadow[i] = nss_top_main.stats_node[NSS_ETH_RX_INTERFACE][i];
@@ -491,7 +491,7 @@ static ssize_t nss_stats_eth_rx_read(struct file *fp, char __user *ubuf, size_t 
 	/*
 	 * Exception stats
 	 */
-	size_wr += scnprintf(lbuf, size_al,"\neth_rx exception stats:\n\n");
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\neth_rx exception stats:\n\n");
 
 	spin_lock_bh(&nss_top_main.stats_lock);
 	for (i = 0; (i < NSS_EXCEPTION_EVENT_ETH_RX_MAX); i++) {
@@ -547,7 +547,7 @@ static ssize_t nss_stats_n2h_read(struct file *fp, char __user *ubuf, size_t sz,
 	/*
 	 * Common node stats
 	 */
-	size_wr += scnprintf(lbuf, size_al,"common node stats:\n\n");
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "common node stats:\n\n");
 	spin_lock_bh(&nss_top_main.stats_lock);
 	for (i = 0; (i < NSS_STATS_NODE_MAX); i++) {
 		stats_shadow[i] = nss_top_main.nss[0].stats_n2h[i];
@@ -563,7 +563,7 @@ static ssize_t nss_stats_n2h_read(struct file *fp, char __user *ubuf, size_t sz,
 	/*
 	 * N2H node stats
 	 */
-	size_wr += scnprintf(lbuf, size_al,"\nn2h node stats:\n\n");
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nn2h node stats:\n\n");
 	spin_lock_bh(&nss_top_main.stats_lock);
 	for (i = NSS_STATS_NODE_MAX; (i < NSS_STATS_N2H_MAX); i++) {
 		stats_shadow[i] = nss_top_main.nss[0].stats_n2h[i];
@@ -670,7 +670,7 @@ static ssize_t nss_stats_pppoe_read(struct file *fp, char __user *ubuf, size_t s
 	/*
 	 * Common node stats
 	 */
-	size_wr += scnprintf(lbuf, size_al, "common node stats:\n\n");
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "common node stats:\n\n");
 	spin_lock_bh(&nss_top_main.stats_lock);
 	for (i = 0; (i < NSS_STATS_NODE_MAX); i++) {
 		stats_shadow[i] = nss_top_main.stats_node[NSS_PPPOE_RX_INTERFACE][i];
@@ -686,7 +686,7 @@ static ssize_t nss_stats_pppoe_read(struct file *fp, char __user *ubuf, size_t s
 	/*
 	 * PPPoE node stats
 	 */
-	size_wr += scnprintf(lbuf, size_al, "pppoe node stats:\n\n");
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "pppoe node stats:\n\n");
 	spin_lock_bh(&nss_top_main.stats_lock);
 	for (i = 0; (i < NSS_STATS_PPPOE_MAX); i++) {
 		stats_shadow[i] = nss_top_main.stats_pppoe[i];
