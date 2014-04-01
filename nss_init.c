@@ -162,10 +162,10 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 			release_firmware(nss_fw);
 			goto err_init_0;
 		} else {
+			printk("nss_driver - fw of size %d  bytes copied to load addr: %x", nss_fw->size, npd->load_addr);
 			memcpy_toio(load_mem, nss_fw->data, nss_fw->size);
 			release_firmware(nss_fw);
 			iounmap(load_mem);
-			printk("nss_driver - fw of size %d  bytes copied to load addr: %x", nss_fw->size, npd->load_addr);
 		}
 	}
 
