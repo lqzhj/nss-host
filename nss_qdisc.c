@@ -365,7 +365,7 @@ static int nssqdisc_refresh_bshaper_assignment(struct Qdisc *br_qdisc,
 		 * If the interface is known to NSS then we will have to shape it.
 		 * Irrespective of whether it has an interface qdisc or not.
 		 */
-		nss_if_num = nss_get_interface_number(nq->nss_shaping_ctx, dev);
+		nss_if_num = nss_cmn_get_interface_number(nq->nss_shaping_ctx, dev);
 		if (nss_if_num < 0) {
 			goto nextdev;
 		}
@@ -1535,7 +1535,7 @@ static int nssqdisc_init(struct Qdisc *sch, nss_shaper_node_type_t type)
 		 * NOTE: This will still work where the dev is registered as virtual, in which case
 		 * nss_interface_number shall indicate a virtual NSS interface.
 		 */
-		nq->nss_interface_number = nss_get_interface_number(nq->nss_shaping_ctx, dev);
+		nq->nss_interface_number = nss_cmn_get_interface_number(nq->nss_shaping_ctx, dev);
 		if (nq->nss_interface_number < 0) {
 			nssqdisc_error("%s: Qdisc %p (type %d) net device unknown to "
 				"nss driver %s\n", __func__, sch, nq->type, dev->name);
@@ -1649,7 +1649,7 @@ static int nssqdisc_init(struct Qdisc *sch, nss_shaper_node_type_t type)
 		 * NOTE: This will still work where the dev is registered as virtual, in which case
 		 * nss_interface_number shall indicate a virtual NSS interface.
 		 */
-		nq->nss_interface_number = nss_get_interface_number(nq->nss_shaping_ctx, dev);
+		nq->nss_interface_number = nss_cmn_get_interface_number(nq->nss_shaping_ctx, dev);
 		if (nq->nss_interface_number < 0) {
 			nssqdisc_error("%s: Qdisc %p (type %d): interface unknown to nss driver %s\n",
 					__func__, sch, nq->type, dev->name);
@@ -1662,7 +1662,7 @@ static int nssqdisc_init(struct Qdisc *sch, nss_shaper_node_type_t type)
 		 * Is the interface virtual or not?
 		 * NOTE: If this interface is virtual then we have to bounce packets to it for shaping
 		 */
-		nq->is_virtual = nss_interface_is_virtual(nq->nss_shaping_ctx, nq->nss_interface_number);
+		nq->is_virtual = nss_cmn_interface_is_virtual(nq->nss_shaping_ctx, nq->nss_interface_number);
 		if (!nq->is_virtual) {
 			nssqdisc_info("%s: Qdisc %p (type %d): interface %u is physical\n",
 					__func__, sch, nq->type, nq->nss_interface_number);
@@ -1897,7 +1897,7 @@ static int nssqdisc_if_event_cb(struct notifier_block *unused,
 		nssqdisc_info("Reveived NETDEV_BR_LEAVE on interface %s\n",
 				dev->name);
 		br = dev->master;
-		if_num = nss_get_interface_number(nssqdisc_ctx, dev);
+		if_num = nss_cmn_get_interface_number(nssqdisc_ctx, dev);
 
 		if (br == NULL || br->priv_flags != IFF_EBRIDGE) {
 			nssqdisc_error("Sensed bridge activity on interface %s "
@@ -1905,7 +1905,7 @@ static int nssqdisc_if_event_cb(struct notifier_block *unused,
 			break;
 		}
 
-		br_num = nss_get_interface_number(nssqdisc_ctx, br);
+		br_num = nss_cmn_get_interface_number(nssqdisc_ctx, br);
 		br_qdisc = br->qdisc;
 		/*
 		 * TODO: Properly ensure that the interface and bridge are
@@ -2099,7 +2099,7 @@ static int nssfifo_dump(struct Qdisc *sch, struct sk_buff *skb)
 
 	return nla_nest_end(skb, opts);
 
-nla_put_failure:		
+nla_put_failure:
 	nla_nest_cancel(skb, opts);
 	return -EMSGSIZE;
 }
@@ -2446,7 +2446,7 @@ static int nsstbl_change(struct Qdisc *sch, struct nlattr *opt)
 		return -EINVAL;
 	}
 
-	
+
 	/*
 	 * Rate can be zero. Therefore we dont do a check on it.
 	 */
@@ -2533,7 +2533,7 @@ static int nsstbl_dump(struct Qdisc *sch, struct sk_buff *skb)
 
 nla_put_failure:
 	nla_nest_cancel(skb, opts);
-	return -EMSGSIZE;	
+	return -EMSGSIZE;
 }
 
 static int nsstbl_dump_class(struct Qdisc *sch, unsigned long cl,
@@ -2771,7 +2771,7 @@ static int nssprio_dump(struct Qdisc *sch, struct sk_buff *skb)
 {
 	struct nssprio_sched_data *q = qdisc_priv(sch);
 	struct nlattr *opts = NULL;
-	struct tc_nssprio_qopt qopt; 
+	struct tc_nssprio_qopt qopt;
 
 	nssqdisc_info("Nssprio dumping");
 	qopt.bands = q->bands;
@@ -2784,7 +2784,7 @@ static int nssprio_dump(struct Qdisc *sch, struct sk_buff *skb)
 
 nla_put_failure:
 	nla_nest_cancel(skb, opts);
-	return -EMSGSIZE;	
+	return -EMSGSIZE;
 }
 
 static int nssprio_graft(struct Qdisc *sch, unsigned long arg,

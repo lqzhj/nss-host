@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013, Qualcomm Atheros, Inc.
+ * Copyright (c) 2014, Qualcomm Atheros, Inc.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -22,42 +22,7 @@
 #ifndef __NSS_HLOS_IF_H
 #define __NSS_HLOS_IF_H
 
-/*
- * Common response structure
- */
-enum nss_cmn_response {
-	NSS_CMN_RESPONSE_ACK = 0,		/* Message Acknowledge */
-	NSS_CMN_RESPONSE_EVERSION = 1,		/* Message Version Error */
-	NSS_CMN_RESPONSE_EINTERFACE = 2,	/* Message Interface Error */
-	NSS_CMN_RESPONSE_ELENGTH = 3,		/* Message Length Error */
-	NSS_CMN_RESPONSE_EMSG = 4,		/* Message Error */
-	NSS_CMM_RESPONSE_NOTIFY = 5		/* Message Independant of Request */
-};
-
-/*
- * Common message structure
- */
-struct nss_cmn_msg {
-	uint16_t version;		/* Version id for main message format */
-	uint16_t interface;		/* Primary Key for all messages */
-	enum nss_cmn_response response;	/* Primary response */
-	uint32_t type;			/* Decetralized request #, to be used to match response # */
-	uint32_t error;			/* Decentralized specific error message, response == EMSG */
-	uint32_t cb;			/* Place for callback pointer */
-	uint32_t app_data;		/* Place for app data */
-	uint32_t len;			/* What is the length of the message excluding this header */
-};
-
-/*
- * Common per node stats structure
- */
-struct nss_cmn_node_stats {
-	uint32_t rx_packets;		/* Number of packets received */
-	uint32_t rx_bytes;		/* Number of bytes received */
-	uint32_t rx_dropped;		/* Number of receive drops due to queue full */
-	uint32_t tx_packets;		/* Number of packets transmitted */
-	uint32_t tx_bytes;		/* Number of bytes transmitted */
-};
+#include "nss_api_if.h"
 
 /*
  * IPv4 bridge/route rule messages
@@ -743,45 +708,6 @@ struct nss_ipv6_msg {
 		struct nss_ipv6_rule_establish rule_establish;	/* Message: rule establish confirmation */
 		struct nss_ipv6_conn_sync conn_stats;	/* Message: stats sync */
 		struct nss_ipv6_node_sync node_stats;	/* Message: node stats sync */
-	} msg;
-};
-
-/*
- * Virtual IF/Redirect
- */
-
-/*
- * Request/Response types
- */
-enum nss_virtual_if_metadata_types {
-	NSS_TX_METADATA_TYPE_VIRTUAL_INTERFACE_CREATE,
-	NSS_TX_METADATA_TYPE_VIRTUAL_INTERFACE_DESTROY,
-	NSS_METADATA_TYPE_VIRTUAL_INTERFACE_MAX,
-};
-
-/*
- * The NSS virtual interface creation structure.
- */
-struct nss_virtual_if_create {
-	uint32_t flags;			/* Interface flags */
-	uint8_t mac_addr[ETH_ALEN];	/* MAC address */
-};
-
-/*
- * The NSS virtual interface destruction structure.
- */
-struct nss_virtual_if_destroy {
-	int32_t reserved;		/* place holder */
-};
-
-/*
- * Message structure to send/receive virtual interface commands
- */
-struct nss_virtual_if_msg {
-	struct nss_cmn_msg cm;				/* Message Header */
-	union {
-		struct nss_virtual_if_create create;	/* Message: create virt if rule */
-		struct nss_virtual_if_destroy destroy;	/* Message: destroy virt if rule */
 	} msg;
 };
 

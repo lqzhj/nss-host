@@ -1125,14 +1125,14 @@ static unsigned int nss_connmgr_ipv4_bridge_post_routing_hook(unsigned int hookn
 	/*
 	 * Only devices that are NSS devices may be accelerated.
 	 */
-	unic.src_interface_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, src_dev);
+	unic.src_interface_num = nss_cmn_get_interface_number(nss_connmgr_ipv4.nss_context, src_dev);
 	if (unic.src_interface_num < 0) {
 		dev_put(in);
 		NSS_CONNMGR_DEBUG_INFO("Source Interface %s NOT owned by NSS\n",src_dev->name);
 		return NF_ACCEPT;
 	}
 
-	unic.dest_interface_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, dest_dev);
+	unic.dest_interface_num = nss_cmn_get_interface_number(nss_connmgr_ipv4.nss_context, dest_dev);
 	if (unic.dest_interface_num < 0) {
 		dev_put(in);
 		NSS_CONNMGR_DEBUG_INFO("Dest Interface %s NOT owned by NSS\n",dest_dev->name);
@@ -1335,7 +1335,7 @@ static void nss_connmgr_link_down(struct net_device *dev)
 		}
 	}
 
-	if_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, phys_dev);
+	if_num = nss_cmn_get_interface_number(nss_connmgr_ipv4.nss_context, phys_dev);
 
 	if (if_num < 0) {
 		NSS_CONNMGR_DEBUG_WARN("Cannot find NSS if num for dev %s\n", phys_dev->name);
@@ -1390,7 +1390,7 @@ static void nss_connmgr_bond_link_up(struct net_device *slave_dev)
 	struct net_device *outdev;
 	nss_connmgr_ipv4_conn_state_t cstate;
 
-	if_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, slave_dev);
+	if_num = nss_cmn_get_interface_number(nss_connmgr_ipv4.nss_context, slave_dev);
 	if (if_num < 0) {
 		NSS_CONNMGR_DEBUG_ERROR("Cannot find NSS if num for slave dev %s\n", slave_dev->name);
 		return;
@@ -1411,14 +1411,14 @@ static void nss_connmgr_bond_link_up(struct net_device *slave_dev)
 
 		flush_rule = 0;
 
-		indev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, src_if);
+		indev = nss_cmn_get_interface_dev(nss_connmgr_ipv4.nss_context, src_if);
 		if (indev != NULL) {
 			if (is_lag_slave(indev)) {
 				flush_rule = 1;
 			}
 		}
 
-		outdev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, dst_if);
+		outdev = nss_cmn_get_interface_dev(nss_connmgr_ipv4.nss_context, dst_if);
 		if (outdev != NULL) {
 			if (is_lag_slave(outdev)) {
 				flush_rule = 1;
@@ -1455,7 +1455,7 @@ static int32_t nss_send_lag_state(struct net_device *netdev)
 	int32_t ifnum;
 	nss_tx_status_t nss_tx_status;
 
-	ifnum = nss_get_interface_number(nss_connmgr_ipv4.nss_context, netdev);
+	ifnum = nss_cmn_get_interface_number(nss_connmgr_ipv4.nss_context, netdev);
 	if (ifnum < 0) {
 		return -EINVAL;
 	}
@@ -2113,7 +2113,7 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 		((unic.protocol == IPPROTO_ESP) && (ctinfo < IP_CT_IS_REPLY))) {
 		unic.src_interface_num = NSS_C2C_TX_INTERFACE;
 	} else {
-		unic.src_interface_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, src_dev);
+		unic.src_interface_num = nss_cmn_get_interface_number(nss_connmgr_ipv4.nss_context, src_dev);
 		if (unic.src_interface_num < 0) {
 			goto out;
 		}
@@ -2124,7 +2124,7 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 		unic.dest_interface_num = NSS_C2C_TX_INTERFACE;
 	} else {
 
-		unic.dest_interface_num = nss_get_interface_number(nss_connmgr_ipv4.nss_context, dest_dev);
+		unic.dest_interface_num = nss_cmn_get_interface_number(nss_connmgr_ipv4.nss_context, dest_dev);
 		if (unic.dest_interface_num < 0) {
 			goto out;
 		}
@@ -2290,7 +2290,7 @@ void nss_connmgr_ipv4_update_bridge_dev(struct nss_connmgr_ipv4_connection *conn
 	struct net_device *indev, *outdev;
 	struct rtnl_link_stats64 stats;
 
-	indev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->src_interface);
+	indev = nss_cmn_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->src_interface);
 	if (indev == NULL) {
 		/*
 		 * Possible sync for a deleted interface
@@ -2314,7 +2314,7 @@ void nss_connmgr_ipv4_update_bridge_dev(struct nss_connmgr_ipv4_connection *conn
 		}
 	}
 
-	outdev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->dest_interface);
+	outdev = nss_cmn_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->dest_interface);
 	if (outdev == NULL) {
 		/*
 		 * Possible sync for a deleted interface
@@ -2392,7 +2392,7 @@ void nss_connmgr_ipv4_update_vlan_dev_stats(struct nss_connmgr_ipv4_connection *
 
 	if (connection->ingress_vlan_tag != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED)
 	{
-		physdev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->src_interface);
+		physdev = nss_cmn_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->src_interface);
 		if (unlikely(!physdev)) {
 			NSS_CONNMGR_DEBUG_WARN("Invalid src dev reference from NSS \n");
 			return;
@@ -2415,7 +2415,7 @@ void nss_connmgr_ipv4_update_vlan_dev_stats(struct nss_connmgr_ipv4_connection *
 
 	if (connection->egress_vlan_tag != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED)
 	{
-		physdev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->dest_interface);
+		physdev = nss_cmn_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->dest_interface);
 		if (unlikely(!physdev)) {
 			NSS_CONNMGR_DEBUG_WARN("Invalid dest dev reference from NSS \n");
 			return;
@@ -2675,7 +2675,7 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 		break;
 	}
 
-	flow_dev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->src_interface);
+	flow_dev = nss_cmn_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->src_interface);
 	if (unlikely(!flow_dev)) {
 		NSS_CONNMGR_DEBUG_WARN("Invalid src dev reference from NSS \n");
 		goto out;
@@ -2685,7 +2685,7 @@ static void nss_connmgr_ipv4_net_dev_callback(struct nss_ipv4_cb_params *nicp)
 		flow_dev = flow_dev->master;
 	}
 
-	return_dev = nss_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->dest_interface);
+	return_dev = nss_cmn_get_interface_dev(nss_connmgr_ipv4.nss_context, connection->dest_interface);
 	if (unlikely(!return_dev)) {
 		NSS_CONNMGR_DEBUG_WARN("Invalid dest dev reference from NSS \n");
 		goto out;

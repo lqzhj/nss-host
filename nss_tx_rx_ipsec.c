@@ -200,7 +200,7 @@ void nss_unregister_ipsec_if(uint32_t if_num)
 void nss_ipsec_register_handler()
 {
 	nss_core_register_handler(NSS_IPSEC_ENCAP_IF_NUMBER, nss_rx_ipsec_interface_handler, NULL);
-	nss_core_register_handler(NSS_IPSEC_ENCAP_IF_NUMBER, nss_rx_ipsec_interface_handler, NULL);
+	nss_core_register_handler(NSS_IPSEC_DECAP_IF_NUMBER, nss_rx_ipsec_interface_handler, NULL);
 }
 
 

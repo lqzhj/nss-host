@@ -20,7 +20,7 @@ obj-m += qca-nss-drv.o
 qca-nss-drv-objs := nss_init.o nss_core.o nss_stats.o nss_pm.o nss_tx_rx_ipv4.o nss_tx_rx_ipv6.o \
 		    nss_tx_rx_tun6rd.o nss_tx_rx_tunipip6.o nss_tx_rx_virt_if.o nss_tx_rx_phys_if.o \
 		    nss_tx_rx_crypto.o nss_tx_rx_ipsec.o nss_tx_rx_n2h.o nss_tx_rx_pppoe.o nss_tx_rx_generic.o \
-		    nss_tx_rx_freq.o nss_tx_rx_eth_rx.o
+		    nss_tx_rx_freq.o nss_tx_rx_eth_rx.o nss_cmn.o nss_virt_if.o
 
 obj-m += qca-nss-connmgr-ipv4.o
 obj-m += qca-nss-connmgr-ipv6.o
