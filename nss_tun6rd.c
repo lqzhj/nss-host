@@ -31,7 +31,6 @@
 #include <net/ipip.h>
 #include <linux/if_arp.h>
 #include "nss_api_if.h"
-#include "nss_hlos_if.h"
 
 /*
  * NSS tun6rd debug macros
@@ -70,44 +69,6 @@ void nss_tun6rd_exception(void *ctx, void *buf);
 void nss_tun6rd_event_receive(void *ctx, nss_tun6rd_event_t ev_type,
 			      void *os_buf, uint32_t len);
 
-enum tun6rd_metadata_types {
-	TUN6RD_METADATA_TYPE_IF_UP,
-	TUN6RD_METADATA_TYPE_IF_DOWN
-};
-
-/*
- * 6rd configuration command structure
- */
-struct nss_tunnel_6rd_cfg{
-	uint32_t prefix[4]; /*6rd prefix */
-	uint32_t relay_prefix; /* Relay prefix */
-	uint16_t prefixlen; /* 6rd prefix len */
-	uint16_t relay_prefixlen; /* Relay prefix length*/
-	uint32_t saddr; /* Tunnel source address */
-	uint32_t daddr; /* Tunnel destination addresss */
-	uint8_t  tos; /* Tunnel tos field */
-	uint8_t  ttl; /* Tunnel ttl field */
-
-};
-
-/*
- * 6rd tunnel interface down command structure
- */
-struct tun6rd_if_down_param{
-	uint32_t prefix[4]; /*Tunnel 6rd prefix */
-};
-
-/*
- * 6rd Tunnel generic param
- */
-struct nss_tunnel_6rd_param {
-	enum tun6rd_metadata_types  type;
-	union {
-		struct nss_tunnel_6rd_cfg   cfg;
-		struct tun6rd_if_down_param ifdown_param;
-	}sub;
-};
-
 /*
  * 6rd tunnel host instance
  */
@@ -116,16 +77,6 @@ struct nss_tun6rd_tunnel{
 	uint32_t if_num;
 	struct net_device *netdev;
 	uint32_t device_up;
-};
-
-/*
- * 6rd tunnel stats
- */
-struct nss_tun6rd_stats{
-	uint32_t rx_packets;
-	uint32_t rx_bytes;
-	uint32_t tx_packets;
-	uint32_t tx_bytes;
 };
 
 struct nss_tun6rd_tunnel g_tun6rd;
@@ -154,8 +105,7 @@ void nss_tun6rd_dev_up( struct net_device * netdev)
 	struct ip_tunnel *tunnel;
 	struct ip_tunnel_6rd_parm *ip6rd;
 	const struct iphdr  *tiph;
-	struct nss_tunnel_6rd_param tun6rdparam;
-	struct nss_tunnel_6rd_cfg   *tun6rdcfg;
+	struct nss_tun6rd_cfg tun6rdcfg;
 	nss_tx_status_t status;
 
 	/*
@@ -196,9 +146,7 @@ void nss_tun6rd_dev_up( struct net_device * netdev)
 	/*
 	 * Prepare The Tunnel configuration parameter to send to nss
 	 */
-	memset( &tun6rdparam, 0, sizeof(struct nss_tunnel_6rd_param));
-	tun6rdparam.type = TUN6RD_METADATA_TYPE_IF_UP;
-	tun6rdcfg = (struct nss_tunnel_6rd_cfg *)&tun6rdparam.sub.cfg;
+	memset( &tun6rdcfg, 0, sizeof(struct nss_tun6rd_cfg));
 
 	/*
 	 * Find the Tunnel device ipHeader info
@@ -219,17 +167,17 @@ void nss_tun6rd_dev_up( struct net_device * netdev)
 		return;
 	}
 
-	tun6rdcfg->prefixlen       = ip6rd->prefixlen;
-	tun6rdcfg->relay_prefix    = ip6rd->relay_prefix;
-	tun6rdcfg->relay_prefixlen = ip6rd->relay_prefixlen;
-	tun6rdcfg->saddr           = ntohl(tiph->saddr);
-	tun6rdcfg->daddr           = ntohl(tiph->daddr);
-	tun6rdcfg->prefix[0]       = ntohl(ip6rd->prefix.s6_addr32[0]);
-	tun6rdcfg->prefix[1]       = ntohl(ip6rd->prefix.s6_addr32[1]);
-	tun6rdcfg->prefix[2]       = ntohl(ip6rd->prefix.s6_addr32[2]);
-	tun6rdcfg->prefix[3]       = ntohl(ip6rd->prefix.s6_addr32[3]);
-	tun6rdcfg->ttl             = tiph->ttl;
-	tun6rdcfg->tos             = tiph->tos;
+	tun6rdcfg.prefixlen       = ip6rd->prefixlen;
+	tun6rdcfg.relay_prefix    = ip6rd->relay_prefix;
+	tun6rdcfg.relay_prefixlen = ip6rd->relay_prefixlen;
+	tun6rdcfg.saddr           = ntohl(tiph->saddr);
+	tun6rdcfg.daddr           = ntohl(tiph->daddr);
+	tun6rdcfg.prefix[0]       = ntohl(ip6rd->prefix.s6_addr32[0]);
+	tun6rdcfg.prefix[1]       = ntohl(ip6rd->prefix.s6_addr32[1]);
+	tun6rdcfg.prefix[2]       = ntohl(ip6rd->prefix.s6_addr32[2]);
+	tun6rdcfg.prefix[3]       = ntohl(ip6rd->prefix.s6_addr32[3]);
+	tun6rdcfg.ttl             = tiph->ttl;
+	tun6rdcfg.tos             = tiph->tos;
 
         nss_tun6rd_trace(" 6rd Tunnel info \n");
         nss_tun6rd_trace(" saddr %x daddr %d ttl %x  tos %x \n",
@@ -261,10 +209,9 @@ void nss_tun6rd_dev_up( struct net_device * netdev)
 	/*
 	 * Send 6rd Tunnel UP command to NSS
 	 */
-	status = nss_tx_generic_if_buf(g_tun6rd.nss_ctx,
-			g_tun6rd.if_num,
-			(uint8_t *)&tun6rdparam,
-			sizeof(struct nss_tunnel_6rd_param));
+	status = nss_tx_tun6rd_if_create(g_tun6rd.nss_ctx,
+				&tun6rdcfg,
+				g_tun6rd.if_num);
 
 	if (status != NSS_TX_SUCCESS) {
 		nss_tun6rd_error("Tunnel up command error %d \n", status);
@@ -282,8 +229,7 @@ void nss_tun6rd_dev_down( struct net_device * netdev)
 {
 	struct ip_tunnel *tunnel;
 	struct ip_tunnel_6rd_parm *ip6rd;
-	struct nss_tunnel_6rd_param tun6rdparam;
-	struct tun6rd_if_down_param *ifdown;
+	struct nss_tun6rd_cfg tun6rdcfg;
 	nss_tx_status_t status;
 
 	/*
@@ -317,13 +263,15 @@ void nss_tun6rd_dev_down( struct net_device * netdev)
 		return;
 	}
 
-	memset( &tun6rdparam, 0, sizeof(struct nss_tunnel_6rd_param));
-	tun6rdparam.type = TUN6RD_METADATA_TYPE_IF_DOWN;
-	ifdown = (struct tun6rd_if_down_param *)&tun6rdparam.sub.ifdown_param;
-	ifdown->prefix[0]       = ntohl(ip6rd->prefix.s6_addr32[0]);
-	ifdown->prefix[1]       = ntohl(ip6rd->prefix.s6_addr32[1]);
-	ifdown->prefix[2]       = ntohl(ip6rd->prefix.s6_addr32[2]);
-	ifdown->prefix[3]       = ntohl(ip6rd->prefix.s6_addr32[3]);
+	/*
+	 * Prepare The Tunnel configuration parameter to send to nss
+	 */
+	memset(&tun6rdcfg, 0, sizeof(struct nss_tun6rd_cfg));
+
+	tun6rdcfg.prefix[0]   = ntohl(ip6rd->prefix.s6_addr32[0]);
+	tun6rdcfg.prefix[1]   = ntohl(ip6rd->prefix.s6_addr32[1]);
+	tun6rdcfg.prefix[2]   = ntohl(ip6rd->prefix.s6_addr32[2]);
+	tun6rdcfg.prefix[3]   = ntohl(ip6rd->prefix.s6_addr32[3]);
 
 	nss_tun6rd_trace(" Prefix %x:%x:%x:%x  Prefix len %d \n",
 			ip6rd->prefix.s6_addr32[0], ip6rd->prefix.s6_addr32[1],
@@ -332,10 +280,9 @@ void nss_tun6rd_dev_down( struct net_device * netdev)
 
 
 	nss_tun6rd_trace("Sending Tunnle 6rd Down command %x \n",g_tun6rd.if_num);
-	status = nss_tx_generic_if_buf(g_tun6rd.nss_ctx,
-			g_tun6rd.if_num,
-			(uint8_t *)&tun6rdparam,
-			sizeof(struct nss_tunnel_6rd_param));
+	status = nss_tx_tun6rd_if_destroy(g_tun6rd.nss_ctx,
+				&tun6rdcfg,
+				g_tun6rd.if_num);
 
 	if (status != NSS_TX_SUCCESS) {
 		nss_tun6rd_error("Tunnel down command error %d \n", status);
@@ -429,16 +376,10 @@ void nss_tun6rd_exception(void *ctx, void *buf)
  *	Update the Dev stats received from NetAp
  */
 static void nss_tun6rd_update_dev_stats(struct net_device *dev,
-					struct nss_tun6rd_stats_sync *tun6rdstats)
+					struct nss_tun6rd_stats *stats)
 {
 	void *ptr;
-	struct nss_tun6rd_stats stats;
-
-	stats.rx_packets = tun6rdstats->rx_packets;
-	stats.rx_bytes = tun6rdstats->rx_bytes;
-	stats.tx_packets = tun6rdstats->tx_packets;
-	stats.tx_bytes = tun6rdstats->tx_bytes;
-	ptr = (void *)&stats;
+	ptr = (void *)stats;
 	ipip6_update_offload_stats(dev, ptr);
 }
 
@@ -458,7 +399,7 @@ void nss_tun6rd_event_receive(void *if_ctx, nss_tun6rd_event_t ev_type,
 
 	switch (ev_type) {
 	case NSS_TUN6RD_EVENT_STATS:
-		nss_tun6rd_update_dev_stats(netdev, (struct nss_tun6rd_stats_sync *)os_buf );
+		nss_tun6rd_update_dev_stats(netdev, (struct nss_tun6rd_stats *)os_buf );
 		break;
 
 	default:

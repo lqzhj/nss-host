@@ -600,6 +600,54 @@ struct nss_gmac_sync {
 };
 
 /**
+ * 6rd configuration command structure
+ */
+struct nss_tun6rd_cfg {
+	uint32_t prefix[4]; 		/* 6rd prefix */
+	uint32_t relay_prefix;		/* Relay prefix */
+	uint16_t prefixlen;		/* 6rd prefix len */
+	uint16_t relay_prefixlen;	/* Relay prefix length*/
+	uint32_t saddr; 		/* Tunnel source address */
+	uint32_t daddr; 		/* Tunnel destination addresss */
+	uint8_t  tos; 			/* Tunnel tos field */
+	uint8_t  ttl; 			/* Tunnel ttl field */
+	uint16_t reserved;		/* Reserved */
+};
+
+/**
+ * 6rd tunnel stats
+ */
+struct nss_tun6rd_stats {
+	uint32_t rx_packets;		/* Number of received packets */
+	uint32_t rx_bytes;		/* Number of received bytes */
+	uint32_t tx_packets;		/* Number of transmitted packets */
+	uint32_t tx_bytes;		/* Number of transmitted bytes */
+};
+
+/**
+ * DS-lite and ipip6 configuration command structure
+ */
+struct nss_tunipip6_cfg {
+	uint32_t saddr[4];		/* Tunnel source address */
+	uint32_t daddr[4];		/* Tunnel destination address */
+	uint32_t flowlabel;		/* Tunnel ipv6 flowlabel */
+	uint32_t flags;			/* Tunnel additional flags */
+	uint8_t  hop_limit;		/* Tunnel ipv6 hop limit */
+	uint8_t reserved;		/* Place holder */
+	uint16_t reserved1;		/* Place holder */
+};
+
+/**
+ *  tunipip6 stats structure
+ */
+struct nss_tunipip6_stats {
+	uint32_t rx_packets;		/* Number of received packets */
+	uint32_t rx_bytes;		/* Number of received bytes */
+	uint32_t tx_packets;		/* Number of transmitted packets */
+	uint32_t tx_bytes;		/* Number of transmitted bytes */
+};
+
+/**
  * Tx command status
  */
 typedef enum {
@@ -1601,6 +1649,16 @@ extern nss_tx_status_t nss_tx_generic_if_buf(void *nss_ctx, uint32_t if_num, uin
  */
 
 /**
+ * Tun6rd interface create message
+ */
+extern nss_tx_status_t nss_tx_tun6rd_if_create(void *nss_ctx, struct nss_tun6rd_cfg *tuncfg, uint32_t if_num);
+
+/**
+ * Tun6rd interface destroy meesage
+ */
+extern nss_tx_status_t nss_tx_tun6rd_if_destroy(void *nss_ctx, struct nss_tun6rd_cfg *tuncfg, uint32_t if_num);
+
+/**
  * Callback to receive tun6rd events
  */
 typedef void (*nss_tun6rd_if_event_callback_t)(void *if_ctx, nss_tun6rd_event_t ev_type, void *buf, uint32_t len);
@@ -1609,6 +1667,16 @@ typedef void (*nss_tun6rd_if_event_callback_t)(void *if_ctx, nss_tun6rd_event_t 
  * Callback to receive 6rd callback
  */
 typedef void (*nss_tun6rd_callback_t)(void *ctx, void *os_buf);
+
+/**
+ * Tunipip6 interface create message
+ */
+extern nss_tx_status_t nss_tx_tunipip6_if_create(void *nss_ctx, struct nss_tunipip6_cfg *tuncfg, uint32_t if_num);
+
+/**
+ * Tunipip6 interface destroy meesage
+ */
+extern nss_tx_status_t nss_tx_tunipip6_if_destroy(void *nss_ctx, struct nss_tunipip6_cfg *tuncfg, uint32_t if_num);
 
 /**
  * Callback to receive tunipip6 events
