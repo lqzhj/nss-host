@@ -411,6 +411,15 @@ extern struct net_device *bond_get_tx_dev(struct sk_buff *skb, uint8_t *src_mac,
 					  void *dst, uint16_t protocol,
 					  struct net_device *bond_dev);
 
+/**
+ * @brief Send a LAG state change message
+ * @param ctx NSS context
+ * @param netdev The slave netdevice
+ *
+ * @return nss_tx_status_t
+ */
+extern nss_tx_status_t nss_send_lag_state(struct nss_ctx_instance *ctx, struct net_device *netdev);
+
 /*
  * Network flow
  *
@@ -1445,64 +1454,13 @@ static void nss_connmgr_bond_link_up(struct net_device *slave_dev)
 }
 
 /*
- * nss_send_lag_state()
- *	Send the currnet LAG state of a physical interface.
- */
-static int32_t nss_send_lag_state(struct net_device *netdev)
-{
-	int32_t lagid = 0;
-	struct nss_lag_state_change lc;
-	int32_t ifnum;
-	nss_tx_status_t nss_tx_status;
-
-	ifnum = nss_cmn_get_interface_number(nss_connmgr_ipv4.nss_context, netdev);
-	if (ifnum < 0) {
-		return -EINVAL;
-	}
-
-	lc.if_num = ifnum;
-
-	if (!(netdev->flags & IFF_SLAVE)) {
-		lc.cmd = NSS_LAG_STATE_CHANGE;
-		lc.lag_id = 0;
-		lc.event = NSS_LAG_RELEASE;
-		nss_tx_status = nss_tx_generic_if_buf(nss_connmgr_ipv4.nss_context,
-						       lagid + NSS_LAG0_INTERFACE_NUM,
-						       (uint8_t *)&lc, sizeof(lc));
-		if (nss_tx_status != NSS_TX_SUCCESS) {
-			return -EIO;
-		}
-
-		return 0;
-	}
-
-	lagid = bond_get_id(netdev->master);
-	if (lagid < 0) {
-		NSS_CONNMGR_DEBUG_WARN("Unable to get LAG group id for %s \n", netdev->name);
-		return -EINVAL;
-	}
-
-	lc.cmd = NSS_LAG_STATE_CHANGE;
-	lc.lag_id = lagid;
-	lc.event = NSS_LAG_ENSLAVE;
-	nss_tx_status = nss_tx_generic_if_buf(nss_connmgr_ipv4.nss_context,
-					      lagid + NSS_LAG0_INTERFACE_NUM,
-					      (uint8_t *)&lc, sizeof(lc));
-	if (nss_tx_status != NSS_TX_SUCCESS) {
-		return -EIO;
-	}
-
-	return 0;
-}
-
-/*
  * nss_connmgr_bond_release()
  *	Callback used to signal a physical interface
  *	leaving an aggregation.
  */
 static void nss_connmgr_bond_release(struct net_device *slave_dev)
 {
-	nss_send_lag_state(slave_dev);
+	nss_send_lag_state(nss_connmgr_ipv4.nss_context, slave_dev);
 }
 
 /*
@@ -1512,7 +1470,7 @@ static void nss_connmgr_bond_release(struct net_device *slave_dev)
  */
 static void nss_connmgr_bond_enslave(struct net_device *slave_dev)
 {
-	nss_send_lag_state(slave_dev);
+	nss_send_lag_state(nss_connmgr_ipv4.nss_context, slave_dev);
 }
 
 /*

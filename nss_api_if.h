@@ -40,6 +40,8 @@
 #include "nss_virt_if.h"
 #include "nss_tun6rd.h"
 #include "nss_tunipip6.h"
+#include "nss_lag.h"
+
 /*
  * Interface numbers are reserved in the
  * following sequence of interface types:
@@ -125,30 +127,6 @@
 #define NSS_ETH_NORMAL_FRAME_MTU 1500
 #define NSS_ETH_MINI_JUMBO_FRAME_MTU 1978
 #define NSS_ETH_FULL_JUMBO_FRAME_MTU 9600
-/*
- * Link aggregation enslave/release events
- */
-enum nss_lag_event {
-	NSS_LAG_RELEASE,
-	NSS_LAG_ENSLAVE,
-};
-
-/*
- * Link aggregation commands
- */
-enum nss_lag_cmd {
-	NSS_LAG_STATE_CHANGE = 0,
-};
-
-/*
- * Structure used to send Link Aggregation enslave/release commands.
- */
-struct nss_lag_state_change {
-	uint32_t cmd;
-	uint32_t lag_id;		/* LAG id */
-	uint32_t if_num;		/* Interface number */
-	uint32_t event;			/* NSS_LAG_{RELEASE/ENSLAVE} */
-};
 
 /*
  * @brief NSS PM Clients
