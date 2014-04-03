@@ -36,6 +36,8 @@
 #include <linux/if_ether.h>
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
+#include "nss_cmn.h"
+#include "nss_virt_if.h"
 
 /*
  * Interface numbers are reserved in the
@@ -648,53 +650,6 @@ struct nss_tunipip6_stats {
 };
 
 /**
- * Tx command status
- */
-typedef enum {
-	NSS_TX_SUCCESS = 0,	/**< Success */
-	NSS_TX_FAILURE,		/**< Command failure other than descriptor not available */
-	NSS_TX_FAILURE_QUEUE,	/**< Command failure due to descriptor not available */
-	NSS_TX_FAILURE_NOT_READY,	/**< Command failure due to NSS state uninitialized */
-	NSS_TX_FAILURE_TOO_LARGE,	/**< Command is too large to fit in one message */
-	NSS_TX_FAILURE_TOO_SHORT,	/**< Command/Packet is shorter than expected size */
-	NSS_TX_FAILURE_NOT_SUPPORTED,	/**< Command/Packet not accepted for forwarding */
-	NSS_TX_FAILURE_BAD_PARAM,	/**< Command failure due to bad parameters */
-} nss_tx_status_t;
-
-/**
- * NSS state status
- */
-typedef enum {
-	NSS_STATE_UNINITIALIZED = 0,	/**< NSS state is initailized */
-	NSS_STATE_INITIALIZED		/**< NSS state is uninitialized */
-} nss_state_t;
-
-/**
- * NSS core id
- */
-typedef enum {
-	NSS_CORE_0 = 0,
-	NSS_CORE_1,
-	NSS_CORE_MAX
-} nss_core_id_t;
-
-/**
- * Callback register status
- */
-typedef enum {
-	NSS_CB_REGISTER_SUCCESS = 0,	/**< Callback register successful */
-	NSS_CB_REGISTER_FAILED,		/**< Callback register failed */
-} nss_cb_register_status_t;
-
-/**
- * Callback unregister status
- */
-typedef enum {
-	NSS_CB_UNREGISTER_SUCCESS = 0,	/**< Callback unregister successful */
-	NSS_CB_UNREGISTER_FAILED,		/**< Callback unregister failed */
-} nss_cb_unregister_status_t;
-
-/**
  * PM Client interface status
  */
 typedef enum {
@@ -1099,88 +1054,10 @@ struct nss_shaper_response {
 
 typedef void (*nss_shaper_bounced_callback_t)(void *app_data, struct sk_buff *skb);	/* Registrant callback to receive shaper bounced packets */
 
+
 /**
  * General utilities
  */
-
-/**
- * @brief Obtain interface number
- *
- * @param nss_ctx NSS context
- * @param dev OS network device pointer
- *
- * @return int32_t Interface number
- */
-extern int32_t nss_get_interface_number(void *nss_ctx, void *dev);
-
-/**
- * @brief Determine if the interface number is a represented as a virtual interface in the NSS
- *
- * @param nss_ctx NSS context
- * @param int32_t The NSS interface number
- *
- * @return bool true if it is a virtual.
- */
-extern bool nss_interface_is_virtual(void *nss_ctx, int32_t interface_num);
-
-/**
- * @brief Obtain interface device pointer
- *
- * @param nss_ctx NSS context
- * @param uint32_t Interface number
- *
- * @return void* Interface device pointer
- */
-extern void *nss_get_interface_dev(void *nss_ctx, uint32_t if_num);
-
-/**
- * @brief Obtain the NSS state
- *
- * @param nss_ctx NSS context
- *
- * @return nss_state_t NSS state
- */
-extern nss_state_t nss_get_state(void *nss_ctx);
-
-/**
- * Callback function for all connection expired notification
- */
-typedef void (*nss_connection_expire_all_callback_t)(void);
-
-/**
- * @brief Register for all connection expire notification
- *
- * @param event_callback Event callback
- */
-extern void nss_register_connection_expire_all(nss_connection_expire_all_callback_t event_callback);
-
-/**
- * @brief Unregister for all connection expire notification
- */
-extern void nss_unregister_connection_expire_all(void);
-
-/**
- * Callback for queue decongestion message
- */
-typedef void (*nss_queue_decongestion_callback_t)(void *app_ctx);
-
-/**
- * @brief Register for queue decongestion event
- *
- * @param nss_ctx NSS context
- * @param event_callback Event callback
- * @param ctx Callee context to be returned in callback
- *
- * @note Callback function will be called with spinlock taken
- */
-extern nss_cb_register_status_t nss_register_queue_decongestion(void *nss_ctx, nss_queue_decongestion_callback_t event_callback, void *app_ctx);
-
-/**
- * @brief Unregister for queue decongestion event
- *
- * @param event_callback
- */
-extern nss_cb_unregister_status_t nss_unregister_queue_decongestion(void *nss_ctx, nss_queue_decongestion_callback_t event_callback);
 
 /**
  * Methods provided by NSS device driver for use by connection tracking logic for IPv4.

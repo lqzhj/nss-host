@@ -618,14 +618,6 @@ void nss_unregister_ipv6_mgr(void)
 }
 
 /*
- * nss_register_connection_expire_all()
- */
-void nss_register_connection_expire_all(nss_connection_expire_all_callback_t event_callback)
-{
-	nss_top_main.conn_expire = event_callback;
-}
-
-/*
  * nss_ipv6_register_handler()
  */
 void nss_ipv6_register_handler()

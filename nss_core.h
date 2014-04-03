@@ -418,7 +418,7 @@ struct nss_ctx_instance {
 	struct hlos_n2h_desc_ring n2h_desc_ring[15];
 					/* NSS to Host descriptor rings */
 	uint32_t max_buf_size;		/* Maximum buffer size */
-	nss_queue_decongestion_callback_t queue_decongestion_callback[NSS_MAX_CLIENTS];
+	nss_cmn_queue_decongestion_callback_t queue_decongestion_callback[NSS_MAX_CLIENTS];
 					/* Queue decongestion callbacks */
 	void *queue_decongestion_ctx[NSS_MAX_CLIENTS];
 					/* Queue decongestion callback contexts */
@@ -469,8 +469,6 @@ struct nss_top_instance {
 					/* IPv4 sync/establish callback function */
 	nss_ipv6_callback_t ipv6_callback;
 					/* IPv6 sync/establish callback function */
-	nss_connection_expire_all_callback_t conn_expire;
-					/* Connection all expire callback function */
 	nss_ipsec_event_callback_t ipsec_event_callback;
 					/* IPsec event callback function */
 	nss_crypto_data_callback_t crypto_data_callback;
@@ -492,7 +490,7 @@ struct nss_top_instance {
 	struct nss_shaper_bounce_registrant bounce_bridge_registrants[NSS_MAX_NET_INTERFACES];
 					/* Registrants for bridge shaper bounce operations */
 	void *crypto_ctx;		/* Crypto interface context */
-	void *if_ctx[NSS_MAX_NET_INTERFACES];
+	struct net_device *if_ctx[NSS_MAX_NET_INTERFACES];
 					/* Phys/Virt interface context */
 	void *profiler_ctx[NSS_MAX_CORES];
 					/* Profiler interface context */
