@@ -190,7 +190,7 @@ static void nss_rx_crypto_interface_handler(struct nss_ctx_instance *nss_ctx, st
 		 */
 		if (ncm->response != NSS_CMN_RESPONSE_ACK) {
 			nss_info("%p: Received response %d for type %d, interface %d",
-							nss_ctx, ncm->response, ncm->cm.type, ncm->interface);
+							nss_ctx, ncm->response, ncm->type, ncm->interface);
 		}
 	}
 }

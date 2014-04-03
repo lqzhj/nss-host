@@ -198,7 +198,7 @@ static void nss_rx_metadata_nss_core_stats(struct nss_ctx_instance *nss_ctx, str
 	 */
 	if ((nss_runtime_samples.freq_scale_ready == 1) && (nss_cmd_buf.auto_scale == 1)) {
 		if (nss_runtime_samples.freq_scale_rate_limit_up == NSS_FREQUENCY_SCALE_RATE_LIMIT_UP) {
-			nss_info("%p: Preparing Switch Inst_Cnt Avg:%x\n", nss_ctx, nss_runtime_samples.average);
+//			nss_info("%p: Preparing Switch Inst_Cnt Avg:%x\n", nss_ctx, nss_runtime_samples.average);
 
 			maximum = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].maximum;
 
@@ -206,9 +206,9 @@ static void nss_rx_metadata_nss_core_stats(struct nss_ctx_instance *nss_ctx, str
 				nss_runtime_samples.freq_scale_index++;
 				nss_runtime_samples.freq_scale_ready = 0;
 				nss_frequency_workqueue();
-				nss_info("%p: Switch Up with Sample %x \n", nss_ctx, sample);
+//				nss_info("%p: Switch Up with Sample %x \n", nss_ctx, sample);
 			} else {
-				nss_info("%p: No Change at Max\n", nss_ctx);
+//				nss_info("%p: No Change at Max\n", nss_ctx);
 			}
 			nss_runtime_samples.freq_scale_rate_limit_up = 0;
 			return;
@@ -255,7 +255,7 @@ static void nss_rx_freq_interface_handler(struct nss_ctx_instance *nss_ctx, stru
 			/*
 			 * Check response
 			 */
-			nss_info("%p: Received response %d for request %d, interface %d", nss_ctx, ncm->response, ncm->request, ncm->interface);
+			nss_info("%p: Received response %d for type %d, interface %d", nss_ctx, ncm->response, ncm->type, ncm->interface);
 		}
 	}
 }

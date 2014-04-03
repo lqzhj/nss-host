@@ -465,7 +465,7 @@ struct nss_top_instance {
 	uint8_t phys_if_handler_id[4];
 	uint8_t frequency_handler_id;
 
-	nss_ipv4_callback_t ipv4_callback;
+	nss_ipv4_msg_callback_t ipv4_callback;
 					/* IPv4 sync/establish callback function */
 	nss_ipv6_callback_t ipv6_callback;
 					/* IPv6 sync/establish callback function */
@@ -588,6 +588,23 @@ struct nss_runtime_sampling {
 	uint32_t message_rate_limit;				/* Debug Message Rate Limit */
 	uint32_t initialized;					/* Flag to check for adequate initial samples */
 };
+
+/*
+ * nss_core_log_msg_failures()
+ *	Driver function for logging failed messages.
+ */
+static inline void nss_core_log_msg_failures(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm)
+{
+	if ((ncm->response == NSS_CMN_RESPONSE_ACK) || (ncm->response == NSS_CMM_RESPONSE_NOTIFY)) {
+		return;
+	}
+
+	/*
+	 * TODO: Is it worth doing value to name on these values?
+	 */
+	nss_warning("%p: msg failure - interface: %d, type: %d, response: %d, error: %d",
+		nss_ctx, ncm->interface, ncm->type, ncm->response, ncm->error);
+}
 
 /*
  * NSS workqueue to change frequencies

@@ -46,7 +46,6 @@ struct nss_rx_cb_list nss_rx_interface_handlers[NSS_MAX_NET_INTERFACES];
  */
 uint32_t nss_core_register_handler(uint32_t interface, nss_core_rx_callback_t cb, void *app_data)
 {
-	nss_warning("Interface %d has attempted to register a NULL CB handler", interface);
 	nss_assert(cb != NULL);
 
 	/*

@@ -120,8 +120,8 @@ nss_tx_status_t nss_tx_create_ipv6_rule(void *ctx, struct nss_ipv6_create *unic)
 	/*
 	 * Copy over the vlan rules and set the VLAN_VALID flag
 	 */
-	nircm->vlan_primary_rule.egress_vlan_tag = unic->egress_vlan_tag;
-	nircm->vlan_primary_rule.ingress_vlan_tag = unic->ingress_vlan_tag;
+	nircm->vlan_rule.egress_vlan_tag = unic->egress_vlan_tag;
+	nircm->vlan_rule.ingress_vlan_tag = unic->ingress_vlan_tag;
 	nircm->valid_flags |= NSS_IPV6_RULE_CREATE_VLAN_VALID;
 
 	/*
@@ -252,8 +252,8 @@ nss_tx_status_t nss_tx_create_ipv6_rule1(void *ctx, struct nss_ipv6_create *unic
 	/*
 	 * Copy over the vlan rules and set the VLAN_VALID flag
 	 */
-	nircm->vlan_primary_rule.egress_vlan_tag = unic->egress_vlan_tag;
-	nircm->vlan_primary_rule.ingress_vlan_tag = unic->ingress_vlan_tag;
+	nircm->vlan_rule.egress_vlan_tag = unic->egress_vlan_tag;
+	nircm->vlan_rule.ingress_vlan_tag = unic->ingress_vlan_tag;
 	nircm->valid_flags |= NSS_IPV6_RULE_CREATE_VLAN_VALID;
 
 	/*
@@ -277,10 +277,10 @@ nss_tx_status_t nss_tx_create_ipv6_rule1(void *ctx, struct nss_ipv6_create *unic
 	/*
 	 * Copy over the vlan marking rules and set the VLAN_MARKING_VALID flag
 	 */
-	nircm->vlan_primary_rule.vlan_imask = unic->vlan_imask;
-	nircm->vlan_primary_rule.vlan_itag = unic->vlan_itag;
-	nircm->vlan_primary_rule.vlan_omask = unic->vlan_omask;
-	nircm->vlan_primary_rule.vlan_oval = unic->vlan_oval;
+	nircm->vlan_rule.vlan_imask = unic->vlan_imask;
+	nircm->vlan_rule.vlan_itag = unic->vlan_itag;
+	nircm->vlan_rule.vlan_omask = unic->vlan_omask;
+	nircm->vlan_rule.vlan_oval = unic->vlan_oval;
 	if (unic->flags & NSS_IPV4_CREATE_FLAG_VLAN_MARKING) {
 		nircm->rule_flags |= NSS_IPV4_RULE_CREATE_FLAG_VLAN_MARKING;
 		nircm->valid_flags |= NSS_IPV6_RULE_CREATE_VLAN_MARKING_VALID;

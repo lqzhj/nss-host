@@ -133,7 +133,7 @@ static void nss_rx_metadata_pppoe_exception_stats_sync(struct nss_ctx_instance *
 	spin_lock_bh(&nss_top->stats_lock);
 
 	if (interface_num >= NSS_MAX_PHYSICAL_INTERFACES) {
-		nss_warning("%p: Incorrect interface number %d for PPPoE exception stats", nss_ctx, interface_num)
+		nss_warning("%p: Incorrect interface number %d for PPPoE exception stats", nss_ctx, interface_num);
 		return;
 	}
 

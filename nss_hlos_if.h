@@ -25,363 +25,6 @@
 #include "nss_api_if.h"
 
 /*
- * IPv4 bridge/route rule messages
- */
-
-enum nss_ipv4_message_types {
-	NSS_IPV4_TX_CREATE_RULE_MSG,
-	NSS_IPV4_TX_DESTROY_RULE_MSG,
-	NSS_IPV4_RX_ESTABLISH_RULE_MSG,
-	NSS_IPV4_RX_CONN_STATS_SYNC_MSG,
-	NSS_IPV4_RX_NODE_STATS_SYNC_MSG,
-	NSS_IPV4_MAX_MSG_TYPES,
-};
-
-/*
- * NA IPv4 rule creation flags.
- */
-#define NSS_IPV4_RULE_CREATE_FLAG_NO_SEQ_CHECK 0x01
-					/* Do not perform sequence number checks */
-#define NSS_IPV4_RULE_CREATE_FLAG_BRIDGE_FLOW 0x02
-					/* This is a pure bridge forwarding flow */
-#define NSS_IPV4_RULE_CREATE_FLAG_ROUTED 0x04
-					/* Rule is for a routed connection. */
-#define NSS_IPV4_RULE_CREATE_FLAG_DSCP_MARKING 0x08
-					/* Rule is for a DSCP marking . */
-#define NSS_IPV4_RULE_CREATE_FLAG_VLAN_MARKING 0x10
-					/* Rule is for a VLAN marking . */
-
-/*
- * IPv4 rule creation validity flags.
- */
-#define NSS_IPV4_RULE_CREATE_CONN_VALID 0x01	/* Protocol fields are valid */
-#define NSS_IPV4_RULE_CREATE_TCP_VALID 0x02	/* Protocol fields are valid */
-#define NSS_IPV4_RULE_CREATE_PPPOE_VALID 0x04	/* PPPoE fields are valid */
-#define NSS_IPV4_RULE_CREATE_QOS_VALID 0x08	/* QoS fields are valid */
-#define NSS_IPV4_RULE_CREATE_VLAN_VALID 0x10	/* VLAN fields are valid */
-#define NSS_IPV4_RULE_CREATE_DSCP_MARKING_VALID 0x20	/* DSCP fields are valid */
-#define NSS_IPV4_RULE_CREATE_VLAN_MARKING_VALID 0x40	/* VLAN fields are valid */
-
-/*
- * Common 5 tuple structure
- */
-struct nss_ipv4_5tuple {
-	uint32_t flow_ip;		/* Flow IP address */
-	uint32_t flow_ident;		/* Flow ident (e.g. port) */
-	uint32_t return_ip;		/* Return IP address */
-	uint32_t return_ident;		/* Return ident (e.g. port) */
-	uint8_t protocol;		/* Protocol number */
-	uint8_t reserved[3];		/* Padded for alignment */
-};
-
-/*
- * Connection create structure
- */
-struct nss_ipv4_connection_rule {
-	uint16_t flow_mac[3];		/* Flow MAC address */
-	uint16_t return_mac[3];		/* Return MAC address */
-	int32_t flow_interface_num;	/* Flow interface number */
-	int32_t return_interface_num;	/* Return interface number */
-	uint32_t flow_mtu;		/* Flow interface`s MTU */
-	uint32_t return_mtu;		/* Return interface`s MTU */
-	uint32_t flow_ip_xlate;		/* Translated flow IP address */
-	uint32_t return_ip_xlate;	/* Translated return IP address */
-	uint32_t flow_ident_xlate;	/* Translated flow ident (e.g. port) */
-	uint32_t return_ident_xlate;	/* Translated return ident (e.g. port) */
-};
-
-/*
- * PPPoE connection rules structure
- */
-struct nss_ipv4_pppoe_rule {
-	uint16_t flow_pppoe_session_id;	/* Flow direction`s PPPoE session ID. */
-	uint16_t flow_pppoe_remote_mac[3];
-					/* Flow direction`s PPPoE Server MAC address */
-	uint16_t return_pppoe_session_id;
-					/* Return direction's PPPoE session ID. */
-	uint16_t return_pppoe_remote_mac[3];
-					/* Return direction's PPPoE Server MAC address */
-};
-
-/*
- * DSCP connection rule structure
- */
-struct nss_ipv4_dscp_rule {
-	uint8_t dscp_itag;		/* Input tag for DSCP marking */
-	uint8_t dscp_imask;		/* Input mask for DSCP marking */
-	uint8_t dscp_omask;		/* Output mask for DSCP marking */
-	uint8_t dscp_oval;		/* Output value of DSCP marking */
-};
-
-/*
- * Action types for VLAN
- */
-enum nss_ipv4_vlan_action_types {
-	NSS_IPV4_VLAN_MATCH = 0,
-	NSS_IPV4_VLAN_ADD = 1,
-	NSS_IPV4_VLAN_REMOVE = 2,
-};
-
-/*
- * VLAN connection rule structure
- */
-struct nss_ipv4_vlan_rule {
-	uint16_t ingress_vlan_tag;	/* VLAN Tag for the ingress packets */
-	uint16_t egress_vlan_tag;	/* VLAN Tag for egress packets */
-	uint16_t vlan_itag;		/* Input tag for VLAN marking */
-	uint16_t vlan_imask;		/* Input mask for VLAN marking */
-	uint16_t vlan_omask;		/* Output mask for VLAN marking */
-	uint16_t vlan_oval;		/* Output value of VLAN marking */
-	uint8_t action;			/* The type of action to perform */
-	uint8_t reserved[3];		/* Padded for alignment */
-};
-
-/*
- * TCP connection rulr structure
- */
-struct nss_ipv4_protocol_tcp_rule {
-	uint32_t flow_max_window;	/* Flow direction's largest seen window */
-	uint32_t return_max_window;	/* Return direction's largest seen window */
-	uint32_t flow_end;		/* Flow direction's largest seen sequence + segment length */
-	uint32_t return_end;		/* Return direction's largest seen sequence + segment length */
-	uint32_t flow_max_end;		/* Flow direction's largest seen ack + max(1, win) */
-	uint32_t return_max_end;	/* Return direction's largest seen ack + max(1, win) */
-	uint8_t flow_window_scale;	/* Flow direction's window scaling factor */
-	uint8_t return_window_scale;	/* Return direction's window scaling factor */
-	uint16_t reserved;		/* Padded for alignment */
-};
-
-/*
- * QoS connection rule structure
- */
-struct nss_ipv4_qos_rule {
-	uint32_t qos_tag;		/* QoS tag associated with this rule */
-};
-
-/*
- * Error types for ipv4 messages
- */
-enum nss_ipv4_error_response_types {
-	NSS_IPV4_CR_INVALID_PNODE_ERROR = 1,
-	NSS_IPV4_CR_MISSING_CONNECTION_RULE_ERROR,
-	NSS_IPV4_CR_BUFFER_ALLOC_FAIL_ERROR,
-	NSS_IPV4_CR_PPPOE_SESSION_CREATION_ERROR,
-	NSS_IPV4_DR_NO_CONNECTION_ENTRY_ERROR,
-	NSS_IPV4_UNKNOWN_MSG_TYPE
-};
-
-/*
- * The IPv4 rule create sub-message structure.
- */
-struct nss_ipv4_rule_create_msg {
-	/*
-	 * Request
-	 */
-	struct nss_ipv4_5tuple tuple;			/* Holds values of the 5 tuple */
-
-	struct nss_ipv4_connection_rule conn_rule;	/* Basic connection specific data */
-	struct nss_ipv4_protocol_tcp_rule tcp_rule;	/* TCP related accleration parameters */
-	struct nss_ipv4_pppoe_rule pppoe_rule;		/* PPPoE related accleration parameters */
-	struct nss_ipv4_qos_rule qos_rule;		/* QoS related accleration parameters */
-	struct nss_ipv4_dscp_rule dscp_rule;		/* DSCP related accleration parameters */
-	struct nss_ipv4_vlan_rule vlan_primary_rule;	/* Primary VLAN related accleration parameters */
-	struct nss_ipv4_vlan_rule vlan_secondary_rule;	/* Secondary VLAN related accleration parameters */
-
-	uint16_t valid_flags;				/* Bit flags associated with the validity of parameters */
-	uint16_t rule_flags;				/* Bit flags associated with the rule */
-
-	/*
-	 * Response
-	 */
-	uint32_t index;					/* Slot ID for cache stats to host OS */
-};
-
-/*
- * The IPv4 rule destroy sub-message structure.
- */
-struct nss_ipv4_rule_destroy_msg {
-	struct nss_ipv4_5tuple tuple;	/* Holds values of the 5 tuple */
-};
-
-/*
- * The NSS IPv4 rule establish structure.
- */
-struct nss_ipv4_rule_establish {
-	uint32_t index;				/* Slot ID for cache stats to host OS */
-	uint8_t protocol;			/* Protocol number */
-	uint8_t reserved[3];			/* Reserved to align fields */
-	int32_t flow_interface;			/* Flow interface number */
-	uint32_t flow_mtu;			/* MTU for flow interface */
-	uint32_t flow_ip;			/* Flow IP address */
-	uint32_t flow_ip_xlate;			/* Translated flow IP address */
-	uint32_t flow_ident;			/* Flow ident (e.g. port) */
-	uint32_t flow_ident_xlate;		/* Translated flow ident (e.g. port) */
-	uint16_t flow_mac[3];			/* Flow direction source MAC address */
-	uint16_t flow_pppoe_session_id;		/* Flow direction`s PPPoE session ID. */
-	uint16_t flow_pppoe_remote_mac[3];	/* Flow direction`s PPPoE Server MAC address */
-	uint16_t ingress_vlan_tag;		/* Ingress VLAN tag */
-	int32_t return_interface;		/* Return interface number */
-	uint32_t return_mtu;			/* MTU for return interface */
-	uint32_t return_ip;			/* Return IP address */
-	uint32_t return_ip_xlate;		/* Translated return IP address */
-	uint32_t return_ident;			/* Return ident (e.g. port) */
-	uint32_t return_ident_xlate;		/* Translated return ident (e.g. port) */
-	uint16_t return_mac[3];			/* Return direction source MAC address */
-	uint16_t return_pppoe_session_id;	/* Return direction's PPPoE session ID. */
-	uint16_t return_pppoe_remote_mac[3];	/* Return direction's PPPoE Server MAC address */
-	uint16_t egress_vlan_tag;		/* Egress VLAN tag */
-	uint8_t flags;				/* Bit flags associated with the rule */
-	uint32_t qos_tag;			/* Qos Tag */
-};
-
-/*
- * IPv4 rule sync reasons.
- */
-#define NSS_IPV4_RULE_SYNC_REASON_STATS 0
-					/* Sync is to synchronize stats */
-#define NSS_IPV4_RULE_SYNC_REASON_FLUSH 1
-					/* Sync is to flush a cache entry */
-#define NSS_IPV4_RULE_SYNC_REASON_EVICT 2
-					/* Sync is to evict a cache entry */
-#define NSS_IPV4_RULE_SYNC_REASON_DESTROY 3
-					/* Sync is to destroy a cache entry (requested by host OS) */
-#define NSS_IPV4_RULE_SYNC_REASON_PPPOE_DESTROY 4
-					/* Sync is to destroy a cache entry which belongs to a particular PPPoE session */
-
-/*
- * The NSS IPv4 connection sync structure.
- */
-struct nss_ipv4_conn_sync {
-	uint32_t index;			/* Slot ID for cache stats to host OS */
-	uint32_t flow_max_window;	/* Flow direction's largest seen window */
-	uint32_t flow_end;		/* Flow direction's largest seen sequence + segment length */
-	uint32_t flow_max_end;		/* Flow direction's largest seen ack + max(1, win) */
-	uint32_t flow_rx_packet_count;	/* Flow interface's RX packet count */
-	uint32_t flow_rx_byte_count;	/* Flow interface's RX byte count */
-	uint32_t flow_tx_packet_count;	/* Flow interface's TX packet count */
-	uint32_t flow_tx_byte_count;	/* Flow interface's TX byte count */
-	uint16_t flow_pppoe_session_id; /* Flow interface`s PPPoE session ID. */
-	uint16_t flow_pppoe_remote_mac[3];
-					/* Flow interface's PPPoE remote server MAC address if there is any */
-	uint32_t return_max_window;	/* Return direction's largest seen window */
-	uint32_t return_end;		/* Return direction's largest seen sequence + segment length */
-	uint32_t return_max_end;	/* Return direction's largest seen ack + max(1, win) */
-	uint32_t return_rx_packet_count;
-					/* Return interface's RX packet count */
-	uint32_t return_rx_byte_count;	/* Return interface's RX byte count */
-	uint32_t return_tx_packet_count;
-					/* Return interface's TX packet count */
-	uint32_t return_tx_byte_count;	/* Return interface's TX byte count */
-	uint16_t return_pppoe_session_id;
-					/* Return interface`s PPPoE session ID. */
-	uint16_t return_pppoe_remote_mac[3];
-					/* Return interface's PPPoE remote server MAC address if there is any */
-	uint32_t inc_ticks;		/* Number of ticks since the last sync */
-	uint32_t reason;		/* Reason for the sync */
-
-	uint8_t flags;			/* Bit flags associated with the rule */
-	uint32_t qos_tag;		/* Qos Tag */
-};
-
-/*
- * Exception events from bridge/route handler
- */
-enum exception_events_ipv4 {
-	NSS_EXCEPTION_EVENT_IPV4_ICMP_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV4_ICMP_UNHANDLED_TYPE,
-	NSS_EXCEPTION_EVENT_IPV4_ICMP_IPV4_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV4_ICMP_IPV4_UDP_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV4_ICMP_IPV4_TCP_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV4_ICMP_IPV4_UNKNOWN_PROTOCOL,
-	NSS_EXCEPTION_EVENT_IPV4_ICMP_NO_ICME,
-	NSS_EXCEPTION_EVENT_IPV4_ICMP_FLUSH_TO_HOST,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_NO_ICME,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_IP_OPTION,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_IP_FRAGMENT,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_SMALL_TTL,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_NEEDS_FRAGMENTATION,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_FLAGS,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_SEQ_EXCEEDS_RIGHT_EDGE,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_SMALL_DATA_OFFS,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_BAD_SACK,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_BIG_DATA_OFFS,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_SEQ_BEFORE_LEFT_EDGE,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_ACK_EXCEEDS_RIGHT_EDGE,
-	NSS_EXCEPTION_EVENT_IPV4_TCP_ACK_BEFORE_LEFT_EDGE,
-	NSS_EXCEPTION_EVENT_IPV4_UDP_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV4_UDP_NO_ICME,
-	NSS_EXCEPTION_EVENT_IPV4_UDP_IP_OPTION,
-	NSS_EXCEPTION_EVENT_IPV4_UDP_IP_FRAGMENT,
-	NSS_EXCEPTION_EVENT_IPV4_UDP_SMALL_TTL,
-	NSS_EXCEPTION_EVENT_IPV4_UDP_NEEDS_FRAGMENTATION,
-	NSS_EXCEPTION_EVENT_IPV4_WRONG_TARGET_MAC,
-	NSS_EXCEPTION_EVENT_IPV4_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV4_BAD_TOTAL_LENGTH,
-	NSS_EXCEPTION_EVENT_IPV4_BAD_CHECKSUM,
-	NSS_EXCEPTION_EVENT_IPV4_NON_INITIAL_FRAGMENT,
-	NSS_EXCEPTION_EVENT_IPV4_DATAGRAM_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV4_OPTIONS_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV4_UNKNOWN_PROTOCOL,
-	NSS_EXCEPTION_EVENT_IPV4_ESP_HEADER_INCOMPLETE,
-	NSS_EXCEPTION_EVENT_IPV4_ESP_NO_ICME,
-	NSS_EXCEPTION_EVENT_IPV4_ESP_IP_OPTION,
-	NSS_EXCEPTION_EVENT_IPV4_ESP_IP_FRAGMENT,
-	NSS_EXCEPTION_EVENT_IPV4_ESP_SMALL_TTL,
-	NSS_EXCEPTION_EVENT_IPV4_ESP_NEEDS_FRAGMENTATION,
-	NSS_EXCEPTION_EVENT_IPV4_IVID_MISMATCH,
-	NSS_EXCEPTION_EVENT_IPV4_6RD_NO_ICME,
-	NSS_EXCEPTION_EVENT_IPV4_6RD_IP_OPTION,
-	NSS_EXCEPTION_EVENT_IPV4_6RD_IP_FRAGMENT,
-	NSS_EXCEPTION_EVENT_IPV4_6RD_NEEDS_FRAGMENTATION,
-	NSS_EXCEPTION_EVENT_IPV4_DSCP_MARKING_MISMATCH,
-	NSS_EXCEPTION_EVENT_IPV4_VLAN_MARKING_MISMATCH,
-	NSS_EXCEPTION_EVENT_IPV4_MAX
-};
-
-/*
- * IPv4 node statistics structure
- */
-struct nss_ipv4_node_sync {
-	struct nss_cmn_node_stats node_stats;
-				/* Common node stats for IPv4 */
-	uint32_t ipv4_connection_create_requests;
-				/* Number of IPv4 connection create requests */
-	uint32_t ipv4_connection_create_collisions;
-				/* Number of IPv4 connection create requests that collided with existing entries */
-	uint32_t ipv4_connection_create_invalid_interface;
-				/* Number of IPv4 connection create requests that had invalid interface */
-	uint32_t ipv4_connection_destroy_requests;
-				/* Number of IPv4 connection destroy requests */
-	uint32_t ipv4_connection_destroy_misses;
-				/* Number of IPv4 connection destroy requests that missed the cache */
-	uint32_t ipv4_connection_hash_hits;
-				/* Number of IPv4 connection hash hits */
-	uint32_t ipv4_connection_hash_reorders;
-				/* Number of IPv4 connection hash reorders */
-	uint32_t ipv4_connection_flushes;
-				/* Number of IPv4 connection flushes */
-	uint32_t ipv4_connection_evictions;
-				/* Number of IPv4 connection evictions */
-	uint32_t exception_events[NSS_EXCEPTION_EVENT_IPV4_MAX];
-				/* Number of IPv4 exception events */
-};
-
-/*
- * Message structure to send/receive IPv4 bridge/route commands
- */
-struct nss_ipv4_msg {
-	struct nss_cmn_msg cm;		/* Message Header */
-	union {
-		struct nss_ipv4_rule_create_msg rule_create;	/* Message: rule create */
-		struct nss_ipv4_rule_destroy_msg rule_destroy;	/* Message: rule destroy */
-		struct nss_ipv4_rule_establish rule_establish;	/* Message: rule establish confirmation */
-		struct nss_ipv4_conn_sync conn_stats;	/* Message: connection stats sync */
-		struct nss_ipv4_node_sync node_stats;	/* Message: node stats sync */
-	} msg;
-};
-
-/*
  * IPv6 bridge/route rule messages
  */
 
@@ -467,15 +110,6 @@ struct nss_ipv6_dscp_rule {
 };
 
 /*
- * Action types for VLAN
- */
-enum nss_ipv6_vlan_action_types {
-	NSS_IPV6_VLAN_MATCH = 0,
-	NSS_IPV6_VLAN_ADD = 1,
-	NSS_IPV6_VLAN_REMOVE = 2,
-};
-
-/*
  * VLAN connection rule structure
  */
 struct nss_ipv6_vlan_rule {
@@ -485,8 +119,6 @@ struct nss_ipv6_vlan_rule {
 	uint16_t vlan_imask;		/* Input mask for VLAN marking */
 	uint16_t vlan_omask;		/* Output mask for VLAN marking */
 	uint16_t vlan_oval;		/* Output value of VLAN marking */
-	uint8_t action;			/* The type of action to perform */
-	uint8_t reserved[3];		/* Padded for alignment */
 };
 
 /*
@@ -527,9 +159,6 @@ enum nss_ipv6_error_response_types {
  * The IPv6 rule create sub-message structure.
  */
 struct nss_ipv6_rule_create_msg {
-	/*
-	 * Request
-	 */
 	struct nss_ipv6_5tuple tuple;			/* Holds values of the 5 tuple */
 
 	struct nss_ipv6_connection_rule conn_rule;	/* Basic connection specific data */
@@ -537,16 +166,10 @@ struct nss_ipv6_rule_create_msg {
 	struct nss_ipv6_pppoe_rule pppoe_rule;		/* PPPoE related accleration parameters */
 	struct nss_ipv6_qos_rule qos_rule;		/* QoS related accleration parameters */
 	struct nss_ipv6_dscp_rule dscp_rule;		/* DSCP related accleration parameters */
-	struct nss_ipv6_vlan_rule vlan_primary_rule;	/* Primary VLAN related accleration parameters */
-	struct nss_ipv6_vlan_rule vlan_secondary_rule;	/* Secondary VLAN related accleration parameters */
+	struct nss_ipv6_vlan_rule vlan_rule;		/* VLAN related accleration parameters */
 
-	uint16_t valid_flags;				/* Bit flags associated with the validity of parameters */
-	uint16_t rule_flags;				/* Bit flags associated with the rule */
-
-	/*
-	 * Response
-	 */
-	uint32_t index;					/* Slot ID for cache stats to host OS */
+	uint16_t valid_flags;			/* Bit flags associated with the validity of parameters */
+	uint16_t rule_flags;			/* Bit flags associated with the rule */
 };
 
 /*
@@ -631,6 +254,25 @@ struct nss_ipv6_conn_sync {
 	uint8_t flags;			/* Bit flags associated with the rule */
 	uint32_t qos_tag;		/* Qos Tag */
 };
+
+/*
+ * Physical interface rule structures
+ */
+
+/*
+ * Request/Response types
+ */
+enum nss_if_metadata_types {
+	NSS_TX_METADATA_TYPE_INTERFACE_OPEN,
+	NSS_TX_METADATA_TYPE_INTERFACE_CLOSE,
+	NSS_TX_METADATA_TYPE_INTERFACE_LINK_STATE_NOTIFY,
+	NSS_TX_METADATA_TYPE_INTERFACE_MTU_CHANGE,
+	NSS_TX_METADATA_TYPE_INTERFACE_MAC_ADDR_SET,
+	NSS_TX_METADATA_TYPE_INTERFACE_MSS_SET,
+	NSS_RX_METADATA_TYPE_INTERFACE_STATS_SYNC,
+	NSS_METADATA_TYPE_INTERFACE_MAX,
+};
+
 
 /*
  * Exception events from IPv6 bridge/route handler
@@ -835,134 +477,6 @@ struct nss_pppoe_msg {
 	} msg;
 };
 
-/*
- * Physical interface rule structures
- */
-
-/*
- * Request/Response types
- */
-enum nss_if_metadata_types {
-	NSS_TX_METADATA_TYPE_INTERFACE_OPEN,
-	NSS_TX_METADATA_TYPE_INTERFACE_CLOSE,
-	NSS_TX_METADATA_TYPE_INTERFACE_LINK_STATE_NOTIFY,
-	NSS_TX_METADATA_TYPE_INTERFACE_MTU_CHANGE,
-	NSS_TX_METADATA_TYPE_INTERFACE_MAC_ADDR_SET,
-	NSS_TX_METADATA_TYPE_INTERFACE_MSS_SET,
-	NSS_RX_METADATA_TYPE_INTERFACE_STATS_SYNC,
-	NSS_METADATA_TYPE_INTERFACE_MAX,
-};
-
-/*
- * Interface open command
- */
-struct nss_if_open {
-	uint32_t tx_desc_ring;		/* Tx descriptor ring address */
-	uint32_t rx_desc_ring;		/* Rx descriptor ring address */
-};
-
-/*
- * Interface close command
- */
-struct nss_if_close {
-	uint32_t reserved;		/* Place holder */
-};
-
-/*
- * Link state notification to NSS
- */
-struct nss_if_link_state_notify {
-	uint32_t state;			/* Link State (UP/DOWN), speed/duplex settings */
-};
-
-/*
- * Interface mtu change
- */
-struct nss_if_mtu_change {
-	uint16_t min_buf_size;		/* Changed min buf size value */
-};
-
-/*
- * The MSS (Maximum Segment Size) structure.
- */
-struct nss_if_mss_set {
-	uint16_t mss;			/* MSS value */
-};
-
-/*
- * The NSS MAC address structure.
- */
-struct nss_if_mac_address_set {
-	uint8_t mac_addr[ETH_ALEN];	/* MAC address */
-};
-
-/*
- * The NSS per-GMAC statistics sync structure.
- */
-struct nss_if_stats_sync {
-	uint32_t rx_bytes;		/* Number of RX bytes */
-	uint32_t rx_packets;		/* Number of RX packets */
-	uint32_t rx_errors;		/* Number of RX errors */
-	uint32_t rx_receive_errors;	/* Number of RX receive errors */
-	uint32_t rx_overflow_errors;	/* Number of RX overflow errors */
-	uint32_t rx_descriptor_errors;	/* Number of RX descriptor errors */
-	uint32_t rx_watchdog_timeout_errors;
-					/* Number of RX watchdog timeout errors */
-	uint32_t rx_crc_errors;		/* Number of RX CRC errors */
-	uint32_t rx_late_collision_errors;
-					/* Number of RX late collision errors */
-	uint32_t rx_dribble_bit_errors;	/* Number of RX dribble bit errors */
-	uint32_t rx_length_errors;	/* Number of RX length errors */
-	uint32_t rx_ip_header_errors;	/* Number of RX IP header errors */
-	uint32_t rx_ip_payload_errors;	/* Number of RX IP payload errors */
-	uint32_t rx_no_buffer_errors;	/* Number of RX no-buffer errors */
-	uint32_t rx_transport_csum_bypassed;
-					/* Number of RX packets where the transport checksum was bypassed */
-	uint32_t tx_bytes;		/* Number of TX bytes */
-	uint32_t tx_packets;		/* Number of TX packets */
-	uint32_t tx_collisions;		/* Number of TX collisions */
-	uint32_t tx_errors;		/* Number of TX errors */
-	uint32_t tx_jabber_timeout_errors;
-					/* Number of TX jabber timeout errors */
-	uint32_t tx_frame_flushed_errors;
-					/* Number of TX frame flushed errors */
-	uint32_t tx_loss_of_carrier_errors;
-					/* Number of TX loss of carrier errors */
-	uint32_t tx_no_carrier_errors;	/* Number of TX no carrier errors */
-	uint32_t tx_late_collision_errors;
-					/* Number of TX late collision errors */
-	uint32_t tx_excessive_collision_errors;
-					/* Number of TX excessive collision errors */
-	uint32_t tx_excessive_deferral_errors;
-					/* Number of TX excessive deferral errors */
-	uint32_t tx_underflow_errors;	/* Number of TX underflow errors */
-	uint32_t tx_ip_header_errors;	/* Number of TX IP header errors */
-	uint32_t tx_ip_payload_errors;	/* Number of TX IP payload errors */
-	uint32_t tx_dropped;		/* Number of TX dropped packets */
-	uint32_t hw_errs[10];		/* GMAC DMA error counters */
-	uint32_t rx_missed;		/* Number of RX packets missed by the DMA */
-	uint32_t fifo_overflows;	/* Number of RX FIFO overflows signalled by the DMA */
-	uint32_t rx_scatter_errors;	/* Number of scattered frames received by the DMA */
-	uint32_t gmac_total_ticks;	/* Total clock ticks spend inside the GMAC */
-	uint32_t gmac_worst_case_ticks;	/* Worst case iteration of the GMAC in ticks */
-	uint32_t gmac_iterations;	/* Number of iterations around the GMAC */
-};
-
-/*
- * Message structure to send/receive phys i/f commands
- */
-struct nss_if_msg {
-	struct nss_cmn_msg cm;			/* Message Header */
-	union {
-		struct nss_if_link_state_notify link_state_notify;	/* Message: notify link status */
-		struct nss_if_open open;	/* Message: open interface */
-		struct nss_if_close close;	/* Message: close interface */
-		struct nss_if_mtu_change mtu_change;	/* Message: MTU change notification */
-		struct nss_if_mss_set mss_set;	/* Message: set MSS */
-		struct nss_if_mac_address_set mac_address_set;	/* Message: set MAC address for i/f */
-		struct nss_if_stats_sync stats_sync;	/* Message: statistics sync */
-	} msg;
-};
 
 /*
  * C2C message structures

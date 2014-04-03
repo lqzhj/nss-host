@@ -1069,15 +1069,6 @@ typedef void (*nss_shaper_bounced_callback_t)(void *app_data, struct sk_buff *sk
 typedef void (*nss_ipv4_callback_t)(struct nss_ipv4_cb_params *nicb);
 
 /**
- * @brief Register for sending/receiving IPv4 messages
- *
- * @param event_callback Event callback
- *
- * @return void* NSS context to be provided with every message
- */
-extern void *nss_register_ipv4_mgr(nss_ipv4_callback_t event_callback);
-
-/**
  * @brief API to get NSS context for IPv4 Connection manager
  *
  */
@@ -1090,10 +1081,6 @@ extern void *nss_get_ipv4_mgr_ctx(void);
  */
 extern void *nss_get_frequency_mgr(void);
 
-/**
- * @brief Unregister for sending/receiving IPv4 messages
- */
-extern void nss_unregister_ipv4_mgr(void);
 
 /**
  * @brief Send IPv4 connection setup rule
@@ -1703,6 +1690,27 @@ extern nss_tx_status_t nss_shaper_bounce_bridge_packet(void *ctx, uint32_t if_nu
  * @return nss_tx_status_t Indication if the configuration message was issued.  This does not mean that the configuration message was successfully processed, that will be determined by the response issued to your given callback function as specified in the config structure.
  */
 nss_tx_status_t nss_shaper_config_send(void *ctx, struct nss_shaper_configure *config);
+
+/**
+ * @brief Register for sending/receiving IPv4 messages
+ *
+ * @param event_callback Event callback
+ *
+ * @return void* NSS context to be provided with every message
+ */
+extern void *nss_register_ipv4_mgr(nss_ipv4_callback_t event_callback);
+
+/**
+ * @brief Unregister for sending/receiving IPv4 messages
+ */
+extern void nss_unregister_ipv4_mgr(void);
+
+/*
+ * Once Everything is arragned correctly, will be placed at top
+ */
+
+#include "nss_ipv4.h"
+#include "nss_if.h"
 
 /**@}*/
 #endif /** __NSS_API_IF_H */
