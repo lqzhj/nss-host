@@ -119,8 +119,6 @@ void nss_tun6rd_dev_up( struct net_device * netdev)
 	struct nss_tun6rd_create_msg *tun6rdcfg;
 	nss_tx_status_t status;
 
-
-
 	/*
 	 * Validate netdev for ipv6-in-ipv4  Tunnel
 	 */
@@ -157,7 +155,7 @@ void nss_tun6rd_dev_up( struct net_device * netdev)
 			ip6rd->relay_prefixlen);
 
 	/*
-	 * Find the Tunnel device ipHeader info
+	 * Find the Tunnel device IP header info
 	 */
 	tiph = &tunnel->parms.iph ;
 	nss_tun6rd_trace(" Tunnel Param srcaddr %x daddr %x ttl %d tos %x\n",
@@ -185,9 +183,9 @@ void nss_tun6rd_dev_up( struct net_device * netdev)
 	if (g_tun6rd.nss_ctx == NULL) {
 		nss_tun6rd_trace("nss_register_tun6rd_if Failed \n");
 		return;
-	} else {
-		nss_tun6rd_trace("nss_register_tun6rd_if Success \n");
 	}
+
+	nss_tun6rd_trace("nss_register_tun6rd_if Success \n");
 
 	/*
 	 * Prepare The Tunnel configuration parameter to send to nss
@@ -195,20 +193,20 @@ void nss_tun6rd_dev_up( struct net_device * netdev)
 	memset(&tun6rdmsg, 0, sizeof(struct nss_tun6rd_msg));
 	tun6rdcfg = &tun6rdmsg.msg.tun6rd_create;
 
-	tun6rdcfg->prefixlen       = ip6rd->prefixlen;
-	tun6rdcfg->relay_prefix    = ip6rd->relay_prefix;
+	tun6rdcfg->prefixlen = ip6rd->prefixlen;
+	tun6rdcfg->relay_prefix = ip6rd->relay_prefix;
 	tun6rdcfg->relay_prefixlen = ip6rd->relay_prefixlen;
-	tun6rdcfg->saddr           = ntohl(tiph->saddr);
-	tun6rdcfg->daddr           = ntohl(tiph->daddr);
-	tun6rdcfg->prefix[0]       = ntohl(ip6rd->prefix.s6_addr32[0]);
-	tun6rdcfg->prefix[1]       = ntohl(ip6rd->prefix.s6_addr32[1]);
-	tun6rdcfg->prefix[2]       = ntohl(ip6rd->prefix.s6_addr32[2]);
-	tun6rdcfg->prefix[3]       = ntohl(ip6rd->prefix.s6_addr32[3]);
-	tun6rdcfg->ttl             = tiph->ttl;
-	tun6rdcfg->tos             = tiph->tos;
+	tun6rdcfg->saddr = ntohl(tiph->saddr);
+	tun6rdcfg->daddr = ntohl(tiph->daddr);
+	tun6rdcfg->prefix[0] = ntohl(ip6rd->prefix.s6_addr32[0]);
+	tun6rdcfg->prefix[1] = ntohl(ip6rd->prefix.s6_addr32[1]);
+	tun6rdcfg->prefix[2] = ntohl(ip6rd->prefix.s6_addr32[2]);
+	tun6rdcfg->prefix[3] = ntohl(ip6rd->prefix.s6_addr32[3]);
+	tun6rdcfg->ttl = tiph->ttl;
+	tun6rdcfg->tos = tiph->tos;
 
-        nss_tun6rd_trace(" 6rd Tunnel info \n");
-        nss_tun6rd_trace(" saddr %x daddr %d ttl %x  tos %x \n",
+	nss_tun6rd_trace(" 6rd Tunnel info \n");
+	nss_tun6rd_trace(" saddr %x daddr %d ttl %x  tos %x \n",
 			tiph->saddr, tiph->daddr, tiph->ttl, tiph->tos);
 	nss_tun6rd_trace(" Prefix %x:%x:%x:%x  Prefix len %d \n",
 			ip6rd->prefix.s6_addr32[0], ip6rd->prefix.s6_addr32[1],
@@ -284,10 +282,10 @@ void nss_tun6rd_dev_down(struct net_device *netdev)
 	memset(&tun6rdmsg, 0, sizeof(struct nss_tun6rd_msg));
 	tun6rdcfg = &tun6rdmsg.msg.tun6rd_destroy;
 
-	tun6rdcfg->prefix[0]   = ntohl(ip6rd->prefix.s6_addr32[0]);
-	tun6rdcfg->prefix[1]   = ntohl(ip6rd->prefix.s6_addr32[1]);
-	tun6rdcfg->prefix[2]   = ntohl(ip6rd->prefix.s6_addr32[2]);
-	tun6rdcfg->prefix[3]   = ntohl(ip6rd->prefix.s6_addr32[3]);
+	tun6rdcfg->prefix[0] = ntohl(ip6rd->prefix.s6_addr32[0]);
+	tun6rdcfg->prefix[1] = ntohl(ip6rd->prefix.s6_addr32[1]);
+	tun6rdcfg->prefix[2] = ntohl(ip6rd->prefix.s6_addr32[2]);
+	tun6rdcfg->prefix[3] = ntohl(ip6rd->prefix.s6_addr32[3]);
 
 	nss_tun6rd_trace(" Prefix %x:%x:%x:%x  Prefix len %d \n",
 			ip6rd->prefix.s6_addr32[0], ip6rd->prefix.s6_addr32[1],

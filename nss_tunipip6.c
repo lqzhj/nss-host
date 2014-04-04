@@ -19,7 +19,7 @@
 
 /*
  * nss_tunipip6_handler()
- *      Handle NSS -> HLOS messages for 6rd tunnel
+ *	Handle NSS -> HLOS messages for 6rd tunnel
  */
 static void nss_tunipip6_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm, __attribute__((unused))void *app_data)
 {
