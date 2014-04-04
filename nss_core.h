@@ -484,9 +484,9 @@ struct nss_top_instance {
 					/* Physical interface event callback functions */
 	nss_profiler_callback_t profiler_callback[NSS_MAX_CORES];
 					/* Profiler interface callback function */
-	nss_tun6rd_if_event_callback_t tun6rd_if_event_callback;
+	nss_tun6rd_msg_callback_t tun6rd_msg_callback;
 					/* 6rd tunnel interface event callback function */
-	nss_tunipip6_if_event_callback_t tunipip6_if_event_callback;
+	nss_tunipip6_msg_callback_t tunipip6_msg_callback;
 					/* ipip6 tunnel interface event callback function */
 	struct nss_shaper_bounce_registrant bounce_interface_registrants[NSS_MAX_NET_INTERFACES];
 					/* Registrants for interface shaper bounce operations */

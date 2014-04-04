@@ -1,9 +1,9 @@
 /*
- **************************************************************************
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *  **************************************************************************
+ * Copyright (c) 2014, Qualcomm Atheros, Inc.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
- * above copyright notice and this permission notice appear in all copies.
+ * above copyright notice and this permission notice appear in all copies
  * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
  * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -11,437 +11,181 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
  * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- **************************************************************************
+ * *************************************************************************
  */
 
-/*
- * nss_tun6rd.c
- *
- * This file is the NSS 6rd tunnel module
- * ------------------------REVISION HISTORY-----------------------------
- * Qualcomm Atheros         15/sep/2013              Created
- */
-
-#include <linux/types.h>
-#include <linux/ip.h>
-#include <linux/tcp.h>
-#include <linux/module.h>
-#include <linux/skbuff.h>
-#include <net/ipv6.h>
-#include <net/ipip.h>
-#include <linux/if_arp.h>
+#include "nss_tx_rx_common.h"
 #include "nss_api_if.h"
 
 /*
- * NSS tun6rd debug macros
+ * nss_tun6rd_handler()
+ * 	Handle NSS -> HLOS messages for 6rd tunnel
  */
-#if (NSS_TUN6RD_DEBUG_LEVEL < 1)
-#define nss_tun6rd_assert(fmt, args...)
-#else
-#define nss_tun6d_assert(c) if (!(c)) { BUG_ON(!(c)); }
-#endif
-
-#if (NSS_TUN6RD_DEBUG_LEVEL < 2)
-#define nss_tun6rd_error(fmt, args...)
-#else
-#define nss_tun6rd_error(fmt, args...) printk(KERN_WARNING "nss tun6rd:"fmt, ##args)
-#endif
-
-#if (NSS_TUN6RD_DEBUG_LEVEL < 3)
-#define nss_tun6rd_warning(fmt, args...)
-#else
-#define nss_tun6rd_warning(fmt, args...) printk(KERN_WARNING "nss tun6rd:"fmt, ##args)
-#endif
-
-#if (NSS_TUN6RD_DEBUG_LEVEL < 4)
-#define nss_tun6rd_info(fmt, args...)
-#else
-#define nss_tun6rd_info(fmt, args...) printk(KERN_INFO "nss tun6rd :"fmt, ##args)
-#endif
-
-#if (NSS_TUN6RD_DEBUG_LEVEL < 5)
-#define nss_tun6rd_trace(fmt, args...)
-#else
-#define nss_tun6rd_trace(fmt, args...) printk(KERN_DEBUG "nss tun6rd :"fmt, ##args)
-#endif
-
-void nss_tun6rd_exception(void *ctx, void *buf);
-void nss_tun6rd_event_receive(void *ctx, nss_tun6rd_event_t ev_type,
-			      void *os_buf, uint32_t len);
-
-/*
- * 6rd tunnel host instance
- */
-struct nss_tun6rd_tunnel{
-	void *nss_ctx;
-	uint32_t if_num;
-	struct net_device *netdev;
-	uint32_t device_up;
-};
-
-struct nss_tun6rd_tunnel g_tun6rd;
-
-/*
- * Internal function
- */
-static int
-nss_tun6rd_dev_event(struct notifier_block  *nb,
-			unsigned long event,
-			void  *dev);
-
-/*
- * Linux Net device Notifier
- */
-struct notifier_block nss_tun6rd_notifier = {
-	.notifier_call = nss_tun6rd_dev_event,
-};
-
-/*
- * nss_tun6rd_dev_up()
- *	6RD Tunnel device i/f up handler
- */
-void nss_tun6rd_dev_up( struct net_device * netdev)
+static void nss_tun6rd_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm, __attribute__((unused))void *app_data)
 {
-	struct ip_tunnel *tunnel;
-	struct ip_tunnel_6rd_parm *ip6rd;
-	const struct iphdr  *tiph;
-	struct nss_tun6rd_cfg tun6rdcfg;
-	nss_tx_status_t status;
+	struct nss_tun6rd_msg *ntm = (struct nss_tun6rd_msg *)ncm;
+	void *ctx;
+	nss_tun6rd_msg_callback_t cb;
 
+	BUG_ON(ncm->interface != NSS_TUN6RD_INTERFACE);
 	/*
-	 * Validate netdev for ipv6-in-ipv4  Tunnel
+	 * Is this a valid request/response packet?
 	 */
-	if (netdev->type != ARPHRD_SIT ) {
+	if (ncm->type >= NSS_TUN6RD_MAX) {
+		nss_warning("%p: received invalid message %d for Tun6RD interface", nss_ctx, ncm->type);
 		return;
 	}
 
-	tunnel = (struct ip_tunnel*)netdev_priv(netdev);
-	ip6rd =  &tunnel->ip6rd;
-
-	/*
-	 * Valid 6rd Tunnel Check
-	 * 1. 6rd Prefix len should be non zero
-	 * 2. Relay prefix length should not be greater then 32
-	 * 3. To allow for stateless address auto-configuration on the CE LAN side,
-	 *    6rd delegated prefix SHOULD be /64 or shorter.
-	 */
-	if ((ip6rd->prefixlen == 0 )
-			|| (ip6rd->relay_prefixlen > 32)
-			|| (ip6rd->prefixlen
-				+ (32 - ip6rd->relay_prefixlen) > 64)){
-
-		nss_tun6rd_error("Invalid 6rd argument prefix len %d     \
-				relayprefix len %d \n",
-				ip6rd->prefixlen,ip6rd->relay_prefixlen);
+	if (ncm->len > sizeof(struct nss_tun6rd_msg)) {
+		nss_warning("%p: tx request for another interface: %d", nss_ctx, ncm->interface);
 		return;
 	}
 
-	nss_tun6rd_info(" Valid 6rd Tunnel Prefix %x %x %x %x  \n        \
-			prefix len %d  relay_prefix %d relay_prefixlen %d \n",
-			ip6rd->prefix.s6_addr32[0],ip6rd->prefix.s6_addr32[1],
-			ip6rd->prefix.s6_addr32[2],ip6rd->prefix.s6_addr32[3],
-			ip6rd->prefixlen, ip6rd->relay_prefix,
-			ip6rd->relay_prefixlen);
+	/*
+ 	 * Update the callback and app_data for NOTIFY messages, tun6rd sends all notify messages
+ 	 * to the same callback/app_data.
+ 	 */
+	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
+		ncm->cb = (uint32_t)nss_ctx->nss_top->tun6rd_msg_callback;
+	}
 
 	/*
-	 * Prepare The Tunnel configuration parameter to send to nss
+	 * Log failures
 	 */
-	memset( &tun6rdcfg, 0, sizeof(struct nss_tun6rd_cfg));
+	nss_core_log_msg_failures(nss_ctx, ncm);
 
 	/*
-	 * Find the Tunnel device ipHeader info
+	 * Do we have a call back
 	 */
-	tiph = &tunnel->parms.iph ;
-	nss_tun6rd_trace(" Tunnel Param srcaddr %x daddr %x ttl %d tos %x\n",
-			tiph->saddr, tiph->daddr,tiph->ttl,tiph->tos);
-
-	if(tiph->saddr == 0) {
-		nss_tun6rd_error("Tunnel src address not configured  %x\n",
-				tiph->saddr);
+	if (!ncm->cb) {
 		return;
 	}
 
-	if (tiph->daddr == 0) {
-		nss_tun6rd_error("Tunnel dest address not configured  %x\n",
-				tiph->daddr);
-		return;
-	}
-
-	tun6rdcfg.prefixlen       = ip6rd->prefixlen;
-	tun6rdcfg.relay_prefix    = ip6rd->relay_prefix;
-	tun6rdcfg.relay_prefixlen = ip6rd->relay_prefixlen;
-	tun6rdcfg.saddr           = ntohl(tiph->saddr);
-	tun6rdcfg.daddr           = ntohl(tiph->daddr);
-	tun6rdcfg.prefix[0]       = ntohl(ip6rd->prefix.s6_addr32[0]);
-	tun6rdcfg.prefix[1]       = ntohl(ip6rd->prefix.s6_addr32[1]);
-	tun6rdcfg.prefix[2]       = ntohl(ip6rd->prefix.s6_addr32[2]);
-	tun6rdcfg.prefix[3]       = ntohl(ip6rd->prefix.s6_addr32[3]);
-	tun6rdcfg.ttl             = tiph->ttl;
-	tun6rdcfg.tos             = tiph->tos;
-
-        nss_tun6rd_trace(" 6rd Tunnel info \n");
-        nss_tun6rd_trace(" saddr %x daddr %d ttl %x  tos %x \n",
-			tiph->saddr, tiph->daddr, tiph->ttl, tiph->tos);
-	nss_tun6rd_trace(" Prefix %x:%x:%x:%x  Prefix len %d \n",
-			ip6rd->prefix.s6_addr32[0], ip6rd->prefix.s6_addr32[1],
-			ip6rd->prefix.s6_addr32[2], ip6rd->prefix.s6_addr32[3],
-			ip6rd->prefixlen);
-	nss_tun6rd_trace("Relay Prefix %x Len %d\n",
-			ip6rd->relay_prefix, ip6rd->relay_prefixlen);
+	/*
+	 * callback
+	 */
+	cb = (nss_tun6rd_msg_callback_t)ncm->cb;
+	ctx =  nss_ctx->nss_top->if_ctx[ncm->interface];
 
 	/*
-	 * Register 6rd tunnel with NSS
+	 * call 6rd tunnel callback
 	 */
-	g_tun6rd.nss_ctx = nss_register_tun6rd_if(g_tun6rd.if_num,
-				nss_tun6rd_exception,
-				nss_tun6rd_event_receive,
-				netdev);
-	if (g_tun6rd.nss_ctx == NULL) {
-		nss_tun6rd_trace("nss_register_tun6rd_if Failed \n");
+	if (!ctx) {
+		nss_warning("%p: Event received for 6rd tunnel interface %d before registration", nss_ctx, ncm->interface);
 		return;
-	} else {
-		nss_tun6rd_trace("nss_register_tun6rd_if Success \n");
 	}
 
-	nss_tun6rd_trace("Sending 6rd tunnel i/f up command to NSS  %x \n",
-			(int)g_tun6rd.nss_ctx);
+	cb(ctx, ntm);
+}
+
+
+/*
+ * nss_tun6rd_tx()
+ * 	Transmit a tun6rd message to NSSFW
+ */
+nss_tx_status_t nss_tun6rd_tx(struct nss_ctx_instance *nss_ctx, struct nss_tun6rd_msg *msg)
+{
+	struct nss_tun6rd_msg *nm;
+	struct nss_cmn_msg *ncm = &msg->cm;
+	struct sk_buff *nbuf;
+	int32_t status;
+
+	NSS_VERIFY_CTX_MAGIC(nss_ctx);
+	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
+		nss_warning("%p: tun6rd msg dropped as core not ready", nss_ctx);
+		return NSS_TX_FAILURE_NOT_READY;
+	}
 
 	/*
-	 * Send 6rd Tunnel UP command to NSS
+	 * Sanity check the message
 	 */
-	status = nss_tx_tun6rd_if_create(g_tun6rd.nss_ctx,
-				&tun6rdcfg,
-				g_tun6rd.if_num);
-
-	if (status != NSS_TX_SUCCESS) {
-		nss_tun6rd_error("Tunnel up command error %d \n", status);
-		return;
+	if (ncm->interface != NSS_TUN6RD_INTERFACE) {
+		nss_warning("%p: tx request for another interface: %d", nss_ctx, ncm->interface);
+		return NSS_TX_FAILURE;
 	}
 
-	g_tun6rd.device_up = 1;
+	if (ncm->type > NSS_TUN6RD_MAX) {
+		nss_warning("%p: message type out of range: %d", nss_ctx, ncm->type);
+		return NSS_TX_FAILURE;
+	}
+
+	if (ncm->len > sizeof(struct nss_tun6rd_msg)) {
+		nss_warning("%p: message length is invalid: %d", nss_ctx, ncm->len);
+		return NSS_TX_FAILURE;
+	}
+
+	nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
+	if (unlikely(!nbuf)) {
+		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
+		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
+		spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
+		nss_warning("%p: msg dropped as command allocation failed", nss_ctx);
+		return NSS_TX_FAILURE;
+	}
+
+	/*
+	 * Copy the message to our skb
+	 */
+	nm = (struct nss_tun6rd_msg *)skb_put(nbuf, sizeof(struct nss_tun6rd_msg));
+	memcpy(nm, msg, sizeof(struct nss_tun6rd_msg));
+
+	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
+	if (status != NSS_CORE_STATUS_SUCCESS) {
+		dev_kfree_skb_any(nbuf);
+		nss_warning("%p: Unable to enqueue 'tun6rd message' \n", nss_ctx);
+		return NSS_TX_FAILURE;
+	}
+
+	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
+				NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
+
+	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_CMD_REQ]);
+	return NSS_TX_SUCCESS;
 }
 
 /*
- * nss_tun6rd_dev_down()
- *	6RD Tunnel device i/f down handler
+ ***********************************
+ * Register/Unregister/Miscellaneous APIs
+ ***********************************
  */
-void nss_tun6rd_dev_down( struct net_device * netdev)
+
+/*
+ * nss_register_tun6rd_if()
+ */
+struct nss_ctx_instance *nss_register_tun6rd_if(uint32_t if_num,
+                                nss_tun6rd_callback_t tun6rd_callback,
+                                nss_tun6rd_msg_callback_t event_callback, struct net_device *netdev)
 {
-	struct ip_tunnel *tunnel;
-	struct ip_tunnel_6rd_parm *ip6rd;
-	struct nss_tun6rd_cfg tun6rdcfg;
-	nss_tx_status_t status;
+        nss_assert((if_num >= NSS_MAX_VIRTUAL_INTERFACES) && (if_num < NSS_MAX_NET_INTERFACES));
 
-	/*
-	 * Check if tunnel 6rd is registered ?
-	 */
-	if (g_tun6rd.nss_ctx == NULL) {
-		return;
-	}
+        nss_top_main.if_ctx[if_num] = netdev;
+        nss_top_main.if_rx_callback[if_num] = tun6rd_callback;
+        nss_top_main.tun6rd_msg_callback = event_callback;
 
-	/*
-	 * Validate netdev for ipv6-in-ipv4  Tunnel
-	 */
-	if (netdev->type != ARPHRD_SIT ) {
-		return;
-	}
-
-	tunnel = (struct ip_tunnel*)netdev_priv(netdev);
-	ip6rd =  &tunnel->ip6rd;
-
-	/*
-	 * Valid 6rd Tunnel Check
-	 */
-	if ((ip6rd->prefixlen == 0 )
-			|| (ip6rd->relay_prefixlen > 32 )
-			|| (ip6rd->prefixlen
-				+ (32 - ip6rd->relay_prefixlen) > 64)){
-
-		nss_tun6rd_error("Invalid 6rd argument prefix len %d  \
-				relayprefix len %d \n",
-				ip6rd->prefixlen,ip6rd->relay_prefixlen);
-		return;
-	}
-
-	/*
-	 * Prepare The Tunnel configuration parameter to send to nss
-	 */
-	memset(&tun6rdcfg, 0, sizeof(struct nss_tun6rd_cfg));
-
-	tun6rdcfg.prefix[0]   = ntohl(ip6rd->prefix.s6_addr32[0]);
-	tun6rdcfg.prefix[1]   = ntohl(ip6rd->prefix.s6_addr32[1]);
-	tun6rdcfg.prefix[2]   = ntohl(ip6rd->prefix.s6_addr32[2]);
-	tun6rdcfg.prefix[3]   = ntohl(ip6rd->prefix.s6_addr32[3]);
-
-	nss_tun6rd_trace(" Prefix %x:%x:%x:%x  Prefix len %d \n",
-			ip6rd->prefix.s6_addr32[0], ip6rd->prefix.s6_addr32[1],
-			ip6rd->prefix.s6_addr32[2], ip6rd->prefix.s6_addr32[3],
-			ip6rd->prefixlen);
-
-
-	nss_tun6rd_trace("Sending Tunnle 6rd Down command %x \n",g_tun6rd.if_num);
-	status = nss_tx_tun6rd_if_destroy(g_tun6rd.nss_ctx,
-				&tun6rdcfg,
-				g_tun6rd.if_num);
-
-	if (status != NSS_TX_SUCCESS) {
-		nss_tun6rd_error("Tunnel down command error %d \n", status);
-		return;
-	}
-
-	/*
-	 * Un-Register 6rd tunnel with NSS
-	 */
-	nss_unregister_tun6rd_if(g_tun6rd.if_num);
-	g_tun6rd.nss_ctx = NULL;
-	g_tun6rd.device_up = 0;
-	return;
+        return (struct nss_ctx_instance *)&nss_top_main.nss[nss_top_main.tun6rd_handler_id];
 }
 
 /*
- * nss_tun6rd_dev_event()
- *	Net device notifier for 6rd module
+ * nss_unregister_tun6rd_if()
  */
-static int nss_tun6rd_dev_event(struct notifier_block  *nb,
-		unsigned long event, void  *dev)
+void nss_unregister_tun6rd_if(uint32_t if_num)
 {
-	struct net_device *netdev = (struct net_device *)dev;
+        nss_assert((if_num >= NSS_MAX_VIRTUAL_INTERFACES) && (if_num < NSS_MAX_NET_INTERFACES));
 
-	nss_tun6rd_trace("%s\n",__FUNCTION__);
-	switch (event) {
-	case NETDEV_UP:
-		nss_tun6rd_trace(" NETDEV_UP :event %lu name %s \n",
-				event,netdev->name);
-		nss_tun6rd_dev_up(netdev);
-		break;
-
-	case NETDEV_DOWN:
-		nss_tun6rd_trace(" NETDEV_DOWN :event %lu name %s \n",
-				event,netdev->name);
-		nss_tun6rd_dev_down(netdev);
-		break;
-
-	default:
-		nss_tun6rd_trace("Unhandled notifier dev %s  event %x  \n",
-				netdev->name,(int)event);
-		break;
-	}
-
-	return NOTIFY_DONE;
+        nss_top_main.if_rx_callback[if_num] = NULL;
+        nss_top_main.if_ctx[if_num] = NULL;
+        nss_top_main.tun6rd_msg_callback = NULL;
 }
 
 /*
- * nss_tun6rd_exception()
- *	Exception handler registered to NSS driver
+ * nss_tun6rd_register_handler()
  */
-void nss_tun6rd_exception(void *ctx, void *buf)
+void nss_tun6rd_register_handler()
 {
-	struct net_device *dev = (struct net_device *)ctx;
-	struct sk_buff *skb = (struct sk_buff *)buf;
-	const struct iphdr *iph;
-
-	skb->dev = dev;
-	nss_tun6rd_info("received - %d bytes name %s ver %x \n",
-			skb->len,dev->name,skb->data[0]);
-
-	iph = (const struct iphdr *)skb->data;
-
-	/*
-	 * Packet after Decap/Encap Did not find the Rule.
-	 */
-	if (iph->version == 4) {
-		if(iph->protocol == IPPROTO_IPV6){
-			skb_pull(skb, sizeof(struct iphdr));
-			skb->protocol = htons(ETH_P_IPV6);
-			skb_reset_network_header(skb);
-			skb->pkt_type = PACKET_HOST;
-			skb->ip_summed = CHECKSUM_NONE;
-			dev_queue_xmit(skb);
-			return;
-		}
-		skb->protocol = htons(ETH_P_IP);
-	} else {
-		skb->protocol = htons(ETH_P_IPV6);
-	}
-
-	skb_reset_network_header(skb);
-	skb->pkt_type = PACKET_HOST;
-	skb->skb_iif = dev->ifindex;
-	skb->ip_summed = CHECKSUM_NONE;
-	netif_receive_skb(skb);
+	nss_core_register_handler(NSS_TUN6RD_INTERFACE, nss_tun6rd_handler, NULL);
 }
 
-/*
- *  nss_tun6rd_update_dev_stats
- *	Update the Dev stats received from NetAp
- */
-static void nss_tun6rd_update_dev_stats(struct net_device *dev,
-					struct nss_tun6rd_stats *stats)
-{
-	void *ptr;
-	ptr = (void *)stats;
-	ipip6_update_offload_stats(dev, ptr);
-}
 
-/**
- * @brief Event Callback to receive events from NSS
- * @param[in] pointer to net device context
- * @param[in] event type
- * @param[in] pointer to buffer
- * @param[in] length of buffer
- * @return Returns void
- */
-void nss_tun6rd_event_receive(void *if_ctx, nss_tun6rd_event_t ev_type,
-			    void *os_buf, uint32_t len)
-{
-	struct net_device *netdev = NULL;
-	netdev = (struct net_device *)if_ctx;
-
-	switch (ev_type) {
-	case NSS_TUN6RD_EVENT_STATS:
-		nss_tun6rd_update_dev_stats(netdev, (struct nss_tun6rd_stats *)os_buf );
-		break;
-
-	default:
-		nss_tun6rd_info("%s: Unknown Event from NSS",
-			      __FUNCTION__);
-		break;
-	}
-}
-
-/*
- * nss_tun6rd_init_module()
- *	Tunnel 6rd module init function
- */
-int __init nss_tun6rd_init_module(void)
-{
-	nss_tun6rd_info("module (platform - IPQ806x , Build - %s:%s) loaded\n",
-			__DATE__, __TIME__);
-
-	register_netdevice_notifier(&nss_tun6rd_notifier);
-	nss_tun6rd_trace("Netdev Notifier registerd \n");
-
-	g_tun6rd.if_num = NSS_TUNRD_IF_NUMBER;
-	g_tun6rd.netdev = NULL;
-	g_tun6rd.device_up = 0;
-	g_tun6rd.nss_ctx = NULL;
-
-	return 0;
-}
-
-/*
- * nss_tun6rd_exit_module()
- *	Tunnel 6rd module exit function
- */
-void __exit nss_tun6rd_exit_module(void)
-{
-
-	unregister_netdevice_notifier(&nss_tun6rd_notifier);
-	nss_tun6rd_info("module unloaded\n");
-}
-
-module_init(nss_tun6rd_init_module);
-module_exit(nss_tun6rd_exit_module);
-
-MODULE_LICENSE("Dual BSD/GPL");
-MODULE_DESCRIPTION("NSS tun6rd offload manager");
+EXPORT_SYMBOL(nss_tun6rd_tx);
+EXPORT_SYMBOL(nss_register_tun6rd_if);
+EXPORT_SYMBOL(nss_unregister_tun6rd_if);

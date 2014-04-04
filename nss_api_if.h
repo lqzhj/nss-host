@@ -38,7 +38,8 @@
 #include <linux/netdevice.h>
 #include "nss_cmn.h"
 #include "nss_virt_if.h"
-
+#include "nss_tun6rd.h"
+#include "nss_tunipip6.h"
 /*
  * Interface numbers are reserved in the
  * following sequence of interface types:
@@ -86,8 +87,8 @@
  */
 #define NSS_IPSEC_ENCAP_IF_NUMBER (NSS_TUNNEL_IF_START + 0)
 #define NSS_IPSEC_DECAP_IF_NUMBER (NSS_TUNNEL_IF_START + 1)
-#define NSS_TUNRD_IF_NUMBER (NSS_TUNNEL_IF_START + 2)
-#define NSS_TUNIPIP6_IF_NUMBER (NSS_TUNNEL_IF_START + 3)
+#define NSS_TUN6RD_INTERFACE (NSS_TUNNEL_IF_START + 2)
+#define NSS_TUNIPIP6_INTERFACE (NSS_TUNNEL_IF_START + 3)
 
 /**
  * This macro converts format for IPv6 address (from Linux to NSS)
@@ -602,54 +603,6 @@ struct nss_gmac_sync {
 };
 
 /**
- * 6rd configuration command structure
- */
-struct nss_tun6rd_cfg {
-	uint32_t prefix[4]; 		/* 6rd prefix */
-	uint32_t relay_prefix;		/* Relay prefix */
-	uint16_t prefixlen;		/* 6rd prefix len */
-	uint16_t relay_prefixlen;	/* Relay prefix length*/
-	uint32_t saddr; 		/* Tunnel source address */
-	uint32_t daddr; 		/* Tunnel destination addresss */
-	uint8_t  tos; 			/* Tunnel tos field */
-	uint8_t  ttl; 			/* Tunnel ttl field */
-	uint16_t reserved;		/* Reserved */
-};
-
-/**
- * 6rd tunnel stats
- */
-struct nss_tun6rd_stats {
-	uint32_t rx_packets;		/* Number of received packets */
-	uint32_t rx_bytes;		/* Number of received bytes */
-	uint32_t tx_packets;		/* Number of transmitted packets */
-	uint32_t tx_bytes;		/* Number of transmitted bytes */
-};
-
-/**
- * DS-lite and ipip6 configuration command structure
- */
-struct nss_tunipip6_cfg {
-	uint32_t saddr[4];		/* Tunnel source address */
-	uint32_t daddr[4];		/* Tunnel destination address */
-	uint32_t flowlabel;		/* Tunnel ipv6 flowlabel */
-	uint32_t flags;			/* Tunnel additional flags */
-	uint8_t  hop_limit;		/* Tunnel ipv6 hop limit */
-	uint8_t reserved;		/* Place holder */
-	uint16_t reserved1;		/* Place holder */
-};
-
-/**
- *  tunipip6 stats structure
- */
-struct nss_tunipip6_stats {
-	uint32_t rx_packets;		/* Number of received packets */
-	uint32_t rx_bytes;		/* Number of received bytes */
-	uint32_t tx_packets;		/* Number of transmitted packets */
-	uint32_t tx_bytes;		/* Number of transmitted bytes */
-};
-
-/**
  * PM Client interface status
  */
 typedef enum {
@@ -665,22 +618,6 @@ typedef enum {
 	NSS_GMAC_EVENT_OTHER,
 	NSS_GMAC_EVENT_MAX
 } nss_gmac_event_t;
-
-/**
- * NSS 6rd tunnel event type
- */
-typedef enum {
-	NSS_TUN6RD_EVENT_STATS,
-	NSS_TUN6RD_EVENT_MAX
-} nss_tun6rd_event_t;
-
-/**
- * NSS ipip6 tunnel event type
- */
-typedef enum {
-	NSS_TUNIPIP6_EVENT_STATS,
-	NSS_TUNIPIP6_EVENT_MAX
-} nss_tunipip6_event_t;
 
 /**
  * NSS Shaping
@@ -1511,76 +1448,6 @@ extern nss_tx_status_t nss_tx_generic_if_buf(void *nss_ctx, uint32_t if_num, uin
 /**
  * Methods provided by NSS driver for use by 6rd tunnel
  */
-
-/**
- * Tun6rd interface create message
- */
-extern nss_tx_status_t nss_tx_tun6rd_if_create(void *nss_ctx, struct nss_tun6rd_cfg *tuncfg, uint32_t if_num);
-
-/**
- * Tun6rd interface destroy meesage
- */
-extern nss_tx_status_t nss_tx_tun6rd_if_destroy(void *nss_ctx, struct nss_tun6rd_cfg *tuncfg, uint32_t if_num);
-
-/**
- * Callback to receive tun6rd events
- */
-typedef void (*nss_tun6rd_if_event_callback_t)(void *if_ctx, nss_tun6rd_event_t ev_type, void *buf, uint32_t len);
-
-/**
- * Callback to receive 6rd callback
- */
-typedef void (*nss_tun6rd_callback_t)(void *ctx, void *os_buf);
-
-/**
- * Tunipip6 interface create message
- */
-extern nss_tx_status_t nss_tx_tunipip6_if_create(void *nss_ctx, struct nss_tunipip6_cfg *tuncfg, uint32_t if_num);
-
-/**
- * Tunipip6 interface destroy meesage
- */
-extern nss_tx_status_t nss_tx_tunipip6_if_destroy(void *nss_ctx, struct nss_tunipip6_cfg *tuncfg, uint32_t if_num);
-
-/**
- * Callback to receive tunipip6 events
- */
-typedef void (*nss_tunipip6_if_event_callback_t)(void *if_ctx, nss_tunipip6_event_t ev_type, void *buf, uint32_t len);
-
-/**
- * Callback to receive ipip6 callback
- */
-typedef void (*nss_tunipip6_callback_t)(void *ctx, void *os_buf);
-
-/**
- * @brief Register to send/receive 6rd tunnel messages to NSS
- *
- * @param tun6rd_callback Callback
- * @param ctx 6rd tunnel context
- *
- * @return void* NSS context
- */
-extern void *nss_register_tun6rd_if(uint32_t if_num, nss_tun6rd_callback_t tun6rd_callback, nss_tun6rd_if_event_callback_t event_callback, void *ctx);
-
-/**
- * @brief Unregister 6rd tunnel interface with NSS
- */
-extern void nss_unregister_tun6rd_if(uint32_t if_num);
-
-/**
- * @brief Register to send/receive ipip6 tunnel messages to NSS
- *
- * @param tunipip6_callback Callback
- * @param ctx ipip6 tunnel context
- *
- * @return void* NSS context
- */
-extern void *nss_register_tunipip6_if(uint32_t if_num, nss_tunipip6_callback_t tunipip6_callback, nss_tunipip6_if_event_callback_t event_callback, void *ctx);
-
-/**
- * @brief Unregister ipip6 tunnel interface with NSS
- */
-extern void nss_unregister_tunipip6_if(uint32_t if_num);
 
 /*
  * @brief NSS Frequency Change
