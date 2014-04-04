@@ -198,7 +198,7 @@ nss_tx_status_t nss_ipv4_tx(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_ms
 	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
 	if (status != NSS_CORE_STATUS_SUCCESS) {
 		dev_kfree_skb_any(nbuf);
-		nss_warning("%p: Unable to enqueue 'Destroy IPv4' rule\n", nss_ctx);
+		nss_warning("%p: unable to enqueue IPv4 msg\n", nss_ctx);
 		return NSS_TX_FAILURE;
 	}
 

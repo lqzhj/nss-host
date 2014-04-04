@@ -25,6 +25,7 @@
 
 /*
  * nss_lag_tx()
+ *	Transmit a LAG msg to the firmware.
  */
 nss_tx_status_t nss_lag_tx(struct nss_ctx_instance *nss_ctx, struct nss_lag_msg *msg)
 {
@@ -36,7 +37,7 @@ nss_tx_status_t nss_lag_tx(struct nss_ctx_instance *nss_ctx, struct nss_lag_msg 
 
 	NSS_VERIFY_CTX_MAGIC(nss_ctx);
 	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
-		nss_warning("%p: 'NSS LAG Tx' rule dropped as core not ready", nss_ctx);
+		nss_warning("%p: LAG msg dropped as core not ready", nss_ctx);
 		return NSS_TX_FAILURE_NOT_READY;
 	}
 
@@ -45,7 +46,7 @@ nss_tx_status_t nss_lag_tx(struct nss_ctx_instance *nss_ctx, struct nss_lag_msg 
 		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
 		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
 		spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_warning("%p: 'Send LAG Tx' msg dropped as command allocation failed", nss_ctx);
+		nss_warning("%p: LAG msg dropped as command allocation failed", nss_ctx);
 		return NSS_TX_FAILURE;
 	}
 
@@ -55,7 +56,8 @@ nss_tx_status_t nss_lag_tx(struct nss_ctx_instance *nss_ctx, struct nss_lag_msg 
 	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
 	if (status != NSS_CORE_STATUS_SUCCESS) {
 		dev_kfree_skb_any(nbuf);
-		nss_warning("%p: Unable to enqueue 'Send LAG Tx' message\n", nss_ctx);
+		nss_warning("%p: Unable to enqueue LAG msg\n", nss_ctx);
+		return NSS_TX_FAILURE;
 	}
 	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
 									NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);

@@ -19,7 +19,6 @@
  *	NSS LAG APIs
  */
 
-
 /*
  * NSS LAG messages
  */
@@ -33,6 +32,14 @@ enum nss_lag_metadata_types {
 enum nss_lag_state_change_ev {
 	NSS_LAG_RELEASE = 0,
 	NSS_LAG_ENSLAVE = 1,
+};
+
+/*
+ * LAG return values
+ */
+enum nss_lag_error_types {
+	NSS_LAG_ERROR_EINTERFACE = 1,
+	NSS_LAG_ERROR_EMSG = 2,
 };
 
 /*

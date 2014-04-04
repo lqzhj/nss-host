@@ -25,7 +25,7 @@
 
 /*
  * nss_send_lag_state()
- * Send the currnet LAG state of a physical interface.
+ *	Send the currnet LAG state of a physical interface.
  */
 nss_tx_status_t nss_send_lag_state(struct nss_ctx_instance *nss_ctx, struct net_device *slave)
 {
