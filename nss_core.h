@@ -452,7 +452,7 @@ struct nss_top_instance {
 	struct nss_ctx_instance nss[NSS_MAX_CORES];
 					/* NSS contexts */
 	/*
-	 * Network processing handler core ids (CORE0/CORE1)
+	 * Network processing handler core ids (CORE0/CORE1) for various interfaces
 	 */
 	uint8_t shaping_handler_id;
 	uint8_t ipv4_handler_id;
@@ -465,6 +465,9 @@ struct nss_top_instance {
 	uint8_t phys_if_handler_id[4];
 	uint8_t frequency_handler_id;
 
+	/*
+	 * Data/Message callbacks for various interfaces
+	 */
 	nss_ipv4_msg_callback_t ipv4_callback;
 					/* IPv4 sync/establish callback function */
 	nss_ipv6_callback_t ipv6_callback;
@@ -489,11 +492,25 @@ struct nss_top_instance {
 					/* Registrants for interface shaper bounce operations */
 	struct nss_shaper_bounce_registrant bounce_bridge_registrants[NSS_MAX_NET_INTERFACES];
 					/* Registrants for bridge shaper bounce operations */
+
+	/*
+	 * Interface contexts (non network device)
+	 */
+	void *ipv4_ctx;			/* IPv4 connection manager context */
+	void *ipv6_ctx;			/* IPv6 connection manager context */
 	void *crypto_ctx;		/* Crypto interface context */
-	struct net_device *if_ctx[NSS_MAX_NET_INTERFACES];
-					/* Phys/Virt interface context */
 	void *profiler_ctx[NSS_MAX_CORES];
 					/* Profiler interface context */
+
+	/*
+	 * Interface contexts (network device)
+	 */
+	struct net_device *if_ctx[NSS_MAX_NET_INTERFACES];
+					/* Phys/Virt interface context */
+
+	/*
+	 * Statistics for various interfaces
+	 */
 	uint64_t stats_ipv4[NSS_STATS_IPV4_MAX];
 					/* IPv4 statistics */
 	uint64_t stats_ipv6[NSS_STATS_IPV6_MAX];

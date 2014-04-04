@@ -105,7 +105,7 @@ static void nss_ipv4_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_ms
 	 */
 	if (nim->cm.response == NSS_CMM_RESPONSE_NOTIFY) {
 		ncm->cb = (uint32_t)nss_ctx->nss_top->ipv4_callback;
-		//ncm->app_data = nss_ctx->nss_top->ipv4_app_data;
+		ncm->app_data = (uint32_t)nss_ctx->nss_top->ipv4_ctx;
 	}
 
 	/*
@@ -228,7 +228,7 @@ struct nss_ctx_instance *nss_ipv4_notify_register(nss_ipv4_msg_callback_t cb, vo
 	 * TODO: If we use a per-context array, we would move the array into nss_ctx based.
 	 */
 	nss_top_main.ipv4_callback = cb;
-	// nss_top_main.ipv4_app_data = app_data;
+	nss_top_main.ipv4_ctx = app_data;
 	return &nss_top_main.nss[nss_top_main.ipv4_handler_id];
 }
 

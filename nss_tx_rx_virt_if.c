@@ -138,8 +138,8 @@ void *nss_create_virt_if(struct net_device *if_ctx)
 {
 	int32_t if_num, status;
 	struct sk_buff *nbuf;
-	struct nss_virtual_if_msg *nvim;
-	struct nss_virtual_if_create *nvic;
+	struct nss_virt_if_msg *nvim;
+	struct nss_virt_if_create *nvic;
 	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[nss_top_main.ipv4_handler_id];
 
 	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
@@ -187,11 +187,11 @@ void *nss_create_virt_if(struct net_device *if_ctx)
 		return NULL;
 	}
 
-	nvim = (struct nss_virtual_if_msg *)skb_put(nbuf, sizeof(struct nss_virtual_if_msg));
+	nvim = (struct nss_virt_if_msg *)skb_put(nbuf, sizeof(struct nss_virt_if_msg));
 	nvim->cm.interface = if_num;
 	nvim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nvim->cm.type = NSS_TX_METADATA_TYPE_VIRTUAL_INTERFACE_CREATE;
-	nvim->cm.len = sizeof(struct nss_virtual_if_create);
+	nvim->cm.type = NSS_VIRT_IF_TX_CREATE_MSG;
+	nvim->cm.len = sizeof(struct nss_virt_if_create);
 
 	nvic = &nvim->msg.create;
 	nvic->flags = 0;
@@ -226,8 +226,8 @@ nss_tx_status_t nss_destroy_virt_if(void *ctx)
 {
 	int32_t status, if_num;
 	struct sk_buff *nbuf;
-	struct nss_virtual_if_msg *nvim;
-	struct nss_virtual_if_destroy *nvid;
+	struct nss_virt_if_msg *nvim;
+	struct nss_virt_if_destroy *nvid;
 	struct net_device *dev;
 	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[nss_top_main.ipv4_handler_id];
 
@@ -264,11 +264,11 @@ nss_tx_status_t nss_destroy_virt_if(void *ctx)
 		return NSS_TX_FAILURE;
 	}
 
-	nvim = (struct nss_virtual_if_msg *)skb_put(nbuf, sizeof(struct nss_virtual_if_msg));
+	nvim = (struct nss_virt_if_msg *)skb_put(nbuf, sizeof(struct nss_virt_if_msg));
 	nvim->cm.interface = if_num;
 	nvim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nvim->cm.type = NSS_TX_METADATA_TYPE_VIRTUAL_INTERFACE_DESTROY;
-	nvim->cm.len = sizeof(struct nss_virtual_if_destroy);
+	nvim->cm.type = NSS_VIRT_IF_TX_DESTROY_MSG;
+	nvim->cm.len = sizeof(struct nss_virt_if_destroy);
 
 	nvid = &nvim->msg.destroy;
 

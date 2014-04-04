@@ -29,16 +29,16 @@
 /**
  * @brief Request/Response types
  */
-enum nss_virtual_if_metadata_types {
-	NSS_TX_METADATA_TYPE_VIRTUAL_INTERFACE_CREATE,
-	NSS_TX_METADATA_TYPE_VIRTUAL_INTERFACE_DESTROY,
-	NSS_METADATA_TYPE_VIRTUAL_INTERFACE_MAX,
+enum nss_virt_if_metadata_types {
+	NSS_VIRT_IF_TX_CREATE_MSG,
+	NSS_VIRT_IF_TX_DESTROY_MSG,
+	NSS_VIRT_IF_MAX_MSG_TYPES,
 };
 
 /**
  * The NSS virtual interface creation structure.
  */
-struct nss_virtual_if_create {
+struct nss_virt_if_create {
 	uint32_t flags;			/**> Interface flags */
 	uint8_t mac_addr[ETH_ALEN];	/**> MAC address */
 };
@@ -46,39 +46,38 @@ struct nss_virtual_if_create {
 /**
  * The NSS virtual interface destruction structure.
  */
-struct nss_virtual_if_destroy {
+struct nss_virt_if_destroy {
 	int32_t reserved;		/**> place holder */
 };
 
 /**
  * Message structure to send/receive virtual interface commands
  */
-struct nss_virtual_if_msg {
+struct nss_virt_if_msg {
 	struct nss_cmn_msg cm;				/**> Message Header */
 	union {
-		struct nss_virtual_if_create create;	/**> Message: create virt if rule */
-		struct nss_virtual_if_destroy destroy;	/**> Message: destroy virt if rule */
+		struct nss_virt_if_create create;	/**> Message: create virt if rule */
+		struct nss_virt_if_destroy destroy;	/**> Message: destroy virt if rule */
 	} msg;
 };
 
 /**
- * @brief Create virtual interface (VAPs)
+ * @brief Assign dynamic interface number to a virtual interface
  *
  * @param if_ctx Interface context
- *		(struct net_device * in Linux)
  *
  * @return int32_t Interface number
  */
-extern int32_t nss_virt_if_create(struct net_device *if_ctx);
+extern int32_t nss_virt_if_assign_if_num(struct net_device *if_ctx);
 
 /**
- * @brief Destroy virtual interface (VAPs)
+ * @brief Send message to virtual interface
  *
- * @param if_num Interface number (provided during registration)
+ * @param nvim Virtual interface message
  *
- * @return None
+ * @return command Tx status
  */
-extern nss_tx_status_t nss_virt_if_destroy(int32_t if_num);
+extern nss_tx_status_t nss_virt_if_tx_msg(struct nss_virt_if_msg *nvim);
 
 /**
  * @brief Forward Native wifi packet from virtual interface
@@ -86,9 +85,9 @@ extern nss_tx_status_t nss_virt_if_destroy(int32_t if_num);
  * @param if_num Interface number (provided during
  *      	 registeration)
  * @param skb HLOS data buffer (sk_buff in Linux)
- * @return nss_tx_status_t Tx status
+ * @return command Tx status
  */
-extern nss_tx_status_t nss_virt_if_nwifi_rxbuf(int32_t if_num, struct sk_buff *skb);
+extern nss_tx_status_t nss_virt_if_tx_nwifi_rxbuf(int32_t if_num, struct sk_buff *skb);
 
 /**
  * @brief Forward virtual interface packets
@@ -97,8 +96,8 @@ extern nss_tx_status_t nss_virt_if_nwifi_rxbuf(int32_t if_num, struct sk_buff *s
  *      	 registeration)
  * @param skb HLOS data buffer (sk_buff in Linux)
  *
- * @return nss_tx_status_t Tx status
+ * @return command Tx status
  */
-extern nss_tx_status_t nss_virt_if_eth_rxbuf(int32_t if_num, struct sk_buff *skb);
+extern nss_tx_status_t nss_virt_if_tx_eth_rxbuf(int32_t if_num, struct sk_buff *skb);
 
 #endif /* __NSS_VIRT_IF_H */

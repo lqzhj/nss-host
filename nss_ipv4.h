@@ -380,17 +380,11 @@ struct nss_ipv4_msg {
 	} msg;
 };
 
-struct nss_ctx_instance;
 typedef void (*nss_ipv4_msg_callback_t)(void *app_data, struct nss_ipv4_msg *msg);
 extern nss_tx_status_t nss_ipv4_tx(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_msg *msg);
 extern struct nss_ctx_instance *nss_ipv4_notify_register(nss_ipv4_msg_callback_t cb, void *app_data);
 extern void nss_ipv4_notify_unregister(void);
 extern struct nss_ctx_instance *nss_ipv4_get_mgr(void);
 extern void nss_ipv4_register_handler(void);
-
-/**
- * @brief Unregister for sending/receiving IPv4 messages
- */
-extern void nss_ipv4_notify_unregister(void);
 
 #endif /* __NSS_IPV4_H */
