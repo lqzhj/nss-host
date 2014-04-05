@@ -22,6 +22,8 @@
 #ifndef __NSS_VIRT_IF_H
 #define __NSS_VIRT_IF_H
 
+#include "nss_if.h"
+
 /*
  * Virtual IF/Redirect
  */
@@ -29,8 +31,21 @@
 /**
  * @brief Request/Response types
  */
-enum nss_virt_if_metadata_types {
-	NSS_VIRT_IF_TX_CREATE_MSG,
+enum nss_virt_if_msg_types {
+	NSS_VIRT_IF_OPEN = NSS_IF_OPEN,
+	NSS_VIRT_IF_CLOSE = NSS_IF_CLOSE,
+	NSS_VIRT_IF_LINK_STATE_NOTIFY = NSS_IF_LINK_STATE_NOTIFY,
+	NSS_VIRT_IF_MTU_CHANGE = NSS_IF_MTU_CHANGE,
+	NSS_VIRT_IF_MAC_ADDR_SET = NSS_IF_MAC_ADDR_SET,
+	NSS_VIRT_IF_RESERVED = NSS_IF_RESERVED,
+	NSS_VIRT_IF_STATS_SYNC = NSS_IF_STATS_SYNC,
+	NSS_VIRT_IF_ISHAPER_ASSIGN = NSS_IF_ISHAPER_ASSIGN,
+	NSS_VIRT_IF_BSHAPER_ASSIGN = NSS_IF_BSHAPER_ASSIGN,
+	NSS_VIRT_IF_ISHAPER_UNASSIGN = NSS_IF_ISHAPER_UNASSIGN,
+	NSS_VIRT_IF_BSHAPER_UNASSIGN = NSS_IF_BSHAPER_UNASSIGN,
+	NSS_VIRT_IF_ISHAPER_CONFIG = NSS_IF_ISHAPER_CONFIG,
+	NSS_VIRT_IF_BSHAPER_CONFIG = NSS_IF_BSHAPER_CONFIG,
+	NSS_VIRT_IF_TX_CREATE_MSG = NSS_IF_MAX_MSG_TYPES + 1,
 	NSS_VIRT_IF_TX_DESTROY_MSG,
 	NSS_VIRT_IF_MAX_MSG_TYPES,
 };
@@ -56,10 +71,13 @@ struct nss_virt_if_destroy {
 struct nss_virt_if_msg {
 	struct nss_cmn_msg cm;				/**> Message Header */
 	union {
+		union nss_if_msgs if_msgs;
 		struct nss_virt_if_create create;	/**> Message: create virt if rule */
 		struct nss_virt_if_destroy destroy;	/**> Message: destroy virt if rule */
 	} msg;
 };
+
+typedef void (*nss_virt_if_msg_callback_t)(void *app_data, struct nss_virt_if_msg *msg);
 
 /**
  * @brief Assign dynamic interface number to a virtual interface

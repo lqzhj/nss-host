@@ -454,6 +454,7 @@ struct nss_top_instance {
 	/*
 	 * Network processing handler core ids (CORE0/CORE1) for various interfaces
 	 */
+	uint8_t phys_if_handler_id[4];
 	uint8_t shaping_handler_id;
 	uint8_t ipv4_handler_id;
 	uint8_t ipv6_handler_id;
@@ -462,12 +463,15 @@ struct nss_top_instance {
 	uint8_t wlan_handler_id;
 	uint8_t tun6rd_handler_id;
 	uint8_t tunipip6_handler_id;
-	uint8_t phys_if_handler_id[4];
 	uint8_t frequency_handler_id;
 
 	/*
 	 * Data/Message callbacks for various interfaces
 	 */
+	nss_phys_if_rx_callback_t if_rx_callback[NSS_MAX_NET_INTERFACES];
+					/* Physical interface packet callback functions */
+	nss_phys_if_msg_callback_t phys_if_msg_callback[NSS_MAX_PHYSICAL_INTERFACES];
+					/* Physical interface event callback functions */
 	nss_ipv4_msg_callback_t ipv4_callback;
 					/* IPv4 sync/establish callback function */
 	nss_ipv6_callback_t ipv6_callback;
@@ -478,10 +482,6 @@ struct nss_top_instance {
 					/* crypto interface data callback function */
 	nss_crypto_sync_callback_t crypto_sync_callback;
 					/* crypto interface sync callback function */
-	nss_phys_if_rx_callback_t if_rx_callback[NSS_MAX_NET_INTERFACES];
-					/* Physical interface packet callback functions */
-	nss_phys_if_event_callback_t phys_if_event_callback[NSS_MAX_PHYSICAL_INTERFACES];
-					/* Physical interface event callback functions */
 	nss_profiler_callback_t profiler_callback[NSS_MAX_CORES];
 					/* Profiler interface callback function */
 	nss_tun6rd_msg_callback_t tun6rd_msg_callback;
@@ -494,6 +494,12 @@ struct nss_top_instance {
 					/* Registrants for bridge shaper bounce operations */
 
 	/*
+	 * Interface contexts (network device)
+	 */
+	struct net_device *if_ctx[NSS_MAX_NET_INTERFACES];
+					/* Phys/Virt interface context */
+
+	/*
 	 * Interface contexts (non network device)
 	 */
 	void *ipv4_ctx;			/* IPv4 connection manager context */
@@ -502,11 +508,7 @@ struct nss_top_instance {
 	void *profiler_ctx[NSS_MAX_CORES];
 					/* Profiler interface context */
 
-	/*
-	 * Interface contexts (network device)
-	 */
-	struct net_device *if_ctx[NSS_MAX_NET_INTERFACES];
-					/* Phys/Virt interface context */
+
 
 	/*
 	 * Statistics for various interfaces

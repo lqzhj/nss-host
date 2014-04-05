@@ -37,10 +37,13 @@
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
 #include "nss_cmn.h"
-#include "nss_virt_if.h"
 #include "nss_tun6rd.h"
 #include "nss_tunipip6.h"
 #include "nss_lag.h"
+#include "nss_ipv4.h"
+#include "nss_if.h"
+#include "nss_phys_if.h"
+#include "nss_virt_if.h"
 
 /*
  * Interface numbers are reserved in the
@@ -1151,6 +1154,7 @@ extern nss_tx_status_t nss_tx_crypto_if_buf(void *nss_ctx, void *buf, uint32_t b
 
 /**
  * Callback to receive GMAC events
+ * TODO: This callback is deprecated in the new APIs.
  */
 typedef void (*nss_phys_if_event_callback_t)(void *if_ctx, nss_gmac_event_t ev_type, void *buf, uint32_t len);
 
@@ -1554,8 +1558,7 @@ extern void nss_unregister_ipv4_mgr(void);
  * Once Everything is arragned correctly, will be placed at top
  */
 
-#include "nss_ipv4.h"
-#include "nss_if.h"
+
 
 /**@}*/
 #endif /** __NSS_API_IF_H */

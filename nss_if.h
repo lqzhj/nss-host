@@ -1,4 +1,20 @@
 /*
+ **************************************************************************
+ * Copyright (c) 2014, Qualcomm Atheros, Inc.
+ * Permission to use, copy, modify, and/or distribute this software for
+ * any purpose with or without fee is hereby granted, provided that the
+ * above copyright notice and this permission notice appear in all copies.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+ * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ **************************************************************************
+ */
+
+/*
  * NSS Interface Messages
  */
 
@@ -14,7 +30,7 @@ enum nss_if_message_types {
 	NSS_IF_LINK_STATE_NOTIFY,
 	NSS_IF_MTU_CHANGE,
 	NSS_IF_MAC_ADDR_SET,
-	NSS_IF_MSS_SET,
+	NSS_IF_RESERVED,
 	NSS_IF_STATS_SYNC,
 	NSS_IF_ISHAPER_ASSIGN,
 	NSS_IF_BSHAPER_ASSIGN,
@@ -22,7 +38,7 @@ enum nss_if_message_types {
 	NSS_IF_BSHAPER_UNASSIGN,
 	NSS_IF_ISHAPER_CONFIG,
 	NSS_IF_BSHAPER_CONFIG,
-	NSS_IF_MAX_MSG_TYPES
+	NSS_IF_MAX_MSG_TYPES = 9999,
 };
 
 enum nss_if_error_types {
@@ -65,13 +81,6 @@ struct nss_if_link_state_notify {
  */
 struct nss_if_mtu_change {
 	uint16_t min_buf_size;		/* Changed min buf size value */
-};
-
-/*
- * The MSS (Maximum Segment Size) structure.
- */
-struct nss_if_mss_set {
-	uint16_t mss;			/* MSS value */
 };
 
 /*
@@ -136,26 +145,13 @@ struct nss_if_stats_sync {
 /*
  * Message structure to send/receive phys i/f commands
  */
-struct nss_if_msg {
-	struct nss_cmn_msg cm;			/* Message Header */
-	union {
-		struct nss_if_link_state_notify link_state_notify;	/* Message: notify link status */
-		struct nss_if_open open;	/* Message: open interface */
-		struct nss_if_close close;	/* Message: close interface */
-		struct nss_if_mtu_change mtu_change;	/* Message: MTU change notification */
-		struct nss_if_mss_set mss_set;	/* Message: set MSS */
-		struct nss_if_mac_address_set mac_address_set;	/* Message: set MAC address for i/f */
-		struct nss_if_stats_sync stats_sync;	/* Message: statistics sync */
-	} msg;
+union nss_if_msgs {
+	struct nss_if_link_state_notify link_state_notify;	/* Message: notify link status */
+	struct nss_if_open open;	/* Message: open interface */
+	struct nss_if_close close;	/* Message: close interface */
+	struct nss_if_mtu_change mtu_change;	/* Message: MTU change notification */
+	struct nss_if_mac_address_set mac_address_set;	/* Message: set MAC address for i/f */
+	struct nss_if_stats_sync stats_sync;	/* Message: statistics sync */
 };
 
-
-struct nss_ctx_instance;
-
-typedef void (*nss_if_msg_callback_t)(void *app_data, struct nss_if_msg *msg);
-typedef void (*nss_if_data_callback_t)(void *app_data, struct sk_buff *nbuf);
-
-extern nss_tx_status_t nss_if_tx(struct nss_ctx_instance *nss_ctx, struct nss_if_msg *msg);
-extern void *nss_if_notify_register(uint32_t if_num, nss_if_msg_callback_t msg_cb, void *app_data);
-extern void *nss_if_data_register(uint32_t if_num, struct net_device *netdev, nss_if_data_callback_t cb, void *app_data);
 #endif /*  __NSS_IF_H */

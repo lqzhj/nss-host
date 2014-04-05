@@ -136,11 +136,10 @@ nss_tx_status_t nss_tx_virt_if_rx_nwifibuf(void *ctx, struct sk_buff *os_buf)
  */
 void *nss_create_virt_if(struct net_device *if_ctx)
 {
-	int32_t if_num, status;
-	struct sk_buff *nbuf;
-	struct nss_virt_if_msg *nvim;
+	struct nss_virt_if_msg nvim;
 	struct nss_virt_if_create *nvic;
 	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[nss_top_main.ipv4_handler_id];
+	int32_t if_num;
 
 	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
 		nss_warning("Interface could not be created as core not ready");
@@ -178,33 +177,14 @@ void *nss_create_virt_if(struct net_device *if_ctx)
 		return NULL;
 	}
 
-	nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
-	if (unlikely(!nbuf)) {
-		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
-		spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_warning("%p: Register virtual interface %p: command allocation failed", nss_ctx, if_ctx);
-		return NULL;
-	}
+	nss_cmn_msg_init(&nvim.cm, if_num, NSS_VIRT_IF_TX_CREATE_MSG,
+			sizeof(struct nss_virt_if_create), NULL, NULL);
 
-	nvim = (struct nss_virt_if_msg *)skb_put(nbuf, sizeof(struct nss_virt_if_msg));
-	nvim->cm.interface = if_num;
-	nvim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nvim->cm.type = NSS_VIRT_IF_TX_CREATE_MSG;
-	nvim->cm.len = sizeof(struct nss_virt_if_create);
-
-	nvic = &nvim->msg.create;
+	nvic = &nvim.msg.create;
 	nvic->flags = 0;
 	memcpy(nvic->mac_addr, if_ctx->dev_addr, ETH_HLEN);
-	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
-	if (status != NSS_CORE_STATUS_SUCCESS) {
-		dev_kfree_skb_any(nbuf);
-		nss_warning("%p: Unable to enqueue 'Register virtual interface' rule\n", nss_ctx);
-		return NULL;
-	}
 
-	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
-		NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
+	(void)nss_virt_if_tx_msg(&nvim);
 
 	/*
 	 * Hold a reference to the net_device
@@ -224,10 +204,8 @@ void *nss_create_virt_if(struct net_device *if_ctx)
  */
 nss_tx_status_t nss_destroy_virt_if(void *ctx)
 {
-	int32_t status, if_num;
-	struct sk_buff *nbuf;
-	struct nss_virt_if_msg *nvim;
-	struct nss_virt_if_destroy *nvid;
+	int32_t if_num;
+	struct nss_virt_if_msg nvim;
 	struct net_device *dev;
 	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[nss_top_main.ipv4_handler_id];
 
@@ -255,51 +233,15 @@ nss_tx_status_t nss_destroy_virt_if(void *ctx)
 	nss_info("%p:Unregister virtual interface %d (%p)", nss_ctx, if_num, dev);
 	dev_put(dev);
 
-	nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
-	if (unlikely(!nbuf)) {
-		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
-		spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_warning("%p: Unregister virtual interface %d: command allocation failed", nss_ctx, if_num);
-		return NSS_TX_FAILURE;
-	}
+	nss_cmn_msg_init(&nvim.cm, if_num, NSS_VIRT_IF_TX_DESTROY_MSG,
+			sizeof(struct nss_virt_if_destroy), NULL, NULL);
 
-	nvim = (struct nss_virt_if_msg *)skb_put(nbuf, sizeof(struct nss_virt_if_msg));
-	nvim->cm.interface = if_num;
-	nvim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nvim->cm.type = NSS_VIRT_IF_TX_DESTROY_MSG;
-	nvim->cm.len = sizeof(struct nss_virt_if_destroy);
-
-	nvid = &nvim->msg.destroy;
-
-	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
-	if (status != NSS_CORE_STATUS_SUCCESS) {
-		dev_kfree_skb_any(nbuf);
-		nss_warning("%p: Unable to enqueue 'unregister virtual interface' rule\n", nss_ctx);
-		return NSS_TX_FAILURE_QUEUE;
-	}
-
-	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
-		NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
-
-	return NSS_TX_SUCCESS;
+	return nss_virt_if_tx_msg(&nvim);
 }
 
-/*
- * nss_virt_if_get_interface_num()
- *	Get interface number for a virtual interface
- */
-int32_t nss_virt_if_get_interface_num(void *if_ctx)
-{
-	int32_t if_num = (int32_t)if_ctx;
-	nss_assert(NSS_IS_IF_TYPE(VIRTUAL, if_num));
-	return if_num;
-}
-
-
-EXPORT_SYMBOL(nss_create_virt_if);
-EXPORT_SYMBOL(nss_destroy_virt_if);
 EXPORT_SYMBOL(nss_tx_virt_if_rxbuf);
 EXPORT_SYMBOL(nss_tx_virt_if_rx_nwifibuf);
-EXPORT_SYMBOL(nss_virt_if_get_interface_num);
+EXPORT_SYMBOL(nss_create_virt_if);
+EXPORT_SYMBOL(nss_destroy_virt_if);
+
 

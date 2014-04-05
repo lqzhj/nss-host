@@ -30,58 +30,31 @@ extern void nss_rx_ipv4_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_c
  *	Update driver specific information from the messsage.
  */
 #if 0
-static void nss_ipv4_driver_update(void)
+static void nss_ipv4_driver_conn_update(struct nss_ipv4_msg *nim)
 {
 	/*
 	 * Update statistics maintained by NSS driver
 	 */
 	spin_lock_bh(&nss_top->stats_lock);
-
 	nss_top->stats_ipv4[NSS_STATS_IPV4_ACCELERATED_RX_PKTS] += nirs->flow_rx_packet_count + nirs->return_rx_packet_count;
 	nss_top->stats_ipv4[NSS_STATS_IPV4_ACCELERATED_RX_BYTES] += nirs->flow_rx_byte_count + nirs->return_rx_byte_count;
 	nss_top->stats_ipv4[NSS_STATS_IPV4_ACCELERATED_TX_PKTS] += nirs->flow_tx_packet_count + nirs->return_tx_packet_count;
 	nss_top->stats_ipv4[NSS_STATS_IPV4_ACCELERATED_TX_BYTES] += nirs->flow_tx_byte_count + nirs->return_tx_byte_count;
-
-	/*
-	 * Update the PPPoE interface stats, if there is any PPPoE session on the interfaces.
-	 */
-	if (nirs->flow_pppoe_session_id) {
-		pppoe_dev = ppp_session_to_netdev(nirs->flow_pppoe_session_id, (uint8_t *)nirs->flow_pppoe_remote_mac);
-		if (pppoe_dev) {
-			ppp_update_stats(pppoe_dev, nirs->flow_rx_packet_count, nirs->flow_rx_byte_count,
-					nirs->flow_tx_packet_count, nirs->flow_tx_byte_count);
-			dev_put(pppoe_dev);
-		}
-	}
-
-	if (nirs->return_pppoe_session_id) {
-		pppoe_dev = ppp_session_to_netdev(nirs->return_pppoe_session_id, (uint8_t *)nirs->return_pppoe_remote_mac);
-		if (pppoe_dev) {
-			ppp_update_stats(pppoe_dev, nirs->return_rx_packet_count, nirs->return_rx_byte_count,
-					nirs->return_tx_packet_count, nirs->return_tx_byte_count);
-			dev_put(pppoe_dev);
-		}
-	}
-
-	/*
-	 * TODO: Update per dev accelerated statistics
-	 */
 	spin_unlock_bh(&nss_top->stats_lock);
 }
 #endif
 
 /*
- * nss_ipv4_handler()
+ * nss_ipv4_rx_msg_handler()
  *	Handle NSS -> HLOS messages for IPv4 bridge/route
  */
-static void nss_ipv4_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm, __attribute__((unused))void *app_data)
+static void nss_ipv4_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm, __attribute__((unused))void *app_data)
 {
 	struct nss_ipv4_msg *nim = (struct nss_ipv4_msg *)ncm;
-
 /*
  * TODO: Turn back on for new APIs
  */
-//	nss_ipv4_msg_callback_t cb;
+//	nss_ipv4_rx_msg_callback_t cb;
 
 	BUG_ON(ncm->interface != NSS_IPV4_RX_INTERFACE);
 
@@ -97,7 +70,6 @@ static void nss_ipv4_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_ms
 		nss_warning("%p: tx request for another interface: %d", nss_ctx, ncm->interface);
 		return;
 	}
-
 
 	/*
 	 * Update the callback and app_data for NOTIFY messages, IPv4 sends all notify messages
@@ -126,10 +98,12 @@ static void nss_ipv4_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_ms
 		break;
 	}
 
+#if 0
 	/*
 	 * Local driver updates for ipv4.
 	 */
-#if 0
+	nss_ipv4_driver_update(nim);
+
 	/*
 	 * Do we have a callback?
 	 */
@@ -140,7 +114,7 @@ static void nss_ipv4_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_ms
 	/*
 	 * Callback
 	 */
-	cb = (nss_ipv4_msg_callback_t)ncm->cb;
+	cb = (nss_ipv4_rx_msg_callback_t)ncm->cb;
 	cb((void *)ncm->app_data, nim);
 #endif
 }
@@ -257,9 +231,9 @@ struct nss_ctx_instance *nss_ipv4_get_mgr(void)
  * nss_ipv4_register_handler()
  *	Register our handler to receive messages for this interface
  */
-void nss_ipv4_register_handler()
+void nss_ipv4_register_handler(void)
 {
-	if (nss_core_register_handler(NSS_IPV4_RX_INTERFACE, nss_ipv4_handler, NULL) != NSS_CORE_STATUS_SUCCESS) {
+	if (nss_core_register_handler(NSS_IPV4_RX_INTERFACE, nss_ipv4_rx_msg_handler, NULL) != NSS_CORE_STATUS_SUCCESS) {
 		nss_warning("IPv4 handler failed to register");
 	}
 }

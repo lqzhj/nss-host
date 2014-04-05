@@ -38,7 +38,7 @@ struct nss_rx_cb_list {
 	void *app_data;
 };
 
-struct nss_rx_cb_list nss_rx_interface_handlers[NSS_MAX_NET_INTERFACES];
+static struct nss_rx_cb_list nss_rx_interface_handlers[NSS_MAX_NET_INTERFACES];
 
 /*
  * nss_core_register_handler()

@@ -61,12 +61,13 @@ static inline void nss_verify_init_done(struct nss_ctx_instance *nss_ctx)
 /*
  * CB handlers for variour interfaces
  */
+extern void nss_phys_if_register_handler(uint32_t if_num);
+extern void nss_virt_if_register_handler(void);
 extern void nss_crypto_register_handler(void);
 extern void nss_ipsec_register_handler(void);
 extern void nss_ipv4_register_handler(void);
 extern void nss_ipv6_register_handler(void);
 extern void nss_n2h_register_handler(void);
-extern void nss_phys_if_register_handler(uint32_t if_num);
 extern void nss_tun6rd_register_handler(void);
 extern void nss_tunipip6_register_handler(void);
 extern void nss_pppoe_register_handler(void);
