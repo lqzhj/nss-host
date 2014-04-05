@@ -26,12 +26,16 @@ extern void nss_rx_metadata_ipv4_rule_establish(struct nss_ctx_instance *nss_ctx
 extern void nss_rx_ipv4_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_conn_sync *nirs);
 
 /*
- * nss_ipv4_driver_update()
+ * nss_ipv4_driver_conn_sync_update()
  *	Update driver specific information from the messsage.
+ *
+ * TODO: export for now but once we remove old APIs, this can be made statis.
  */
-#if 0
-static void nss_ipv4_driver_conn_update(struct nss_ipv4_msg *nim)
+void nss_ipv4_driver_conn_sync_update(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_conn_sync *nirs)
 {
+	struct nss_top_instance *nss_top = nss_ctx->nss_top;
+	struct net_device *pppoe_dev = NULL;
+
 	/*
 	 * Update statistics maintained by NSS driver
 	 */
@@ -41,8 +45,28 @@ static void nss_ipv4_driver_conn_update(struct nss_ipv4_msg *nim)
 	nss_top->stats_ipv4[NSS_STATS_IPV4_ACCELERATED_TX_PKTS] += nirs->flow_tx_packet_count + nirs->return_tx_packet_count;
 	nss_top->stats_ipv4[NSS_STATS_IPV4_ACCELERATED_TX_BYTES] += nirs->flow_tx_byte_count + nirs->return_tx_byte_count;
 	spin_unlock_bh(&nss_top->stats_lock);
+
+	/*
+	 * Update the PPPoE interface stats, if there is any PPPoE session on the interfaces.
+	 */
+	if (nirs->flow_pppoe_session_id) {
+		pppoe_dev = ppp_session_to_netdev(nirs->flow_pppoe_session_id, (uint8_t *)nirs->flow_pppoe_remote_mac);
+		if (pppoe_dev) {
+			ppp_update_stats(pppoe_dev, nirs->flow_rx_packet_count, nirs->flow_rx_byte_count,
+					nirs->flow_tx_packet_count, nirs->flow_tx_byte_count);
+			dev_put(pppoe_dev);
+		}
+	}
+
+	if (nirs->return_pppoe_session_id) {
+		pppoe_dev = ppp_session_to_netdev(nirs->return_pppoe_session_id, (uint8_t *)nirs->return_pppoe_remote_mac);
+		if (pppoe_dev) {
+			ppp_update_stats(pppoe_dev, nirs->return_rx_packet_count, nirs->return_rx_byte_count,
+					nirs->return_tx_packet_count, nirs->return_tx_byte_count);
+			dev_put(pppoe_dev);
+		}
+	}
 }
-#endif
 
 /*
  * nss_ipv4_rx_msg_handler()
@@ -51,10 +75,7 @@ static void nss_ipv4_driver_conn_update(struct nss_ipv4_msg *nim)
 static void nss_ipv4_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm, __attribute__((unused))void *app_data)
 {
 	struct nss_ipv4_msg *nim = (struct nss_ipv4_msg *)ncm;
-/*
- * TODO: Turn back on for new APIs
- */
-//	nss_ipv4_rx_msg_callback_t cb;
+	nss_ipv4_msg_callback_t cb;
 
 	BUG_ON(ncm->interface != NSS_IPV4_RX_INTERFACE);
 
@@ -72,15 +93,6 @@ static void nss_ipv4_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 	}
 
 	/*
-	 * Update the callback and app_data for NOTIFY messages, IPv4 sends all notify messages
-	 * to the same callback/app_data.
-	 */
-	if (nim->cm.response == NSS_CMM_RESPONSE_NOTIFY) {
-		ncm->cb = (uint32_t)nss_ctx->nss_top->ipv4_callback;
-		ncm->app_data = (uint32_t)nss_ctx->nss_top->ipv4_ctx;
-	}
-
-	/*
 	 * Log failures
 	 */
 	nss_core_log_msg_failures(nss_ctx, ncm);
@@ -94,15 +106,22 @@ static void nss_ipv4_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 		break;
 
 	case NSS_IPV4_RX_CONN_STATS_SYNC_MSG:
+		/*
+		 * Update driver statistics on connection sync.
+		 */
+		nss_ipv4_driver_conn_sync_update(nss_ctx, &nim->msg.conn_stats);
 		return nss_rx_ipv4_sync(nss_ctx, &nim->msg.conn_stats);
 		break;
 	}
 
-#if 0
 	/*
-	 * Local driver updates for ipv4.
+	 * Update the callback and app_data for NOTIFY messages, IPv4 sends all notify messages
+	 * to the same callback/app_data.
 	 */
-	nss_ipv4_driver_update(nim);
+	if (nim->cm.response == NSS_CMM_RESPONSE_NOTIFY) {
+		ncm->cb = (uint32_t)nss_ctx->nss_top->ipv4_callback;
+		ncm->app_data = (uint32_t)nss_ctx->nss_top->ipv4_ctx;
+	}
 
 	/*
 	 * Do we have a callback?
@@ -114,9 +133,8 @@ static void nss_ipv4_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 	/*
 	 * Callback
 	 */
-	cb = (nss_ipv4_rx_msg_callback_t)ncm->cb;
+	cb = (nss_ipv4_msg_callback_t)ncm->cb;
 	cb((void *)ncm->app_data, nim);
-#endif
 }
 
 /*

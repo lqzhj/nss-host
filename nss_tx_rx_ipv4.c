@@ -25,14 +25,22 @@
 #include "nss_ipv4.h"
 
 /*
+ * Depreceated callback maintained locally.
+ */
+nss_ipv4_callback_t nss_tx_rx_ipv4_event_callback = NULL;
+
+/*
+ * TOOD: When we remove this backward compat layer, clean up nss_ipv4.c
+ */
+extern void nss_ipv4_driver_conn_sync_update(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_conn_sync *nirs);
+
+/*
  * nss_rx_ipv4_sync()
- *	Deprecated - Handle the syncing of an IPv4 node.
+ *	Handle the syncing of an IPv4 node.
  */
 void nss_rx_ipv4_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_conn_sync *nirs)
 {
-	struct nss_top_instance *nss_top = nss_ctx->nss_top;
 	struct nss_ipv4_cb_params nicp;
-	struct net_device *pppoe_dev = NULL;
 
 	nicp.reason = NSS_IPV4_CB_REASON_SYNC;
 	nicp.params.sync.index = nirs->index;
@@ -100,49 +108,17 @@ void nss_rx_ipv4_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_conn_syn
 	/*
 	 * Call IPv4 manager callback function
 	 */
-	if (nss_ctx->nss_top->ipv4_callback) {
-		nss_ipv4_callback_t cb = (nss_ipv4_callback_t)nss_ctx->nss_top->ipv4_callback;
-		cb(&nicp);
-	} else {
+	if (!nss_tx_rx_ipv4_event_callback) {
 		nss_info("%p: IPV4 sync message received before connection manager has registered", nss_ctx);
+	} else {
+		nss_ipv4_callback_t cb = nss_tx_rx_ipv4_event_callback;
+		cb(&nicp);
 	}
 
 	/*
-	 * Update statistics maintained by NSS driver
+	 * Update local driver statistics
 	 */
-	spin_lock_bh(&nss_top->stats_lock);
-
-	nss_top->stats_ipv4[NSS_STATS_IPV4_ACCELERATED_RX_PKTS] += nirs->flow_rx_packet_count + nirs->return_rx_packet_count;
-	nss_top->stats_ipv4[NSS_STATS_IPV4_ACCELERATED_RX_BYTES] += nirs->flow_rx_byte_count + nirs->return_rx_byte_count;
-	nss_top->stats_ipv4[NSS_STATS_IPV4_ACCELERATED_TX_PKTS] += nirs->flow_tx_packet_count + nirs->return_tx_packet_count;
-	nss_top->stats_ipv4[NSS_STATS_IPV4_ACCELERATED_TX_BYTES] += nirs->flow_tx_byte_count + nirs->return_tx_byte_count;
-
-	/*
-	 * Update the PPPoE interface stats, if there is any PPPoE session on the interfaces.
-	 */
-	if (nirs->flow_pppoe_session_id) {
-		pppoe_dev = ppp_session_to_netdev(nirs->flow_pppoe_session_id, (uint8_t *)nirs->flow_pppoe_remote_mac);
-		if (pppoe_dev) {
-			ppp_update_stats(pppoe_dev, nirs->flow_rx_packet_count, nirs->flow_rx_byte_count,
-					nirs->flow_tx_packet_count, nirs->flow_tx_byte_count);
-			dev_put(pppoe_dev);
-		}
-	}
-
-	if (nirs->return_pppoe_session_id) {
-		pppoe_dev = ppp_session_to_netdev(nirs->return_pppoe_session_id, (uint8_t *)nirs->return_pppoe_remote_mac);
-		if (pppoe_dev) {
-			ppp_update_stats(pppoe_dev, nirs->return_rx_packet_count, nirs->return_rx_byte_count,
-					nirs->return_tx_packet_count, nirs->return_tx_byte_count);
-			dev_put(pppoe_dev);
-		}
-	}
-
-	/*
-	 * TODO: Update per dev accelerated statistics
-	 */
-
-	spin_unlock_bh(&nss_top->stats_lock);
+	nss_ipv4_driver_conn_sync_update(nss_ctx, nirs);
 }
 
 /*
@@ -161,11 +137,11 @@ void nss_rx_metadata_ipv4_rule_establish(struct nss_ctx_instance *nss_ctx, struc
 	/*
 	 * Call IPv4 manager callback function
 	 */
-	if (!nss_ctx->nss_top->ipv4_callback) {
+	if (!nss_tx_rx_ipv4_event_callback) {
 		nss_info("%p: IPV4 establish message received before connection manager has registered", nss_ctx);
 		return;
 	}
-	cb = (nss_ipv4_callback_t)nss_ctx->nss_top->ipv4_callback;
+	cb = nss_tx_rx_ipv4_event_callback;
 	cb(&nicp);
 	nss_info("%p: Establish message - Index: %d\n", nss_ctx, nire->index);
 }
@@ -430,7 +406,8 @@ nss_tx_status_t nss_tx_destroy_ipv4_rule(void *ctx, struct nss_ipv4_destroy *uni
  */
 void *nss_register_ipv4_mgr(nss_ipv4_callback_t event_callback)
 {
-	return (void *)nss_ipv4_notify_register((nss_ipv4_msg_callback_t)event_callback, NULL);
+	nss_tx_rx_ipv4_event_callback = event_callback;
+	return (void *)&nss_top_main.nss[nss_top_main.ipv4_handler_id];
 }
 
 /*
@@ -438,7 +415,7 @@ void *nss_register_ipv4_mgr(nss_ipv4_callback_t event_callback)
  */
 void nss_unregister_ipv4_mgr(void)
 {
-	nss_ipv4_notify_unregister();
+	nss_tx_rx_ipv4_event_callback = NULL;
 }
 
 /*
