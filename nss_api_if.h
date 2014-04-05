@@ -74,6 +74,14 @@
 #define NSS_SPECIAL_IF_START (NSS_TUNNEL_IF_START + NSS_MAX_TUNNEL_INTERFACES)
 
 /**
+ * Tunnel interface numbers
+ */
+#define NSS_IPSEC_ENCAP_IF_NUMBER (NSS_TUNNEL_IF_START + 0)
+#define NSS_IPSEC_DECAP_IF_NUMBER (NSS_TUNNEL_IF_START + 1)
+#define NSS_TUN6RD_INTERFACE (NSS_TUNNEL_IF_START + 2)
+#define NSS_TUNIPIP6_INTERFACE (NSS_TUNNEL_IF_START + 3)
+
+/**
  * Special interface numbers
  */
 #define NSS_N2H_INTERFACE (NSS_SPECIAL_IF_START + 0) /* Special IF for N2H */
@@ -86,14 +94,6 @@
 #define NSS_LAG1_INTERFACE_NUM (NSS_SPECIAL_IF_START + 11) /* Special IF number for LAG1 */
 #define NSS_C2C_TX_INTERFACE (NSS_SPECIAL_IF_START + 12) /* Virtual Interface Number for IPSec Tunnel */
 #define NSS_COREFREQ_INTERFACE (NSS_SPECIAL_IF_START + 19) /* Virtual Interface Number for Corefreq */
-
-/**
- * Tunnel interface numbers
- */
-#define NSS_IPSEC_ENCAP_IF_NUMBER (NSS_TUNNEL_IF_START + 0)
-#define NSS_IPSEC_DECAP_IF_NUMBER (NSS_TUNNEL_IF_START + 1)
-#define NSS_TUN6RD_INTERFACE (NSS_TUNNEL_IF_START + 2)
-#define NSS_TUNIPIP6_INTERFACE (NSS_TUNNEL_IF_START + 3)
 
 /**
  * This macro converts format for IPv6 address (from Linux to NSS)
