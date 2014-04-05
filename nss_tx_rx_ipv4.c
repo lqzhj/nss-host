@@ -114,11 +114,6 @@ void nss_rx_ipv4_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_conn_syn
 		nss_ipv4_callback_t cb = nss_tx_rx_ipv4_event_callback;
 		cb(&nicp);
 	}
-
-	/*
-	 * Update local driver statistics
-	 */
-	nss_ipv4_driver_conn_sync_update(nss_ctx, nirs);
 }
 
 /*
