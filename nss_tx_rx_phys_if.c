@@ -36,18 +36,69 @@ nss_phys_if_event_callback_t nss_tx_rx_phys_if_event_callback[NSS_MAX_PHYSICAL_I
  * nss_rx_metadata_gmac_stats_sync()
  *	Handle the syncing of GMAC stats.
  */
-void nss_rx_metadata_gmac_stats_sync(struct nss_ctx_instance *nss_ctx, struct nss_if_stats_sync *ngss, uint16_t interface)
+void nss_rx_metadata_gmac_stats_sync(struct nss_ctx_instance *nss_ctx,
+		struct nss_phys_if_stats *stats, uint16_t interface)
 {
 	void *ctx;
 	nss_phys_if_event_callback_t cb;
-	struct nss_top_instance *nss_top = nss_ctx->nss_top;
+	struct nss_gmac_sync gmac_stats;
 	uint32_t id = interface;
 
-	if (id >= NSS_MAX_PHYSICAL_INTERFACES) {
-		nss_warning("%p: Callback received for invalid interface %d", nss_ctx, id);
-		return;
-	}
+	/*
+	 * Since the new extended statistics are not the same as the older stats
+	 * parameter, we must do a field by field copy.
+	 */
+	gmac_stats.interface = interface;
+	gmac_stats.rx_bytes = stats->if_stats.rx_bytes;
+	gmac_stats.rx_packets = stats->if_stats.rx_packets;
+	gmac_stats.rx_errors = stats->estats.rx_errors;
+	gmac_stats.rx_receive_errors = stats->estats.rx_receive_errors;
+	gmac_stats.rx_overflow_errors = stats->estats.rx_overflow_errors;
+	gmac_stats.rx_descriptor_errors = stats->estats.rx_descriptor_errors;
+	gmac_stats.rx_watchdog_timeout_errors = stats->estats.rx_watchdog_timeout_errors;
+	gmac_stats.rx_crc_errors = stats->estats.rx_crc_errors;
+	gmac_stats.rx_late_collision_errors = stats->estats.rx_late_collision_errors;
+	gmac_stats.rx_dribble_bit_errors = stats->estats.rx_dribble_bit_errors;
+	gmac_stats.rx_length_errors = stats->estats.rx_length_errors;
+	gmac_stats.rx_ip_header_errors = stats->estats.rx_ip_header_errors;
+	gmac_stats.rx_ip_payload_errors = stats->estats.rx_ip_payload_errors;
+	gmac_stats.rx_no_buffer_errors = stats->estats.rx_no_buffer_errors;
+	gmac_stats.rx_transport_csum_bypassed = stats->estats.rx_transport_csum_bypassed;
+	gmac_stats.tx_bytes = stats->if_stats.tx_bytes;
+	gmac_stats.tx_packets = stats->if_stats.tx_packets;
+	gmac_stats.tx_collisions = stats->estats.tx_collisions;
+	gmac_stats.tx_errors = stats->estats.tx_errors;
+	gmac_stats.tx_jabber_timeout_errors = stats->estats.tx_jabber_timeout_errors;
+	gmac_stats.tx_frame_flushed_errors = stats->estats.tx_frame_flushed_errors;
+	gmac_stats.tx_loss_of_carrier_errors = stats->estats.tx_loss_of_carrier_errors;
+	gmac_stats.tx_no_carrier_errors = stats->estats.tx_no_carrier_errors;
+	gmac_stats.tx_late_collision_errors = stats->estats.tx_late_collision_errors;
+	gmac_stats.tx_excessive_collision_errors = stats->estats.tx_excessive_collision_errors;
+	gmac_stats.tx_excessive_deferral_errors = stats->estats.tx_excessive_deferral_errors;
+	gmac_stats.tx_underflow_errors = stats->estats.tx_underflow_errors;
+	gmac_stats.tx_ip_header_errors = stats->estats.tx_ip_header_errors;
+	gmac_stats.tx_ip_payload_errors = stats->estats.tx_ip_payload_errors;
+	gmac_stats.tx_dropped = stats->estats.tx_dropped;
+	gmac_stats.hw_errs[0] = stats->estats.hw_errs[0];
+	gmac_stats.hw_errs[1] = stats->estats.hw_errs[1];
+	gmac_stats.hw_errs[2] = stats->estats.hw_errs[2];
+	gmac_stats.hw_errs[3] = stats->estats.hw_errs[3];
+	gmac_stats.hw_errs[4] = stats->estats.hw_errs[4];
+	gmac_stats.hw_errs[5] = stats->estats.hw_errs[5];
+	gmac_stats.hw_errs[6] = stats->estats.hw_errs[6];
+	gmac_stats.hw_errs[7] = stats->estats.hw_errs[7];
+	gmac_stats.hw_errs[8] = stats->estats.hw_errs[8];
+	gmac_stats.hw_errs[9] = stats->estats.hw_errs[9];
+	gmac_stats.rx_missed = stats->estats.rx_missed;
+	gmac_stats.fifo_overflows = stats->estats.fifo_overflows;
+	gmac_stats.rx_scatter_errors = stats->estats.rx_scatter_errors;
+	gmac_stats.gmac_total_ticks = stats->estats.gmac_total_ticks;
+	gmac_stats.gmac_worst_case_ticks = stats->estats.gmac_worst_case_ticks;
+	gmac_stats.gmac_iterations = stats->estats.gmac_iterations;
 
+	/*
+	 * Get the locally registered callback.
+	 */
 	cb = nss_tx_rx_phys_if_event_callback[id];
 	ctx = nss_ctx->nss_top->if_ctx[id];
 
@@ -59,16 +110,9 @@ void nss_rx_metadata_gmac_stats_sync(struct nss_ctx_instance *nss_ctx, struct ns
 		return;
 	}
 
-	cb(ctx, NSS_GMAC_EVENT_STATS, (void *)ngss, sizeof(struct nss_if_stats_sync));
+	cb(ctx, NSS_GMAC_EVENT_STATS, (void *)&gmac_stats, sizeof(struct nss_gmac_sync));
 
-	spin_lock_bh(&nss_top->stats_lock);
-	nss_top->stats_gmac[id][NSS_STATS_GMAC_TOTAL_TICKS] += ngss->gmac_total_ticks;
-	if (unlikely(nss_top->stats_gmac[id][NSS_STATS_GMAC_WORST_CASE_TICKS] < ngss->gmac_worst_case_ticks)) {
-		nss_top->stats_gmac[id][NSS_STATS_GMAC_WORST_CASE_TICKS] = ngss->gmac_worst_case_ticks;
-	}
 
-	nss_top->stats_gmac[id][NSS_STATS_GMAC_ITERATIONS] += ngss->gmac_iterations;
-	spin_unlock_bh(&nss_top->stats_lock);
 }
 
 /*

@@ -53,6 +53,15 @@ static void nss_virt_if_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 	nss_core_log_msg_failures(nss_ctx, ncm);
 
 	/*
+	 * Update the callback and app_data for NOTIFY messages, IPv4 sends all notify messages
+	 * to the same callback/app_data.
+	 */
+	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
+		ncm->cb = (uint32_t)nss_ctx->nss_top->virt_if_msg_callback[ncm->interface];
+		ncm->app_data = (uint32_t)nss_ctx->nss_top->if_ctx[ncm->interface];
+	}
+
+	/*
 	 * Do we have a callback?
 	 */
 	if (!ncm->cb) {
@@ -290,6 +299,40 @@ int32_t nss_virt_if_assign_if_num(struct net_device *if_ctx)
 
 	nss_info("%p:Registered virtual interface %d: context %p", nss_ctx, if_num, if_ctx);
 	return if_num;
+}
+
+/*
+ * nss_virt_if_register()
+ */
+struct nss_ctx_instance *nss_virt_if_register(uint32_t if_num,
+				nss_virt_if_msg_callback_t msg_callback,
+				struct net_device *if_ctx)
+{
+	uint8_t id = nss_top_main.virt_if_handler_id[if_num];
+	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[id];
+
+	/*
+	 * TODO: the use of if_ctx as a net_dev and forcing this
+	 * for the caller is not how app_data is typically handled.
+	 * Re-think this.
+	 *
+	 * TODO: Where does the received buffers transmitted from
+	 * a managed ethernet device land if they are to be output
+	 * by the Wi-Fi driver?
+	 */
+	nss_top_main.if_ctx[if_num] = (void *)if_ctx;
+	nss_top_main.virt_if_msg_callback[if_num] = msg_callback;
+
+	return nss_ctx;
+}
+
+/*
+ * nss_virt_if_unregister()
+ */
+void nss_virt_if_unregister(uint32_t if_num)
+{
+	nss_top_main.if_ctx[if_num] = NULL;
+	nss_top_main.virt_if_msg_callback[if_num] = NULL;
 }
 
 /*

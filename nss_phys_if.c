@@ -25,20 +25,42 @@
 /*
  * TODO: Once we are moved to the new API, this function is deprecated.
  */
-extern void nss_rx_metadata_gmac_stats_sync(struct nss_ctx_instance *nss_ctx, struct nss_if_stats_sync *ngss, uint16_t interface);
+extern void nss_rx_metadata_gmac_stats_sync(struct nss_ctx_instance *nss_ctx,
+		struct nss_phys_if_stats *stats, uint16_t interface);
+
+
+/*
+ * nss_phys_if_update_driver_stats()
+ *	Snoop the extended message and update driver statistics.
+ */
+static void nss_phys_if_update_driver_stats(struct nss_ctx_instance *nss_ctx, uint32_t id, struct nss_phys_if_stats *stats)
+{
+	struct nss_top_instance *nss_top = nss_ctx->nss_top;
+	uint64_t *top_stats = &(nss_top->stats_gmac[id][0]);
+
+	spin_lock_bh(&nss_top->stats_lock);
+	top_stats[NSS_STATS_GMAC_TOTAL_TICKS] += stats->estats.gmac_total_ticks;
+	if (unlikely(top_stats[NSS_STATS_GMAC_WORST_CASE_TICKS] < stats->estats.gmac_worst_case_ticks)) {
+		top_stats[NSS_STATS_GMAC_WORST_CASE_TICKS] = stats->estats.gmac_worst_case_ticks;
+	}
+	top_stats[NSS_STATS_GMAC_ITERATIONS] += stats->estats.gmac_iterations;
+	spin_unlock_bh(&nss_top->stats_lock);
+}
 
 /*
  * nss_phys_if_msg_handler()
  *	Handle NSS -> HLOS messages for physical interface/gmacs
  */
-static void nss_phys_if_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm, __attribute__((unused))void *app_data)
+static void nss_phys_if_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm,
+		__attribute__((unused))void *app_data)
 {
 	struct nss_phys_if_msg *nim = (struct nss_phys_if_msg *)ncm;
+	nss_phys_if_msg_callback_t cb;
 
 	/*
 	 * Sanity check the message type
 	 */
-	if (ncm->type > NSS_IPV4_MAX_MSG_TYPES) {
+	if (ncm->type > NSS_PHYS_IF_MAX_MSG_TYPES) {
 		nss_warning("%p: message type out of range: %d", nss_ctx, ncm->type);
 		return;
 	}
@@ -59,15 +81,27 @@ static void nss_phys_if_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 	nss_core_log_msg_failures(nss_ctx, ncm);
 
 	/*
-	 * Handle deprecated messages.
+	 * Snoop messages for local driver and handle deprecated interfaces.
 	 */
 	switch (nim->cm.type) {
-	case NSS_PHYS_IF_STATS_SYNC:
-		return nss_rx_metadata_gmac_stats_sync(nss_ctx, &nim->msg.if_msg.stats_sync, ncm->interface);
+	case NSS_PHYS_IF_EXTENDED_STATS_SYNC:
+		/*
+		 * To create the old API gmac statistics, we use the new extended GMAC stats.
+		 */
+		nss_phys_if_update_driver_stats(nss_ctx, ncm->interface, &nim->msg.stats);
+		nss_rx_metadata_gmac_stats_sync(nss_ctx, &nim->msg.stats, ncm->interface);
 		break;
 	}
 
-#if 0
+	/*
+	 * Update the callback and app_data for NOTIFY messages, IPv4 sends all notify messages
+	 * to the same callback/app_data.
+	 */
+	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
+		ncm->cb = (uint32_t)nss_ctx->nss_top->phys_if_msg_callback[ncm->interface];
+		ncm->app_data = (uint32_t)nss_ctx->nss_top->if_ctx[ncm->interface];
+	}
+
 	/*
 	 * Do we have a callback?
 	 */
@@ -78,9 +112,8 @@ static void nss_phys_if_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 	/*
 	 * Callback
 	 */
-	cb = (nss_virt_if_rx_msg_callback_t)ncm->cb;
-	cb((void *)ncm->app_data, nvim);
-#endif
+	cb = (nss_phys_if_msg_callback_t)ncm->cb;
+	cb((void *)ncm->app_data, nim);
 }
 
 /*
@@ -122,10 +155,10 @@ nss_tx_status_t nss_phys_if_tx_buf(struct nss_ctx_instance *nss_ctx, struct sk_b
 /*
  * nss_phys_if_tx_msg()
  */
-nss_tx_status_t nss_phys_if_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_phys_if_msg *nvim)
+nss_tx_status_t nss_phys_if_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_phys_if_msg *nim)
 {
-	struct nss_cmn_msg *ncm = &nvim->cm;
-	struct nss_virt_if_msg *nvim2;
+	struct nss_cmn_msg *ncm = &nim->cm;
+	struct nss_phys_if_msg *nim2;
 	struct net_device *dev;
 	struct sk_buff *nbuf;
 	uint32_t if_num;
@@ -166,17 +199,17 @@ nss_tx_status_t nss_phys_if_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_
 		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
 		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
 		spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_warning("%p: virtual interface %p: command allocation failed", nss_ctx, dev);
+		nss_warning("%p: physical interface %p: command allocation failed", nss_ctx, dev);
 		return -1;
 	}
 
-	nvim2 = (struct nss_virt_if_msg *)skb_put(nbuf, sizeof(struct nss_virt_if_msg));
-	memcpy(nvim2, nvim, sizeof(struct nss_virt_if_msg));
+	nim2 = (struct nss_phys_if_msg *)skb_put(nbuf, sizeof(struct nss_phys_if_msg));
+	memcpy(nim2, nim, sizeof(struct nss_phys_if_msg));
 
 	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
 	if (status != NSS_CORE_STATUS_SUCCESS) {
 		dev_kfree_skb_any(nbuf);
-		nss_warning("%p: Unable to enqueue 'virtual interface' command\n", nss_ctx);
+		nss_warning("%p: Unable to enqueue 'physical interface' command\n", nss_ctx);
 		return -1;
 	}
 

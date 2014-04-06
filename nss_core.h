@@ -454,7 +454,8 @@ struct nss_top_instance {
 	/*
 	 * Network processing handler core ids (CORE0/CORE1) for various interfaces
 	 */
-	uint8_t phys_if_handler_id[4];
+	uint8_t phys_if_handler_id[NSS_MAX_PHYSICAL_INTERFACES];
+	uint8_t virt_if_handler_id[NSS_MAX_VIRTUAL_INTERFACES];
 	uint8_t shaping_handler_id;
 	uint8_t ipv4_handler_id;
 	uint8_t ipv6_handler_id;
@@ -472,6 +473,8 @@ struct nss_top_instance {
 					/* Physical interface packet callback functions */
 	nss_phys_if_msg_callback_t phys_if_msg_callback[NSS_MAX_PHYSICAL_INTERFACES];
 					/* Physical interface event callback functions */
+	nss_virt_if_msg_callback_t virt_if_msg_callback[NSS_MAX_VIRTUAL_INTERFACES];
+					/* Virtual interface messsage callback functions */
 	nss_ipv4_msg_callback_t ipv4_callback;
 					/* IPv4 sync/establish callback function */
 	nss_ipv6_callback_t ipv6_callback;

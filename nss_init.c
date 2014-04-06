@@ -133,7 +133,7 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 
 	nss_info("%p: NSS_DEV_ID %s \n", nss_ctx, dev_name(&nss_dev->dev));
 
-        /*
+	/*
 	 * F/W load from NSS Driver
 	 */
 	if (nss_dev->id == 0) {
@@ -340,6 +340,9 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 		nss_eth_rx_register_handler();
 		nss_n2h_register_handler();
 		nss_virt_if_register_handler();
+		for (i = 0; i < NSS_MAX_VIRTUAL_INTERFACES; i++) {
+			nss_top->virt_if_handler_id[i] = nss_dev->id;
+		}
 	}
 
 	if (npd->ipv6_enabled == NSS_FEATURE_ENABLED) {

@@ -110,7 +110,7 @@ static void nss_ipv4_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 		 * Update driver statistics on connection sync.
 		 */
 		nss_ipv4_driver_conn_sync_update(nss_ctx, &nim->msg.conn_stats);
-		return nss_rx_ipv4_sync(nss_ctx, &nim->msg.conn_stats);
+		nss_rx_ipv4_sync(nss_ctx, &nim->msg.conn_stats);
 		break;
 	}
 
