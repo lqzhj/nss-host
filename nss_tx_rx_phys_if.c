@@ -103,7 +103,7 @@ nss_tx_status_t nss_tx_phys_if_open(void *ctx, uint32_t tx_desc_ring, uint32_t r
 	nss_cmn_msg_init(&nim.cm, if_num, NSS_TX_METADATA_TYPE_INTERFACE_OPEN,
 			sizeof(struct nss_if_open), NULL, NULL);
 
-	nio = &nim.msg.open;
+	nio = &nim.msg.if_msg.open;
 	nio->tx_desc_ring = tx_desc_ring;
 	nio->rx_desc_ring = rx_desc_ring;
 	return nss_phys_if_tx_msg(nss_ctx, &nim);
@@ -143,7 +143,7 @@ nss_tx_status_t nss_tx_phys_if_link_state(void *ctx, uint32_t link_state, uint32
 	nss_cmn_msg_init(&nim.cm, if_num, NSS_TX_METADATA_TYPE_INTERFACE_LINK_STATE_NOTIFY,
 			sizeof(struct nss_if_link_state_notify), NULL, NULL);
 
-	nils = &nim.msg.link_state_notify;
+	nils = &nim.msg.if_msg.link_state_notify;
 	nils->state = link_state;
 	return nss_phys_if_tx_msg(nss_ctx, &nim);
 }
@@ -165,7 +165,7 @@ nss_tx_status_t nss_tx_phys_if_mac_addr(void *ctx, uint8_t *addr, uint32_t if_nu
 	nss_cmn_msg_init(&nim.cm, if_num, NSS_TX_METADATA_TYPE_INTERFACE_MAC_ADDR_SET,
 			sizeof(struct nss_if_mac_address_set), NULL, NULL);
 
-	nmas = &nim.msg.mac_address_set;
+	nmas = &nim.msg.if_msg.mac_address_set;
 	memcpy(nmas->mac_addr, addr, ETH_ALEN);
 	return nss_phys_if_tx_msg(nss_ctx, &nim);
 }
@@ -187,7 +187,7 @@ nss_tx_status_t nss_tx_phys_if_change_mtu(void *ctx, uint32_t mtu, uint32_t if_n
 	nss_cmn_msg_init(&nim.cm, if_num, NSS_TX_METADATA_TYPE_INTERFACE_MTU_CHANGE,
 			sizeof(struct nss_if_mtu_change), NULL, NULL);
 
-	nimc = &nim.msg.mtu_change;
+	nimc = &nim.msg.if_msg.mtu_change;
 	nimc->min_buf_size = (uint16_t)mtu + NSS_NBUF_ETH_EXTRA;
 
 	/*

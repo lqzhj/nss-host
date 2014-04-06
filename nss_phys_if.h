@@ -51,7 +51,9 @@ enum nss_phys_if_msg_types {
  */
 struct nss_phys_if_msg {
 	struct nss_cmn_msg cm;	/**> Message Header */
-	union nss_if_msgs msg;	/**> Interfaces messages */
+	union {
+		union nss_if_msgs if_msg;	/**> Interfaces messages */
+	} msg;
 };
 
 

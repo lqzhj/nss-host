@@ -63,7 +63,7 @@ static void nss_phys_if_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 	 */
 	switch (nim->cm.type) {
 	case NSS_PHYS_IF_STATS_SYNC:
-		return nss_rx_metadata_gmac_stats_sync(nss_ctx, &nim->msg.stats_sync, ncm->interface);
+		return nss_rx_metadata_gmac_stats_sync(nss_ctx, &nim->msg.if_msg.stats_sync, ncm->interface);
 		break;
 	}
 
