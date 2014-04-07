@@ -181,8 +181,8 @@ nss_tx_status_t nss_if_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_if_ms
  *	Primary registration for receiving data and msgs from an interface.
  */
 struct nss_ctx_instance *nss_if_register(uint32_t if_num,
-				nss_phys_if_rx_callback_t rx_callback,
-				nss_phys_if_msg_callback_t msg_callback,
+				nss_if_rx_callback_t rx_callback,
+				nss_if_msg_callback_t msg_callback,
 				struct net_device *if_ctx)
 {
 	return NULL;

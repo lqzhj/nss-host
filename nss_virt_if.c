@@ -369,9 +369,7 @@ void nss_virt_if_register_handler(void)
 
 	for (i = NSS_VIRTUAL_IF_START; i < end; i++) {
 		ret = nss_core_register_handler(i, nss_virt_if_msg_handler, NULL);
-		if (ret == NSS_CORE_STATUS_SUCCESS) {
-			nss_info("Message handler successfully registered for virtual interface : %d", i);
-		} else {
+		if (ret != NSS_CORE_STATUS_SUCCESS) {
 			nss_warning("Failed to register message handler for virtual interface : %d", i);
 		}
 	}

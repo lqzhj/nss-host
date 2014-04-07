@@ -292,9 +292,7 @@ void nss_phys_if_register_handler(uint32_t if_num)
 
 	ret = nss_core_register_handler(if_num, nss_phys_if_msg_handler, NULL);
 
-	if (ret == NSS_CORE_STATUS_SUCCESS) {
-		nss_info("Message handler registered for interface %d", if_num);
-	} else {
+	if (ret != NSS_CORE_STATUS_SUCCESS) {
 		nss_warning("Message handler FAILED to be registered for interface %d", if_num);
 	}
 }

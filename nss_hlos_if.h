@@ -74,8 +74,7 @@ struct nss_eth_rx_node_sync {
 struct nss_eth_rx_msg {
 	struct nss_cmn_msg cm;		/* Message Header */
 	union {
-		struct nss_eth_rx_node_sync node_sync;
-					/* Message: node statistics sync */
+		struct nss_eth_rx_node_sync node_sync;	/* Message: node statistics sync */
 	} msg;
 };
 
@@ -157,12 +156,12 @@ struct nss_pppoe_msg {
 	struct nss_cmn_msg cm;		/* Message Header */
 	union {
 		struct nss_pppoe_destroy destroy;	/* Message: destroy pppoe rule */
-		struct nss_pppoe_rule_status rule_status;
-							/* Message: rule status response */
+		struct nss_pppoe_rule_status rule_status;	/* Message: rule status response */
 		struct nss_pppoe_conn_sync conn_sync;	/* Message: exception statistics sync */
 		struct nss_pppoe_node_sync node_sync;	/* Message: node statistics sync */
 	} msg;
 };
+
 
 /*
  * C2C message structures
@@ -227,8 +226,7 @@ struct nss_n2h_stats_sync {
 struct nss_n2h_msg {
 	struct nss_cmn_msg cm;			/* Message Header */
 	union {
-		struct nss_n2h_stats_sync stats_sync;
-						/* Message: N2H stats sync */
+		struct nss_n2h_stats_sync stats_sync;	/* Message: N2H stats sync */
 	} msg;
 };
 
@@ -269,8 +267,7 @@ struct nss_crypto_sync {
 struct nss_crypto_msg {
 	struct nss_cmn_msg cm;			/* Message Header */
 	union {
-		struct nss_crypto_config config;
-						/* Message: configure crypto rule */
+		struct nss_crypto_config config;	/* Message: configure crypto rule */
 		struct nss_crypto_sync sync;	/* Message: Crypto stats sync */
 	} msg;
 };
@@ -407,257 +404,6 @@ struct nss_corefreq_msg {
 };
 
 /*
- * struct nss_tx_shaper_config_assign_shaper
- */
-struct nss_tx_shaper_config_assign_shaper {
-	uint32_t shaper_num;		/* Number of the shaper to assign an existing one, or 0 if any new one will do.*/
-};
-
-/*
- * struct nss_tx_shaper_config_unassign_shaper
- */
-struct nss_tx_shaper_config_unassign_shaper {
-	uint32_t shaper_num;		/* Number of the shaper to unassign. */
-};
-
-/*
- * enum nss_tx_shaper_node_types
- *	Types of shaper node we export to the HLOS
- */
-enum nss_tx_shaper_node_types {
-	NSS_TX_SHAPER_NODE_TYPE_CODEL = 1,		/* Matched SHAPER_NODE_TYPE_CODEL */
-	NSS_TX_SHAPER_NODE_TYPE_PRIO = 3,		/* Matches SHAPER_NODE_TYPE_PRIO */
-	NSS_TX_SHAPER_NODE_TYPE_FIFO = 4,		/* Matches SHAPER_NODE_TYPE_FIFO */
-	NSS_TX_SHAPER_NODE_TYPE_TBL = 5,		/* Matched SHAPER_NODE_TYPE_FIFO */
-};
-typedef enum nss_tx_shaper_node_types nss_tx_shaper_node_type_t;
-
-/*
- * struct nss_tx_shaper_config_alloc_shaper_node
- */
-struct nss_tx_shaper_config_alloc_shaper_node {
-	nss_tx_shaper_node_type_t node_type;
-					/* Type of shaper node */
-	uint32_t qos_tag;		/* The qos tag to give the new node */
-};
-
-/*
- * struct nss_tx_shaper_config_free_shaper_node
- */
-struct nss_tx_shaper_config_free_shaper_node {
-	uint32_t qos_tag;		/* The qos tag of the node to free */
-};
-
-/*
- * struct nss_tx_shaper_config_set_root_node
- */
-struct nss_tx_shaper_config_set_root_node {
-	uint32_t qos_tag;		/* The qos tag of the node that becomes root */
-};
-
-/*
- * struct nss_tx_shaper_config_set_default_node
- */
-struct nss_tx_shaper_config_set_default_node {
-	uint32_t qos_tag;		/* The qos tag of the node that becomes default */
-};
-
-/*
- * struct nss_tx_shaper_shaper_node_basic_stats_get
- *	Obtain basic stats for a shaper node
- */
-struct nss_tx_shaper_shaper_node_basic_stats_get {
-	uint32_t qos_tag;		/* The qos tag of the node from which to obtain basic stats */
-};
-
-/*
- * struct nss_tx_shaper_config_prio_attach
- */
-struct nss_tx_shaper_config_prio_attach {
-	uint32_t child_qos_tag;		/* Qos tag of shaper node to add as child */
-	uint32_t priority;		/* Priority of the child */
-};
-
-/*
- * struct nss_tx_shaper_config_prio_detach
- */
-struct nss_tx_shaper_config_prio_detach {
-	uint32_t priority;		/* Priority of the child to detach */
-};
-
-/*
- * struct nss_tx_shaper_config_codel_alg_param
- */
-struct nss_tx_shaper_config_codel_alg_param {
-	uint16_t interval;		/* Buffer time to smoothen state transition */
-	uint16_t target;		/* Acceptable delay associated with a queue */
-	uint16_t mtu;			/* MTU for the associated interface */
-};
-
-/*
- * struct nss_tx_shaper_configure_codel_param
- */
-struct nss_tx_shaper_config_codel_param {
-	int32_t qlen_max;					/* Max no. of packets that can be enqueued */
-	struct nss_tx_shaper_config_codel_alg_param cap;	/* Config structure for codel algorithm */
-};
-
-/*
- * struct nss_tx_shaper_config_limiter_alg_param
- */
-struct nss_tx_shaper_config_limiter_alg_param {
-	uint32_t rate;		/* Allowed Traffic rate measured in bytes per second */
-	uint32_t burst;		/* Max bytes that can be sent before the next token update */
-	uint32_t max_size;	/* The maximum size of packets (in bytes) supported */
-	bool short_circuit;	/* When set, limiter will stop limiting the sending rate */
-};
-
-/*
- * struct nss_tx_shaper_configure_tbl_attach
- */
-struct nss_tx_shaper_config_tbl_attach {
-	uint32_t child_qos_tag;		/* Qos tag of shaper node to add as child */
-};
-
-/*
- * struct nss_tx_shaper_configure_tbl_param
- */
-struct nss_tx_shaper_config_tbl_param {
-	uint32_t qlen_bytes;					/* Max size of queue in bytes */
-	struct nss_tx_shaper_config_limiter_alg_param lap_cir;	/* Config committed information rate */
-	struct nss_tx_shaper_config_limiter_alg_param lap_pir;	/* Config committed information rate */
-};
-
-/*
- * struct nss_tx_shaper_config_bf_attach
- */
-struct nss_tx_shaper_config_bf_attach {
-	uint32_t child_qos_tag;		/* Qos tag of the shaper node to add as child */
-};
-
-/*
- * struct nss_tx_shaper_config_bf_detach
- */
-struct nss_tx_shaper_config_bf_detach {
-	uint32_t child_qos_tag;		/* Qos tag of the shaper node to add as child */
-};
-
-/*
- * struct nss_tx_shaper_config_bf_group_attach
- */
-struct nss_tx_shaper_config_bf_group_attach {
-	uint32_t child_qos_tag;		/* Qos tag of shaper node to add as child */
-};
-
-/*
- * struct nss_tx_shaper_config_bf_group_param
- */
-struct nss_tx_shaper_config_bf_group_param {
-	uint32_t qlen_bytes;					/* Maximum size of queue in bytes */
-	uint32_t quantum;					/* Smallest increment value for the DRRs */
-	struct nss_tx_shaper_config_limiter_alg_param lap;	/* Config structure for codel algorithm */
-};
-
-/*
- * enum nss_shaper_config_fifo_drop_modes
- *	Different drop modes for fifo
- */
-enum nss_tx_shaper_config_fifo_drop_modes {
-	NSS_TX_SHAPER_FIFO_DROP_MODE_HEAD = 0,
-	NSS_TX_SHAPER_FIFO_DROP_MODE_TAIL,
-	NSS_TX_SHAPER_FIFO_DROP_MODES,			/* Must be last */
-};
-typedef enum nss_tx_shaper_config_fifo_drop_modes nss_tx_shaper_config_fifo_drop_mode_t;
-
-/*
- * struct pnode_h2c_shaper_config_fifo_param
- */
-struct nss_tx_shaper_config_fifo_param {
-	uint32_t limit;						/* Queue limit in packets */
-	nss_tx_shaper_config_fifo_drop_mode_t drop_mode;	/* FIFO drop mode when queue is full */
-};
-
-/*
- * struct nss_tx_shaper_node_config
- *	Configurartion messages for shaper nodes, which one depends on the type of configuration message
- *
- * This structure contains all of the different node configuration messages that can be sent, though not to all shaper node types.
- */
-struct nss_tx_shaper_node_config {
-	uint32_t qos_tag;		/* Identifier of the shaper node to which the config is targetted */
-	union {
-		struct nss_tx_shaper_config_prio_attach prio_attach;
-		struct nss_tx_shaper_config_prio_detach prio_detach;
-		struct nss_tx_shaper_config_codel_param codel_param;
-		struct nss_tx_shaper_config_tbl_attach tbl_attach;
-		struct nss_tx_shaper_config_tbl_param tbl_param;
-		struct nss_tx_shaper_config_bf_attach bf_attach;
-		struct nss_tx_shaper_config_bf_detach bf_detach;
-		struct nss_tx_shaper_config_bf_group_attach bf_group_attach;
-		struct nss_tx_shaper_config_bf_group_param bf_group_param;
-		struct nss_tx_shaper_config_fifo_param fifo_param;
-	} snc;
-};
-
-/*
- * enum nss_tx_shaper_config_types
- *	Types of shaper configuration messages
- */
-enum nss_tx_shaper_config_types {
-	NSS_TX_SHAPER_CONFIG_TYPE_ASSIGN_SHAPER,	/* Assign a shaper to an interface (B or I) */
-	NSS_TX_SHAPER_CONFIG_TYPE_ALLOC_SHAPER_NODE,	/* Allocate a type of shaper node and give it a qos tag */
-	NSS_TX_SHAPER_CONFIG_TYPE_FREE_SHAPER_NODE,	/* Free a shaper node */
-	NSS_TX_SHAPER_CONFIG_TYPE_PRIO_ATTACH,		/* Configure prio to attach a node with a given priority */
-	NSS_TX_SHAPER_CONFIG_TYPE_PRIO_DETACH,		/* Configure prio to detach a node at a given priority */
-	NSS_TX_SHAPER_CONFIG_TYPE_SET_DEFAULT,		/* Configure shaper to have a default node */
-	NSS_TX_SHAPER_CONFIG_TYPE_SET_ROOT,		/* Configure shaper to have a root node */
-	NSS_TX_SHAPER_CONFIG_TYPE_UNASSIGN_SHAPER,	/* Unassign a shaper from an interface (B or I) */
-	NSS_TX_SHAPER_CONFIG_TYPE_CODEL_CHANGE_PARAM,	/* Configure codel parameters */
-	NSS_TX_SHAPER_CONFIG_TYPE_TBL_ATTACH,		/* Configure tbl to attach a node as child */
-	NSS_TX_SHAPER_CONFIG_TYPE_TBL_DETACH,		/* Configure tbl to detach its child */
-	NSS_TX_SHAPER_CONFIG_TYPE_TBL_CHANGE_PARAM,	/* Configure tbl to tune its parameters */
-	NSS_TX_SHAPER_CONFIG_TYPE_BF_ATTACH,		/* Configure bf to attach a node to its round robin list */
-	NSS_TX_SHAPER_CONFIG_TYPE_BF_DETACH,		/* Configure bf to detach a node with a particular QoS tag */
-	NSS_TX_SHAPER_CONFIG_TYPE_BF_GROUP_ATTACH,	/* Configure bf group to attach a node as child */
-	NSS_TX_SHAPER_CONFIG_TYPE_BF_GROUP_DETACH,	/* Configure bf group to detach its child */
-	NSS_TX_SHAPER_CONFIG_TYPE_BF_GROUP_CHANGE_PARAM,
-							/* Configure bf group to tune its parameters */
-	NSS_TX_SHAPER_CONFIG_TYPE_FIFO_CHANGE_PARAM,	/* Configure fifo */
-	NSS_TX_SHAPER_CONFIG_TYPE_SHAPER_NODE_BASIC_STATS_GET,
-							/* Get shaper node basic stats */
-};
-typedef enum nss_tx_shaper_config_types nss_tx_shaper_config_type_t;
-
-/*
- * struct nss_tx_shaper_configure
- *	Shaper configuration messages
- */
-struct nss_tx_shaper_configure {
-	uint32_t opaque1;		/* DO NOT TOUCH, HLOS USE ONLY */
-	uint32_t reserved1;		/* DO NOT TOUCH */
-	uint32_t opaque2;		/* DO NOT TOUCH, HLOS USE ONLY */
-	uint32_t reserved2;		/* DO NOT TOUCH */
-	uint32_t opaque3;		/* DO NOT TOUCH, HLOS USE ONLY */
-	uint32_t reserved3;		/* DO NOT TOUCH */
-	uint32_t reserved4;		/* DO NOT TOUCH */
-	uint32_t reserved5;		/* DO NOT TOUCH */
-	uint32_t interface_num;		/* Interface (pnode) number for which the shaper config message is targetted */
-	bool i_shaper;			/* true when I shaper, false when B shaper */
-	nss_tx_shaper_config_type_t type;
-					/* Type of configuration message mt */
-	union {
-		struct nss_tx_shaper_config_assign_shaper assign_shaper;
-		struct nss_tx_shaper_config_assign_shaper unassign_shaper;
-		struct nss_tx_shaper_config_alloc_shaper_node alloc_shaper_node;
-		struct nss_tx_shaper_config_free_shaper_node free_shaper_node;
-		struct nss_tx_shaper_config_set_default_node set_default_node;
-		struct nss_tx_shaper_config_set_root_node set_root_node;
-		struct nss_tx_shaper_node_config shaper_node_config;
-		struct nss_tx_shaper_shaper_node_basic_stats_get shaper_node_basic_stats_get;
-	} mt;
-};
-
-/*
  * Types of TX metadata.
  */
 enum nss_tx_metadata_types {
@@ -674,7 +420,6 @@ struct nss_tx_metadata_object {
 	union {				/* Sub-message type */
 		struct nss_profiler_tx profiler_tx;
 		struct nss_freq_change freq_change;
-		struct nss_tx_shaper_configure shaper_configure;
 	} sub;
 };
 
@@ -686,121 +431,7 @@ struct nss_tx_metadata_object1 {
 	union {				/* Sub-message type */
 		struct nss_profiler_tx profiler_tx;
 		struct nss_freq_change freq_change;
-		struct nss_tx_shaper_configure shaper_configure;
 	} sub;
-};
-
-/*
- * enum nss_rx_shaper_response_types
- *	Types of shaper configuration response messages
- */
-enum nss_rx_shaper_response_types {
-	/*
-	 * Failure messages are < 0
-	 */
-	NSS_RX_SHAPER_RESPONSE_TYPE_NO_SHAPERS = -65536,		/* No shaper available for a shaper assign command to succeed */
-	NSS_RX_SHAPER_RESPONSE_TYPE_NO_SHAPER,				/* No shaper to which to issue a shaper or node configuration message */
-	NSS_RX_SHAPER_RESPONSE_TYPE_NO_SHAPER_NODE,			/* No shaper node to which to issue a configuration message */
-	NSS_RX_SHAPER_RESPONSE_TYPE_NO_SHAPER_NODES,			/* No available shaper nodes available of the type requested */
-	NSS_RX_SHAPER_RESPONSE_TYPE_OLD,				/* Request is old / environment changed by the time the request was processed */
-	NSS_RX_SHAPER_RESPONSE_TYPE_UNRECOGNISED,			/* Request is not recognised by the recipient */
-	NSS_RX_SHAPER_RESPONSE_TYPE_FIFO_QUEUE_LIMIT_INVALID,		/* Fifo queue Limit is bad */
-	NSS_RX_SHAPER_RESPONSE_TYPE_FIFO_DROP_MODE_INVALID,		/* Fifo Drop mode is bad */
-	NSS_RX_SHAPER_RESPONSE_TYPE_BAD_DEFAULT_CHOICE,			/* Node selected has no queue to enqueue to */
-	NSS_RX_SHAPER_RESPONSE_TYPE_DUPLICATE_QOS_TAG,			/* Duplicate QoS tag as another node */
-        NSS_RX_SHAPER_RESPONSE_TYPE_TBL_CIR_RATE_AND_BURST_REQUIRED,	/* CIR rate and burst are mandatory */
-	NSS_RX_SHAPER_RESPONSE_TYPE_TBL_CIR_BURST_LESS_THAN_MTU,	/* CIR burst size is smaller than MTU */
-	NSS_RX_SHAPER_RESPONSE_TYPE_TBL_PIR_BURST_LESS_THAN_MTU,	/* PIR burst size is smaller than MTU */
-	NSS_RX_SHAPER_RESPONSE_TYPE_TBL_PIR_BURST_REQUIRED,		/* PIR burst size must be provided if peakrate
-									 * limiting is required.
-									 */
-	NSS_RX_SHAPER_RESPONSE_TYPE_CODEL_ALL_PARAMS_REQUIRED,		/* Codel requires non-zero value for target,
-									 * interval and limit.
-									 */
-	/*
-	 * Success messages are >= 0
-	 */
-	NSS_RX_SHAPER_RESPONSE_TYPE_SHAPER_ASSIGN_SUCCESS = 0,		/* Successfully assigned a shaper */
-	NSS_RX_SHAPER_RESPONSE_TYPE_SHAPER_NODE_ALLOC_SUCCESS,		/* Alloc shaper node request successful */
-	NSS_RX_SHAPER_RESPONSE_TYPE_PRIO_ATTACH_SUCCESS,		/* Prio attach success */
-	NSS_RX_SHAPER_RESPONSE_TYPE_PRIO_DETACH_SUCCESS,		/* Prio detach success */
-	NSS_RX_SHAPER_RESPONSE_TYPE_CODEL_CHANGE_PARAM_SUCCESS,		/* Codel parameter configuration success */
-	NSS_RX_SHAPER_RESPONSE_TYPE_TBL_ATTACH_SUCCESS,			/* Tbl attach success */
-	NSS_RX_SHAPER_RESPONSE_TYPE_TBL_DETACH_SUCCESS,			/* Tbl detach success */
-	NSS_RX_SHAPER_RESPONSE_TYPE_TBL_CHANGE_PARAM_SUCCESS,		/* Tbl parameter configuration success */
-	NSS_RX_SHAPER_RESPONSE_TYPE_BF_ATTACH_SUCCESS,			/* Bigfoot attach success */
-	NSS_RX_SHAPER_RESPONSE_TYPE_BF_DETACH_SUCCESS,			/* Bigfoot detach success */
-	NSS_RX_SHAPER_RESPONSE_TYPE_BF_GROUP_ATTACH_SUCCESS,		/* Bigfoot group attach success */
-	NSS_RX_SHAPER_RESPONSE_TYPE_BF_GROUP_DETACH_SUCCESS,		/* Bigfoot group detach success */
-	NSS_RX_SHAPER_RESPONSE_TYPE_BF_GROUP_CHANGE_PARAM_SUCCESS,	/* Bigfoot group parameter configuration success */
-	NSS_RX_SHAPER_RESPONSE_TYPE_SHAPER_SET_ROOT_SUCCESS,		/* Setting of root successful */
-	NSS_RX_SHAPER_RESPONSE_TYPE_SHAPER_SET_DEFAULT_SUCCESS,		/* Setting of default successful */
-	NSS_RX_SHAPER_RESPONSE_TYPE_SHAPER_NODE_FREE_SUCCESS,		/* Free shaper node request successful */
-	NSS_RX_SHAPER_RESPONSE_TYPE_SHAPER_UNASSIGN_SUCCESS,		/* Successfully unassigned a shaper */
-	NSS_RX_SHAPER_RESPONSE_TYPE_FIFO_CHANGE_PARAM_SUCCESS,		/* Fifo limit set success */
-	NSS_RX_SHAPER_RESPONSE_TYPE_SHAPER_NODE_BASIC_STATS_GET_SUCCESS,
-									/* Success response for a shaper node basic stats get request */
-};
-typedef enum nss_rx_shaper_response_types nss_rx_shaper_response_type_t;
-
-/*
- * struct nss_rx_shaper_response_shaper_assign_success
- *	Shaper successfully assigned
- */
-struct nss_rx_shaper_response_shaper_assign_success {
-	uint32_t shaper_num;		/* Number of the shaper assigned */
-};
-
-/*
- * struct nss_rx_shaper_node_basic_statistics_delta
- *	Stastics that are sent as deltas
- */
-struct nss_rx_shaper_node_basic_statistics_delta {
-	uint32_t enqueued_bytes;			/* Bytes enqueued successfully */
-	uint32_t enqueued_packets;			/* Packets enqueued successfully */
-	uint32_t enqueued_bytes_dropped;		/* Bytes dropped during an enqueue operation due to node limits */
-	uint32_t enqueued_packets_dropped;		/* Packets dropped during an enqueue operation due to node limits */
-	uint32_t dequeued_bytes;			/* Bytes dequeued successfully from a shaper node */
-	uint32_t dequeued_packets;			/* Packets dequeued successfully from a shaper node */
-	uint32_t dequeued_bytes_dropped;		/* Bytes dropped by this node during dequeue (some nodes drop packets during dequeue rather than enqueue) */
-	uint32_t dequeued_packets_dropped;		/* Packets dropped by this node during dequeue (some nodes drop packets during dequeue rather than enqueue) */
-	uint32_t queue_overrun;				/* Number of times any queue limit has been overrun / perhaps leading to a drop of packet(s) */
-};
-
-/*
- * struct nss_rx_shaper_response_shaper_node_basic_stats_get_success
- *	Response to a request for basic stats of a shaper node
- */
-struct nss_rx_shaper_response_shaper_node_basic_stats_get_success {
-	uint32_t qlen_bytes;				/* Total size of all packets in queue */
-	uint32_t qlen_packets;				/* Number of packets waiting in queue */
-	uint32_t packet_latency_peak_msec_dequeued;	/* Maximum milliseconds a packet was in this shaper node before being dequeued */
-	uint32_t packet_latency_minimum_msec_dequeued;	/* Minimum milliseconds a packet was in this shaper node before being dequeued */
-	uint32_t packet_latency_peak_msec_dropped;	/* Maximum milliseconds a packet was in this shaper node before being dropped */
-	uint32_t packet_latency_minimum_msec_dropped;	/* Minimum milliseconds a packet was in this shaper node before being dropped */
-	struct nss_rx_shaper_node_basic_statistics_delta delta;
-							/* Statistics that are sent as deltas */
-};
-
-/*
- * union nss_rx_shaper_responses
- *	Types of response message
- */
-union nss_rx_shaper_responses {
-	struct nss_rx_shaper_response_shaper_assign_success shaper_assign_success;
-	struct nss_rx_shaper_response_shaper_node_basic_stats_get_success shaper_node_basic_stats_get_success;
-};
-
-/*
- * struct nss_rx_shaper_response
- *	Shaper configuration response messages
- */
-struct nss_rx_shaper_response {
-	struct nss_tx_shaper_configure request;
-					/* Original request to which this response relates */
-	nss_rx_shaper_response_type_t type;
-					/* The response type (rt) being issued to the request */
-	union nss_rx_shaper_responses rt;
 };
 
 /*
@@ -818,7 +449,6 @@ struct nss_rx_metadata_object {
 	enum nss_rx_metadata_types type;	/* Object type */
 	union {				/* Sub-message type */
 		struct nss_profiler_sync profiler_sync;
-		struct nss_rx_shaper_response shaper_response;
 	} sub;
 };
 
@@ -866,7 +496,7 @@ struct h2n_descriptor {
 				/* Reserved for future use */
 	uint16_t payload_len;
 				/* Length of the active payload of the buffer (in bytes) */
-	uint16_t mss;		/* MSS to be used with TSO/UFO */
+	uint16_t mss;	/* MSS to be used with TSO/UFO */
 	uint16_t payload_offs;
 				/* Offset from the start of the buffer to the start of the payload (in bytes) */
 	uint16_t interface_num;

@@ -100,7 +100,7 @@ enum nss_phys_if_msg_types {
 };
 
 /**
- * Message structure to send/receive virtual interface commands
+ * Message structure to send/receive physical interface commands
  *
  * NOTE: Do not adjust the location of if_msg relative to new
  * message types as it represents the base messages for all
@@ -164,7 +164,7 @@ extern struct nss_ctx_instance *nss_phys_if_register(uint32_t if_num,
 extern nss_tx_status_t nss_phys_if_tx_buf(struct nss_ctx_instance *nss_ctx, struct sk_buff *os_buf, uint32_t if_num);
 
 /**
- * @brief Assign dynamic interface number to a virtual interface
+ * @brief Assign dynamic interface number to a physical interface
  *
  * @param if_ctx Interface context
  *
@@ -173,16 +173,16 @@ extern nss_tx_status_t nss_phys_if_tx_buf(struct nss_ctx_instance *nss_ctx, stru
 extern int32_t nss_phys_if_assign_if_num(struct net_device *if_ctx);
 
 /**
- * @brief Send message to virtual interface
+ * @brief Send message to physical interface
  *
- * @param nvim Virtual interface message
+ * @param nim Physical interface message
  *
  * @return command Tx status
  */
-nss_tx_status_t nss_phys_if_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_phys_if_msg *nvim);
+nss_tx_status_t nss_phys_if_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_phys_if_msg *nim);
 
 /**
- * @brief Forward Native wifi packet from virtual interface
+ * @brief Forward Native wifi packet from physical interface
  *	-Expects packet with qca-nwifi format
  * @param if_num Interface number (provided during
  *	 registeration)
@@ -192,7 +192,7 @@ nss_tx_status_t nss_phys_if_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_
 extern nss_tx_status_t nss_phys_if_tx_nwifi_rxbuf(int32_t if_num, struct sk_buff *skb);
 
 /**
- * @brief Forward virtual interface packets
+ * @brief Forward physical interface packets
  *
  * @param if_num Interface number (provided during
  *	 registeration)
