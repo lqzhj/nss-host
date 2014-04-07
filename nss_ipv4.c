@@ -260,4 +260,3 @@ EXPORT_SYMBOL(nss_ipv4_tx);
 EXPORT_SYMBOL(nss_ipv4_notify_register);
 EXPORT_SYMBOL(nss_ipv4_notify_unregister);
 EXPORT_SYMBOL(nss_ipv4_get_mgr);
-EXPORT_SYMBOL(nss_ipv4_register_handler);
