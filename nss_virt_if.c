@@ -37,13 +37,18 @@ static void nss_virt_if_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 	/*
 	 * Sanity check the message type
 	 */
-	if (ncm->type > NSS_IPV4_MAX_MSG_TYPES) {
+	if (ncm->type > NSS_VIRT_IF_MAX_MSG_TYPES) {
 		nss_warning("%p: message type out of range: %d", nss_ctx, ncm->type);
 		return;
 	}
 
+	if (ncm->interface > NSS_MAX_VIRTUAL_INTERFACES) {
+		nss_warning("%p: response for another interface: %d", nss_ctx, ncm->interface);
+		return;
+	}
+
 	if (ncm->len > sizeof(struct nss_virt_if_msg)) {
-		nss_warning("%p: tx request for another interface: %d", nss_ctx, ncm->interface);
+		nss_warning("%p: message length too big: %d", nss_ctx, ncm->len);
 		return;
 	}
 
@@ -199,7 +204,8 @@ nss_tx_status_t nss_virt_if_tx_msg(struct nss_virt_if_msg *nvim)
 	}
 
 	if (ncm->len > sizeof(struct nss_virt_if_msg)) {
-		nss_warning("%p: invalid length: %d", nss_ctx, ncm->len);
+		nss_warning("%p: invalid length: %d. Length of virt msg is %d",
+				nss_ctx, ncm->len, sizeof(struct nss_virt_if_msg));
 		return NSS_TX_FAILURE;
 	}
 
@@ -352,9 +358,16 @@ int32_t nss_virt_if_get_interface_num(void *if_ctx)
 void nss_virt_if_register_handler(void)
 {
 	int i;
+	uint32_t ret;
 	int end = NSS_VIRTUAL_IF_START + NSS_MAX_VIRTUAL_INTERFACES;
+
 	for (i = NSS_VIRTUAL_IF_START; i < end; i++) {
-		nss_core_register_handler(i, nss_virt_if_msg_handler, NULL);
+		ret = nss_core_register_handler(i, nss_virt_if_msg_handler, NULL);
+		if (ret == NSS_CORE_STATUS_SUCCESS) {
+			nss_info("Message handler successfully registered for virtual interface : %d", i);
+		} else {
+			nss_warning("Failed to register message handler for virtual interface : %d", i);
+		}
 	}
 }
 
