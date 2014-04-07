@@ -30,8 +30,6 @@
  * The NSS per-GMAC statistics sync structure.
  */
 struct nss_phys_if_estats {
-	uint32_t rx_bytes;		/* Number of RX bytes */
-	uint32_t rx_packets;		/* Number of RX packets */
 	uint32_t rx_errors;		/* Number of RX errors */
 	uint32_t rx_receive_errors;	/* Number of RX receive errors */
 	uint32_t rx_overflow_errors;	/* Number of RX overflow errors */
@@ -48,8 +46,6 @@ struct nss_phys_if_estats {
 	uint32_t rx_no_buffer_errors;	/* Number of RX no-buffer errors */
 	uint32_t rx_transport_csum_bypassed;
 					/* Number of RX packets where the transport checksum was bypassed */
-	uint32_t tx_bytes;		/* Number of TX bytes */
-	uint32_t tx_packets;		/* Number of TX packets */
 	uint32_t tx_collisions;		/* Number of TX collisions */
 	uint32_t tx_errors;		/* Number of TX errors */
 	uint32_t tx_jabber_timeout_errors;
