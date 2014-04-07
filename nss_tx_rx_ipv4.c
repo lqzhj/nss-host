@@ -151,9 +151,10 @@ nss_tx_status_t nss_tx_create_ipv4_rule(void *ctx, struct nss_ipv4_create *unic)
 	struct nss_ipv4_msg nim;
 	struct nss_ipv4_rule_create_msg *nircm;
 
-	nss_info("%p: Create IPv4: %pI4:%d (%pI4:%d), %pI4:%d (%pI4:%d), p: %d\n", nss_ctx,
-		&unic->src_ip, unic->src_port, &unic->src_ip_xlate, unic->src_port_xlate,
-		&unic->dest_ip, unic->dest_port, &unic->dest_ip_xlate, unic->dest_port_xlate, unic->protocol);
+	nss_info("%p: Create IPv4: %pI4h:%d (%pI4h:%d), %pI4h:%d (%pI4h:%d), p: %d\n", nss_ctx,
+		&unic->src_ip, ntohs(unic->src_port), &unic->src_ip_xlate, ntohs(unic->src_port_xlate),
+		&unic->dest_ip, ntohs(unic->dest_port), &unic->dest_ip_xlate, ntohs(unic->dest_port_xlate),
+		unic->protocol);
 
 	nss_cmn_msg_init(&nim.cm, NSS_IPV4_RX_INTERFACE, NSS_IPV4_TX_CREATE_RULE_MSG, 
 			sizeof(struct nss_ipv4_rule_create_msg), NULL, NULL);
@@ -250,9 +251,9 @@ nss_tx_status_t nss_tx_create_ipv4_rule1(void *ctx, struct nss_ipv4_create *unic
 	struct nss_ipv4_msg nim;
 	struct nss_ipv4_rule_create_msg *nircm;
 
-	nss_info("%p: Create IPv4: %pI4:%d (%pI4:%d), %pI4:%d (%pI4:%d), p: %d\n", nss_ctx,
-		&unic->src_ip, unic->src_port, &unic->src_ip_xlate, unic->src_port_xlate,
-		&unic->dest_ip, unic->dest_port, &unic->dest_ip_xlate, unic->dest_port_xlate, unic->protocol);
+	nss_info("%p: Create IPv4: %pI4h:%d (%pI4h:%d), %pI4h:%d (%pI4h:%d), p: %d\n", nss_ctx,
+		&unic->src_ip, ntohs(unic->src_port), &unic->src_ip_xlate, ntohs(unic->src_port_xlate),
+		&unic->dest_ip, ntohs(unic->dest_port), &unic->dest_ip_xlate, ntohs(unic->dest_port_xlate), unic->protocol);
 
 	nss_cmn_msg_init(&nim.cm, NSS_IPV4_RX_INTERFACE, NSS_IPV4_TX_CREATE_RULE_MSG,
 			sizeof(struct nss_ipv4_rule_create_msg), NULL, NULL);
@@ -374,8 +375,8 @@ nss_tx_status_t nss_tx_destroy_ipv4_rule(void *ctx, struct nss_ipv4_destroy *uni
 	struct nss_ipv4_msg nim;
 	struct nss_ipv4_rule_destroy_msg *nirdm;
 
-	nss_info("%p: Destroy IPv4: %pI4:%d, %pI4:%d, p: %d\n", nss_ctx,
-		&unid->src_ip, unid->src_port, &unid->dest_ip, unid->dest_port, unid->protocol);
+	nss_info("%p: Destroy IPv4: %pI4h:%d, %pI4h:%d, p: %d\n", nss_ctx,
+		&unid->src_ip, ntohs(unid->src_port), &unid->dest_ip, ntohs(unid->dest_port), unid->protocol);
 
 	nss_cmn_msg_init(&nim.cm, NSS_IPV4_RX_INTERFACE, NSS_IPV4_TX_DESTROY_RULE_MSG,
 			sizeof(struct nss_ipv4_rule_destroy_msg), NULL, NULL);
