@@ -340,6 +340,7 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 		nss_eth_rx_register_handler();
 		nss_n2h_register_handler();
 		nss_virt_if_register_handler();
+		nss_lag_register_handler();
 		for (i = 0; i < NSS_MAX_VIRTUAL_INTERFACES; i++) {
 			nss_top->virt_if_handler_id[i] = nss_dev->id;
 		}

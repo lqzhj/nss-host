@@ -23,6 +23,8 @@
 
 #include "nss_api_if.h"
 
+#define nss_lag_info(fmt, args...) printk(KERN_INFO "nss LAG :"fmt, ##args)
+
 /*
  * nss_send_lag_state()
  *	Send the currnet LAG state of a physical interface.
@@ -71,5 +73,18 @@ nss_tx_status_t nss_send_lag_state(struct nss_ctx_instance *nss_ctx, struct net_
 }
 
 
-
-
+/**
+ * @brief Event Callback to receive events from NSS
+ * @param[in] pointer to net device context
+ * @param[in] pointer to buffer
+ * @return Returns void
+ */
+void nss_connmgr_lag_event_cb(void *if_ctx, struct nss_lag_msg *msg)
+{
+	switch (msg->cm.type)
+	{
+		default:
+			nss_lag_info("%s: Unknown LAG event from NSS",__FUNCTION__);
+			break;
+	}
+}

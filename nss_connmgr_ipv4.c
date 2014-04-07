@@ -420,6 +420,8 @@ extern struct net_device *bond_get_tx_dev(struct sk_buff *skb, uint8_t *src_mac,
  */
 extern nss_tx_status_t nss_send_lag_state(struct nss_ctx_instance *ctx, struct net_device *netdev);
 
+extern nss_lag_event_callback_t nss_connmgr_lag_event_cb;
+
 /*
  * Network flow
  *
@@ -3584,6 +3586,10 @@ static int __init nss_connmgr_ipv4_init(void)
 		debugfs_remove(dent);
 	}
 
+	/* Register Link Aggregation interfaces with NSS driver */
+	nss_register_lag_if(NSS_LAG0_INTERFACE_NUM, NULL, nss_connmgr_lag_event_cb, NULL);
+	nss_register_lag_if(NSS_LAG1_INTERFACE_NUM, NULL, nss_connmgr_lag_event_cb, NULL);
+
 	/*
 	 * Register Link Aggregation callbacks
 	 */
@@ -3602,6 +3608,10 @@ static int __init nss_connmgr_ipv4_init(void)
 static void __exit nss_connmgr_ipv4_exit(void)
 {
 	bond_unregister_cb();
+
+	/* Unregister Link Aggregation interfaces with NSS driver */
+	nss_unregister_lag_if(NSS_LAG0_INTERFACE_NUM);
+	nss_unregister_lag_if(NSS_LAG1_INTERFACE_NUM);
 
 	/*
 	 * Remove debugfs tree
