@@ -306,6 +306,17 @@ nss_tx_status_t nss_tx_phys_if_get_napi_ctx(void *nss_ctx, struct napi_struct **
 	return nss_phys_if_get_napi_ctx((struct nss_ctx_instance *)nss_ctx, napi_ctx);
 }
 
+
+/**
+ * nss_get_state()
+ *	return the NSS initialization state
+ */
+nss_state_t nss_get_state(void *ctx)
+{
+	return nss_cmn_get_state(ctx);
+}
+
+
 EXPORT_SYMBOL(nss_tx_phys_if_buf);
 EXPORT_SYMBOL(nss_tx_phys_if_open);
 EXPORT_SYMBOL(nss_tx_phys_if_close);
@@ -315,5 +326,6 @@ EXPORT_SYMBOL(nss_tx_phys_if_mac_addr);
 EXPORT_SYMBOL(nss_tx_phys_if_get_napi_ctx);
 EXPORT_SYMBOL(nss_register_phys_if);
 EXPORT_SYMBOL(nss_unregister_phys_if);
+EXPORT_SYMBOL(nss_get_state);
 
 

@@ -1555,6 +1555,16 @@ extern void *nss_register_ipv4_mgr(nss_ipv4_callback_t event_callback);
  */
 extern void nss_unregister_ipv4_mgr(void);
 
+/**
+ * @brief Get NSS state
+ *
+ * @param nss_ctx NSS context
+ *
+ * @return nss_state_t NSS state
+ */
+extern nss_state_t nss_get_state(void *nss_ctx);
+
+
 /*
  * Once Everything is arragned correctly, will be placed at top
  */
