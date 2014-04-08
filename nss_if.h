@@ -21,6 +21,8 @@
 #ifndef __NSS_IF_H
 #define __NSS_IF_H
 
+#include "nss_shaper.h"
+
 /*
  * Message numbers
  */
@@ -46,9 +48,9 @@ enum nss_if_error_types {
 	NSS_IF_ERROR_NO_ISHAPER,
 	NSS_IF_ERROR_NO_BSHAPER,
 	NSS_IF_ERROR_ISHAPER_OLD,
-	NSS_IF_ERROR_B_SHAPER_OLD,
-	NSS_IF_ERROR_I_SHAPER_CONFIG_FAILED,
-	NSS_IF_ERROR_B_SHAPER_CONFIG_FAILED,
+	NSS_IF_ERROR_BSHAPER_OLD,
+	NSS_IF_ERROR_ISHAPER_CONFIG_FAILED,
+	NSS_IF_ERROR_BSHAPER_CONFIG_FAILED,
 	NSS_IF_ERROR_TYPE_UNKNOWN,
 	NSS_IF_ERROR_TYPE_EOPEN,
 };
@@ -99,7 +101,6 @@ struct nss_if_stats {
 struct nss_if_mac_address_set {
 	uint8_t mac_addr[ETH_ALEN];	/* MAC address */
 };
-
 
 /*
  * Message structure to send/receive phys i/f commands
