@@ -281,7 +281,15 @@ nss_tx_status_t nss_phys_if_get_napi_ctx(struct nss_ctx_instance *nss_ctx, struc
  */
 void nss_phys_if_register_handler(uint32_t if_num)
 {
-	nss_core_register_handler(if_num, nss_phys_if_msg_handler, NULL);
+	uint32_t ret;
+
+	ret = nss_core_register_handler(if_num, nss_phys_if_msg_handler, NULL);
+
+	if (ret == NSS_CORE_STATUS_SUCCESS) {
+		nss_info("Message handler registered for interface %d", if_num);
+	} else {
+		nss_warning("Message handler FAILED to be registered for interface %d", if_num);
+	}
 }
 
 EXPORT_SYMBOL(nss_phys_if_tx_msg);
