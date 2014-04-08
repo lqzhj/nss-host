@@ -270,7 +270,7 @@ nss_tx_status_t nss_virt_if_tx_msg(struct nss_virt_if_msg *nvim)
 int32_t nss_virt_if_assign_if_num(struct net_device *if_ctx)
 {
 	int32_t if_num;
-	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[nss_top_main.ipv4_handler_id];
+	struct nss_ctx_instance *nss_ctx __attribute__((unused)) = &nss_top_main.nss[nss_top_main.ipv4_handler_id];
 
 	/*
 	 * Check if net_device is Ethernet type
