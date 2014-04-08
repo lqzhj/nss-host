@@ -179,6 +179,9 @@ enum nss_ipv4_error_response_types {
  */
 struct nss_ipv4_rule_create_msg {
 	/* Request */
+	uint16_t valid_flags;				/* Bit flags associated with the validity of parameters */
+	uint16_t rule_flags;				/* Bit flags associated with the rule */
+
 	struct nss_ipv4_5tuple tuple;			/* Holds values of the 5 tuple */
 
 	struct nss_ipv4_connection_rule conn_rule;	/* Basic connection specific data */
@@ -188,9 +191,6 @@ struct nss_ipv4_rule_create_msg {
 	struct nss_ipv4_dscp_rule dscp_rule;		/* DSCP related accleration parameters */
 	struct nss_ipv4_vlan_rule vlan_primary_rule;	/* Primary VLAN related accleration parameters */
 	struct nss_ipv4_vlan_rule vlan_secondary_rule;	/* Secondary VLAN related accleration parameters */
-
-	uint16_t valid_flags;				/* Bit flags associated with the validity of parameters */
-	uint16_t rule_flags;				/* Bit flags associated with the rule */
 
 	/* Response */
 	uint32_t index;					/* Slot ID for cache stats to host OS */
