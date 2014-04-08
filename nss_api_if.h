@@ -41,6 +41,7 @@
 #include "nss_tunipip6.h"
 #include "nss_lag.h"
 #include "nss_ipv4.h"
+#include "nss_ipv6.h"
 #include "nss_if.h"
 #include "nss_phys_if.h"
 #include "nss_virt_if.h"

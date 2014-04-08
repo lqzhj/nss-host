@@ -477,7 +477,7 @@ struct nss_top_instance {
 					/* Virtual interface messsage callback functions */
 	nss_ipv4_msg_callback_t ipv4_callback;
 					/* IPv4 sync/establish callback function */
-	nss_ipv6_callback_t ipv6_callback;
+	nss_ipv6_msg_callback_t ipv6_callback;
 					/* IPv6 sync/establish callback function */
 	nss_ipsec_event_callback_t ipsec_event_callback;
 					/* IPsec event callback function */

@@ -18,11 +18,15 @@
 
 obj-m += qca-nss-drv.o
 
+#
+# List the files that belong to the driver in alphabetical order.
+#
 qca-nss-drv-objs := \
 			nss_init.o \
 			nss_cmn.o \
 			nss_core.o \
 			nss_ipv4.o \
+			nss_ipv6.o \
 			nss_lag.o \
 			nss_phys_if.o \
 			nss_pm.o \

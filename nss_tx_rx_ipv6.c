@@ -21,12 +21,113 @@
 
 #include <linux/ppp_channel.h>
 #include "nss_tx_rx_common.h"
+#include "nss_api_if.h"
+#include "nss_ipv6.h"
 
 /*
- **********************************
- Tx APIs
- **********************************
+ * Depreceated callback maintained locally.
  */
+nss_ipv6_callback_t nss_tx_rx_ipv6_event_callback = NULL;
+
+/*
+ * nss_rx_ipv6_sync()
+ *	Handle the syncing of an IPv6 connection.
+  */
+void nss_rx_ipv6_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_conn_sync *nirs)
+{
+	struct nss_ipv6_cb_params nicp;
+
+	nicp.params.sync.index = nirs->index;
+	nicp.params.sync.flow_max_window = nirs->flow_max_window;
+	nicp.params.sync.flow_end = nirs->flow_end;
+	nicp.params.sync.flow_max_end = nirs->flow_max_end;
+	nicp.params.sync.flow_rx_packet_count = nirs->flow_rx_packet_count;
+	nicp.params.sync.flow_rx_byte_count = nirs->flow_rx_byte_count;
+	nicp.params.sync.flow_tx_packet_count = nirs->flow_tx_packet_count;
+	nicp.params.sync.flow_tx_byte_count = nirs->flow_tx_byte_count;
+	nicp.params.sync.return_max_window = nirs->return_max_window;
+	nicp.params.sync.return_end = nirs->return_end;
+	nicp.params.sync.return_max_end = nirs->return_max_end;
+	nicp.params.sync.return_rx_packet_count = nirs->return_rx_packet_count;
+	nicp.params.sync.return_rx_byte_count = nirs->return_rx_byte_count;
+	nicp.params.sync.return_tx_packet_count = nirs->return_tx_packet_count;
+	nicp.params.sync.return_tx_byte_count = nirs->return_tx_byte_count;
+
+	nicp.params.sync.qos_tag = nirs->qos_tag;
+
+	nicp.params.sync.flags = 0;
+	if (nirs->flags & NSS_IPV6_RULE_CREATE_FLAG_NO_SEQ_CHECK) {
+		nicp.params.sync.flags |= NSS_IPV6_CREATE_FLAG_NO_SEQ_CHECK;
+	}
+
+	if (nirs->flags & NSS_IPV6_RULE_CREATE_FLAG_BRIDGE_FLOW) {
+		nicp.params.sync.flags |= NSS_IPV6_CREATE_FLAG_BRIDGE_FLOW;
+	}
+
+	if (nirs->flags & NSS_IPV6_RULE_CREATE_FLAG_ROUTED) {
+		nicp.params.sync.flags |= NSS_IPV6_CREATE_FLAG_ROUTED;
+	}
+
+	switch(nirs->reason) {
+	case NSS_IPV6_RULE_SYNC_REASON_FLUSH:
+	case NSS_IPV6_RULE_SYNC_REASON_DESTROY:
+	case NSS_IPV6_RULE_SYNC_REASON_EVICT:
+		nicp.params.sync.final_sync = NSS_IPV6_SYNC_REASON_FLUSH;
+		break;
+
+	case NSS_IPV6_RULE_SYNC_REASON_STATS:
+		nicp.params.sync.final_sync = NSS_IPV6_SYNC_REASON_STATS;
+		break;
+
+	default:
+		nss_warning("Bad ipv6 sync reason: %d\n", nirs->reason);
+		return;
+	}
+
+	/*
+	 * Convert ms ticks from the NSS to jiffies.  We know that inc_ticks is small
+	 * and we expect HZ to be small too so we can multiply without worrying about
+	 * wrap-around problems.  We add a rounding constant to ensure that the different
+	 * time bases don't cause truncation errors.
+	 */
+	nss_assert(HZ <= 100000);
+	nicp.params.sync.delta_jiffies = ((nirs->inc_ticks * HZ) + (MSEC_PER_SEC / 2)) / MSEC_PER_SEC;
+
+	/*
+	 * Call IPv6 manager callback function
+	 */
+	if (!nss_tx_rx_ipv6_event_callback) {
+		nss_info("%p: IPV6 sync message received before connection manager has registered", nss_ctx);
+	} else {
+		nss_ipv6_callback_t cb = nss_tx_rx_ipv6_event_callback;
+		cb(&nicp);
+	}
+}
+
+/*
+ * nss_rx_metadata_ipv6_rule_establish()
+ *	Handle the establishment of an IPv6 rule.
+ */
+void nss_rx_metadata_ipv6_rule_establish(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_rule_establish *nire)
+{
+	struct nss_ipv6_cb_params nicp;
+	nss_ipv6_callback_t cb;
+
+	// GGG FIXME THIS SHOULD NOT BE A MEMCPY
+	nicp.reason = NSS_IPV6_CB_REASON_ESTABLISH;
+	memcpy(&nicp.params, nire, sizeof(struct nss_ipv6_establish));
+
+	/*
+	 * Call IPv6 manager callback function
+	 */
+	if (!nss_tx_rx_ipv6_event_callback) {
+		nss_info("%p: IPV6 establish message received before connection manager has registered", nss_ctx);
+		return;
+	}
+	cb = nss_tx_rx_ipv6_event_callback;
+	cb(&nicp);
+	nss_info("%p: Establish message - Index: %d\n", nss_ctx, nire->index);
+}
 
 /*
  * nss_tx_create_ipv6_rule()
@@ -35,36 +136,16 @@
 nss_tx_status_t nss_tx_create_ipv6_rule(void *ctx, struct nss_ipv6_create *unic)
 {
 	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) ctx;
-	struct sk_buff *nbuf;
-	int32_t status;
-	struct nss_ipv6_msg *nim;
+	struct nss_ipv6_msg nim;
 	struct nss_ipv6_rule_create_msg *nircm;
 
 	nss_info("%p: Create IPv6: %pI6:%d, %pI6:%d, p: %d\n", nss_ctx,
 		unic->src_ip, unic->src_port, unic->dest_ip, unic->dest_port, unic->protocol);
 
-	NSS_VERIFY_CTX_MAGIC(nss_ctx);
-	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
-		nss_warning("%p: 'Create IPv6' rule dropped as core not ready", nss_ctx);
-		return NSS_TX_FAILURE_NOT_READY;
-	}
+	nss_cmn_msg_init(&nim.cm, NSS_IPV6_RX_INTERFACE, NSS_IPV6_TX_CREATE_RULE_MSG,
+			sizeof(struct nss_ipv6_rule_create_msg), NULL, NULL);
 
-	nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
-	if (unlikely(!nbuf)) {
-		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
-		spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_warning("%p: 'Create IPv6' rule dropped as command allocation failed", nss_ctx);
-		return NSS_TX_FAILURE;
-	}
-
-	nim = (struct nss_ipv6_msg *)skb_put(nbuf, sizeof(struct nss_ipv6_msg));
-	nim->cm.interface = NSS_IPV6_RX_INTERFACE;
-	nim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nim->cm.type = NSS_IPV6_TX_CREATE_RULE_MSG;
-	nim->cm.len = sizeof(struct nss_ipv6_rule_create_msg);
-
-	nircm = &nim->msg.rule_create;
+	nircm = &nim.msg.rule_create;
 
 	nircm->rule_flags = 0;
 	nircm->valid_flags = 0;
@@ -120,8 +201,8 @@ nss_tx_status_t nss_tx_create_ipv6_rule(void *ctx, struct nss_ipv6_create *unic)
 	/*
 	 * Copy over the vlan rules and set the VLAN_VALID flag
 	 */
-	nircm->vlan_rule.egress_vlan_tag = unic->egress_vlan_tag;
-	nircm->vlan_rule.ingress_vlan_tag = unic->ingress_vlan_tag;
+	nircm->vlan_primary_rule.egress_vlan_tag = unic->egress_vlan_tag;
+	nircm->vlan_primary_rule.ingress_vlan_tag = unic->ingress_vlan_tag;
 	nircm->valid_flags |= NSS_IPV6_RULE_CREATE_VLAN_VALID;
 
 	/*
@@ -141,19 +222,10 @@ nss_tx_status_t nss_tx_create_ipv6_rule(void *ctx, struct nss_ipv6_create *unic)
 	if (unic->flags & NSS_IPV6_CREATE_FLAG_ROUTED) {
 		nircm->rule_flags |= NSS_IPV6_RULE_CREATE_FLAG_ROUTED;
 	}
+	nss_info("IPV6:%p: valid_flags: %x \n", nss_ctx, nircm->valid_flags);
 
-	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
-	if (status != NSS_CORE_STATUS_SUCCESS) {
-		dev_kfree_skb_any(nbuf);
-		nss_warning("%p: Unable to enqueue 'Create IPv6' rule\n", nss_ctx);
-		return NSS_TX_FAILURE;
-	}
+	return nss_ipv6_tx(nss_ctx, &nim);
 
-	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
-								NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
-
-	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_CMD_REQ]);
-	return NSS_TX_SUCCESS;
 }
 
 /*
@@ -164,36 +236,17 @@ nss_tx_status_t nss_tx_create_ipv6_rule(void *ctx, struct nss_ipv6_create *unic)
 nss_tx_status_t nss_tx_create_ipv6_rule1(void *ctx, struct nss_ipv6_create *unic)
 {
 	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) ctx;
-	struct sk_buff *nbuf;
-	int32_t status;
-	struct nss_ipv6_msg *nim;
+	struct nss_ipv6_msg nim;
 	struct nss_ipv6_rule_create_msg *nircm;
 
 	nss_info("%p: Create IPv6: %pI6:%d, %pI6:%d, p: %d\n", nss_ctx,
 		unic->src_ip, unic->src_port, unic->dest_ip, unic->dest_port, unic->protocol);
 
-	NSS_VERIFY_CTX_MAGIC(nss_ctx);
-	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
-		nss_warning("%p: 'Create IPv6' rule dropped as core not ready", nss_ctx);
-		return NSS_TX_FAILURE_NOT_READY;
-	}
 
-	nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
-	if (unlikely(!nbuf)) {
-		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
-		spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_warning("%p: 'Create IPv6' rule dropped as command allocation failed", nss_ctx);
-		return NSS_TX_FAILURE;
-	}
+	nss_cmn_msg_init(&nim.cm, NSS_IPV6_RX_INTERFACE, NSS_IPV6_TX_CREATE_RULE_MSG,
+			sizeof(struct nss_ipv6_rule_create_msg), NULL, NULL);
 
-	nim = (struct nss_ipv6_msg *)skb_put(nbuf, sizeof(struct nss_ipv6_msg));
-	nim->cm.interface = NSS_IPV6_RX_INTERFACE;
-	nim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nim->cm.type = NSS_IPV6_TX_CREATE_RULE_MSG;
-	nim->cm.len = sizeof(struct nss_ipv6_rule_create_msg);
-
-	nircm = &nim->msg.rule_create;
+	nircm = &nim.msg.rule_create;
 
 	/*
 	 * Initialize the flags
@@ -252,8 +305,8 @@ nss_tx_status_t nss_tx_create_ipv6_rule1(void *ctx, struct nss_ipv6_create *unic
 	/*
 	 * Copy over the vlan rules and set the VLAN_VALID flag
 	 */
-	nircm->vlan_rule.egress_vlan_tag = unic->egress_vlan_tag;
-	nircm->vlan_rule.ingress_vlan_tag = unic->ingress_vlan_tag;
+	nircm->vlan_primary_rule.egress_vlan_tag = unic->egress_vlan_tag;
+	nircm->vlan_primary_rule.ingress_vlan_tag = unic->ingress_vlan_tag;
 	nircm->valid_flags |= NSS_IPV6_RULE_CREATE_VLAN_VALID;
 
 	/*
@@ -269,20 +322,20 @@ nss_tx_status_t nss_tx_create_ipv6_rule1(void *ctx, struct nss_ipv6_create *unic
 	nircm->dscp_rule.dscp_imask = unic->dscp_imask;
 	nircm->dscp_rule.dscp_omask = unic->dscp_omask;
 	nircm->dscp_rule.dscp_oval = unic->dscp_oval;
-	if (unic->flags & NSS_IPV4_CREATE_FLAG_DSCP_MARKING) {
-		nircm->rule_flags |= NSS_IPV4_RULE_CREATE_FLAG_DSCP_MARKING;
+	if (unic->flags & NSS_IPV6_CREATE_FLAG_DSCP_MARKING) {
+		nircm->rule_flags |= NSS_IPV6_RULE_CREATE_FLAG_DSCP_MARKING;
 		nircm->valid_flags |= NSS_IPV6_RULE_CREATE_DSCP_MARKING_VALID;
 	}
 
 	/*
 	 * Copy over the vlan marking rules and set the VLAN_MARKING_VALID flag
 	 */
-	nircm->vlan_rule.vlan_imask = unic->vlan_imask;
-	nircm->vlan_rule.vlan_itag = unic->vlan_itag;
-	nircm->vlan_rule.vlan_omask = unic->vlan_omask;
-	nircm->vlan_rule.vlan_oval = unic->vlan_oval;
-	if (unic->flags & NSS_IPV4_CREATE_FLAG_VLAN_MARKING) {
-		nircm->rule_flags |= NSS_IPV4_RULE_CREATE_FLAG_VLAN_MARKING;
+	nircm->vlan_primary_rule.vlan_imask = unic->vlan_imask;
+	nircm->vlan_primary_rule.vlan_itag = unic->vlan_itag;
+	nircm->vlan_primary_rule.vlan_omask = unic->vlan_omask;
+	nircm->vlan_primary_rule.vlan_oval = unic->vlan_oval;
+	if (unic->flags & NSS_IPV6_CREATE_FLAG_VLAN_MARKING) {
+		nircm->rule_flags |= NSS_IPV6_RULE_CREATE_FLAG_VLAN_MARKING;
 		nircm->valid_flags |= NSS_IPV6_RULE_CREATE_VLAN_MARKING_VALID;
 	}
 
@@ -298,18 +351,7 @@ nss_tx_status_t nss_tx_create_ipv6_rule1(void *ctx, struct nss_ipv6_create *unic
 		nircm->rule_flags |= NSS_IPV6_RULE_CREATE_FLAG_ROUTED;
 	}
 
-	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
-	if (status != NSS_CORE_STATUS_SUCCESS) {
-		dev_kfree_skb_any(nbuf);
-		nss_warning("%p: Unable to enqueue 'Create IPv6' rule\n", nss_ctx);
-		return NSS_TX_FAILURE;
-	}
-
-	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
-								NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
-
-	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_CMD_REQ]);
-	return NSS_TX_SUCCESS;
+	return nss_ipv6_tx(nss_ctx, &nim);
 }
 
 /*
@@ -319,36 +361,17 @@ nss_tx_status_t nss_tx_create_ipv6_rule1(void *ctx, struct nss_ipv6_create *unic
 nss_tx_status_t nss_tx_destroy_ipv6_rule(void *ctx, struct nss_ipv6_destroy *unid)
 {
 	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) ctx;
-	struct sk_buff *nbuf;
-	int32_t status;
-	struct nss_ipv6_msg *nim;
+	struct nss_ipv6_msg nim;
 	struct nss_ipv6_rule_destroy_msg *nirdm;
 
 	nss_info("%p: Destroy IPv6: %pI6:%d, %pI6:%d, p: %d\n", nss_ctx,
 		unid->src_ip, unid->src_port, unid->dest_ip, unid->dest_port, unid->protocol);
 
-	NSS_VERIFY_CTX_MAGIC(nss_ctx);
-	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
-		nss_warning("%p: 'Destroy IPv6' rule dropped as core not ready", nss_ctx);
-		return NSS_TX_FAILURE_NOT_READY;
-	}
+	nss_cmn_msg_init(&nim.cm, NSS_IPV6_RX_INTERFACE, NSS_IPV6_TX_DESTROY_RULE_MSG,
+			sizeof(struct nss_ipv6_rule_destroy_msg), NULL, NULL);
 
-	nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
-	if (unlikely(!nbuf)) {
-		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
-		spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_warning("%p: 'Destroy IPv6' rule dropped as command allocation failed", nss_ctx);
-		return NSS_TX_FAILURE;
-	}
+	nirdm = &nim.msg.rule_destroy;
 
-	nim = (struct nss_ipv6_msg *)skb_put(nbuf, sizeof(struct nss_ipv6_msg));
-	nim->cm.interface = NSS_IPV6_RX_INTERFACE;
-	nim->cm.version = NSS_HLOS_MESSAGE_VERSION;
-	nim->cm.type = NSS_IPV6_TX_DESTROY_RULE_MSG;
-	nim->cm.len = sizeof(struct nss_ipv6_rule_destroy_msg);
-
-	nirdm = &nim->msg.rule_destroy;
 	nirdm->tuple.protocol = (uint8_t)unid->protocol;
 	nirdm->tuple.flow_ip[0] = unid->src_ip[0];
 	nirdm->tuple.flow_ip[1] = unid->src_ip[1];
@@ -361,235 +384,7 @@ nss_tx_status_t nss_tx_destroy_ipv6_rule(void *ctx, struct nss_ipv6_destroy *uni
 	nirdm->tuple.return_ip[3] = unid->dest_ip[3];
 	nirdm->tuple.return_ident = (uint32_t)unid->dest_port;
 
-	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
-	if (status != NSS_CORE_STATUS_SUCCESS) {
-		dev_kfree_skb_any(nbuf);
-		nss_warning("%p: Unable to enqueue 'Destroy IPv6' rule\n", nss_ctx);
-		return NSS_TX_FAILURE;
-	}
-
-	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
-								NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
-
-	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_CMD_REQ]);
-	return NSS_TX_SUCCESS;
-}
-
-/*
- **********************************
- RX APIs
- **********************************
- */
-
-/*
- * nss_rx_metadata_ipv6_rule_establish()
- *	Handle the establishment of an IPv6 rule.
- */
-static void nss_rx_metadata_ipv6_rule_establish(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_rule_establish *nire)
-{
-	struct nss_ipv6_cb_params nicp;
-
-	// GGG FIXME THIS SHOULD NOT BE A MEMCPY
-	nicp.reason = NSS_IPV6_CB_REASON_ESTABLISH;
-	memcpy(&nicp.params, nire, sizeof(struct nss_ipv6_establish));
-
-	/*
-	 * Call IPv6 manager callback function
-	 */
-	if (nss_ctx->nss_top->ipv6_callback) {
-		nss_ctx->nss_top->ipv6_callback(&nicp);
-	} else {
-		nss_info("%p: IPV6 establish message received before connection manager has registered", nss_ctx);
-	}
-}
-
-/*
- * nss_rx_metadata_ipv6_conn_sync()
- *	Handle the syncing of an IPv6 connection.
- */
-static void nss_rx_metadata_ipv6_conn_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_conn_sync *nics)
-{
-	struct nss_top_instance *nss_top = nss_ctx->nss_top;
-	struct nss_ipv6_cb_params nicp;
-	struct net_device *pppoe_dev = NULL;
-
-	nicp.reason = NSS_IPV6_CB_REASON_SYNC;
-	nicp.params.sync.index = nics->index;
-	nicp.params.sync.flow_max_window = nics->flow_max_window;
-	nicp.params.sync.flow_end = nics->flow_end;
-	nicp.params.sync.flow_max_end = nics->flow_max_end;
-	nicp.params.sync.flow_rx_packet_count = nics->flow_rx_packet_count;
-	nicp.params.sync.flow_rx_byte_count = nics->flow_rx_byte_count;
-	nicp.params.sync.flow_tx_packet_count = nics->flow_tx_packet_count;
-	nicp.params.sync.flow_tx_byte_count = nics->flow_tx_byte_count;
-	nicp.params.sync.return_max_window = nics->return_max_window;
-	nicp.params.sync.return_end = nics->return_end;
-	nicp.params.sync.return_max_end = nics->return_max_end;
-	nicp.params.sync.return_rx_packet_count = nics->return_rx_packet_count;
-	nicp.params.sync.return_rx_byte_count = nics->return_rx_byte_count;
-	nicp.params.sync.return_tx_packet_count = nics->return_tx_packet_count;
-	nicp.params.sync.return_tx_byte_count = nics->return_tx_byte_count;
-
-	nicp.params.sync.qos_tag = nics->qos_tag;
-
-	nicp.params.sync.flags = 0;
-	if (nics->flags & NSS_IPV6_RULE_CREATE_FLAG_NO_SEQ_CHECK) {
-		nicp.params.sync.flags |= NSS_IPV6_CREATE_FLAG_NO_SEQ_CHECK;
-	}
-
-	if (nics->flags & NSS_IPV6_RULE_CREATE_FLAG_BRIDGE_FLOW) {
-		nicp.params.sync.flags |= NSS_IPV6_CREATE_FLAG_BRIDGE_FLOW;
-	}
-
-	if (nics->flags & NSS_IPV6_RULE_CREATE_FLAG_ROUTED) {
-		nicp.params.sync.flags |= NSS_IPV6_CREATE_FLAG_ROUTED;
-	}
-
-	switch(nics->reason) {
-	case NSS_IPV6_RULE_SYNC_REASON_FLUSH:
-	case NSS_IPV6_RULE_SYNC_REASON_DESTROY:
-	case NSS_IPV6_RULE_SYNC_REASON_EVICT:
-		nicp.params.sync.final_sync = 1;
-		break;
-
-	case NSS_IPV6_RULE_SYNC_REASON_STATS:
-		nicp.params.sync.final_sync = 0;
-		break;
-
-	default:
-		nss_warning("Bad ipv6 sync reason: %d\n", nics->reason);
-		return;
-	}
-
-	/*
-	 * Convert ms ticks from the NSS to jiffies.  We know that inc_ticks is small
-	 * and we expect HZ to be small too so we can multiply without worrying about
-	 * wrap-around problems.  We add a rounding constant to ensure that the different
-	 * time bases don't cause truncation errors.
-	 */
-	nss_assert(HZ <= 100000);
-	nicp.params.sync.delta_jiffies = ((nics->inc_ticks * HZ) + (MSEC_PER_SEC / 2)) / MSEC_PER_SEC;
-
-	/*
-	 * Call IPv6 manager callback function
-	 */
-	if (nss_ctx->nss_top->ipv6_callback) {
-		nss_ctx->nss_top->ipv6_callback(&nicp);
-	} else {
-		nss_info("%p: IPV6 sync message received before connection manager has registered", nss_ctx);
-	}
-
-	/*
-	 * Update statistics maintained by NSS driver
-	 */
-	spin_lock_bh(&nss_top->stats_lock);
-
-	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_RX_PKTS] += nics->flow_rx_packet_count + nics->return_rx_packet_count;
-	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_RX_BYTES] += nics->flow_rx_byte_count + nics->return_rx_byte_count;
-	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_TX_PKTS] += nics->flow_tx_packet_count + nics->return_tx_packet_count;
-	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_TX_BYTES] += nics->flow_tx_byte_count + nics->return_tx_byte_count;
-
-	/*
-	 * Update the PPPoE interface stats, if there is any PPPoE session on the interfaces.
-	 */
-	if (nics->flow_pppoe_session_id) {
-		pppoe_dev = ppp_session_to_netdev(nics->flow_pppoe_session_id, (uint8_t *)nics->flow_pppoe_remote_mac);
-		if (pppoe_dev) {
-			ppp_update_stats(pppoe_dev, nics->flow_rx_packet_count, nics->flow_rx_byte_count,
-					nics->flow_tx_packet_count, nics->flow_tx_byte_count);
-			dev_put(pppoe_dev);
-		}
-	}
-
-	if (nics->return_pppoe_session_id) {
-		pppoe_dev = ppp_session_to_netdev(nics->return_pppoe_session_id, (uint8_t *)nics->return_pppoe_remote_mac);
-		if (pppoe_dev) {
-			ppp_update_stats(pppoe_dev, nics->return_rx_packet_count, nics->return_rx_byte_count,
-				nics->return_tx_packet_count, nics->return_tx_byte_count);
-			dev_put(pppoe_dev);
-		}
-	}
-
-	/*
-	 * TODO: Update per dev accelerated statistics
-	 */
-
-	spin_unlock_bh(&nss_top->stats_lock);
-}
-
-/*
- * nss_rx_metadata_ipv6_node_stats_sync()
- *	Handle the syncing of an IPv6 connection.
- */
-static void nss_rx_metadata_ipv6_node_stats_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_node_sync *nins)
-{
-	struct nss_top_instance *nss_top = nss_ctx->nss_top;
-	uint32_t i;
-
-	spin_lock_bh(&nss_top->stats_lock);
-
-	nss_top->stats_node[NSS_IPV6_RX_INTERFACE][NSS_STATS_NODE_RX_PKTS] += nins->node_stats.rx_packets;
-	nss_top->stats_node[NSS_IPV6_RX_INTERFACE][NSS_STATS_NODE_RX_BYTES] += nins->node_stats.rx_bytes;
-	nss_top->stats_node[NSS_IPV6_RX_INTERFACE][NSS_STATS_NODE_RX_DROPPED] += nins->node_stats.rx_dropped;
-	nss_top->stats_node[NSS_IPV6_RX_INTERFACE][NSS_STATS_NODE_TX_PKTS] += nins->node_stats.tx_packets;
-	nss_top->stats_node[NSS_IPV6_RX_INTERFACE][NSS_STATS_NODE_TX_BYTES] += nins->node_stats.tx_bytes;
-
-	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_CREATE_REQUESTS] += nins->ipv6_connection_create_requests;
-	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_CREATE_COLLISIONS] += nins->ipv6_connection_create_collisions;
-	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_CREATE_INVALID_INTERFACE] += nins->ipv6_connection_create_invalid_interface;
-	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_DESTROY_REQUESTS] += nins->ipv6_connection_destroy_requests;
-	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_DESTROY_MISSES] += nins->ipv6_connection_destroy_misses;
-	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_HASH_HITS] += nins->ipv6_connection_hash_hits;
-	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_HASH_REORDERS] += nins->ipv6_connection_hash_reorders;
-	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_FLUSHES] += nins->ipv6_connection_flushes;
-	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_EVICTIONS] += nins->ipv6_connection_evictions;
-
-	for (i = 0; i < NSS_EXCEPTION_EVENT_IPV6_MAX; i++) {
-		nss_top->stats_if_exception_ipv6[i] += nins->exception_events[i];
-	}
-
-	spin_unlock_bh(&nss_top->stats_lock);
-}
-
-/*
- * nss_rx_ipv6_interface_handler()
- *	Handle NSS -> HLOS messages for IPv6 bridge/route
- */
-static void nss_rx_ipv6_interface_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm, __attribute__((unused))void *app_data)
-{
-	struct nss_ipv6_msg *nim = (struct nss_ipv6_msg *)ncm;
-
-	/*
-	 * Is this a valid request/response packet?
-	 */
-	if (nim->cm.type >= NSS_IPV6_MAX_MSG_TYPES) {
-		nss_warning("%p: received invalid message %d for IPv6 interface", nss_ctx, nim->cm.type);
-		return;
-	}
-
-	switch (nim->cm.type) {
-	case NSS_IPV6_RX_ESTABLISH_RULE_MSG:
-		nss_rx_metadata_ipv6_rule_establish(nss_ctx, &nim->msg.rule_establish);
-		break;
-
-	case NSS_IPV6_RX_CONN_STATS_SYNC_MSG:
-		nss_rx_metadata_ipv6_conn_sync(nss_ctx, &nim->msg.conn_stats);
-		break;
-
-	case NSS_IPV6_RX_NODE_STATS_SYNC_MSG:
-		nss_rx_metadata_ipv6_node_stats_sync(nss_ctx, &nim->msg.node_stats);
-		break;
-
-
-	default:
-		if (ncm->response != NSS_CMN_RESPONSE_ACK) {
-			/*
-			 * Check response
-			 */
-			nss_info("%p: Received response %d for type %d, interface %d",
-						nss_ctx, ncm->response, ncm->type, ncm->interface);
-		}
-	}
+	return nss_ipv6_tx(nss_ctx, &nim);
 }
 
 /*
@@ -600,33 +395,35 @@ static void nss_rx_ipv6_interface_handler(struct nss_ctx_instance *nss_ctx, stru
 
 /*
  * nss_register_ipv6_mgr()
- *	Called to register an IPv6 connection manager with this driver
  */
 void *nss_register_ipv6_mgr(nss_ipv6_callback_t event_callback)
 {
-	nss_top_main.ipv6_callback = event_callback;
+	nss_tx_rx_ipv6_event_callback = event_callback;
 	return (void *)&nss_top_main.nss[nss_top_main.ipv6_handler_id];
 }
 
 /*
  * nss_unregister_ipv6_mgr()
- *	Called to unregister an IPv6 connection manager
  */
 void nss_unregister_ipv6_mgr(void)
 {
-	nss_top_main.ipv6_callback = NULL;
+	nss_tx_rx_ipv6_event_callback = NULL;
 }
 
 /*
- * nss_ipv6_register_handler()
+ * nss_get_ipv6_mgr_ctx()
  */
-void nss_ipv6_register_handler()
+void *nss_get_ipv6_mgr_ctx(void)
 {
-	nss_core_register_handler(NSS_IPV6_RX_INTERFACE, nss_rx_ipv6_interface_handler, NULL);
+	return (void *)nss_ipv6_get_mgr();
 }
+
+
+
 
 EXPORT_SYMBOL(nss_register_ipv6_mgr);
 EXPORT_SYMBOL(nss_unregister_ipv6_mgr);
+EXPORT_SYMBOL(nss_get_ipv6_mgr_ctx);
 EXPORT_SYMBOL(nss_tx_create_ipv6_rule);
 EXPORT_SYMBOL(nss_tx_create_ipv6_rule1);
 EXPORT_SYMBOL(nss_tx_destroy_ipv6_rule);
