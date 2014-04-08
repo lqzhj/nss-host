@@ -21,8 +21,6 @@
 #ifndef __NSS_IF_H
 #define __NSS_IF_H
 
-#include "nss_shaper.h"
-
 /*
  * Message numbers
  */
