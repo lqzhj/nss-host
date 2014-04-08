@@ -25,6 +25,7 @@ qca-nss-drv-objs := \
 			nss_init.o \
 			nss_cmn.o \
 			nss_core.o \
+			nss_if.o \
 			nss_ipv4.o \
 			nss_ipv6.o \
 			nss_lag.o \
@@ -50,7 +51,6 @@ qca-nss-drv-objs += \
 			nss_tx_rx_pppoe.o \
 			nss_tx_rx_phys_if.o \
 			nss_tx_rx_virt_if.o
-
 
 obj-m += qca-nss-connmgr-ipv4.o
 obj-m += qca-nss-connmgr-ipv6.o

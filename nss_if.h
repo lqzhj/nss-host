@@ -112,4 +112,17 @@ union nss_if_msgs {
 	struct nss_if_stats stats;	/* Message: statistics sync */
 };
 
+/*
+ * Base class message structure for all interface types.
+ */
+struct nss_if_msg {
+	struct nss_cmn_msg cm;	/**> Message Header */
+	union nss_if_msgs msg;	/**> Interfaces messages */
+};
+
+/**
+ * Callback to receive physical interface messages
+ */
+typedef void (*nss_if_msg_callback_t)(void *app_data, struct nss_if_msg *msg);
+
 #endif /*  __NSS_IF_H */

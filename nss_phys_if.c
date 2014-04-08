@@ -76,6 +76,13 @@ static void nss_phys_if_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 	}
 
 	/*
+	 * Messages value that are within the base class are handled by the base class.
+	 */
+	if (ncm->type < NSS_IF_MAX_MSG_TYPES) {
+		return nss_if_msg_handler(nss_ctx, ncm, app_data);
+	}
+
+	/*
 	 * Log failures
 	 */
 	nss_core_log_msg_failures(nss_ctx, ncm);
@@ -166,7 +173,7 @@ nss_tx_status_t nss_phys_if_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_
 
 	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
 		nss_warning("Interface could not be created as core not ready");
-		return -1;
+		return NSS_TX_FAILURE;
 	}
 
 	/*
@@ -200,7 +207,7 @@ nss_tx_status_t nss_phys_if_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_
 		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
 		spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
 		nss_warning("%p: physical interface %p: command allocation failed", nss_ctx, dev);
-		return -1;
+		return NSS_TX_FAILURE;
 	}
 
 	nim2 = (struct nss_phys_if_msg *)skb_put(nbuf, sizeof(struct nss_phys_if_msg));
@@ -210,7 +217,7 @@ nss_tx_status_t nss_phys_if_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_
 	if (status != NSS_CORE_STATUS_SUCCESS) {
 		dev_kfree_skb_any(nbuf);
 		nss_warning("%p: Unable to enqueue 'physical interface' command\n", nss_ctx);
-		return -1;
+		return NSS_TX_FAILURE;
 	}
 
 	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
