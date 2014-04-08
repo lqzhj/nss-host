@@ -34,7 +34,12 @@
 
 #include "nss_hlos_if.h"
 #include "nss_api_if.h"
-
+/*
+ * XXX:can't add this to api_if.h till the deprecated
+ * API(s) are present. Once, thats removed we will move it
+ * to this file
+ */
+#include "nss_ipsec.h"
 /*
  * NSS debug macros
  */
@@ -479,7 +484,8 @@ struct nss_top_instance {
 					/* IPv4 sync/establish callback function */
 	nss_ipv6_msg_callback_t ipv6_callback;
 					/* IPv6 sync/establish callback function */
-	nss_ipsec_event_callback_t ipsec_event_callback;
+	nss_ipsec_msg_callback_t ipsec_encap_callback;
+	nss_ipsec_msg_callback_t ipsec_decap_callback;
 					/* IPsec event callback function */
 	nss_crypto_data_callback_t crypto_data_callback;
 					/* crypto interface data callback function */
@@ -498,12 +504,6 @@ struct nss_top_instance {
 	nss_lag_event_callback_t lag_event_callback;
 
 	/*
-	 * Interface contexts (network device)
-	 */
-	struct net_device *if_ctx[NSS_MAX_NET_INTERFACES];
-					/* Phys/Virt interface context */
-
-	/*
 	 * Interface contexts (non network device)
 	 */
 	void *ipv4_ctx;			/* IPv4 connection manager context */
@@ -512,7 +512,14 @@ struct nss_top_instance {
 	void *profiler_ctx[NSS_MAX_CORES];
 					/* Profiler interface context */
 
+	void *ipsec_encap_ctx;		/* IPsec encap context */
+	void *ipsec_decap_ctx;		/* IPsec decap context */
 
+	/*
+	 * Interface contexts (network device)
+	 */
+	struct net_device *if_ctx[NSS_MAX_NET_INTERFACES];
+					/* Phys/Virt interface context */
 
 	/*
 	 * Statistics for various interfaces

@@ -272,50 +272,6 @@ struct nss_crypto_msg {
 };
 
 /*
- * IPsec messages
- */
-
-/*
- * Request/Response types
- */
-enum nss_ipsec_metadata_types {
-	NSS_TX_METADATA_TYPE_IPSEC_RULE,
-	NSS_RX_METADATA_TYPE_IPSEC_EVENTS_SYNC,
-	NSS_METADATA_TYPE_IPSEC_MAX,
-};
-
-/*
- * IPsec Tx rule create
- */
-struct nss_ipsec_rule {
-	uint32_t interface_num;		/* Interface number */
-	uint32_t type;			/* Rule type */
-	uint32_t len;			/* Valid information length */
-	uint8_t buf[1];			/* Buffer */
-};
-
-/*
- * NSS IPsec event sync structure
- */
-struct nss_ipsec_events_sync {
-	uint32_t ipsec_if_num;
-	uint32_t event_if_num;
-	uint32_t len;
-	uint8_t buf[1];
-};
-
-/*
- * Message structure to send/receive ipsec messages
- */
-struct nss_ipsec_msg {
-	struct nss_cmn_msg cm;			/* Message Header */
-	union {
-		struct nss_ipsec_rule rule;	/* Message: IPsec rule */
-		struct nss_ipsec_events_sync sync;	/* Message: IPsec events sync */
-	} msg;
-};
-
-/*
  * Generic interface messages
  */
 enum nss_generic_metadata_types {
