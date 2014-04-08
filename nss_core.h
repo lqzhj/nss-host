@@ -495,6 +495,7 @@ struct nss_top_instance {
 					/* Registrants for interface shaper bounce operations */
 	struct nss_shaper_bounce_registrant bounce_bridge_registrants[NSS_MAX_NET_INTERFACES];
 					/* Registrants for bridge shaper bounce operations */
+	nss_lag_event_callback_t lag_event_callback;
 
 	/*
 	 * Interface contexts (network device)

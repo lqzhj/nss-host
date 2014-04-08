@@ -24,6 +24,7 @@
  */
 enum nss_lag_metadata_types {
 	NSS_TX_METADATA_LAG_STATE_CHANGE = 0,
+	NSS_TX_METADATA_LAG_MAX,
 };
 
 /*
@@ -63,3 +64,19 @@ struct nss_lag_msg {
 
 extern nss_tx_status_t nss_lag_tx(struct nss_ctx_instance *nss_ctx, struct nss_lag_msg *msg);
 
+/**
+ * Callback to receive LAG data
+ */
+typedef void (*nss_lag_callback_t)(void *app_data, void *os_buf);
+
+/**
+ * Callback to receive LAG events
+ */
+typedef void (*nss_lag_event_callback_t)(void *app_data, struct nss_lag_msg *msg);
+
+extern void nss_register_lag_if(uint32_t if_num,
+				nss_lag_callback_t lag_cb,
+				nss_lag_event_callback_t lag_ev_cb,
+				struct net_device *netdev);
+
+extern void nss_unregister_lag_if(uint32_t if_num);
