@@ -772,7 +772,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	struct net_device *netdev = NULL;
 	struct msm_nss_gmac_platform_data *gmaccfg = NULL;
 	nss_gmac_dev *gmacdev = NULL;
-	uint32_t ret = 0;
+	int32_t ret = 0;
 	phy_interface_t phyif = 0;
 	uint8_t phy_id[MII_BUS_ID_SIZE + 3];
 
@@ -889,12 +889,14 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 						busid);
 		if (!miidev) {
 			nss_gmac_info(gmacdev, "mdio bus '%s' get FAIL.", busid);
+			ret = -EIO;
 			goto mdiobus_init_fail;
 		}
 
 		gmacdev->miibus = dev_get_drvdata(miidev);
 		if (!gmacdev->miibus) {
 			nss_gmac_info(gmacdev, "mdio bus '%s' get FAIL.", busid);
+			ret = -EIO;
 			goto mdiobus_init_fail;
 		}
 
@@ -903,6 +905,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	} else 	if (gmacdev->emulation && (gmacdev->phy_mii_type == GMAC_INTF_RGMII)) {
 		if (nss_gmac_init_mdiobus(gmacdev) != 0) {
 			nss_gmac_info(gmacdev, "mdio bus register FAIL for emulation.");
+			ret = -EIO;
 			goto mdiobus_init_fail;
 		}
 		nss_gmac_info(gmacdev, "mdio bus '%s' register OK for emulation.",gmacdev->miibus->id);
@@ -943,10 +946,8 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	}
 
 	/* create a phyid using MDIO bus id and MDIO bus address of phy */
-	if (gmacdev->miibus) {
-		snprintf(phy_id, MII_BUS_ID_SIZE + 3, PHY_ID_FMT,
-			gmacdev->miibus->id, gmacdev->phy_base);
-	}
+	snprintf(phy_id, MII_BUS_ID_SIZE + 3, PHY_ID_FMT,
+		 gmacdev->miibus->id, gmacdev->phy_base);
 
 	/* register PHY fixup */
 	if (gmacdev->phy_base != NSS_GMAC_NO_MDIO_PHY) {
@@ -968,6 +969,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 
 		if (IS_ERR_OR_NULL(gmacdev->phydev)) {
 			nss_gmac_info(gmacdev, "PHY %s attach FAIL", phy_id);
+			ret = -EIO;
 			goto nss_gmac_phy_attach_fail;
 		}
 
@@ -999,6 +1001,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 		gmacdev->phydev = phy_attach(netdev, (const char *)phy_id, 0, phyif);
 		if (IS_ERR_OR_NULL(gmacdev->phydev)) {
 			nss_gmac_info(gmacdev, "PHY %s attach FAIL", phy_id);
+			ret = -EIO;
 			goto nss_gmac_phy_attach_fail;
 		}
 	}
