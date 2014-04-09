@@ -75,4 +75,14 @@ extern void nss_core_freq_register_handler(void);
 extern void nss_eth_rx_register_handler(void);
 extern void nss_lag_register_handler(void);
 
+/*
+ * nss_if_msg_handler()
+ *	External reference for internal base class handler for interface messages.
+ *
+ * This is not registered with nss_core.c as it is really a base class feature
+ * of the phys_if and virt_if handlers.
+ */
+extern void nss_if_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm,
+		__attribute__((unused))void *app_data);
+
 #endif /* __NSS_TX_RX_COMMON_H */

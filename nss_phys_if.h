@@ -101,6 +101,10 @@ enum nss_phys_if_msg_types {
 
 /**
  * Message structure to send/receive virtual interface commands
+ *
+ * NOTE: Do not adjust the location of if_msg relative to new
+ * message types as it represents the base messages for all
+ * intefaces.
  */
 struct nss_phys_if_msg {
 	struct nss_cmn_msg cm;				/**> Message Header */
