@@ -75,7 +75,7 @@ void nss_register_lag_if(uint32_t if_num,
 			 nss_lag_event_callback_t lag_ev_cb,
 			 struct net_device *netdev)
 {
-	nss_assert((if_num != NSS_LAG0_INTERFACE_NUM) && (if_num != NSS_LAG1_INTERFACE_NUM));
+	nss_assert((if_num == NSS_LAG0_INTERFACE_NUM) || (if_num == NSS_LAG1_INTERFACE_NUM));
 
 	nss_top_main.if_ctx[if_num] = netdev;
 	nss_top_main.if_rx_callback[if_num] = lag_cb;
