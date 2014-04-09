@@ -89,7 +89,7 @@ EXPORT_SYMBOL(nss_register_lag_if);
  */
 void nss_unregister_lag_if(uint32_t if_num)
 {
-	nss_assert((if_num != NSS_LAG0_INTERFACE_NUM) && (if_num != NSS_LAG1_INTERFACE_NUM));
+	nss_assert((if_num == NSS_LAG0_INTERFACE_NUM) || (if_num == NSS_LAG1_INTERFACE_NUM));
 
 	nss_top_main.if_rx_callback[if_num] = NULL;
 	nss_top_main.if_ctx[if_num] = NULL;
