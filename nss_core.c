@@ -276,7 +276,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 			 *	use OS network buffers (e.g. skb). Hence, OS buffer operations
 			 *	are not applicable to crypto buffers
 			 */
-			nss_rx_handle_crypto_buf(nss_ctx, opaque, desc->buffer, desc->payload_len);
+			nss_crypto_buf_handler(nss_ctx, (void *)opaque, desc->buffer, desc->payload_len);
 		} else {
 			unsigned int interface_num = desc->interface_num;
 

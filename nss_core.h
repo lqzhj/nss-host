@@ -40,6 +40,7 @@
  * to this file
  */
 #include "nss_ipsec.h"
+#include "nss_crypto.h"
 /*
  * NSS debug macros
  */
@@ -487,10 +488,9 @@ struct nss_top_instance {
 	nss_ipsec_msg_callback_t ipsec_encap_callback;
 	nss_ipsec_msg_callback_t ipsec_decap_callback;
 					/* IPsec event callback function */
-	nss_crypto_data_callback_t crypto_data_callback;
-					/* crypto interface data callback function */
-	nss_crypto_sync_callback_t crypto_sync_callback;
-					/* crypto interface sync callback function */
+	nss_crypto_msg_callback_t crypto_msg_callback;
+	nss_crypto_buf_callback_t crypto_buf_callback;
+					/* crypto interface callback functions */
 	nss_profiler_callback_t profiler_callback[NSS_MAX_CORES];
 					/* Profiler interface callback function */
 	nss_tun6rd_msg_callback_t tun6rd_msg_callback;
@@ -665,8 +665,7 @@ extern uint32_t nss_core_register_handler(uint32_t interface, nss_core_rx_callba
  * APIs provided by nss_tx_rx.c
  */
 extern void nss_rx_handle_status_pkt(struct nss_ctx_instance *nss_ctx, struct sk_buff *nbuf);
-extern void nss_rx_handle_crypto_buf(struct nss_ctx_instance *nss_ctx, uint32_t buf, uint32_t paddr, uint32_t len);
-
+extern void nss_crypto_buf_handler(struct nss_ctx_instance *nss_ctx, void *buf, uint32_t paddr, uint16_t len);
 /*
  * APIs provided by nss_stats.c
  */

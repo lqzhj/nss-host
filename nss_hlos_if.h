@@ -230,48 +230,6 @@ struct nss_n2h_msg {
 };
 
 /*
- * Crypto messages
- */
-
-/*
- * Request/Response types
- */
-enum nss_crypto_metadata_types {
-	NSS_TX_METADATA_TYPE_CRYPTO_CONFIG,
-	NSS_TX_METADATA_TYPE_CRYPTO_CLOSE,
-	NSS_RX_METADATA_TYPE_CRYPTO_SYNC,
-	NSS_METADATA_TYPE_CRYPTO_MAX,
-};
-
-/*
- * Crypto config command
- */
-struct nss_crypto_config {
-	uint32_t len;			/* Valid information length */
-	uint8_t buf[1];			/* Buffer */
-};
-
-/*
- * Crypto stats sync structure
- */
-struct nss_crypto_sync {
-	uint32_t interface_num;
-	uint32_t len;
-	uint8_t buf[1];
-};
-
-/*
- * Message structure to send/receive crypto commands
- */
-struct nss_crypto_msg {
-	struct nss_cmn_msg cm;			/* Message Header */
-	union {
-		struct nss_crypto_config config;	/* Message: configure crypto rule */
-		struct nss_crypto_sync sync;	/* Message: Crypto stats sync */
-	} msg;
-};
-
-/*
  * Generic interface messages
  */
 enum nss_generic_metadata_types {
