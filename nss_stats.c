@@ -88,7 +88,7 @@ static int8_t *nss_stats_str_n2h[NSS_STATS_N2H_MAX] = {
 	"queue_dropped",
 	"ticks",
 	"worst_ticks",
-	"iterations"
+	"iterations",
 	"pbuf_fails",
 	"payload_fails"
 };
@@ -205,7 +205,9 @@ static int8_t *nss_stats_str_if_exception_ipv4[NSS_EXCEPTION_EVENT_IPV4_MAX] = {
 	"IPV4_6RD_NO_ICME",
 	"IPV4_6RD_IP_OPTION",
 	"IPV4_6RD_IP_FRAGMENT",
-	"IPV4_6RD_NEEDS_FRAGMENTATION"
+	"IPV4_6RD_NEEDS_FRAGMENTATION",
+	"IPV4_DSCP_MARKING_MISMATCH",
+	"IPV4_VLAN_MARKING_MISMATCH"
 };
 
 /*
@@ -240,7 +242,9 @@ static int8_t *nss_stats_str_if_exception_ipv6[NSS_EXCEPTION_EVENT_IPV6_MAX] = {
 	"IPV6_WRONG_TARGET_MAC",
 	"IPV6_HEADER_INCOMPLETE",
 	"IPV6_UNKNOWN_PROTOCOL",
-	"IPV6_INGRESS_VID_MISMATCH"
+	"IPV6_INGRESS_VID_MISMATCH",
+	"IPV6_DSCP_MARKING_MISMATCH",
+	"IPV6_VLAN_MARKING_MISMATCH",
 };
 
 /*
@@ -529,6 +533,7 @@ static ssize_t nss_stats_n2h_read(struct file *fp, char __user *ubuf, size_t sz,
 	size_t size_wr = 0;
 	ssize_t bytes_read = 0;
 	uint64_t *stats_shadow;
+	int max = NSS_STATS_N2H_MAX - NSS_STATS_NODE_MAX;
 
 	char *lbuf = kzalloc(size_al, GFP_KERNEL);
 	if (unlikely(lbuf == NULL)) {
@@ -571,9 +576,9 @@ static ssize_t nss_stats_n2h_read(struct file *fp, char __user *ubuf, size_t sz,
 
 	spin_unlock_bh(&nss_top_main.stats_lock);
 
-	for (i = NSS_STATS_NODE_MAX; (i < NSS_STATS_N2H_MAX); i++) {
+	for (i = 0; i < max; i++) {
 		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
-					"%s = %llu\n", nss_stats_str_n2h[i], stats_shadow[i]);
+					"%s = %llu\n", nss_stats_str_n2h[i], stats_shadow[i + NSS_STATS_NODE_MAX]);
 	}
 
 	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nn2h stats end\n\n");

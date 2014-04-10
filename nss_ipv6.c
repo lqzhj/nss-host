@@ -68,6 +68,45 @@ static void nss_ipv6_driver_conn_sync_update(struct nss_ctx_instance *nss_ctx, s
 }
 
 /*
+ * nss_ipv6_driver_node_sync_update)
+ *	Update driver specific information from the messsage.
+ */
+static void nss_ipv6_driver_node_sync_update(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_node_sync *nins)
+{
+	struct nss_top_instance *nss_top = nss_ctx->nss_top;
+	uint32_t i;
+
+	/*
+	 * Update statistics maintained by NSS driver
+	 */
+	spin_lock_bh(&nss_top->stats_lock);
+	nss_top->stats_node[NSS_IPV6_RX_INTERFACE][NSS_STATS_NODE_RX_PKTS] += nins->node_stats.rx_packets;
+	nss_top->stats_node[NSS_IPV6_RX_INTERFACE][NSS_STATS_NODE_RX_BYTES] += nins->node_stats.rx_bytes;
+	nss_top->stats_node[NSS_IPV6_RX_INTERFACE][NSS_STATS_NODE_RX_DROPPED] += nins->node_stats.rx_dropped;
+	nss_top->stats_node[NSS_IPV6_RX_INTERFACE][NSS_STATS_NODE_TX_PKTS] += nins->node_stats.tx_packets;
+	nss_top->stats_node[NSS_IPV6_RX_INTERFACE][NSS_STATS_NODE_TX_BYTES] += nins->node_stats.tx_bytes;
+
+	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_RX_PKTS] += nins->node_stats.rx_packets;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_RX_BYTES] += nins->node_stats.rx_bytes;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_TX_PKTS] += nins->node_stats.tx_packets;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_TX_BYTES] += nins->node_stats.tx_bytes;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_CREATE_REQUESTS] += nins->ipv6_connection_create_requests;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_CREATE_COLLISIONS] += nins->ipv6_connection_create_collisions;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_CREATE_INVALID_INTERFACE] += nins->ipv6_connection_create_invalid_interface;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_DESTROY_REQUESTS] += nins->ipv6_connection_destroy_requests;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_DESTROY_MISSES] += nins->ipv6_connection_destroy_misses;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_HASH_HITS] += nins->ipv6_connection_hash_hits;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_HASH_REORDERS] += nins->ipv6_connection_hash_reorders;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_FLUSHES] += nins->ipv6_connection_flushes;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_EVICTIONS] += nins->ipv6_connection_evictions;
+
+	for (i = 0; i < NSS_EXCEPTION_EVENT_IPV6_MAX; i++) {
+		 nss_top->stats_if_exception_ipv6[i] += nins->exception_events[i];
+	}
+	spin_unlock_bh(&nss_top->stats_lock);
+}
+
+/*
  * nss_ipv6_rx_msg_handler()
  *	Handle NSS -> HLOS messages for IPv6 bridge/route
  */
@@ -102,6 +141,13 @@ static void nss_ipv6_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 	switch (nim->cm.type) {
 	case NSS_IPV6_RX_ESTABLISH_RULE_MSG:
 		nss_rx_metadata_ipv6_rule_establish(nss_ctx, &nim->msg.rule_establish);
+		break;
+
+	case NSS_IPV6_RX_NODE_STATS_SYNC_MSG:
+		/*
+		* Update driver statistics on node sync.
+		*/
+		nss_ipv6_driver_node_sync_update(nss_ctx, &nim->msg.node_stats);
 		break;
 
 	case NSS_IPV6_RX_CONN_STATS_SYNC_MSG:

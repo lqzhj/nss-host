@@ -48,7 +48,7 @@
  * Global declarations
  */
 int nss_ctl_redirect __read_mostly = 0;
-int nss_ctl_debug __read_mostly = 1;
+int nss_ctl_debug __read_mostly = 0;
 
 /*
  * PM client handle
@@ -848,8 +848,6 @@ static struct ctl_table_header *nss_dev_header;
 static int __init nss_init(void)
 {
 	nss_info("Init NSS driver");
-
-	nss_hal_debug_enable();
 
 	nss_freq_change_context = nss_get_frequency_mgr();
 	/*

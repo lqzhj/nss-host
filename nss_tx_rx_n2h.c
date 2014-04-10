@@ -49,10 +49,10 @@ static void nss_rx_metadata_n2h_stats_sync(struct nss_ctx_instance *nss_ctx, str
 	/*
 	 * General N2H stats
 	 */
-	nss_ctx->stats_n2h[NSS_STATS_N2H_QUEUE_DROPPED] += nnss->node_stats.rx_packets;
-	nss_ctx->stats_n2h[NSS_STATS_N2H_TOTAL_TICKS] += nnss->node_stats.rx_bytes;
-	nss_ctx->stats_n2h[NSS_STATS_N2H_WORST_CASE_TICKS] += nnss->node_stats.rx_dropped;
-	nss_ctx->stats_n2h[NSS_STATS_N2H_ITERATIONS] += nnss->node_stats.tx_packets;
+	nss_ctx->stats_n2h[NSS_STATS_N2H_QUEUE_DROPPED] += nnss->queue_dropped;
+	nss_ctx->stats_n2h[NSS_STATS_N2H_TOTAL_TICKS] += nnss->total_ticks;
+	nss_ctx->stats_n2h[NSS_STATS_N2H_WORST_CASE_TICKS] += nnss->worst_case_ticks;
+	nss_ctx->stats_n2h[NSS_STATS_N2H_ITERATIONS] += nnss->iterations;
 
 	/*
 	 * pbuf/payload mgr stats
