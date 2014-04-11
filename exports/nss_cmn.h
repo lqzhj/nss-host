@@ -24,7 +24,7 @@
 
 struct nss_ctx_instance;
 
-/*
+/**
  * Common enumerations
  */
 
@@ -75,7 +75,7 @@ typedef enum {
 	NSS_CB_UNREGISTER_FAILED,		/**< Callback unregister failed */
 } nss_cb_unregister_status_t;
 
-/*
+/**
  * Common response structure
  */
 enum nss_cmn_response {
@@ -88,33 +88,33 @@ enum nss_cmn_response {
 	NSS_CMN_RESPONSE_LAST
 };
 
-/*
+/**
  * Common structures
  */
 
-/*
+/**
  * Common message structure
  */
 struct nss_cmn_msg {
-	uint16_t version;		/* Version id for main message format */
-	uint16_t interface;		/* Primary Key for all messages */
-	enum nss_cmn_response response;	/* Primary response */
-	uint32_t type;			/* Decetralized request #, to be used to match response # */
-	uint32_t error;			/* Decentralized specific error message, response == EMSG */
-	uint32_t cb;			/* Place for callback pointer */
-	uint32_t app_data;		/* Place for app data */
-	uint32_t len;			/* What is the length of the message excluding this header */
+	uint16_t version;		/**< Version id for main message format */
+	uint16_t interface;		/**< Primary Key for all messages */
+	enum nss_cmn_response response;	/**< Primary response */
+	uint32_t type;			/**< Decetralized request #, to be used to match response # */
+	uint32_t error;			/**< Decentralized specific error message, response == EMSG */
+	uint32_t cb;			/**< Place for callback pointer */
+	uint32_t app_data;		/**< Place for app data */
+	uint32_t len;			/**< What is the length of the message excluding this header */
 };
 
-/*
+/**
  * Common per node stats structure
  */
 struct nss_cmn_node_stats {
-	uint32_t rx_packets;		/* Number of packets received */
-	uint32_t rx_bytes;		/* Number of bytes received */
-	uint32_t rx_dropped;		/* Number of receive drops due to queue full */
-	uint32_t tx_packets;		/* Number of packets transmitted */
-	uint32_t tx_bytes;		/* Number of bytes transmitted */
+	uint32_t rx_packets;		/**< Number of packets received */
+	uint32_t rx_bytes;		/**< Number of bytes received */
+	uint32_t rx_dropped;		/**< Number of receive drops due to queue full */
+	uint32_t tx_packets;		/**< Number of packets transmitted */
+	uint32_t tx_bytes;		/**< Number of bytes transmitted */
 };
 
 /**
@@ -146,7 +146,7 @@ extern int32_t nss_cmn_get_interface_number(struct nss_ctx_instance *nss_ctx, st
  * @brief Determine if the interface number is a represented as a virtual interface in the NSS
  *
  * @param nss_ctx NSS context
- * @param int32_t The NSS interface number
+ * @param interface_num The NSS interface number
  *
  * @return bool true if it is a virtual.
  */
@@ -156,9 +156,9 @@ extern bool nss_cmn_interface_is_virtual(void *nss_ctx, int32_t interface_num);
  * @brief Obtain interface device pointer
  *
  * @param nss_ctx NSS context
- * @param uint32_t Interface number
+ * @param if_num Interface number
  *
- * @return void* Interface device pointer
+ * @return struct net_device* Interface device pointer
  */
 extern struct net_device *nss_cmn_get_interface_dev(struct nss_ctx_instance *nss_ctx, uint32_t if_num);
 
@@ -181,7 +181,9 @@ typedef void (*nss_cmn_queue_decongestion_callback_t)(void *app_data);
  *
  * @param nss_ctx NSS context
  * @param event_callback Event callback
- * @param ctx Callee context to be returned in callback
+ * @param app_data Callee's application context to be returned in callback
+ *
+ * @return nss_cb_register_status_t NSS_CB_REGISTER_SUCCESS if registration successful, else NSS_CB_REGISTER_FAILED
  *
  * @note Callback function will be called with spinlock taken
  */
@@ -190,7 +192,11 @@ extern nss_cb_register_status_t nss_cmn_register_queue_decongestion(struct nss_c
 /**
  * @brief Unregister for queue decongestion event
  *
- * @param event_callback
+ * @param nss_ctx NSS context
+ * @param event_callback Event callback
+ *
+ * @return nss_cb_register_status_t NSS_CB_REGISTER_SUCCESS if registration successful, else NSS_CB_REGISTER_FAILED
+ *
  */
 extern nss_cb_unregister_status_t nss_cmn_unregister_queue_decongestion(struct nss_ctx_instance *nss_ctx, nss_cmn_queue_decongestion_callback_t event_callback);
 

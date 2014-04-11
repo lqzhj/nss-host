@@ -14,7 +14,7 @@
  **************************************************************************
  */
 
-/*
+/**
  * nss_phys_if
  *	Physical interface message structure
  */
@@ -22,61 +22,64 @@
 #ifndef __NSS_PHYS_IF_H
 #define __NSS_PHYS_IF_H
 
-/*
+/**
  * Physical IF
  */
 
-/*
+/**
  * The NSS per-GMAC statistics sync structure.
  */
 struct nss_phys_if_estats {
-	uint32_t rx_errors;		/* Number of RX errors */
-	uint32_t rx_receive_errors;	/* Number of RX receive errors */
-	uint32_t rx_overflow_errors;	/* Number of RX overflow errors */
-	uint32_t rx_descriptor_errors;	/* Number of RX descriptor errors */
+	uint32_t rx_errors;		/**< Number of RX errors */
+	uint32_t rx_receive_errors;	/**< Number of RX receive errors */
+	uint32_t rx_overflow_errors;	/**< Number of RX overflow errors */
+	uint32_t rx_descriptor_errors;	/**< Number of RX descriptor errors */
 	uint32_t rx_watchdog_timeout_errors;
-					/* Number of RX watchdog timeout errors */
-	uint32_t rx_crc_errors;		/* Number of RX CRC errors */
+					/**< Number of RX watchdog timeout errors */
+	uint32_t rx_crc_errors;		/**< Number of RX CRC errors */
 	uint32_t rx_late_collision_errors;
-					/* Number of RX late collision errors */
-	uint32_t rx_dribble_bit_errors;	/* Number of RX dribble bit errors */
-	uint32_t rx_length_errors;	/* Number of RX length errors */
-	uint32_t rx_ip_header_errors;	/* Number of RX IP header errors */
-	uint32_t rx_ip_payload_errors;	/* Number of RX IP payload errors */
-	uint32_t rx_no_buffer_errors;	/* Number of RX no-buffer errors */
+					/**< Number of RX late collision errors */
+	uint32_t rx_dribble_bit_errors;	/**< Number of RX dribble bit errors */
+	uint32_t rx_length_errors;	/**< Number of RX length errors */
+	uint32_t rx_ip_header_errors;	/**< Number of RX IP header errors */
+	uint32_t rx_ip_payload_errors;	/**< Number of RX IP payload errors */
+	uint32_t rx_no_buffer_errors;	/**< Number of RX no-buffer errors */
 	uint32_t rx_transport_csum_bypassed;
-					/* Number of RX packets where the transport checksum was bypassed */
-	uint32_t tx_collisions;		/* Number of TX collisions */
-	uint32_t tx_errors;		/* Number of TX errors */
+					/**< Number of RX packets where the transport checksum was bypassed */
+	uint32_t tx_collisions;		/**< Number of TX collisions */
+	uint32_t tx_errors;		/**< Number of TX errors */
 	uint32_t tx_jabber_timeout_errors;
-					/* Number of TX jabber timeout errors */
+					/**< Number of TX jabber timeout errors */
 	uint32_t tx_frame_flushed_errors;
-					/* Number of TX frame flushed errors */
+					/**< Number of TX frame flushed errors */
 	uint32_t tx_loss_of_carrier_errors;
-					/* Number of TX loss of carrier errors */
-	uint32_t tx_no_carrier_errors;	/* Number of TX no carrier errors */
+					/**< Number of TX loss of carrier errors */
+	uint32_t tx_no_carrier_errors;	/**< Number of TX no carrier errors */
 	uint32_t tx_late_collision_errors;
-					/* Number of TX late collision errors */
+					/**< Number of TX late collision errors */
 	uint32_t tx_excessive_collision_errors;
-					/* Number of TX excessive collision errors */
+					/**< Number of TX excessive collision errors */
 	uint32_t tx_excessive_deferral_errors;
-					/* Number of TX excessive deferral errors */
-	uint32_t tx_underflow_errors;	/* Number of TX underflow errors */
-	uint32_t tx_ip_header_errors;	/* Number of TX IP header errors */
-	uint32_t tx_ip_payload_errors;	/* Number of TX IP payload errors */
-	uint32_t tx_dropped;		/* Number of TX dropped packets */
-	uint32_t hw_errs[10];		/* GMAC DMA error counters */
-	uint32_t rx_missed;		/* Number of RX packets missed by the DMA */
-	uint32_t fifo_overflows;	/* Number of RX FIFO overflows signalled by the DMA */
-	uint32_t rx_scatter_errors;	/* Number of scattered frames received by the DMA */
-	uint32_t gmac_total_ticks;	/* Total clock ticks spend inside the GMAC */
-	uint32_t gmac_worst_case_ticks;	/* Worst case iteration of the GMAC in ticks */
-	uint32_t gmac_iterations;	/* Number of iterations around the GMAC */
+					/**< Number of TX excessive deferral errors */
+	uint32_t tx_underflow_errors;	/**< Number of TX underflow errors */
+	uint32_t tx_ip_header_errors;	/**< Number of TX IP header errors */
+	uint32_t tx_ip_payload_errors;	/**< Number of TX IP payload errors */
+	uint32_t tx_dropped;		/**< Number of TX dropped packets */
+	uint32_t hw_errs[10];		/**< GMAC DMA error counters */
+	uint32_t rx_missed;		/**< Number of RX packets missed by the DMA */
+	uint32_t fifo_overflows;	/**< Number of RX FIFO overflows signalled by the DMA */
+	uint32_t rx_scatter_errors;	/**< Number of scattered frames received by the DMA */
+	uint32_t gmac_total_ticks;	/**< Total clock ticks spend inside the GMAC */
+	uint32_t gmac_worst_case_ticks;	/**< Worst case iteration of the GMAC in ticks */
+	uint32_t gmac_iterations;	/**< Number of iterations around the GMAC */
 };
 
+/**
+ * The NSS GMAC statistics sync structure.
+ */
 struct nss_phys_if_stats {
-	struct nss_if_stats if_stats;		/* Generic interface stats */
-	struct nss_phys_if_estats estats;	/* Extended Statistics specific to GMAC */
+	struct nss_if_stats if_stats;		/**< Generic interface stats */
+	struct nss_phys_if_estats estats;	/**< Extended Statistics specific to GMAC */
 };
 
 /**
@@ -107,21 +110,32 @@ enum nss_phys_if_msg_types {
  * intefaces.
  */
 struct nss_phys_if_msg {
-	struct nss_cmn_msg cm;				/**> Message Header */
+	struct nss_cmn_msg cm;				/**< Message Header */
 	union {
-		union nss_if_msgs if_msg;		/**> Interfaces messages */
-		struct nss_phys_if_stats stats;		/**> Phys If Statistics */
+		union nss_if_msgs if_msg;		/**< Interfaces messages */
+		struct nss_phys_if_stats stats;		/**< Phys If Statistics */
 	} msg;
 };
 
-
 /**
- * Callback to receive physical interface messages
+ * @brief Callback to receive physical interface messages
+ *
+ * @param app_data Application context for this message
+ * @param msg NSS physical interface message
+ *
+ * @return void
  */
 typedef void (*nss_phys_if_msg_callback_t)(void *app_data, struct nss_phys_if_msg *msg);
 
 /**
- * TODO: Adjust to pass app_data as unknown to the list layer and netdev/sk as known.
+ * @brief Callback to receive physical interface data
+ * 	 TODO: Adjust to pass app_data as unknown to the
+ * 	 list layer and netdev/sk as known.
+ *
+ * @param app_data Application context for this message
+ * @param os_buf Data buffer
+ *
+ * @return void
  */
 typedef void (*nss_phys_if_rx_callback_t)(void *app_data, void *os_buf);
 
