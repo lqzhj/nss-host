@@ -37,6 +37,7 @@ void nss_rx_ipv6_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_conn_syn
 {
 	struct nss_ipv6_cb_params nicp;
 
+	nicp.reason = NSS_IPV6_CB_REASON_SYNC;
 	nicp.params.sync.index = nirs->index;
 	nicp.params.sync.flow_max_window = nirs->flow_max_window;
 	nicp.params.sync.flow_end = nirs->flow_end;
