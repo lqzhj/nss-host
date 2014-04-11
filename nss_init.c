@@ -141,7 +141,7 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 	} else if (nss_dev->id == 1) {
 		rc = request_firmware(&nss_fw, NETAP1_IMAGE, &(nss_dev->dev));
 	} else {
-		nss_warning("%p: Invalid nss context \n", nss_ctx);
+		nss_warning("%p: Invalid nss dev: %d \n", nss_dev->id);
 	}
 
 	/*
@@ -151,59 +151,23 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 		nss_warning("%p: request_firmware failed with err code: %d", nss_ctx, rc);
 		err = rc;
 		goto err_init_0;
-	} else {
-		if (nss_fw->size < MIN_IMG_SIZE) {
-			nss_warning("%p: nss firmware is deprecated, size:%d", nss_ctx, nss_fw->size);
-		}
-		load_mem = ioremap_nocache(npd->load_addr, nss_fw->size);
-
-		if (load_mem == NULL) {
-			nss_warning("%p: ioremap_nocache failed: %x", nss_ctx, npd->load_addr);
-			release_firmware(nss_fw);
-			goto err_init_0;
-		} else {
-			printk("nss_driver - fw of size %d  bytes copied to load addr: %x", nss_fw->size, npd->load_addr);
-			memcpy_toio(load_mem, nss_fw->data, nss_fw->size);
-			release_firmware(nss_fw);
-			iounmap(load_mem);
-		}
 	}
 
-	/*
-	 * F/W load from NSS Driver
-	 */
-	if (nss_dev->id == 0) {
-		rc = request_firmware(&nss_fw, NETAP0_IMAGE, &(nss_dev->dev));
-	} else if (nss_dev->id == 1) {
-		rc = request_firmware(&nss_fw, NETAP1_IMAGE, &(nss_dev->dev));
-	} else {
-		nss_warning("%p: Invalid nss context \n", nss_ctx);
+	if (nss_fw->size < MIN_IMG_SIZE) {
+		nss_warning("%p: nss firmware is truncated, size:%d", nss_ctx, nss_fw->size);
 	}
 
-	/*
-	 *  Check if the file read is successful
-	 */
-	if (rc) {
-		nss_warning("%p: request_firmware failed with err code: %d", nss_ctx, rc);
-		err = rc;
+	load_mem = ioremap_nocache(npd->load_addr, nss_fw->size);
+	if (load_mem == NULL) {
+		nss_warning("%p: ioremap_nocache failed: %x", nss_ctx, npd->load_addr);
+		release_firmware(nss_fw);
 		goto err_init_0;
-	} else {
-		if (nss_fw->size < MIN_IMG_SIZE) {
-			nss_warning("%p: nss firmware is deprecated, size:%d", nss_ctx, nss_fw->size);
-		}
-		load_mem = ioremap_nocache(npd->load_addr, nss_fw->size);
-
-		if (load_mem == NULL) {
-			nss_warning("%p: ioremap_nocache failed: %x", nss_ctx, npd->load_addr);
-			release_firmware(nss_fw);
-			goto err_init_0;
-		} else {
-			memcpy_toio(load_mem, nss_fw->data, nss_fw->size);
-			release_firmware(nss_fw);
-			iounmap(load_mem);
-			printk("nss_driver - fw of size %d  bytes copied to load addr: %x", nss_fw->size, npd->load_addr);
-		}
 	}
+
+	printk("nss_driver - fw of size %u  bytes copied to load addr: %x\n", nss_fw->size, npd->load_addr);
+	memcpy_toio(load_mem, nss_fw->data, nss_fw->size);
+	release_firmware(nss_fw);
+	iounmap(load_mem);
 
 	/*
 	 * Both NSS cores controlled by same regulator, Hook only Once
@@ -366,7 +330,7 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 	 */
 	if (npd->shaping_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->shaping_handler_id = nss_dev->id;
-		printk(KERN_INFO "%p: NSS Shaping is enabled, handler id: %u", __func__, nss_top->shaping_handler_id);
+		printk(KERN_INFO "%p: NSS Shaping is enabled, handler id: %u\n", __func__, nss_top->shaping_handler_id);
 	}
 
 	if (npd->ipv4_enabled == NSS_FEATURE_ENABLED) {
