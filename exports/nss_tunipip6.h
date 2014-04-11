@@ -27,7 +27,7 @@
  */
 
 /**
- * Request/Response types
+ * DS-Lite request/response types
  */
 enum nss_tunipip6_metadata_types {
 	NSS_TUNIPIP6_TX_IF_CREATE,
@@ -37,7 +37,7 @@ enum nss_tunipip6_metadata_types {
 };
 
 /**
- * DS-Lite  configuration command structure
+ * DS-Lite configuration message structure
  */
 struct nss_tunipip6_create_msg {
 	uint32_t saddr[4];	/* Tunnel source address */
@@ -50,21 +50,21 @@ struct nss_tunipip6_create_msg {
 };
 
 /**
- * DS-Lite tunnel interface down command structure
+ * DS-Lite interface down message structure
  */
 struct nss_tunipip6_destroy_msg {
 	uint32_t reserved;	/* Place holder */
 };
 
 /**
- * The NSS DS-Lite statistics sync structure.
+ * DS-Lite statistics sync message structure.
  */
 struct nss_tunipip6_stats_sync_msg {
 	struct nss_cmn_node_stats node_stats;
 };
 
 /**
- * Message structure to send/receive DS-Lite commands
+ * Message structure to send/receive DS-Lite messages
  */
 struct nss_tunipip6_msg {
 	struct nss_cmn_msg cm;		/* Message Header */
@@ -76,33 +76,54 @@ struct nss_tunipip6_msg {
 };
 
 /**
- * Callback to receive tun6rd messages
+ * @brief Callback to receive DS-Lite messages
+ *
+ * @param app_data Application context of the message
+ * @param msg Message data
+ *
+ * @return void
  */
 typedef void (*nss_tunipip6_msg_callback_t)(void *app_data, struct nss_tunipip6_msg *msg);
 
 /**
- *  API to send tun6rd messages
+ * @brief Send DS-Lite  messages
+ *
+ * @param nss_ctx NSS context
+ * @param msg NSS DS-Lite message
+ *
+ * @return nss_tx_status_t Tx status
  */
 extern nss_tx_status_t nss_tunipip6_tx(struct nss_ctx_instance *nss_ctx, struct nss_tunipip6_msg *msg);
 
 /**
- * Callback to receive ipip6 callback
+ * @brief Callback to receive DS-Lite data
+ *
+ * @param app_data Application context of the message
+ * @param os_buf  Pointer to data buffer
+ *
+ * @return void
  */
 typedef void (*nss_tunipip6_callback_t)(void *app_data, void *os_buf);
 
 /*
- * @brief Register to send/receive ipip6 tunnel messages to NSS
+ * @brief Register to send/receive DS-Lite messages to NSS
  *
- * @param tunipip6_callback Callback
- * @param ctx ipip6 tunnel context
+ * @param if_num NSS interface number
+ * @param tunipip6_callback Callback for DS-Lite data
+ * @param msg_callback Callback for DS-Lite messages
+ * @param netdev netdevice associated with the DS-Lite
  *
- * @return void* NSS context
+ * @return nss_ctx_instance* NSS context
  */
 extern struct nss_ctx_instance *nss_register_tunipip6_if(uint32_t if_num, nss_tunipip6_callback_t tunipip6_callback,
 					nss_tunipip6_msg_callback_t event_callback, struct net_device *netdev);
 
 /**
- * @brief Unregister ipip6 tunnel interface with NSS
+ * @brief Unregister DS-Lite interface with NSS
+ *
+ * @param if_num NSS interface number
+ *
+ * @return void
  */
 extern void nss_unregister_tunipip6_if(uint32_t if_num);
 
