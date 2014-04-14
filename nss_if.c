@@ -20,7 +20,6 @@
  */
 
 #include "nss_tx_rx_common.h"
-#include "nss_if.h"
 
 /*
  * nss_if_msg_handler()

@@ -21,8 +21,6 @@
 
 #include <linux/ppp_channel.h>
 #include "nss_tx_rx_common.h"
-#include "nss_api_if.h"
-#include "nss_ipv4.h"
 
 /*
  * Depreceated callback maintained locally.

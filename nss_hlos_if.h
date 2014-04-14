@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, Qualcomm Atheros, Inc.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -21,8 +21,6 @@
 
 #ifndef __NSS_HLOS_IF_H
 #define __NSS_HLOS_IF_H
-
-#include "nss_api_if.h"
 
 /*
  * Request/Response types

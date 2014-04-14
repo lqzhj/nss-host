@@ -20,7 +20,6 @@
  */
 #include <linux/ppp_channel.h>
 #include "nss_tx_rx_common.h"
-#include "nss_ipv6.h"
 
 extern void nss_rx_metadata_ipv6_rule_establish(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_rule_establish *nire);
 extern void nss_rx_ipv6_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_conn_sync *nirs);

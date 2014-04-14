@@ -30,7 +30,7 @@
 #include <net/ipv6.h>
 #include <net/ipip.h>
 #include <linux/if_arp.h>
-#include "nss_api_if.h"
+#include <nss_api_if.h>
 
 /*
  * NSS tun6rd debug macros

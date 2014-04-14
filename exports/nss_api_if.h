@@ -46,7 +46,8 @@
 #include "nss_if.h"
 #include "nss_phys_if.h"
 #include "nss_virt_if.h"
-
+#include "nss_ipsec.h"
+#include "nss_crypto.h"
 
 /*
  * Interface numbers are reserved in the

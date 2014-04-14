@@ -28,9 +28,9 @@
 #include <net/netfilter/nf_conntrack.h>
 #include <linux/if_bridge.h>
 #include <linux/list.h>
-#include <nss_api_if.h>
 #include <linux/version.h>
 #include <br_private.h>
+#include <nss_api_if.h>
 
 /*
  * NSS QDisc debug macros

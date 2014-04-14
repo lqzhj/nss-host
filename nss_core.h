@@ -32,15 +32,9 @@
 #include <linux/debugfs.h>
 #include <linux/workqueue.h>
 
+#include <nss_api_if.h>
 #include "nss_hlos_if.h"
-#include "nss_api_if.h"
-/*
- * XXX:can't add this to api_if.h till the deprecated
- * API(s) are present. Once, thats removed we will move it
- * to this file
- */
-#include "nss_ipsec.h"
-#include "nss_crypto.h"
+
 /*
  * NSS debug macros
  */

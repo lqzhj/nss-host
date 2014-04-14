@@ -20,7 +20,6 @@
  */
 
 #include "nss_tx_rx_common.h"
-#include "nss_phys_if.h"
 
 /*
  * TODO: Once we are moved to the new API, this function is deprecated.

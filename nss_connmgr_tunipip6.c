@@ -31,9 +31,7 @@
 #include <net/ipip.h>
 #include <net/ip6_tunnel.h>
 #include <linux/if_arp.h>
-#include "nss_api_if.h"
-#include "nss_hlos_if.h"
-#include "nss_tunipip6.h"
+#include <nss_api_if.h>
 
 /*
  * NSS tunipip6 debug macros

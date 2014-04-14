@@ -21,7 +21,7 @@
 
 #include <linux/if_bonding.h>
 
-#include "nss_api_if.h"
+#include <nss_api_if.h>
 
 #define nss_lag_info(fmt, args...) printk(KERN_INFO "nss LAG :"fmt, ##args)
 

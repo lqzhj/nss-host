@@ -64,7 +64,7 @@
 #include <net/arp.h>
 #include <net/neighbour.h>
 
-#include "nss_api_if.h"
+#include <nss_api_if.h>
 #include <linux/../../net/8021q/vlan.h>
 #include <linux/if_vlan.h>
 #include <linux/../../net/offload/offload.h>

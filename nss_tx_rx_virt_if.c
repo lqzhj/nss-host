@@ -20,7 +20,6 @@
  */
 
 #include "nss_tx_rx_common.h"
-#include "nss_virt_if.h"
 #include <net/arp.h>
 
 extern int nss_ctl_redirect;
