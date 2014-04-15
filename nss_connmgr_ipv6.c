@@ -183,7 +183,7 @@ typedef uint32_t ipv6_addr_t[4];
 /*
  * Max NSS ipv6 Flow entries
  */
-#define NSS_CONNMGR_IPV6_CONN_MAX 256
+#define NSS_CONNMGR_IPV6_CONN_MAX 4096
 
 /*
  * size of buffer allocated for stats printing (using debugfs)
