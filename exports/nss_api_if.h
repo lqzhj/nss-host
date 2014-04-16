@@ -355,6 +355,15 @@ struct nss_ipv4_sync {
 	uint32_t index;			/**< Slot ID for cache stats to host OS */
 					/*TODO: use an opaque information as host and NSS
 					  may be using a different mechanism to store rules */
+	int32_t protocol;		/**< L4 Protocol (e.g. TCP/UDP) */
+	uint32_t src_ip;		/**< Source IP address */
+	int32_t src_port;		/**< Source L4 port (e.g. TCP/UDP port) */
+	uint32_t src_ip_xlate;		/**< Translated Source IP address (used with SNAT) */
+	int32_t src_port_xlate;		/**< Translated Source L4 port (used with SNAT) */
+	uint32_t dest_ip;		/**< Destination IP address */
+	int32_t dest_port;		/**< Destination L4 port (e.g. TCP/UDP port) */
+	uint32_t dest_ip_xlate;		/**< Translated Destination IP address (used with DNAT) */
+	int32_t dest_port_xlate;	/**< Translated Destination L4 port (used with DNAT) */
 	uint32_t flow_max_window;	/**< Maximum window size (TCP) */
 	uint32_t flow_end;		/**< Flow end */
 	uint32_t flow_max_end;		/**< Flow max end */
@@ -453,6 +462,11 @@ struct nss_ipv4_cb_params {
  */
 struct nss_ipv6_sync {
 	uint32_t index;			/**< Slot ID for cache stats to host OS */
+	int32_t protocol;		/**< L4 Protocol (e.g. TCP/UDP) */
+	uint32_t src_ip[4];		/**< Source IP address */
+	int32_t src_port;		/**< Source L4 port (e.g. TCP/UDP port) */
+	uint32_t dest_ip[4];		/**< Destination IP address */
+	int32_t dest_port;		/**< Destination L4 port (e.g. TCP/UDP port) */
 	uint32_t flow_max_window;	/**< Maximum window size (TCP) */
 	uint32_t flow_end;		/**< Flow end */
 	uint32_t flow_max_end;		/**< Flow max end */
