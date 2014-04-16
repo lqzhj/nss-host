@@ -20,6 +20,7 @@
  */
 
 #include "nss_tx_rx_common.h"
+#include "nss_crypto.h"
 
 /*
  **********************************

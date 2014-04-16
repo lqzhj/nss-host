@@ -36,6 +36,14 @@
 #include "nss_hlos_if.h"
 
 /*
+ * XXX:can't add this to api_if.h till the deprecated
+ * API(s) are present. Once, thats removed we will move it
+ * to this file
+ */
+#include "nss_ipsec.h"
+#include "nss_crypto.h"
+
+/*
  * NSS debug macros
  */
 #if (NSS_DEBUG_LEVEL < 1)
