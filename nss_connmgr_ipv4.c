@@ -158,7 +158,7 @@ typedef uint32_t ipv4_addr_t;
  * TODO - This information should come from NSS. Once NSS driver team adds an
  * API for this, change this.
  */
-#define NSS_CONNMGR_IPV4_CONN_MAX 256
+#define NSS_CONNMGR_IPV4_CONN_MAX 4096
 
 /*
  * size of buffer allocated for stats printing (using debugfs)
