@@ -37,6 +37,12 @@ void nss_rx_ipv6_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_conn_syn
 
 	nicp.reason = NSS_IPV6_CB_REASON_SYNC;
 	nicp.params.sync.index = nirs->index;
+	nicp.params.sync.protocol = (int32_t)nirs->protocol;
+	nicp.params.sync.src_ip[0] = nirs->flow_ip[0];
+	nicp.params.sync.src_ip[1] = nirs->flow_ip[1];
+	nicp.params.sync.src_ip[2] = nirs->flow_ip[2];
+	nicp.params.sync.src_ip[3] = nirs->flow_ip[3];
+	nicp.params.sync.src_port = nirs->flow_ident;
 	nicp.params.sync.flow_max_window = nirs->flow_max_window;
 	nicp.params.sync.flow_end = nirs->flow_end;
 	nicp.params.sync.flow_max_end = nirs->flow_max_end;
@@ -44,6 +50,11 @@ void nss_rx_ipv6_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_conn_syn
 	nicp.params.sync.flow_rx_byte_count = nirs->flow_rx_byte_count;
 	nicp.params.sync.flow_tx_packet_count = nirs->flow_tx_packet_count;
 	nicp.params.sync.flow_tx_byte_count = nirs->flow_tx_byte_count;
+	nicp.params.sync.dest_ip[0] = nirs->return_ip[0];
+	nicp.params.sync.dest_ip[1] = nirs->return_ip[1];
+	nicp.params.sync.dest_ip[2] = nirs->return_ip[2];
+	nicp.params.sync.dest_ip[3] = nirs->return_ip[3];
+	nicp.params.sync.dest_port = nirs->return_ident;
 	nicp.params.sync.return_max_window = nirs->return_max_window;
 	nicp.params.sync.return_end = nirs->return_end;
 	nicp.params.sync.return_max_end = nirs->return_max_end;

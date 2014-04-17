@@ -248,6 +248,11 @@ struct nss_ipv4_rule_establish {
  */
 struct nss_ipv4_conn_sync {
 	uint32_t index;			/**< Slot ID for cache stats to host OS */
+	uint8_t protocol;		/**< Protocol number */
+	uint32_t flow_ip;		/**< Flow IP address */
+	uint32_t flow_ip_xlate;		/**< Translated flow IP address */
+	uint32_t flow_ident;		/**< Flow ident (e.g. port) */
+	uint32_t flow_ident_xlate;	/**< Translated flow ident (e.g. port) */
 	uint32_t flow_max_window;	/**< Flow direction's largest seen window */
 	uint32_t flow_end;		/**< Flow direction's largest seen sequence + segment length */
 	uint32_t flow_max_end;		/**< Flow direction's largest seen ack + max(1, win) */
@@ -258,6 +263,10 @@ struct nss_ipv4_conn_sync {
 	uint16_t flow_pppoe_session_id; /**< Flow interface`s PPPoE session ID. */
 	uint16_t flow_pppoe_remote_mac[3];
 					/**< Flow interface's PPPoE remote server MAC address if there is any */
+	uint32_t return_ip;		/**< Return IP address */
+	uint32_t return_ip_xlate;	/**< Translated return IP address */
+	uint32_t return_ident;		/**< Return ident (e.g. port) */
+	uint32_t return_ident_xlate;	/**< Translated return ident (e.g. port) */
 	uint32_t return_max_window;	/**< Return direction's largest seen window */
 	uint32_t return_end;		/**< Return direction's largest seen sequence + segment length */
 	uint32_t return_max_end;	/**< Return direction's largest seen ack + max(1, win) */

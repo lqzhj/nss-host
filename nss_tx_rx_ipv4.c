@@ -42,6 +42,11 @@ void nss_rx_ipv4_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_conn_syn
 
 	nicp.reason = NSS_IPV4_CB_REASON_SYNC;
 	nicp.params.sync.index = nirs->index;
+	nicp.params.sync.protocol = (int32_t)nirs->protocol;
+	nicp.params.sync.src_ip = nirs->flow_ip;
+	nicp.params.sync.src_ip_xlate = nirs->flow_ip_xlate;
+	nicp.params.sync.src_port = nirs->flow_ident;
+	nicp.params.sync.src_port_xlate = nirs->flow_ident_xlate;
 	nicp.params.sync.flow_max_window = nirs->flow_max_window;
 	nicp.params.sync.flow_end = nirs->flow_end;
 	nicp.params.sync.flow_max_end = nirs->flow_max_end;
@@ -49,6 +54,10 @@ void nss_rx_ipv4_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_conn_syn
 	nicp.params.sync.flow_rx_byte_count = nirs->flow_rx_byte_count;
 	nicp.params.sync.flow_tx_packet_count = nirs->flow_tx_packet_count;
 	nicp.params.sync.flow_tx_byte_count = nirs->flow_tx_byte_count;
+	nicp.params.sync.dest_ip = nirs->return_ip;
+	nicp.params.sync.dest_ip_xlate = nirs->return_ip_xlate;
+	nicp.params.sync.dest_port = nirs->return_ident;
+	nicp.params.sync.dest_port_xlate = nirs->return_ident_xlate;
 	nicp.params.sync.return_max_window = nirs->return_max_window;
 	nicp.params.sync.return_end = nirs->return_end;
 	nicp.params.sync.return_max_end = nirs->return_max_end;
