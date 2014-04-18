@@ -32,10 +32,11 @@
 #include <linux/delay.h>
 #include <linux/vmalloc.h>
 #include <nss_crypto_hlos.h>
+#include <nss_api_if.h>
+#include <nss_crypto.h>
 #include <nss_crypto_if.h>
 #include <nss_crypto_hw.h>
 #include <nss_crypto_ctrl.h>
-
 
 #define REG(off)	(MSM_CLK_CTL_BASE + (off))
 #define REG_GCC(off)	(MSM_APCS_GCC_BASE + (off))

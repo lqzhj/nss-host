@@ -144,6 +144,7 @@ struct nss_crypto_key {
 	uint8_t *key;			/**< location of the key stored in memory */
 };
 
+#if 0
 /**
  * @brief crypto session index type
  */
@@ -220,6 +221,7 @@ struct nss_crypto_sync {
 	} msg;
 };
 
+#endif
 /**
  * @brief crypto request buffer for doing operation with the crypto driver
  *

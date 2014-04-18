@@ -16,10 +16,11 @@
  *
  */
 #include <nss_crypto_hlos.h>
+#include <nss_api_if.h>
+#include <nss_crypto.h>
 #include <nss_crypto_if.h>
 #include <nss_crypto_hw.h>
 #include <nss_crypto_ctrl.h>
-#include <nss_api_if.h>
 
 #define NSS_CRYPTO_DEBUGFS_PERM_RO 0444
 #define NSS_CRYPTO_DEBUGFS_PERM_RW 0666
@@ -33,7 +34,7 @@ static ssize_t nss_crypto_read_stats(struct file *fp, char __user *ubuf, size_t 
  */
 extern struct nss_crypto_ctrl gbl_crypto_ctrl;
 
-void *nss_drv_hdl;
+struct nss_ctx_instance *nss_drv_hdl;
 void *nss_pm_hdl;
 
 /*
@@ -293,7 +294,7 @@ EXPORT_SYMBOL(nss_crypto_buf_free);
  * have been completed by the NSS crypto. It needs to have a switch case for
  * detecting control packets also
  */
-void nss_crypto_transform_done(void *ctx, void *buffer, uint32_t paddr, uint16_t len)
+void nss_crypto_transform_done(void *app_data __attribute((unused)), void *buffer, uint32_t paddr, uint16_t len)
 {
 	struct nss_crypto_buf *buf = (struct nss_crypto_buf *)buffer;
 
@@ -321,30 +322,60 @@ static void nss_crypto_copy_stats(struct nss_crypto_stats_param *param, struct n
  * nss_crypto_process_sync()
  *	callback function for sync messages.
  */
-void nss_crypto_process_sync(void *ctx, void *buffer, uint32_t len)
+void nss_crypto_process_event(void *app_data, struct nss_crypto_msg *nim)
 {
 	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
-	struct nss_crypto_sync *sync = (struct nss_crypto_sync *)buffer;
-	struct nss_crypto_sync_stats *stats = &sync->msg.stats;
+	struct nss_crypto_sync_stats *stats;
+	struct nss_crypto_config_eng *open;
+	struct nss_crypto_config_session *session;
 	int i;
 
-	switch (sync->type) {
-	case NSS_CRYPTO_SYNC_TYPE_STATS:
+	switch (nim->cm.type) {
+	case NSS_CRYPTO_MSG_TYPE_STATS:
+
+		stats = &nim->msg.stats;
 
 		for (i = 0; i < ctrl->num_eng; i++) {
-			nss_crypto_copy_stats(&param.eng[i], &stats->eng[i]);
+			nss_crypto_copy_stats(&param.eng[i], &stats->eng_stats[i]);
 		}
 
 		for (i = 0; i < NSS_CRYPTO_MAX_IDXS; i++) {
-			nss_crypto_copy_stats(&param.session[i], &stats->idx[i]);
+			nss_crypto_copy_stats(&param.session[i], &stats->idx_stats[i]);
 		}
 
 		nss_crypto_copy_stats(&param.total, &stats->total);
 
 		break;
 
+	case NSS_CRYPTO_MSG_TYPE_OPEN_ENG:
+		open = &nim->msg.eng;
+
+		if (nim->cm.response != NSS_CMN_RESPONSE_ACK) {
+			nss_crypto_err("unable to Open the engine: resp code (%d), error code (%d)\n",
+					nim->cm.response, nim->cm.error);
+			return;
+		}
+
+		nss_crypto_info("engine(%d) opened successfully\n", open->eng_id);
+
+		break;
+
+	case NSS_CRYPTO_MSG_TYPE_RESET_SESSION:
+		session = &nim->msg.session;
+
+		if (nim->cm.response != NSS_CMN_RESPONSE_ACK) {
+			nss_crypto_err("unable to reset session: resp code (%d), error code (%d)\n",
+					nim->cm.response, nim->cm.error);
+
+			return;
+		}
+
+		nss_crypto_info("session(%d) reset successfully\n", session->idx);
+
+		break;
+
 	default:
-		nss_crypto_err("unsupported sync type %d\n", sync->type);
+		nss_crypto_err("unsupported sync type %d\n", nim->cm.type);
 		return;
 	}
 }
@@ -367,7 +398,7 @@ nss_crypto_status_t nss_crypto_transform_payload(nss_crypto_handle_t crypto, str
 	buf->data_paddr = dma_map_single(NULL, buf->data, buf->data_len, DMA_TO_DEVICE);
 	paddr = dma_map_single(NULL, buf, sizeof(struct nss_crypto_buf), DMA_TO_DEVICE);
 
-	nss_status = nss_tx_crypto_if_buf(nss_drv_hdl, buf, paddr, sizeof(struct nss_crypto_buf));
+	nss_status = nss_crypto_tx_buf(nss_drv_hdl, buf, paddr, sizeof(struct nss_crypto_buf));
 	if (nss_status != NSS_TX_SUCCESS) {
 		nss_crypto_dbg("Not able to send crypto buf to NSS\n");
 		return NSS_CRYPTO_STATUS_FAIL;
@@ -464,13 +495,15 @@ void nss_crypto_init(void)
 {
 	nss_pm_interface_status_t status;
 
-	nss_crypto_info("Waiting for NSS \n");
+	nss_crypto_info("Register with NSS \n");
 
-	nss_drv_hdl = nss_register_crypto_if(nss_crypto_transform_done, &user_head);
+	nss_drv_hdl = nss_crypto_notify_register(nss_crypto_process_event, &user_head);
+	nss_drv_hdl = nss_crypto_data_register(nss_crypto_transform_done, &user_head);
 
-	nss_register_crypto_sync_if(nss_crypto_process_sync, &user_head);
-
-	while(nss_get_state(nss_drv_hdl) != NSS_STATE_INITIALIZED) {
+	/*
+	 * XXX:move this to worker
+	 */
+	if (nss_get_state(nss_drv_hdl) != NSS_STATE_INITIALIZED) {
 		nss_crypto_info(".");
 	}
 	nss_crypto_info(" done!\n");
@@ -498,19 +531,26 @@ void nss_crypto_init(void)
  */
 void nss_crypto_engine_init(uint32_t eng_count)
 {
-	struct nss_crypto_config config;
-	struct nss_crypto_config_eng *open;
+	struct nss_crypto_msg nim;
+	struct nss_cmn_msg *ncm = &nim.cm;
+	struct nss_crypto_config_eng *open = &nim.msg.eng;
 	struct nss_crypto_ctrl_eng *e_ctrl;
 	int i;
 
 	e_ctrl = &gbl_crypto_ctrl.eng[eng_count];
 
-	config.type = NSS_CRYPTO_CONFIG_TYPE_OPEN_ENG;
+	memset(&nim, 0, sizeof(struct nss_crypto_msg));
+
+	nss_cmn_msg_init(ncm,
+			NSS_CRYPTO_INTERFACE,
+			NSS_CRYPTO_MSG_TYPE_OPEN_ENG,
+			sizeof(struct nss_crypto_config_eng),
+			nss_crypto_process_event,
+			(void *)eng_count);
 
 	/*
 	 * prepare the open config message
 	 */
-	open = &config.msg.eng;
 	open->eng_id = eng_count;
 	open->bam_pbase = e_ctrl->bam_pbase;
 
@@ -526,7 +566,7 @@ void nss_crypto_engine_init(uint32_t eng_count)
 	/*
 	 * send open config message to NSS crypto
 	 */
-	nss_tx_crypto_if_open(nss_drv_hdl, (uint8_t *)&config, sizeof(struct nss_crypto_config));
+	nss_crypto_tx_msg(nss_drv_hdl, &nim);
 
 	param.eng[eng_count].valid = 1;
 
@@ -538,19 +578,25 @@ void nss_crypto_engine_init(uint32_t eng_count)
  */
 void nss_crypto_reset_session(uint32_t session_idx, enum nss_crypto_session_state state)
 {
-	struct nss_crypto_config config;
-	struct nss_crypto_config_session *session;
+	struct nss_crypto_msg nim;
+	struct nss_cmn_msg *ncm = &nim.cm;
+	struct nss_crypto_config_session *session = &nim.msg.session;
 
-	memset(&config, 0, sizeof(struct nss_crypto_config));
+	memset(&nim, 0, sizeof(struct nss_crypto_msg));
 
-	config.type = NSS_CRYPTO_CONFIG_TYPE_RESET_SESSION;
-	session = &config.msg.session;
+	nss_cmn_msg_init(ncm,
+			NSS_CRYPTO_INTERFACE,
+			NSS_CRYPTO_MSG_TYPE_RESET_SESSION,
+			sizeof(struct nss_crypto_config_session),
+			nss_crypto_process_event,
+			(void *)session_idx);
+
 	session->idx = session_idx;
 
 	/*
 	 * send reset stats config message to NSS crypto
 	 */
-	nss_tx_crypto_if_open(nss_drv_hdl, (uint8_t *)&config, sizeof(struct nss_crypto_config));
+	nss_crypto_tx_msg(nss_drv_hdl, &nim);
 
 	switch (state) {
 	case NSS_CRYPTO_SESSION_STATE_ALLOC:

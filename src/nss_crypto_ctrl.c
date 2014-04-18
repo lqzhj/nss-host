@@ -17,6 +17,8 @@
  */
 
 #include <nss_crypto_hlos.h>
+#include <nss_api_if.h>
+#include <nss_crypto.h>
 #include <nss_crypto_if.h>
 #include <nss_crypto_hw.h>
 #include <nss_crypto_ctrl.h>
@@ -796,13 +798,13 @@ nss_crypto_status_t nss_crypto_idx_init(struct nss_crypto_ctrl_eng *eng, struct 
 
 
 		idx->pp_num = (i % NSS_CRYPTO_BAM_PP);
-		idx->cmd0_len = NSS_CRYPTO_CACHE_CMD_SZ;
+		idx->cmd_len = NSS_CRYPTO_CACHE_CMD_SZ;
 
 		/*
 		 * for indexes beyond MAX_CACHED switch to uncached mode
 		 */
 		if ((i >= NSS_CRYPTO_MAX_CACHED_IDXS) || CONFIG_NSS_CRYPTO_FORCE_UNCACHE) {
-			idx->cmd0_len = NSS_CRYPTO_UNCACHE_CMD_SZ;
+			idx->cmd_len = NSS_CRYPTO_UNCACHE_CMD_SZ;
 		}
 
 		idx->cblk_paddr = paddr;
