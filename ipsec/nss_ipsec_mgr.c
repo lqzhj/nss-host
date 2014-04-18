@@ -43,8 +43,9 @@
 #include <net/dst.h>
 
 #include <nss_api_if.h>
+#include <nss_ipsec.h>
 #include <nss_cfi_if.h>
-#include "nss_ipsec.h"
+#include "nss_ipsec_mgr.h"
 
 
 /*
@@ -54,7 +55,7 @@
  * is working on it.
  */
 
-static void *gbl_nss_ctx = NULL;
+static struct nss_ctx_instance *gbl_nss_ctx = NULL;
 static struct net_device *gbl_except_dev = NULL;
 static spinlock_t gbl_dev_lock;
 
@@ -81,7 +82,7 @@ struct nss_ipsec_skb_cb {
  * IPsec rule table structure.
  */
 struct nss_ipsec_rule_tbl {
-	struct nss_ipsec_rule_entry entry[NSS_IPSEC_TBL_MAX_ENTRIES];
+	struct nss_ipsec_rule_entry entry[NSS_IPSEC_MAX_RULE];
 
 	uint32_t free_count;
 	uint32_t num_pending_sync;
@@ -95,7 +96,7 @@ struct nss_ipsec_rule_tbl {
 static struct nss_ipsec_rule_tbl gbl_rule_tbl[NSS_IPSEC_TBL_TYPE_MAX];
 
 typedef void (*nss_ipsec_sync_op_t)(struct nss_ipsec_rule_tbl *, struct nss_ipsec_rule_sync *);
-
+static void nss_ipsec_event_cb(void *app_data, struct nss_ipsec_msg *nim);
 /*
  * nss_ipsec_get_ipsec_dev()
  * 	get ipsec netdevice from skb. Openswan stack fills up ipsec_dev in skb.
@@ -121,9 +122,9 @@ static inline void * nss_ipsec_get_next_hdr(struct nss_ipsec_ipv4_hdr *ip)
  * nss_ipsec_set_crypto_sid()
  * 	set crpto session id to IPsec rule.
  */
-static inline void nss_ipsec_set_crypto_sid(struct nss_ipsec_rule *rule, uint32_t crypto_sid)
+static inline void nss_ipsec_set_crypto_sid(struct nss_ipsec_msg *nim, uint32_t crypto_sid)
 {
-	struct nss_ipsec_rule_data *data = &rule->type.push.data;
+	struct nss_ipsec_rule_data *data = &nim->msg.push.data;
 
 	data->crypto_sid = crypto_sid;
 }
@@ -173,7 +174,7 @@ static uint32_t nss_ipsec_parse_packet(struct nss_ipsec_ipv4_hdr *ip, struct nss
 
 	if (ip->ver_ihl != 0x45) {
 		nss_cfi_dbg("IPv4 header mismatch:ver_ihl = %d\n", ip->ver_ihl);
-		return NSS_IPSEC_RULE_OP_NONE;
+		return NSS_IPSEC_MSG_TYPE_NONE;
 	}
 
 	switch(ip->protocol) {
@@ -184,7 +185,7 @@ static uint32_t nss_ipsec_parse_packet(struct nss_ipsec_ipv4_hdr *ip, struct nss
 		sel->src_port = ntohs(tcp->src_port);
 		sel->dst_ip = ntohl(ip->dst_ip);
 		sel->src_ip = ntohl(ip->src_ip);
-		sel->proto = IPPROTO_TCP;
+		sel->protocol = IPPROTO_TCP;
 
 		break;
 
@@ -195,7 +196,7 @@ static uint32_t nss_ipsec_parse_packet(struct nss_ipsec_ipv4_hdr *ip, struct nss
 		sel->src_port = ntohs(udp->src_port);
 		sel->dst_ip = ntohl(ip->dst_ip);
 		sel->src_ip = ntohl(ip->src_ip);
-		sel->proto = IPPROTO_UDP;
+		sel->protocol = IPPROTO_UDP;
 
 		break;
 
@@ -204,16 +205,16 @@ static uint32_t nss_ipsec_parse_packet(struct nss_ipsec_ipv4_hdr *ip, struct nss
 
 		sel->dst_ip = ntohl(ip->dst_ip);
 		sel->src_ip = ntohl(ip->src_ip);
-		sel->proto = IPPROTO_ESP;
+		sel->protocol = IPPROTO_ESP;
 		sel->spi = ntohl(esp->spi);
 
 		break;
 	default:
-		nss_cfi_dbg("inner IPv4 header mismatch:proto = %d\n", ip->protocol);
-		return NSS_IPSEC_RULE_OP_NONE;
+		nss_cfi_dbg("inner IPv4 header mismatch:protocol = %d\n", ip->protocol);
+		return NSS_IPSEC_MSG_TYPE_NONE;
 	}
 
-	return NSS_IPSEC_RULE_OP_ADD;
+	return NSS_IPSEC_MSG_TYPE_ADD_RULE;
 }
 
 /*
@@ -265,7 +266,7 @@ static void nss_ipsec_sync_del(struct nss_ipsec_rule_tbl *tbl, struct nss_ipsec_
 	idx = sync->index.num;
 	entry = &tbl->entry[idx];
 
-	if (tbl->free_count == NSS_IPSEC_TBL_MAX_ENTRIES) {
+	if (tbl->free_count == NSS_IPSEC_MAX_RULE) {
 		nss_cfi_dbg("table(%p) empty, delete operation failed\n", tbl);
 		return;
 	}
@@ -289,7 +290,7 @@ static void nss_ipsec_sync_flush(struct nss_ipsec_rule_tbl *tbl, struct nss_ipse
 	struct nss_ipsec_rule_entry *entry;
 	int i;
 
-	for (i = 0; i < NSS_IPSEC_TBL_MAX_ENTRIES; i++) {
+	for (i = 0; i < NSS_IPSEC_MAX_RULE; i++) {
 		if (!sync->index.map[i]) {
 			continue;
 		}
@@ -316,9 +317,8 @@ static void nss_ipsec_sync_flush(struct nss_ipsec_rule_tbl *tbl, struct nss_ipse
  * nss_ipsec_push_rule()
  * 	Push rule to NSS.
  */
-static int nss_ipsec_push_rule(struct nss_ipsec_rule *rule, uint32_t if_num)
+static int nss_ipsec_push_rule(struct nss_ipsec_msg *nim, uint32_t if_num)
 {
-	const uint32_t size = sizeof(struct nss_ipsec_rule);
 	nss_tx_status_t status;
 
 	if (gbl_nss_ctx == NULL) {
@@ -327,12 +327,12 @@ static int nss_ipsec_push_rule(struct nss_ipsec_rule *rule, uint32_t if_num)
 		return -1;
 	}
 
-	nss_cfi_dbg("pushing rule_op %d, for if_num %d with size %d\n", rule->op, if_num, size);
+	nss_cfi_dbg("pushing rule_op %d, for if_num %d \n", nim->cm.type, if_num);
 
-	status = nss_tx_ipsec_rule(gbl_nss_ctx, if_num, 0, (uint8_t *)rule, size);
+	status = nss_ipsec_tx_msg(gbl_nss_ctx, nim);
 	if (status != NSS_TX_SUCCESS) {
 		param.rule_drop++;
-		nss_cfi_dbg("push rule(%d) failed for if_num: %d\n", rule->op, if_num);
+		nss_cfi_dbg("push rule(%d) failed for if_num: %d\n", nim->cm.type, if_num);
 		return -1;
 	}
 
@@ -343,9 +343,8 @@ static int nss_ipsec_push_rule(struct nss_ipsec_rule *rule, uint32_t if_num)
  * nss_ipsec_push_rule_sync()
  * 	Push rule to NSS synchronously
  */
-static int nss_ipsec_push_rule_sync(struct nss_ipsec_rule *rule, struct nss_ipsec_rule_tbl *tbl)
+static int nss_ipsec_push_rule_sync(struct nss_ipsec_msg *nim, struct nss_ipsec_rule_tbl *tbl)
 {
-	const uint32_t size = sizeof(struct nss_ipsec_rule);
 	nss_tx_status_t status;
 
 	if (gbl_nss_ctx == NULL) {
@@ -356,7 +355,7 @@ static int nss_ipsec_push_rule_sync(struct nss_ipsec_rule *rule, struct nss_ipse
 
 	tbl->num_pending_sync++;
 
-	status = nss_tx_ipsec_rule(gbl_nss_ctx, tbl->if_num, 0, (uint8_t *)rule, size);
+	status = nss_ipsec_tx_msg(gbl_nss_ctx, nim);
 	if (status != NSS_TX_SUCCESS) {
 		param.rule_drop++;
 		nss_cfi_dbg("push rule failed for if_num: %d\n", tbl->if_num);
@@ -375,29 +374,27 @@ static int nss_ipsec_push_rule_sync(struct nss_ipsec_rule *rule, struct nss_ipse
 static int nss_ipsec_free_rule(struct nf_conn *ct) __attribute__((unused));
 static int nss_ipsec_free_rule(struct nf_conn *ct)
 {
-	const uint32_t size = sizeof(struct nss_ipsec_rule);
-	struct nss_ipsec_rule rule;
-	struct nss_ipsec_rule_sel *sel;
+	struct nss_ipsec_msg nim;
+	struct nss_ipsec_rule_sel *sel = &nim.msg.push.sel;
+	enum nss_ipsec_tbl_type table_type;
 	struct nf_conntrack_tuple orig_tuple;
 	uint32_t if_num;
 
-	memset(&rule, 0, size);
-	sel = &rule.type.push.sel;
-
-	rule.op = NSS_IPSEC_RULE_OP_DEL;
+	memset(&nim, 0, sizeof(struct nss_ipsec_msg));
 
 	orig_tuple = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
 
 	sel->src_ip = (uint32_t)orig_tuple.src.u3.ip;
 	sel->dst_ip = (uint32_t)orig_tuple.dst.u3.ip;
-	sel->proto = (int32_t)orig_tuple.dst.protonum;
+	sel->protocol = (int32_t)orig_tuple.dst.protonum;
 
-	switch (sel->proto) {
+	switch (sel->protocol) {
 	case IPPROTO_TCP:
 		sel->src_port = (int32_t)orig_tuple.src.u.tcp.port;
 		sel->dst_port = (int32_t)orig_tuple.dst.u.tcp.port;
 
 		if_num = NSS_IPSEC_ENCAP_INTERFACE;
+		table_type = NSS_IPSEC_TBL_TYPE_ENCAP;
 
 		break;
 
@@ -406,6 +403,7 @@ static int nss_ipsec_free_rule(struct nf_conn *ct)
 		sel->dst_port = (int32_t)orig_tuple.dst.u.udp.port;
 
 		if_num = NSS_IPSEC_ENCAP_INTERFACE;
+		table_type = NSS_IPSEC_TBL_TYPE_ENCAP;
 
 		break;
 
@@ -414,27 +412,35 @@ static int nss_ipsec_free_rule(struct nf_conn *ct)
 		sel->dst_port = 0;
 
 		if_num = NSS_IPSEC_DECAP_INTERFACE;
+		table_type = NSS_IPSEC_TBL_TYPE_DECAP;
 
 		break;
 
 	default:
-		nss_cfi_err("%s Unhandled prorocol %d\n",__FUNCTION__, sel->proto);
+		nss_cfi_err("%s Unhandled prorocol %d\n",__FUNCTION__, sel->protocol);
 		return -1;
 	}
 
-	nss_cfi_info("deleting rule: src_ip %d , dest_ip %d , proto %d,"
+	nss_cfi_info("deleting rule: src_ip %d , dest_ip %d , protocol %d,"
 			"src_port %d , dest_port %d\n",sel->src_ip, sel->dst_ip,
-			sel->proto, sel->src_port, sel->dst_port);
+			sel->protocol, sel->src_port, sel->dst_port);
 
 	sel->src_ip = ntohl(sel->src_ip);
 	sel->dst_ip = ntohl(sel->dst_ip);
 	sel->src_port = ntohs(sel->src_port);
 	sel->dst_port = ntohs(sel->dst_port);
 
-	if (nss_ipsec_push_rule(&rule, if_num) < 0) {
+	nss_cmn_msg_init(&nim.cm,
+			if_num,
+			NSS_IPSEC_MSG_TYPE_DEL_RULE,
+			sizeof(struct nss_ipsec_rule_push),
+			nss_ipsec_event_cb,
+			&gbl_rule_tbl[table_type]);
+
+	if (nss_ipsec_push_rule(&nim, if_num) < 0) {
 		nss_cfi_err("unable to delete rule: src_ip %d , dest_ip %d ,"
-				"proto %d, src_port %d , dest_port %d\n",
-				sel->src_ip, sel->dst_ip, sel->proto,
+				"protocol %d, src_port %d , dest_port %d\n",
+				sel->src_ip, sel->dst_ip, sel->protocol,
 				sel->src_port, sel->dst_port);
 
 		return -1;
@@ -449,20 +455,37 @@ static int nss_ipsec_free_rule(struct nf_conn *ct)
  */
 static int32_t nss_ipsec_free_session(uint32_t crypto_sid)
 {
-	const uint32_t size = sizeof(struct nss_ipsec_rule);
-	struct nss_ipsec_rule rule;
+	struct nss_ipsec_msg nim;
 
-	memset(&rule, 0, size);
-	rule.op = NSS_IPSEC_RULE_OP_DEL_SID;
+	memset(&nim, 0, sizeof(struct nss_ipsec_msg));
 
-	nss_ipsec_set_crypto_sid(&rule, crypto_sid);
+	nss_cmn_msg_init(&nim.cm,
+			0,
+			NSS_IPSEC_MSG_TYPE_DEL_SID,
+			sizeof(struct nss_ipsec_rule_push),
+			nss_ipsec_event_cb,
+			NULL);
 
-	if (nss_ipsec_push_rule(&rule, NSS_IPSEC_ENCAP_INTERFACE) < 0) {
+	nss_ipsec_set_crypto_sid(&nim, crypto_sid);
+
+	/*
+	 * flush encap table
+	 */
+	nim.cm.app_data = (uint32_t)&gbl_rule_tbl[NSS_IPSEC_TBL_TYPE_ENCAP];
+	nim.cm.interface = NSS_IPSEC_ENCAP_INTERFACE;
+
+	if (nss_ipsec_push_rule(&nim, NSS_IPSEC_ENCAP_INTERFACE) < 0) {
 		nss_cfi_err("unable to delete session id:%d\n", crypto_sid);
 		return -1;
 	}
 
-	if (nss_ipsec_push_rule(&rule, NSS_IPSEC_DECAP_INTERFACE) < 0) {
+	/*
+	 * flush decap table
+	 */
+	nim.cm.app_data = (uint32_t)&gbl_rule_tbl[NSS_IPSEC_TBL_TYPE_DECAP];
+	nim.cm.interface = NSS_IPSEC_DECAP_INTERFACE;
+
+	if (nss_ipsec_push_rule(&nim, NSS_IPSEC_DECAP_INTERFACE) < 0) {
 		nss_cfi_err("unable to delete session id:%d\n", crypto_sid);
 		return -1;
 	}
@@ -476,14 +499,25 @@ static int32_t nss_ipsec_free_session(uint32_t crypto_sid)
  */
 static int32_t nss_ipsec_free_all(void)
 {
-	struct nss_ipsec_rule rule;
+	struct nss_ipsec_msg nim;
 	struct nss_ipsec_rule_tbl *tbl;
 
-	memset(&rule, 0, sizeof(struct nss_ipsec_rule));
-	rule.op = NSS_IPSEC_RULE_OP_DEL_ALL;
+	memset(&nim, 0, sizeof(struct nss_ipsec_msg));
 
+	nss_cmn_msg_init(&nim.cm,
+			0,
+			NSS_IPSEC_MSG_TYPE_DEL_ALL,
+			sizeof(struct nss_ipsec_rule_push),
+			nss_ipsec_event_cb,
+			NULL);
+	/*
+	 * flush encap table
+	 */
 	tbl = &gbl_rule_tbl[NSS_IPSEC_TBL_TYPE_ENCAP];
-	if (nss_ipsec_push_rule_sync(&rule, tbl) < 0) {
+	nim.cm.app_data = (uint32_t)tbl;
+	nim.cm.interface = NSS_IPSEC_ENCAP_INTERFACE;
+
+	if (nss_ipsec_push_rule_sync(&nim, tbl) < 0) {
 		nss_cfi_err("unable to delete all sessions for encap table\n");
 		return -1;
 	}
@@ -491,7 +525,10 @@ static int32_t nss_ipsec_free_all(void)
 	nss_cfi_info("freed up encap table\n");
 
 	tbl = &gbl_rule_tbl[NSS_IPSEC_TBL_TYPE_DECAP];
-	if (nss_ipsec_push_rule_sync(&rule, tbl) < 0) {
+	nim.cm.app_data = (uint32_t)tbl;
+	nim.cm.interface = NSS_IPSEC_DECAP_INTERFACE;
+
+	if (nss_ipsec_push_rule_sync(&nim, tbl) < 0) {
 		nss_cfi_err("unable to delete all sessions for decap table\n");
 		return -1;
 	}
@@ -507,10 +544,10 @@ static int32_t nss_ipsec_free_all(void)
  */
 static int32_t nss_ipsec_trap_encap(struct sk_buff *skb, uint32_t crypto_sid)
 {
+	struct nss_ipsec_msg nim;
 	struct nss_ipsec_ipv4_hdr *tun;
 	struct nss_ipsec_ipv4_hdr *ip;
-	struct nss_ipsec_rule rule;
-	struct nss_ipsec_rule_push *push;
+	struct nss_ipsec_rule_push *push = &nim.msg.push;
 	struct nss_ipsec_rule_data *data;
 	struct net_device *ipsec_dev;
 	uint32_t op;
@@ -524,17 +561,23 @@ static int32_t nss_ipsec_trap_encap(struct sk_buff *skb, uint32_t crypto_sid)
 	tun = (struct nss_ipsec_ipv4_hdr *)skb->data;
 	ip = (struct nss_ipsec_ipv4_hdr *)(skb->data + NSS_IPSEC_IPHDR_SZ + NSS_IPSEC_ESPHDR_SZ);
 
-	memset(&rule, 0, sizeof(struct nss_ipsec_rule));
-	push = &rule.type.push;
+	memset(&nim, 0, sizeof(struct nss_ipsec_msg));
 
 	/*
 	 * for encap we use the inner header to create the selector
 	 */
 	op = nss_ipsec_parse_packet(ip, &push->sel, &push->data);
-	if (op == NSS_IPSEC_RULE_OP_NONE) {
+	if (op == NSS_IPSEC_MSG_TYPE_NONE) {
 		nss_cfi_dbg("error during encap trap\n");
 		return -1;
 	}
+
+	nss_cmn_msg_init(&nim.cm,
+			NSS_IPSEC_ENCAP_INTERFACE,
+			op,
+			sizeof(struct nss_ipsec_rule_push),
+			nss_ipsec_event_cb,
+			&gbl_rule_tbl[NSS_IPSEC_TBL_TYPE_ENCAP]);
 
 	data = &push->data;
 
@@ -543,10 +586,9 @@ static int32_t nss_ipsec_trap_encap(struct sk_buff *skb, uint32_t crypto_sid)
 
 	skb->skb_iif = ipsec_dev->ifindex;
 
-	rule.op = op;
-	nss_ipsec_set_crypto_sid(&rule, crypto_sid);
+	nss_ipsec_set_crypto_sid(&nim, crypto_sid);
 
-	if (nss_ipsec_push_rule(&rule, NSS_IPSEC_ENCAP_INTERFACE) < 0) {
+	if (nss_ipsec_push_rule(&nim, NSS_IPSEC_ENCAP_INTERFACE) < 0) {
 		return -1;
 	}
 
@@ -561,8 +603,8 @@ static int32_t nss_ipsec_trap_decap(struct sk_buff *skb, uint32_t crypto_sid)
 {
 	struct nss_ipsec_ipv4_hdr *tun;
 	struct nss_ipsec_ipv4_hdr *ip;
-	struct nss_ipsec_rule rule;
-	struct nss_ipsec_rule_push *push;
+	struct nss_ipsec_msg nim;
+	struct nss_ipsec_rule_push *push = &nim.msg.push;
 	struct net_device *ipsec_dev;
 	uint32_t op;
 
@@ -575,25 +617,29 @@ static int32_t nss_ipsec_trap_decap(struct sk_buff *skb, uint32_t crypto_sid)
 	tun = (struct nss_ipsec_ipv4_hdr *)skb_network_header(skb);
 	ip = (struct nss_ipsec_ipv4_hdr *)(skb->data + NSS_IPSEC_ESPHDR_SZ);
 
-	memset(&rule, 0, sizeof(struct nss_ipsec_rule));
-
-	push = &rule.type.push;
+	memset(&nim, 0, sizeof(struct nss_ipsec_msg));
 
 	/*
 	 * for decap we use the tunnel header to create the selector
 	 */
 	op = nss_ipsec_parse_packet(tun, &push->sel, &push->data);
-	if (op == NSS_IPSEC_RULE_OP_NONE) {
+	if (op == NSS_IPSEC_MSG_TYPE_NONE) {
 		nss_cfi_dbg("error during decap trap\n");
 		return -1;
 	}
 
+	nss_cmn_msg_init(&nim.cm,
+			NSS_IPSEC_DECAP_INTERFACE,
+			op,
+			sizeof(struct nss_ipsec_rule_push),
+			nss_ipsec_event_cb,
+			&gbl_rule_tbl[NSS_IPSEC_TBL_TYPE_DECAP]);
+
 	skb->skb_iif = ipsec_dev->ifindex;
 
-	rule.op = op;
-	nss_ipsec_set_crypto_sid(&rule, crypto_sid);
+	nss_ipsec_set_crypto_sid(&nim, crypto_sid);
 
-	if (nss_ipsec_push_rule(&rule, NSS_IPSEC_DECAP_INTERFACE) < 0) {
+	if (nss_ipsec_push_rule(&nim, NSS_IPSEC_DECAP_INTERFACE) < 0) {
 		return -1;
 	}
 
@@ -607,10 +653,10 @@ static int32_t nss_ipsec_trap_decap(struct sk_buff *skb, uint32_t crypto_sid)
  * exception function called by NSS HLOS driver when it receives
  * a packet for exception with the interface number for decap
  */
-static void nss_ipsec_data_cb(void *ctx, void *buf)
+static void nss_ipsec_data_cb(void *app_data, void *os_buf)
 {
 	struct net_device *dev = gbl_except_dev;
-	struct sk_buff *skb = (struct sk_buff *)buf;
+	struct sk_buff *skb = (struct sk_buff *)os_buf;
 	struct nss_ipsec_ipv4_hdr *ip;
 
 	/*
@@ -650,26 +696,28 @@ static void nss_ipsec_data_cb(void *ctx, void *buf)
 	dev_put(dev);
 }
 
-static nss_ipsec_sync_op_t gbl_sync_op[NSS_IPSEC_RULE_OP_MAX] = {
-	[NSS_IPSEC_RULE_OP_NONE] = nss_ipsec_sync_none,
-	[NSS_IPSEC_RULE_OP_ADD] = nss_ipsec_sync_add,
-	[NSS_IPSEC_RULE_OP_DEL] = nss_ipsec_sync_del,
-	[NSS_IPSEC_RULE_OP_DEL_SID] = nss_ipsec_sync_flush,
-	[NSS_IPSEC_RULE_OP_DEL_ALL] = nss_ipsec_sync_flush,
+static nss_ipsec_sync_op_t gbl_sync_op[NSS_IPSEC_MSG_TYPE_MAX] = {
+	[NSS_IPSEC_MSG_TYPE_NONE] = nss_ipsec_sync_none,
+	[NSS_IPSEC_MSG_TYPE_ADD_RULE] = nss_ipsec_sync_add,
+	[NSS_IPSEC_MSG_TYPE_DEL_RULE] = nss_ipsec_sync_del,
+	[NSS_IPSEC_MSG_TYPE_DEL_SID] = nss_ipsec_sync_flush,
+	[NSS_IPSEC_MSG_TYPE_DEL_ALL] = nss_ipsec_sync_flush,
 };
 
 /*
  * nss_ipsec_event_cb()
  * 	Callback function for IPsec events.
  */
-static void nss_ipsec_event_cb(void *ctx, uint32_t if_num, void *buf, uint32_t len)
+static void nss_ipsec_event_cb(void *app_data, struct nss_ipsec_msg *nim)
 {
 	struct nss_ipsec_rule_tbl *tbl;
 	struct nss_ipsec_rule_sync *sync;
-	struct nss_ipsec_rule *rule;
 	nss_ipsec_sync_op_t fn;
 
-	switch(if_num) {
+	/*
+	 * XXX:this should be replaced with the app_data
+	 */
+	switch(nim->cm.interface) {
 	case NSS_IPSEC_ENCAP_INTERFACE:
 		tbl = &gbl_rule_tbl[NSS_IPSEC_TBL_TYPE_ENCAP];
 		break;
@@ -679,20 +727,12 @@ static void nss_ipsec_event_cb(void *ctx, uint32_t if_num, void *buf, uint32_t l
 		break;
 
 	default:
-		nss_cfi_err("invalid interface number for event callback: %d\n", if_num);
+		nss_cfi_err("invalid interface number for event callback: %d\n", nim->cm.interface);
 		return;
 	}
 
-	rule = (struct nss_ipsec_rule *)buf;
-
-	nss_cfi_assert(len == sizeof(struct nss_ipsec_rule));
-
-	if (rule->op >= NSS_IPSEC_RULE_OP_MAX) {
-		return;
-	}
-
-	fn = gbl_sync_op[rule->op];
-	sync = &rule->type.sync;
+	fn = gbl_sync_op[nim->cm.type];
+	sync = &nim->msg.sync;
 
 	spin_lock_bh(&tbl->lock);
 
@@ -707,7 +747,7 @@ static void nss_ipsec_event_cb(void *ctx, uint32_t if_num, void *buf, uint32_t l
  */
 void nss_ipsec_table_init(struct nss_ipsec_rule_tbl *tbl, uint32_t if_num)
 {
-	tbl->free_count = NSS_IPSEC_TBL_MAX_ENTRIES;
+	tbl->free_count = NSS_IPSEC_MAX_RULE;
 	tbl->if_num = if_num;
 	tbl->num_pending_sync = 0;
 
@@ -723,6 +763,10 @@ void nss_ipsec_table_init(struct nss_ipsec_rule_tbl *tbl, uint32_t if_num)
 static int nss_ipsec_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
 {
 	struct net_device *dev = (struct net_device *)ptr;
+	struct nss_ipsec_rule_tbl *encap_tbl, *decap_tbl;
+
+	encap_tbl = &gbl_rule_tbl[NSS_IPSEC_TBL_TYPE_ENCAP];
+	decap_tbl = &gbl_rule_tbl[NSS_IPSEC_TBL_TYPE_DECAP];
 
 	switch (event) {
 	case NETDEV_UP:
@@ -739,9 +783,9 @@ static int nss_ipsec_dev_event(struct notifier_block *this, unsigned long event,
 
 		spin_unlock_bh(&gbl_dev_lock);
 
-		gbl_nss_ctx = nss_register_ipsec_if(NSS_C2C_TX_INTERFACE, nss_ipsec_data_cb, dev);
-
-		nss_register_ipsec_event_if(NSS_C2C_TX_INTERFACE, nss_ipsec_event_cb);
+		gbl_nss_ctx = nss_ipsec_data_register(NSS_C2C_TX_INTERFACE, nss_ipsec_data_cb, dev);
+		gbl_nss_ctx = nss_ipsec_notify_register(NSS_IPSEC_ENCAP_INTERFACE, nss_ipsec_event_cb, encap_tbl);
+		gbl_nss_ctx = nss_ipsec_notify_register(NSS_IPSEC_DECAP_INTERFACE, nss_ipsec_event_cb, decap_tbl);
 
 		nss_cfi_assert(gbl_nss_ctx);
 
@@ -805,7 +849,9 @@ void __exit nss_ipsec_exit_module(void)
 
 	nss_ipsec_free_all();
 
-	nss_unregister_ipsec_if(NSS_C2C_TX_INTERFACE);
+	/* nss_ipsec_data_unregister(gbl_nss_ctx, NSS_C2C_TX_INTERFACE); */
+	/* nss_ipsec_msg_unregister(gbl_nss_ctx, NSS_IPSEC_ENCAP_INTERFACE); */
+	/* nss_ipsec_msg_unregister(gbl_nss_ctx, NSS_IPSEC_DECAP_INTERFACE); */
 
 	unregister_netdevice_notifier(&nss_ipsec_notifier);
 

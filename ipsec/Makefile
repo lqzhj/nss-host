@@ -17,7 +17,7 @@
 NSS_IPSEC_MOD_NAME=qca-nss-ipsec
 
 obj-m += $(NSS_IPSEC_MOD_NAME).o
-$(NSS_IPSEC_MOD_NAME)-objs = nss_ipsec.o
+$(NSS_IPSEC_MOD_NAME)-objs = nss_ipsec_mgr.o
 
 obj ?= .
 ccflags-y += -I$(obj)/../include
