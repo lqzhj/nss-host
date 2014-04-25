@@ -70,7 +70,7 @@ EXPORT_SYMBOL(nss_lag_tx);
 /**
  * nss_register_lag_if()
  */
-void nss_register_lag_if(uint32_t if_num,
+void *nss_register_lag_if(uint32_t if_num,
 			 nss_lag_callback_t lag_cb,
 			 nss_lag_event_callback_t lag_ev_cb,
 			 struct net_device *netdev)
@@ -80,6 +80,11 @@ void nss_register_lag_if(uint32_t if_num,
 	nss_top_main.if_ctx[if_num] = netdev;
 	nss_top_main.if_rx_callback[if_num] = lag_cb;
 	nss_top_main.lag_event_callback = lag_ev_cb;
+
+	/*
+	 * Return the NSS driver context for LAG (same as for ipv4 functions)
+	 */
+	return (void *)&nss_top_main.nss[nss_top_main.ipv4_handler_id];
 }
 EXPORT_SYMBOL(nss_register_lag_if);
 

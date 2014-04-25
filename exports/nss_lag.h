@@ -100,12 +100,12 @@ typedef void (*nss_lag_event_callback_t)(void *app_data, struct nss_lag_msg *msg
  * @param lag_ev_cb Callback to receive LAG events
  * @param netdev netdevice associated with the LAG interface
  *
- * @return void
+ * @return void * NSS context applicable to LAG
  */
-extern void nss_register_lag_if(uint32_t if_num,
-				nss_lag_callback_t lag_cb,
-				nss_lag_event_callback_t lag_ev_cb,
-				struct net_device *netdev);
+extern void *nss_register_lag_if(uint32_t if_num,
+			 nss_lag_callback_t lag_cb,
+			 nss_lag_event_callback_t lag_ev_cb,
+			 struct net_device *netdev);
 
 /**
  * @brief Unreigster LAG interface with NSS
