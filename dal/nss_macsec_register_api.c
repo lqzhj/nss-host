@@ -838,7 +838,7 @@ int ig_smib_table_common_get(unsigned int dev_id, unsigned int *pentry)
 	int entry_offset = 0;
 	unsigned int cmd = 0;
 
-	for (i = IG_SMIB_COMMON_INDEX_MIN; i < IG_SMIB_COMMON_INDEX_MAX; i++) {
+	for (i = IG_SMIB_COMMON_INDEX_MIN; i < IG_SMIB_COMMON_INDEX_MAX + 1; i++) {
 		/* Update Command word */
 		cmd = (TABLE_READ_OP << 30) | (IG_SMIB_TABLE_TYPE << 12) | i;
 		ig_table_cmd_set(dev_id, (union ig_table_cmd_u *)&cmd);
@@ -1771,7 +1771,7 @@ int eg_smib_table_common_get(unsigned int dev_id, unsigned int *pentry)
 	int entry_offset = 0;
 	unsigned int cmd = 0;
 
-	for (i = EG_SMIB_COMMON_INDEX_MIN; i < EG_SMIB_COMMON_INDEX_MAX; i++) {
+	for (i = EG_SMIB_COMMON_INDEX_MIN; i < EG_SMIB_COMMON_INDEX_MAX + 1; i++) {
 		/* Update Command word */
 		cmd = (TABLE_READ_OP << 30) | (EG_SMIB_TABLE_TYPE << 12) | i;
 		eg_table_cmd_set(dev_id, (union eg_table_cmd_u *)&cmd);

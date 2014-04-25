@@ -444,6 +444,8 @@ void _dump_g_fal_tx_mib_t(VTY_T * pVty, fal_tx_mib_t * value)
 	vty_print("ecc_error_pkts : 0x%llx\n", value->ecc_error_pkts);
 	vty_print("too_long : 0x%llx\n", value->too_long);
 	vty_print("ctl_pkts : 0x%llx\n", value->ctl_pkts);
+	vty_print("unctrl_hit_drop_redir_pkts : 0x%llx\n",
+				value->unctrl_hit_drop_redir_pkts);
 	vty_print("\n");
 }
 
@@ -536,6 +538,8 @@ void _dump_g_fal_rx_mib_t(VTY_T * pVty, fal_rx_mib_t * value)
 	vty_print("bad_tag_pkts : 0x%llx\n", value->bad_tag_pkts);
 	vty_print("ctl_pkts : 0x%llx\n", value->ctl_pkts);
 	vty_print("tagged_miss_pkts : 0x%llx\n", value->tagged_miss_pkts);
+	vty_print("unctrl_prt_tx_octets : 0x%llx\n", value->unctrl_prt_tx_octets);
+
 	vty_print("\n");
 }
 
@@ -3635,6 +3639,70 @@ DEFCMD(nss_macsec_secy_rx_sa_mib_clear_func,
 	return CLI_OK;
 }
 
+DEFCMD(nss_macsec_secy_rx_replay_protect_set_func,
+       nss_macsec_secy_rx_replay_protect_set_cmd,
+       "nss_macsec_secy_rx_replay_protect set HEX HEX",
+       "nss_macsec_secy_rx_replay_protect\n" "set\n" "secy_id\n" "enable\n")
+{
+	u32 secy_id = 0;
+	u32 enable = 0;
+
+	cli_str_2_hex(argv[2], (u32 *) (&secy_id));
+	cli_str_2_hex(argv[3], (u32 *) (&enable));
+
+	CLI_EXEC_API(nss_macsec_secy_rx_replay_protect_set(secy_id, enable));
+
+	return CLI_OK;
+}
+
+DEFCMD(nss_macsec_secy_rx_replay_protect_get_func,
+       nss_macsec_secy_rx_replay_protect_get_cmd,
+       "nss_macsec_secy_rx_replay_protect get HEX",
+       "nss_macsec_secy_rx_replay_protect\n" "get\n" "secy_id\n")
+{
+	u32 secy_id = 0;
+	u32 enable = 0;
+
+	cli_str_2_hex(argv[2], (u32 *) (&secy_id));
+
+	CLI_EXEC_API(nss_macsec_secy_rx_replay_protect_get(secy_id, &enable));
+	vty_print("penable : 0x%x\n", enable);
+
+	return CLI_OK;
+}
+
+DEFCMD(nss_macsec_secy_rx_validate_frame_set_func,
+       nss_macsec_secy_rx_validate_frame_set_cmd,
+       "nss_macsec_secy_rx_validate_frame set HEX HEX",
+       "nss_macsec_secy_rx_validate_frame\n" "set\n" "secy_id\n" "mode\n")
+{
+	u32 secy_id = 0;
+	u32 mode = 0;
+
+	cli_str_2_hex(argv[2], (u32 *) (&secy_id));
+	cli_str_2_hex(argv[3], (u32 *) (&mode));
+
+	CLI_EXEC_API(nss_macsec_secy_rx_validate_frame_set(secy_id, mode));
+
+	return CLI_OK;
+}
+
+DEFCMD(nss_macsec_secy_rx_validate_frame_get_func,
+       nss_macsec_secy_rx_validate_frame_get_cmd,
+       "nss_macsec_secy_rx_validate_frame get HEX",
+       "nss_macsec_secy_rx_validate_frame\n" "get\n" "secy_id\n")
+{
+	u32 secy_id = 0;
+	u32 mode = 0;
+
+	cli_str_2_hex(argv[2], (u32 *) (&secy_id));
+
+	CLI_EXEC_API(nss_macsec_secy_rx_validate_frame_get(secy_id, &mode));
+	vty_print("mode : 0x%x\n", mode);
+
+	return CLI_OK;
+}
+
 int cli_cmd_fal_init(void)
 {
 	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_reg_get_cmd);
@@ -3926,6 +3994,14 @@ int cli_cmd_fal_init(void)
 			&nss_macsec_secy_tx_stag_parse_set_cmd);
 	cli_install_cmd(CLI_MODE_FAL,
 			&nss_macsec_secy_tx_stag_parse_get_cmd);
+	cli_install_cmd(CLI_MODE_FAL,
+			&nss_macsec_secy_rx_replay_protect_set_cmd);
+	cli_install_cmd(CLI_MODE_FAL,
+			&nss_macsec_secy_rx_replay_protect_get_cmd);
+	cli_install_cmd(CLI_MODE_FAL,
+			&nss_macsec_secy_rx_validate_frame_set_cmd);
+	cli_install_cmd(CLI_MODE_FAL,
+			&nss_macsec_secy_rx_validate_frame_get_cmd);
 
 	return CLI_OK;
 }

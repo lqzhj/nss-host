@@ -1769,6 +1769,126 @@ u32 nss_macsec_secy_rx_pn_threshold_set(u32 secy_id, u32 pn_threshold)
 	return ret;
 }
 
+u32 nss_macsec_secy_rx_replay_protect_get(u32 secy_id, u32 * enable)
+{
+	unsigned char
+	    buf[SDK_MSG_SIZE
+		(sizeof(struct nss_macsec_secy_rx_replay_protect_get_cmd))] =
+	    { 0 };
+	struct sdk_msg_header *msg_header =
+	    (struct sdk_msg_header *)SDK_MSG_HEADER(buf);
+	struct nss_macsec_secy_rx_replay_protect_get_cmd *param =
+	    (struct nss_macsec_secy_rx_replay_protect_get_cmd *)
+	    SDK_MSG_DATA(buf);
+	int ret = 0;
+
+	msg_header->version = SDK_MSG_VER;
+	msg_header->cmd_type = SDK_FAL_CMD;
+	msg_header->sub_type = NSS_MACSEC_SECY_RX_REPLAY_PROTECT_GET_CMD;
+	msg_header->buf_len =
+	    sizeof(struct nss_macsec_secy_rx_replay_protect_get_cmd);
+	param->secy_id = secy_id;
+
+	ret =
+	    nss_macsec_sdk_netlink_msg(SDK_CALL_MSG, buf,
+				       sizeof(struct
+					      nss_macsec_secy_rx_replay_protect_get_cmd),
+				       NETLINK_SDK);
+	if (SDK_RET_SUCCESS == ret) {
+		*enable = param->enable;
+	}
+	return ret;
+}
+
+u32 nss_macsec_secy_rx_replay_protect_set(u32 secy_id, u32 enable)
+{
+	unsigned char
+	    buf[SDK_MSG_SIZE
+		(sizeof(struct nss_macsec_secy_rx_replay_protect_set_cmd))] =
+	    { 0 };
+	struct sdk_msg_header *msg_header =
+	    (struct sdk_msg_header *)SDK_MSG_HEADER(buf);
+	struct nss_macsec_secy_rx_replay_protect_set_cmd *param =
+	    (struct nss_macsec_secy_rx_replay_protect_set_cmd *)
+	    SDK_MSG_DATA(buf);
+	int ret = 0;
+
+	msg_header->version = SDK_MSG_VER;
+	msg_header->cmd_type = SDK_FAL_CMD;
+	msg_header->sub_type = NSS_MACSEC_SECY_RX_REPLAY_PROTECT_SET_CMD;
+	msg_header->buf_len =
+	    sizeof(struct nss_macsec_secy_rx_replay_protect_set_cmd);
+	param->secy_id = secy_id;
+	param->enable = enable;
+
+	ret =
+	    nss_macsec_sdk_netlink_msg(SDK_CALL_MSG, buf,
+				       sizeof(struct
+					      nss_macsec_secy_rx_replay_protect_set_cmd),
+				       NETLINK_SDK);
+	return ret;
+}
+
+u32 nss_macsec_secy_rx_validate_frame_get(u32 secy_id, u32 * mode)
+{
+	unsigned char
+	    buf[SDK_MSG_SIZE
+		(sizeof(struct nss_macsec_secy_rx_validate_frame_get_cmd))] =
+	    { 0 };
+	struct sdk_msg_header *msg_header =
+	    (struct sdk_msg_header *)SDK_MSG_HEADER(buf);
+	struct nss_macsec_secy_rx_validate_frame_get_cmd *param =
+	    (struct nss_macsec_secy_rx_validate_frame_get_cmd *)
+	    SDK_MSG_DATA(buf);
+	int ret = 0;
+
+	msg_header->version = SDK_MSG_VER;
+	msg_header->cmd_type = SDK_FAL_CMD;
+	msg_header->sub_type = NSS_MACSEC_SECY_RX_VALIDATE_FRAME_GET_CMD;
+	msg_header->buf_len =
+	    sizeof(struct nss_macsec_secy_rx_validate_frame_get_cmd);
+	param->secy_id = secy_id;
+
+	ret =
+	    nss_macsec_sdk_netlink_msg(SDK_CALL_MSG, buf,
+				       sizeof(struct
+					      nss_macsec_secy_rx_validate_frame_get_cmd),
+				       NETLINK_SDK);
+	if (SDK_RET_SUCCESS == ret) {
+		*mode = param->mode;
+	}
+	return ret;
+}
+
+u32 nss_macsec_secy_rx_validate_frame_set(u32 secy_id, u32 mode)
+{
+	unsigned char
+	    buf[SDK_MSG_SIZE
+		(sizeof(struct nss_macsec_secy_rx_validate_frame_set_cmd))] =
+	    { 0 };
+	struct sdk_msg_header *msg_header =
+	    (struct sdk_msg_header *)SDK_MSG_HEADER(buf);
+	struct nss_macsec_secy_rx_validate_frame_set_cmd *param =
+	    (struct nss_macsec_secy_rx_validate_frame_set_cmd *)
+	    SDK_MSG_DATA(buf);
+	int ret = 0;
+
+	msg_header->version = SDK_MSG_VER;
+	msg_header->cmd_type = SDK_FAL_CMD;
+	msg_header->sub_type = NSS_MACSEC_SECY_RX_VALIDATE_FRAME_SET_CMD;
+	msg_header->buf_len =
+	    sizeof(struct nss_macsec_secy_rx_validate_frame_set_cmd);
+	param->secy_id = secy_id;
+	param->mode = mode;
+
+	ret =
+	    nss_macsec_sdk_netlink_msg(SDK_CALL_MSG, buf,
+				       sizeof(struct
+					      nss_macsec_secy_rx_validate_frame_set_cmd),
+				       NETLINK_SDK);
+	return ret;
+}
+
 u32 nss_macsec_secy_tx_reg_get(u32 secy_id, u32 addr, u32 * pvalue)
 {
 	unsigned char
@@ -3299,6 +3419,7 @@ u32 nss_macsec_secy_tx_qtag_parse_set(u32 secy_id, fal_tx_vlan_parse_t * pentry)
 	    sizeof(struct nss_macsec_secy_tx_qtag_parse_set_cmd);
 	param->secy_id = secy_id;
 	param->pentry = *pentry;
+
 	ret =
 	    nss_macsec_sdk_netlink_msg(SDK_CALL_MSG, buf,
 				       sizeof(struct

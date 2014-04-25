@@ -368,4 +368,29 @@ u32 nss_macsec_secy_rx_pn_threshold_get(u32 secy_id, u32 *p_pn_threshold);
 **/
 u32 nss_macsec_secy_rx_pn_threshold_set(u32 secy_id, u32 pn_threshold);
 
+/**
+* @param[in] secy_id
+* @param[out] enable
+**/
+u32 nss_macsec_secy_rx_replay_protect_get(u32 secy_id, u32 *enable);
+
+/**
+* @param[in] secy_id
+* @param[in] enable
+**/
+u32 nss_macsec_secy_rx_replay_protect_set(u32 secy_id, u32 enable);
+
+/**
+* @param[in] secy_id
+* @param[out] mode
+**/
+u32 nss_macsec_secy_rx_validate_frame_get(u32 secy_id, u32 *mode);
+
+/**
+* @param[in] secy_id
+* @param[in] mode
+**/
+u32 nss_macsec_secy_rx_validate_frame_set(u32 secy_id, u32 mode);
+
+
 #endif /* _NSS_MACSEC_SECY_RX_H_ */

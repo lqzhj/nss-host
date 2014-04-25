@@ -80,6 +80,10 @@ enum {
 	NSS_MACSEC_SECY_RX_SA_START_STOP_TIME_SET_CMD,
 	NSS_MACSEC_SECY_RX_PN_THRESHOLD_GET_CMD,
 	NSS_MACSEC_SECY_RX_PN_THRESHOLD_SET_CMD,
+	NSS_MACSEC_SECY_RX_REPLAY_PROTECT_GET_CMD,
+	NSS_MACSEC_SECY_RX_REPLAY_PROTECT_SET_CMD,
+	NSS_MACSEC_SECY_RX_VALIDATE_FRAME_GET_CMD,
+	NSS_MACSEC_SECY_RX_VALIDATE_FRAME_SET_CMD,
 	NSS_MACSEC_SECY_TX_REG_GET_CMD,
 	NSS_MACSEC_SECY_TX_REG_SET_CMD,
 	NSS_MACSEC_SECY_TX_DROP_SC_SA_INVLID_GET_CMD,
@@ -471,6 +475,26 @@ struct nss_macsec_secy_rx_pn_threshold_get_cmd {
 struct nss_macsec_secy_rx_pn_threshold_set_cmd {
 	u32 secy_id;
 	u32 pn_threshold;
+};
+
+struct nss_macsec_secy_rx_replay_protect_get_cmd {
+	u32 secy_id;
+	u32 enable;
+};
+
+struct nss_macsec_secy_rx_replay_protect_set_cmd {
+	u32 secy_id;
+	u32 enable;
+};
+
+struct nss_macsec_secy_rx_validate_frame_get_cmd {
+	u32 secy_id;
+	u32 mode;
+};
+
+struct nss_macsec_secy_rx_validate_frame_set_cmd {
+	u32 secy_id;
+	u32 mode;
 };
 
 struct nss_macsec_secy_tx_reg_get_cmd {

@@ -37,6 +37,7 @@ typedef struct {
 	u64 untagged_pkts;
 	u64 too_long;
 	u64 ecc_error_pkts;
+	u64 unctrl_hit_drop_redir_pkts;
 } fal_tx_mib_t;
 
 typedef struct {
@@ -55,6 +56,7 @@ typedef struct {
 } fal_rx_sa_mib_t;
 
 typedef struct {
+	u64 unctrl_prt_tx_octets;
 	u64 ctl_pkts;
 	u64 tagged_miss_pkts;
 	u64 untagged_hit_pkts;

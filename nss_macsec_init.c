@@ -23,6 +23,7 @@
 #include <linux/resource.h>
 #include <linux/types.h>
 #include <linux/errno.h>
+#include <linux/notifier.h>
 
 #include "nss_macsec_emac.h"
 #include "nss_macsec_sdk_api.h"
@@ -44,6 +45,28 @@ struct nss_macsec_ctx {
 	char __iomem *macsec_base[MACSEC_DEVICE_NUM];
 };
 static struct nss_macsec_ctx macsec_ctx;
+static uint32_t macsec_notifier_register_status = 0;
+
+static int macsec_ncb(struct notifier_block *nb, unsigned long value,
+		      void *priv)
+{
+	int result = NOTIFY_OK;
+	struct nss_gmac_speed_ctx *gmac_speed_ctx_p = priv;
+	printk("macsec_ncb  mac_id:0x%x speed:0x%x\n",
+		gmac_speed_ctx_p->mac_id, gmac_speed_ctx_p->speed);
+	switch (value) {
+	case NSS_GMAC_SPEED_SET:
+		nss_macsec_speed(gmac_speed_ctx_p->mac_id - 1, gmac_speed_ctx_p->speed);
+		break;
+	default:
+		result = NOTIFY_BAD;
+	}
+	return result;
+}
+
+static struct notifier_block macsec_notifier = {
+	.notifier_call = macsec_ncb,
+};
 
 int nss_macsec_reg_read(unsigned int dev_id, unsigned int reg_addr,
 			unsigned int *pvalue)
@@ -137,7 +160,7 @@ static void nss_macsec_netlink_fini(void)
 
 static int nss_macsec_probe(struct platform_device *pdev)
 {
-	int rc, ret = 0;
+	int ret = 0;
 	unsigned int mem_start, mem_len;
 	void __iomem *mmap_io_addr = NULL;
 	mem_start = pdev->resource[0].start;
@@ -160,8 +183,10 @@ static int nss_macsec_probe(struct platform_device *pdev)
 	/* Invoke Macsec Initialization API */
 	nss_macsec_secy_init(pdev->id);
 
-	rc = nss_macsec_speed_cb_register(pdev->id + 1,
-					  (void *)nss_macsec_speed);
+	if(macsec_notifier_register_status == 0) {
+		nss_gmac_link_state_change_notify_register(&macsec_notifier);
+		macsec_notifier_register_status = 1;
+	}
 
 	macsec_trace("macsec.%d probe done\n", pdev->id);
 	return ret;
@@ -174,7 +199,11 @@ static int nss_macsec_remove(struct platform_device *pdev)
 	macsec_trace("%s for dev_id:%d\n", __func__, pdev->id);
 	mem_start = pdev->resource[0].start;
 	mem_len = pdev->resource[0].end - mem_start + 1;
-	nss_macsec_speed_cb_register(pdev->id + 1, NULL);
+
+	if(macsec_notifier_register_status) {
+		nss_gmac_link_state_change_notify_unregister(&macsec_notifier);
+		macsec_notifier_register_status = 0;
+	}
 	iounmap(macsec_ctx.macsec_base[pdev->id]);
 	release_mem_region(mem_start, mem_len);
 	return 0;
@@ -199,7 +228,7 @@ static int __init nss_macsec_init_module(void)
 		macsec_warning("platform drv reg failure\n");
 		return -EIO;
 	}
-	//proc_debug_macsec();
+
 	macsec_trace("%s done!\n", __func__);
 
 	return 0;

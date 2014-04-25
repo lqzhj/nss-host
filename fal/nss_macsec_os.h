@@ -33,8 +33,6 @@
 #include <asm/io.h>
 #include <linux/delay.h>
 
-#define MACSEC_DEBUG
-
 /* Debug level macros */
 #ifdef MACSEC_DEBUG
 
@@ -59,10 +57,22 @@
 
 #endif // MACSEC_DEBUG
 
-extern int nss_macsec_speed_cb_register(uint32_t gmac_id,
-					void (*fun_cb) (uint32_t gmac_id,
-							uint32_t speed));
+/**
+ * @brief Events from the NSS GMAC
+ */
+#define NSS_GMAC_SPEED_SET		0x0001
+
+/**
+ * @brief GMAC speed context
+ */
+struct nss_gmac_speed_ctx {
+	uint32_t mac_id;
+	uint32_t speed;
+};
+
 extern void nss_macsec_pre_init(void);
 extern void nss_macsec_pre_exit(void);
 extern void nss_macsec_bypass_en_set(uint32_t gmac_id, bool enable);
+extern void nss_gmac_link_state_change_notify_register(struct notifier_block *nb);
+extern void nss_gmac_link_state_change_notify_unregister(struct notifier_block *nb);
 #endif /* End of file */

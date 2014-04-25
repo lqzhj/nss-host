@@ -802,3 +802,55 @@ u32 nss_macsec_secy_rx_pn_threshold_set(u32 secy_id, u32 pn_threshold)
 
 	return ERROR_OK;
 }
+
+u32 nss_macsec_secy_rx_replay_protect_get(u32 secy_id, u32 *enable)
+{
+	union insy_ectrl_en_u value;
+
+	value.val = 0;
+	SHR_RET_ON_ERR(insy_ectrl_en_get(secy_id, &value));
+
+	*enable = (value.bf.insy_ectrl_en>>5)&0x1;
+
+	return ERROR_OK;
+}
+
+u32 nss_macsec_secy_rx_replay_protect_set(u32 secy_id, u32 enable)
+{
+	union insy_ectrl_en_u value;
+
+	value.val = 0;
+	SHR_RET_ON_ERR(insy_ectrl_en_get(secy_id, &value));
+
+	if (enable)
+		value.bf.insy_ectrl_en |= 0x1<<5;
+	else
+		value.bf.insy_ectrl_en &= ~(0x1<<5);
+
+	SHR_RET_ON_ERR(insy_ectrl_en_set(secy_id, &value));
+
+	return ERROR_OK;
+}
+
+u32 nss_macsec_secy_rx_validate_frame_get(u32 secy_id, u32 *mode)
+{
+	union csr_igsy_ctrl_u value;
+
+	value.val = 0;
+	SHR_RET_ON_ERR(csr_igsy_ctrl_get(secy_id, &value));
+
+	*mode = value.bf.csr_insy_global_validate_frames;
+	return ERROR_OK;
+}
+
+u32 nss_macsec_secy_rx_validate_frame_set(u32 secy_id, u32 mode)
+{
+	union csr_igsy_ctrl_u value;
+
+	value.val = 0;
+	SHR_RET_ON_ERR(csr_igsy_ctrl_get(secy_id, &value));
+	value.bf.csr_insy_global_validate_frames = mode;
+	SHR_RET_ON_ERR(csr_igsy_ctrl_set(secy_id, &value));
+
+	return ERROR_OK;
+}

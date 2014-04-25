@@ -87,7 +87,7 @@
 #define EG_SMIB_INDEX_MIN       0
 #define EG_SMIB_INDEX_MAX       31
 #define EG_SMIB_COMMON_INDEX_MIN  256
-#define EG_SMIB_COMMON_INDEX_MAX  262
+#define EG_SMIB_COMMON_INDEX_MAX  261
 
 #define TABLE_WRITE_OP 0x2
 #define TABLE_READ_OP  0x1
@@ -734,6 +734,8 @@ union ig_smib_sc_sa_u {
 };
 
 struct ig_smib_common {
+	unsigned int unctrl_prt_tx_octet_0:32;
+	unsigned int unctrl_prt_tx_octet_1:32;
 	unsigned int ctl_pkts_0:32;
 	unsigned int ctl_pkts_1:32;
 	unsigned int tagged_miss_pkts_0:32;
@@ -1505,8 +1507,8 @@ struct eg_smib_common {
 	unsigned int too_long_1:32;
 	unsigned int ecc_error_pkts_0:32;
 	unsigned int ecc_error_pkts_1:32;
-	unsigned int _reserved0_0:32;
-	unsigned int _reserved0_1:32;
+	unsigned int unctrl_hit_drop_redir_pkts_0:32;
+	unsigned int unctrl_hit_drop_redir_pkts_1:32;
 };
 
 union eg_smib_common_u {

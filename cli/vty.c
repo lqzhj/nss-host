@@ -40,7 +40,7 @@ typedef struct {
 #define VTY_WELCOME_MESSAGE "\r\n"\
 "************************************************************************\r\n"\
 "*                                                                      *\r\n"\
-"*                Welcome to MACsec Console                    *\r\n"\
+"*                Welcome to MACsec Console                             *\r\n"\
 "*                                                                      *\r\n"\
 "************************************************************************\r\n"
 

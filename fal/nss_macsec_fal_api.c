@@ -622,6 +622,52 @@ unsigned int nss_macsec_fal_msg_handle(struct sdk_msg_header *header)
 								pn_threshold);
 		}
 		break;
+	case NSS_MACSEC_SECY_RX_REPLAY_PROTECT_GET_CMD:{
+			struct nss_macsec_secy_rx_replay_protect_get_cmd *param
+			    =
+			    (struct nss_macsec_secy_rx_replay_protect_get_cmd
+			     *)(header + 1);
+			ret =
+			    nss_macsec_secy_rx_replay_protect_get(param->
+								  secy_id,
+								  &param->
+								  enable);
+		}
+		break;
+	case NSS_MACSEC_SECY_RX_REPLAY_PROTECT_SET_CMD:{
+			struct nss_macsec_secy_rx_replay_protect_set_cmd *param
+			    =
+			    (struct nss_macsec_secy_rx_replay_protect_set_cmd
+			     *)(header + 1);
+			ret =
+			    nss_macsec_secy_rx_replay_protect_set(param->
+								  secy_id,
+								  param->
+								  enable);
+		}
+		break;
+	case NSS_MACSEC_SECY_RX_VALIDATE_FRAME_GET_CMD:{
+			struct nss_macsec_secy_rx_validate_frame_get_cmd *param
+			    =
+			    (struct nss_macsec_secy_rx_validate_frame_get_cmd
+			     *)(header + 1);
+			ret =
+			    nss_macsec_secy_rx_validate_frame_get(param->
+								  secy_id,
+								  &param->mode);
+		}
+		break;
+	case NSS_MACSEC_SECY_RX_VALIDATE_FRAME_SET_CMD:{
+			struct nss_macsec_secy_rx_validate_frame_set_cmd *param
+			    =
+			    (struct nss_macsec_secy_rx_validate_frame_set_cmd
+			     *)(header + 1);
+			ret =
+			    nss_macsec_secy_rx_validate_frame_set(param->
+								  secy_id,
+								  param->mode);
+		}
+		break;
 	case NSS_MACSEC_SECY_TX_REG_GET_CMD:{
 			struct nss_macsec_secy_tx_reg_get_cmd *param =
 			    (struct nss_macsec_secy_tx_reg_get_cmd *)(header +

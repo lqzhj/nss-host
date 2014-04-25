@@ -92,6 +92,10 @@ u32 nss_macsec_secy_tx_mib_get(u32 secy_id, fal_tx_mib_t * pmib)
 	pmib->ecc_error_pkts = ((u64) (mib.ecc_error_pkts_1) << 32) +
 	    (u64) (mib.ecc_error_pkts_0);
 
+	pmib->unctrl_hit_drop_redir_pkts =
+		((u64) (mib.unctrl_hit_drop_redir_pkts_1) << 32) +
+		(u64) (mib.unctrl_hit_drop_redir_pkts_0);
+
 	return ERROR_OK;
 }
 
@@ -145,6 +149,9 @@ u32 nss_macsec_secy_rx_mib_get(u32 secy_id, fal_rx_mib_t * pmib)
 	SHR_PARAM_CHECK((secy_id < FAL_SECY_ID_NUM) && (pmib != NULL));
 
 	ig_smib_table_common_get(secy_id, (u32 *) (&mib));
+
+	pmib->unctrl_prt_tx_octets = ((u64) (mib.unctrl_prt_tx_octet_1) << 32) +
+	    (u64) (mib.unctrl_prt_tx_octet_0);
 
 	pmib->ctl_pkts = ((u64) (mib.ctl_pkts_1) << 32) +
 	    (u64) (mib.ctl_pkts_0);
