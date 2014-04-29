@@ -126,7 +126,6 @@ int cli_cmd_basic_init(void)
 	cli_install_cmd(CLI_MODE_ENABLE, &fal_cmd);
 
 	cli_install_mode_basic_cmds(CLI_MODE_SECY);
-	cli_install_mode_basic_cmds(CLI_MODE_DAL);
 	cli_install_mode_basic_cmds(CLI_MODE_FAL);
 
 	return CLI_OK;
