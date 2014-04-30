@@ -125,8 +125,8 @@ enum nss_ipv4_vlan_action_types {
  * VLAN connection rule structure
  */
 struct nss_ipv4_vlan_rule {
-	uint16_t ingress_vlan_tag;	/**< VLAN Tag for the ingress packets */
-	uint16_t egress_vlan_tag;	/**< VLAN Tag for egress packets */
+	uint32_t ingress_vlan_tag;	/**< VLAN Tag for the ingress packets */
+	uint32_t egress_vlan_tag;	/**< VLAN Tag for egress packets */
 	uint16_t vlan_itag;		/**< Input tag for VLAN marking */
 	uint16_t vlan_imask;		/**< Input mask for VLAN marking */
 	uint16_t vlan_omask;		/**< Output mask for VLAN marking */

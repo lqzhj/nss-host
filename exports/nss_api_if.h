@@ -135,6 +135,16 @@
 #define NSS_ETH_FULL_JUMBO_FRAME_MTU 9600
 
 /*
+ * VLAN C-TAG TPID
+ */
+#define VLAN_CTAG_TPID 0x8100
+
+/*
+ * Number of ingress/egress VLANS suppored in a connection entry
+ */
+#define MAX_VLAN_DEPTH 2
+
+/*
  * @brief NSS PM Clients
  * NSS clients that can request for Bus/Clock performance levels
  **/
@@ -227,6 +237,8 @@ struct nss_ipv4_create {
 	uint16_t vlan_imask;		/**< VLAN marking input mask */
 	uint16_t vlan_omask;		/**< VLAN marking output mask */
 	uint16_t vlan_oval;		/**< VLAN marking output val */
+	uint32_t in_vlan_tag[MAX_VLAN_DEPTH];	/**< Ingress VLAN tag expected for this flow */
+	uint32_t out_vlan_tag[MAX_VLAN_DEPTH];	/**< Egress VLAN tag expected for this flow */
 };
 
 /**
@@ -318,6 +330,8 @@ struct nss_ipv6_create {
 	uint16_t vlan_imask;		/**< VLAN marking input mask */
 	uint16_t vlan_omask;		/**< VLAN marking output mask */
 	uint16_t vlan_oval;		/**< VLAN marking output val */
+	uint32_t in_vlan_tag[MAX_VLAN_DEPTH];	/**< Ingress VLAN tag expected for this flow */
+	uint32_t out_vlan_tag[MAX_VLAN_DEPTH];	/**< Egress VLAN tag expected for this flow */
 };
 
 /**

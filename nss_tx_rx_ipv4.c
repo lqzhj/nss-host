@@ -163,7 +163,7 @@ nss_tx_status_t nss_tx_create_ipv4_rule(void *ctx, struct nss_ipv4_create *unic)
 		&unic->dest_ip, ntohs(unic->dest_port), &unic->dest_ip_xlate, ntohs(unic->dest_port_xlate),
 		unic->protocol);
 
-	nss_cmn_msg_init(&nim.cm, NSS_IPV4_RX_INTERFACE, NSS_IPV4_TX_CREATE_RULE_MSG, 
+	nss_cmn_msg_init(&nim.cm, NSS_IPV4_RX_INTERFACE, NSS_IPV4_TX_CREATE_RULE_MSG,
 			sizeof(struct nss_ipv4_rule_create_msg), NULL, NULL);
 
 	nircm = &nim.msg.rule_create;
@@ -223,8 +223,10 @@ nss_tx_status_t nss_tx_create_ipv4_rule(void *ctx, struct nss_ipv4_create *unic)
 	/*
 	 * Copy over the vlan rules and set the VLAN_VALID flag
 	 */
-	nircm->vlan_primary_rule.ingress_vlan_tag = unic->ingress_vlan_tag;
-	nircm->vlan_primary_rule.egress_vlan_tag = unic->egress_vlan_tag;
+	nircm->vlan_primary_rule.ingress_vlan_tag = unic->in_vlan_tag[0];
+	nircm->vlan_primary_rule.egress_vlan_tag = unic->out_vlan_tag[0];
+	nircm->vlan_secondary_rule.ingress_vlan_tag = unic->in_vlan_tag[1];
+	nircm->vlan_secondary_rule.egress_vlan_tag = unic->out_vlan_tag[1];
 	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_VLAN_VALID;
 
 	/*
@@ -323,8 +325,10 @@ nss_tx_status_t nss_tx_create_ipv4_rule1(void *ctx, struct nss_ipv4_create *unic
 	/*
 	 * Copy over the vlan rules and set the VLAN_VALID flag
 	 */
-	nircm->vlan_primary_rule.ingress_vlan_tag = unic->ingress_vlan_tag;
-	nircm->vlan_primary_rule.egress_vlan_tag = unic->egress_vlan_tag;
+	nircm->vlan_primary_rule.ingress_vlan_tag = unic->in_vlan_tag[0];
+	nircm->vlan_primary_rule.egress_vlan_tag = unic->out_vlan_tag[0];
+	nircm->vlan_secondary_rule.ingress_vlan_tag = unic->in_vlan_tag[1];
+	nircm->vlan_secondary_rule.egress_vlan_tag = unic->out_vlan_tag[1];
 	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_VLAN_VALID;
 
 	/*

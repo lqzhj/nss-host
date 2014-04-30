@@ -164,8 +164,8 @@ enum nss_ipv6_vlan_types {
 struct nss_ipv6_vlan_rule {
 	uint8_t action;			/**< The type of action to perform */
 	uint8_t reserved[3];		/**< Padded for alignment */
-	uint16_t ingress_vlan_tag;	/**< VLAN Tag for the ingress packets */
-	uint16_t egress_vlan_tag;	/**< VLAN Tag for egress packets */
+	uint32_t ingress_vlan_tag;	/**< VLAN Tag for the ingress packets */
+	uint32_t egress_vlan_tag;	/**< VLAN Tag for egress packets */
 	uint16_t vlan_itag;		/**< Input tag for VLAN marking */
 	uint16_t vlan_imask;		/**< Input mask for VLAN marking */
 	uint16_t vlan_omask;		/**< Output mask for VLAN marking */

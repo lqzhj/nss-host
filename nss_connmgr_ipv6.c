@@ -199,6 +199,8 @@ typedef uint32_t ipv6_addr_t[4];
 #define NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED 0xFFF
 #define NSS_CONNMGR_VLAN_MARKING_NOT_CONFIGURED 0xFFFF
 #define NSS_CONNMGR_DSCP_MARKING_NOT_CONFIGURED 0xFF
+#define NSS_CONNMGR_VLAN_TPID 0x8100
+#define NSS_CONNMGR_VLAN_ID_MASK 0x0FFF
 
 enum nss_connmgr_ipv6_conn_stats {
 	NSS_CONNMGR_IPV6_ACCELERATED_RX_PKTS = 0,
@@ -281,13 +283,13 @@ struct nss_connmgr_ipv6_connection {
 	int32_t  src_interface;	/* Flow interface number */
 	uint32_t src_addr[4];	/* Source address, i.e. the creator of the connection */
 	int32_t  src_port;	/* Source port */
-	uint16_t ingress_vlan_tag;/* Ingress VLAN tag */
+	uint32_t ingress_vlan_tag[MAX_VLAN_DEPTH];/* Ingress VLAN tag */
 	char	 src_mac_addr[ETH_ALEN];	/* Source MAC address */
 	int32_t  dest_interface;
 				/* Return interface number */
 	uint32_t dest_addr[4];	/* Destination address, i.e. the to whom the connection was created */
 	int32_t  dest_port;	/* Destination port */
-	uint16_t egress_vlan_tag;/* Egress VLAN tag */
+	uint32_t egress_vlan_tag[MAX_VLAN_DEPTH];/* Egress VLAN tag */
 	char	 dest_mac_addr[ETH_ALEN];	/* Destination MAC address */
 	uint64_t stats[NSS_CONNMGR_IPV6_STATS_MAX];
 				/* Connection statistics */
@@ -637,8 +639,8 @@ static void nss_connmgr_link_down(struct net_device *dev)
 			 * Check if we have a VLAN rule to delete
 			 */
 			if (is_vlan_dev(dev)) {
-				if ((vlan_id != connection->ingress_vlan_tag)
-					&& (vlan_id != connection->egress_vlan_tag)) {
+				if ((vlan_id != (connection->ingress_vlan_tag[0] & NSS_CONNMGR_VLAN_ID_MASK))
+					&& (vlan_id != (connection->egress_vlan_tag[0] & NSS_CONNMGR_VLAN_ID_MASK))) {
 					spin_unlock_bh(&nss_connmgr_ipv6.lock);
 					continue;
 				}
@@ -1116,8 +1118,10 @@ static unsigned int nss_connmgr_ipv6_bridge_post_routing_hook(unsigned int hookn
 	/*
 	 * Initialize the VLAN tag information.
 	 */
-	unic.ingress_vlan_tag = NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED;
-	unic.egress_vlan_tag = NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED;
+	unic.in_vlan_tag[0] = NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED;
+	unic.out_vlan_tag[0] = NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED;
+	unic.in_vlan_tag[1] = NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED;
+	unic.out_vlan_tag[1] = NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED;
 
 	/*
 	 * Initialize DSCP and VLAN MARKING information
@@ -1176,10 +1180,10 @@ static unsigned int nss_connmgr_ipv6_bridge_post_routing_hook(unsigned int hookn
 				 * Access the VLAN ID of the VLAN interface
 				 */
 				if (ctinfo < IP_CT_IS_REPLY) {
-					unic.ingress_vlan_tag = vlan_dev_priv(br_port_in_dev)->vlan_id;
+					unic.in_vlan_tag[0] = ((NSS_CONNMGR_VLAN_TPID << 16)) | vlan_dev_priv(br_port_in_dev)->vlan_id;
 					NSS_CONNMGR_DEBUG_TRACE("Bridge-CM: Ingress VLAN ID = %d\n",vlan_dev_priv(br_port_in_dev)->vlan_id);
 				} else {
-					unic.egress_vlan_tag = vlan_dev_priv(br_port_in_dev)->vlan_id;
+					unic.out_vlan_tag[0] = ((NSS_CONNMGR_VLAN_TPID << 16)) | vlan_dev_priv(br_port_in_dev)->vlan_id;
 					NSS_CONNMGR_DEBUG_TRACE("Bridge-CM: Egress VLAN ID = %d\n",vlan_dev_priv(br_port_in_dev)->vlan_id);
 				}
 			}
@@ -1208,10 +1212,10 @@ static unsigned int nss_connmgr_ipv6_bridge_post_routing_hook(unsigned int hookn
 		 */
 		if (is_vlan_dev(rt_dev)) {
 			if (ctinfo < IP_CT_IS_REPLY) {
-				unic.ingress_vlan_tag = vlan_dev_priv(rt_dev)->vlan_id;
+				unic.in_vlan_tag[0] = ((NSS_CONNMGR_VLAN_TPID << 16)) | vlan_dev_priv(rt_dev)->vlan_id;
 				NSS_CONNMGR_DEBUG_TRACE("Bridge-CM: Ingress VLAN ID = %d\n",vlan_dev_priv(rt_dev)->vlan_id);
 			} else {
-				unic.egress_vlan_tag = vlan_dev_priv(rt_dev)->vlan_id;
+				unic.out_vlan_tag[0] = ((NSS_CONNMGR_VLAN_TPID << 16)) | vlan_dev_priv(rt_dev)->vlan_id;
 				NSS_CONNMGR_DEBUG_TRACE("Bridge-CM: Egress VLAN ID = %d\n",vlan_dev_priv(rt_dev)->vlan_id);
 			}
 		}
@@ -1229,10 +1233,10 @@ static unsigned int nss_connmgr_ipv6_bridge_post_routing_hook(unsigned int hookn
 		physical_out_dev = vlan_dev_priv(out)->real_dev;
 
 		if (ctinfo < IP_CT_IS_REPLY) {
-			unic.egress_vlan_tag = vlan_dev_priv(out)->vlan_id;
+			unic.out_vlan_tag[0] = ((NSS_CONNMGR_VLAN_TPID << 16)) | vlan_dev_priv(out)->vlan_id;
 			NSS_CONNMGR_DEBUG_TRACE("Bridge-CM: Egress VLAN ID = %d\n",vlan_dev_priv(out)->vlan_id);
 		} else {
-			unic.ingress_vlan_tag = vlan_dev_priv(out)->vlan_id;
+			unic.in_vlan_tag[0] = ((NSS_CONNMGR_VLAN_TPID << 16)) | vlan_dev_priv(out)->vlan_id;
 			NSS_CONNMGR_DEBUG_TRACE("Bridge-CM: Ingress VLAN ID = %d\n",vlan_dev_priv(out)->vlan_id);
 		}
 	}
@@ -1444,8 +1448,8 @@ static unsigned int nss_connmgr_ipv6_bridge_post_routing_hook(unsigned int hookn
 			dest_dev->name,
 			unic.src_interface_num,
 			unic.dest_interface_num,
-			unic.ingress_vlan_tag,
-			unic.egress_vlan_tag,
+			unic.in_vlan_tag[0],
+			unic.out_vlan_tag[0],
 			unic.qos_tag);
 
 	if (!offload_dscpremark_get_target_info(ct, &unic.dscp_imask, &unic.dscp_itag, &unic.dscp_omask, &unic.dscp_oval)) {
@@ -1854,8 +1858,10 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 	/*
 	 * Initialize VLAN tag information
 	 */
-	unic.ingress_vlan_tag = NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED;
-	unic.egress_vlan_tag = NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED;
+	unic.in_vlan_tag[0] = NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED;
+	unic.out_vlan_tag[0] = NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED;
+	unic.in_vlan_tag[1] = NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED;
+	unic.out_vlan_tag[1] = NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED;
 
 	/*
 	 * Initialize DSCP and VLAN MARKING information
@@ -1955,10 +1961,10 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 		 */
 		if (is_vlan_dev(rt_dev)) {
 			if (ctinfo < IP_CT_IS_REPLY) {
-				unic.ingress_vlan_tag = vlan_dev_priv(rt_dev)->vlan_id;
+				unic.in_vlan_tag[0] = ((NSS_CONNMGR_VLAN_TPID << 16)) | vlan_dev_priv(rt_dev)->vlan_id;
 				NSS_CONNMGR_DEBUG_INFO("Route-CM: Ingress VLAN ID = %d\n",vlan_dev_priv(rt_dev)->vlan_id);
 			} else {
-				unic.egress_vlan_tag = vlan_dev_priv(rt_dev)->vlan_id;
+				unic.out_vlan_tag[0] = ((NSS_CONNMGR_VLAN_TPID << 16)) | vlan_dev_priv(rt_dev)->vlan_id;
 				NSS_CONNMGR_DEBUG_INFO("Route-CM: Egress VLAN ID = %d\n",vlan_dev_priv(rt_dev)->vlan_id);
 			}
 		} else if (is_bridge_device(rt_dev)) {
@@ -1980,10 +1986,10 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 				 */
 				if (is_vlan_dev(br_port_dev)) {
 					if (ctinfo < IP_CT_IS_REPLY) {
-						unic.ingress_vlan_tag = vlan_dev_priv(br_port_dev)->vlan_id;
+						unic.in_vlan_tag[0] = ((NSS_CONNMGR_VLAN_TPID << 16)) | vlan_dev_priv(br_port_dev)->vlan_id;
 						NSS_CONNMGR_DEBUG_INFO("Route-CM: Ingress VLAN ID = %d\n",vlan_dev_priv(br_port_dev)->vlan_id);
 					} else {
-						unic.egress_vlan_tag = vlan_dev_priv(br_port_dev)->vlan_id;
+						unic.out_vlan_tag[0] = ((NSS_CONNMGR_VLAN_TPID << 16)) | vlan_dev_priv(br_port_dev)->vlan_id;
 						NSS_CONNMGR_DEBUG_INFO("Route-CM: Egress VLAN ID = %d\n",vlan_dev_priv(br_port_dev)->vlan_id);
 					}
 				} else {
@@ -2002,11 +2008,11 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 	 */
 	if (is_vlan_dev(new_out)) {
 		if (ctinfo < IP_CT_IS_REPLY) {
-			unic.egress_vlan_tag = vlan_dev_priv(new_out)->vlan_id;
+			unic.out_vlan_tag[0] = ((NSS_CONNMGR_VLAN_TPID << 16)) | vlan_dev_priv(new_out)->vlan_id;
 			dest_dev = vlan_dev_priv(new_out)->real_dev;
 			NSS_CONNMGR_DEBUG_INFO("Route-CM: Egress VLAN ID = %d\n",vlan_dev_priv(new_out)->vlan_id);
 		} else {
-			unic.ingress_vlan_tag = vlan_dev_priv(new_out)->vlan_id;
+			unic.in_vlan_tag[0] = ((NSS_CONNMGR_VLAN_TPID << 16)) | vlan_dev_priv(new_out)->vlan_id;
 			src_dev = vlan_dev_priv(new_out)->real_dev;
 			NSS_CONNMGR_DEBUG_INFO("Route-CM: Ingress VLAN ID = %d\n",vlan_dev_priv(new_out)->vlan_id);
 		}
@@ -2158,8 +2164,8 @@ static unsigned int nss_connmgr_ipv6_post_routing_hook(unsigned int hooknum,
 			dest_dev->name,
 			unic.src_interface_num,
 			unic.dest_interface_num,
-			unic.ingress_vlan_tag,
-			unic.egress_vlan_tag,
+			unic.in_vlan_tag[0],
+			unic.out_vlan_tag[0],
 			unic.flow_pppoe_session_id,
 			unic.return_pppoe_session_id,
 			unic.qos_tag);
@@ -2277,8 +2283,8 @@ void nss_connmgr_ipv6_update_bridge_dev(struct nss_connmgr_ipv6_connection *conn
 			return;
 		}
 		indev = indev->master;
-	} else if (connection->ingress_vlan_tag != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED) {
-		indev = __vlan_find_dev_deep(indev, connection->ingress_vlan_tag);
+	} else if (connection->ingress_vlan_tag[0] != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED) {
+		indev = __vlan_find_dev_deep(indev, (connection->ingress_vlan_tag[0] & NSS_CONNMGR_VLAN_ID_MASK));
 		if (indev == NULL) {
 			/*
 			 * Possible sync for a deleted VLAN interface
@@ -2301,8 +2307,8 @@ void nss_connmgr_ipv6_update_bridge_dev(struct nss_connmgr_ipv6_connection *conn
 			return;
 		}
 		outdev = outdev->master;
-	} else if (connection->egress_vlan_tag != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED) {
-		outdev = __vlan_find_dev_deep(outdev, connection->egress_vlan_tag);
+	} else if (connection->egress_vlan_tag[0] != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED) {
+		outdev = __vlan_find_dev_deep(outdev, (connection->egress_vlan_tag[0] & NSS_CONNMGR_VLAN_ID_MASK));
 		if (outdev == NULL) {
 			/*
 			 * Possible sync for a deleted VLAN interface
@@ -2363,7 +2369,7 @@ void nss_connmgr_ipv6_update_vlan_dev_stats(struct nss_connmgr_ipv6_connection *
 	struct net_device *vlandev, *physdev;
 	struct rtnl_link_stats64 stats;
 
-	if (connection->ingress_vlan_tag != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED)
+	if (connection->ingress_vlan_tag[0] != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED)
 	{
 		physdev = nss_cmn_get_interface_dev(nss_connmgr_ipv6.nss_context, connection->src_interface);
 		if (unlikely(!physdev)) {
@@ -2371,7 +2377,7 @@ void nss_connmgr_ipv6_update_vlan_dev_stats(struct nss_connmgr_ipv6_connection *
 			return;
 		}
 		rcu_read_lock();
-		vlandev = __vlan_find_dev_deep(physdev, connection->ingress_vlan_tag);
+		vlandev = __vlan_find_dev_deep(physdev, (connection->ingress_vlan_tag[0] & NSS_CONNMGR_VLAN_ID_MASK));
 		rcu_read_unlock();
 
 		if (vlandev) {
@@ -2381,12 +2387,12 @@ void nss_connmgr_ipv6_update_vlan_dev_stats(struct nss_connmgr_ipv6_connection *
 			stats.tx_bytes = sync->flow_tx_byte_count;
 			__vlan_dev_update_accel_stats(vlandev, &stats);
 		} else {
-			NSS_CONNMGR_DEBUG_WARN("Could not find VLAN IN device for ingress vlan %d\n", connection->ingress_vlan_tag);
+			NSS_CONNMGR_DEBUG_WARN("Could not find VLAN IN device for ingress vlan %d\n", connection->ingress_vlan_tag[0]);
 			return;
 		}
 	}
 
-	if (connection->egress_vlan_tag != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED)
+	if (connection->egress_vlan_tag[0] != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED)
 	{
 		physdev = nss_cmn_get_interface_dev(nss_connmgr_ipv6.nss_context, connection->dest_interface);
 		if (unlikely(!physdev)) {
@@ -2395,7 +2401,7 @@ void nss_connmgr_ipv6_update_vlan_dev_stats(struct nss_connmgr_ipv6_connection *
 		}
 
 		rcu_read_lock();
-		vlandev = __vlan_find_dev_deep(physdev, connection->egress_vlan_tag);
+		vlandev = __vlan_find_dev_deep(physdev, (connection->egress_vlan_tag[0] & NSS_CONNMGR_VLAN_ID_MASK));
 		rcu_read_unlock();
 
 		if (vlandev) {
@@ -2405,7 +2411,7 @@ void nss_connmgr_ipv6_update_vlan_dev_stats(struct nss_connmgr_ipv6_connection *
 			stats.tx_bytes = sync->return_tx_byte_count;
 			__vlan_dev_update_accel_stats(vlandev, &stats);
 		} else {
-			NSS_CONNMGR_DEBUG_WARN("Could not find VLAN OUT device for egress vlan %d\n", connection->egress_vlan_tag);
+			NSS_CONNMGR_DEBUG_WARN("Could not find VLAN OUT device for egress vlan %d\n", connection->egress_vlan_tag[0]);
 			return;
 		}
 	}
@@ -2474,8 +2480,8 @@ static void nss_connmgr_ipv6_net_dev_callback(struct nss_ipv6_cb_params *nicp)
 			connection->dest_addr[3] = establish->return_ip[3];
 			connection->dest_port = establish->return_ident;
 
-			connection->ingress_vlan_tag = establish->ingress_vlan_tag;
-			connection->egress_vlan_tag = establish->egress_vlan_tag;
+			connection->ingress_vlan_tag[0] = establish->ingress_vlan_tag;
+			connection->egress_vlan_tag[0] = establish->egress_vlan_tag;
 			memcpy(connection->src_mac_addr, (char *)establish->flow_mac, ETH_ALEN);
 			memcpy(connection->dest_mac_addr, (char *)establish->return_mac, ETH_ALEN);
 
@@ -2524,7 +2530,7 @@ static void nss_connmgr_ipv6_net_dev_callback(struct nss_ipv6_cb_params *nicp)
 	/*
 	 * Update VLAN device statistics if required
 	 */
-	if ((connection->ingress_vlan_tag & connection->egress_vlan_tag) != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED) {
+	if ((connection->ingress_vlan_tag[0] & connection->egress_vlan_tag[0]) != NSS_CONNMGR_VLAN_ID_NOT_CONFIGURED) {
 		nss_connmgr_ipv6_update_vlan_dev_stats(connection, sync);
 	}
 
