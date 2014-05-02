@@ -408,13 +408,7 @@ int32_t nss_gmac_common_init(struct nss_gmac_global_ctx *ctx)
 					| QSGMII_PHY_RX_INPUT_EQU(0x1) | QSGMII_PHY_CDR_PI_SLEW(0x2)
 					| QSGMII_PHY_TX_SLEW(0x2) | QSGMII_PHY_TX_DRV_AMP(0xC));
 
-	nss_gmac_write_reg((uint32_t *)(MSM_CLK_CTL_BASE), NSS_RESET_SPARE, 0x0FFFFFFF);
-	udelay(100);
-	nss_gmac_clear_reg_bits((uint32_t *)(MSM_CLK_CTL_BASE), NSS_RESET_SPARE, CAL_PBRS_RST_N_RESET);
-	mdelay(10);
-	nss_gmac_clear_reg_bits((uint32_t *)(MSM_CLK_CTL_BASE), NSS_RESET_SPARE, LCKDT_RST_N_RESET);
 	nss_gmac_write_reg((uint32_t *)(ctx->qsgmii_base), PCS_CAL_LCKDT_CTL, PCS_LCKDT_RST);
-	nss_gmac_write_reg((uint32_t *)(MSM_CLK_CTL_BASE), NSS_RESET_SPARE, 0x0);
 	nss_gmac_write_reg((msm_tcsr_base), 0xc0, 0x0);
 
 	/*
