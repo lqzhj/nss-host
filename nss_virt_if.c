@@ -219,7 +219,7 @@ nss_tx_status_t nss_virt_if_tx_msg(struct nss_virt_if_msg *nvim)
 		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
 		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
 		spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_warning("%p: virtual interface %p: command allocation failed", nss_ctx, dev);
+		nss_warning("%p: virtual interface %d: command allocation failed", nss_ctx, ncm->interface);
 		return NSS_TX_FAILURE;
 	}
 

@@ -73,7 +73,7 @@ void nss_crypto_buf_handler(struct nss_ctx_instance *nss_ctx, void *buf, uint32_
 	nss_crypto_buf_callback_t cb = nss_top->crypto_buf_callback;
 
 	if (unlikely(!cb)) {
-		nss_crypto_trace("%p: rx data handler has been unregistered for i/f: %d", nss_ctx, ncm->interface);
+		nss_crypto_trace("%p: rx data handler has been unregistered for i/f", nss_ctx);
 		return;
 	}
 
@@ -185,6 +185,9 @@ nss_tx_status_t nss_crypto_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_c
 		nss_crypto_warning("%p: tx config dropped as command allocation failed", nss_ctx);
 		return NSS_TX_FAILURE;
 	}
+
+	nss_crypto_info("msg params version:%d, interface:%d, type:%d, cb:%d, app_data:%d, len:%d\n",
+			ncm->version, ncm->interface, ncm->type, ncm->cb, ncm->app_data, ncm->len);
 
 	nim = (struct nss_crypto_msg *)skb_put(nbuf, sizeof(struct nss_crypto_msg));
 	memcpy(nim, msg, sizeof(struct nss_crypto_msg));

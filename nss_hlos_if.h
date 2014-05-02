@@ -169,7 +169,8 @@ struct nss_pppoe_msg {
  * Request/Response types
  */
 enum nss_c2c_metadata_types {
-	NSS_TX_METADATA_TYPE_C2C_TX_MAP,
+	NSS_TX_METADATA_TYPE_NONE = 0,
+	NSS_TX_METADATA_TYPE_C2C_TX_MAP = 1,
 	NSS_METADATA_TYPE_C2C_MAX,
 };
 

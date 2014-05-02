@@ -141,7 +141,7 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 	} else if (nss_dev->id == 1) {
 		rc = request_firmware(&nss_fw, NETAP1_IMAGE, &(nss_dev->dev));
 	} else {
-		nss_warning("%p: Invalid nss dev: %d \n", nss_dev->id);
+		nss_warning("%p: Invalid nss dev: %d \n", nss_ctx, nss_dev->id);
 	}
 
 	/*

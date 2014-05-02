@@ -729,69 +729,6 @@ extern nss_tx_status_t nss_tx_create_ipv6_rule1(void *nss_ctx, struct nss_ipv6_c
 extern nss_tx_status_t nss_tx_destroy_ipv6_rule(void *nss_ctx, struct nss_ipv6_destroy *unid);
 
 /**
- * Methods provided by NSS device driver for use by crypto driver
- */
-
-/**
- * Callback to receive crypto buffers
- */
-typedef void (*nss_crypto_data_callback_t)(void *ctx, void *buf, uint32_t buf_paddr, uint16_t len);
-
-/**
- * Callback to receive crypto sync messages
- */
-typedef void (*nss_crypto_sync_callback_t)(void *ctx, void *buf, uint32_t len);
-
-/**
- * @brief Register for sending/receiving crypto buffers
- *
- * @param crypto_data_callback data callback
- * @param crypto_sync_callback sync callback
- * @param ctx Crypto context
- *
- * @return void* NSS context to be provided with every message
- */
-extern void *nss_register_crypto_if(nss_crypto_data_callback_t crypto_data_callback, void *ctx);
-
-/**
- * @brief Register for sending/receiving crypto sync messages
- *
- * @param crypto_data_callback data callback
- * @param crypto_sync_callback sync callback
- * @param ctx Crypto context
- *
- */
-extern void nss_register_crypto_sync_if(nss_crypto_sync_callback_t crypto_sync_callback, void *ctx);
-
-/**
- * @brief Unregister for sending/receiving crypto buffers
- */
-extern void nss_unregister_crypto_if(void);
-
-/**
- * @brief Configure crypto interface
- *
- * @param ctx NSS context
- * @param buf Buffer to send to NSS
- * @param len Length of buffer
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_crypto_if_open(void *ctx, uint8_t *buf, uint32_t len);
-
-/**
- * @brief Send crypto buffer to NSS
- *
- * @param nss_ctx NSS context
- * @param buf Crypto buffer
- * @param buf_paddr Physical address of buffer
- * @param len Length of buffer
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_crypto_if_buf(void *nss_ctx, void *buf, uint32_t buf_paddr, uint16_t len);
-
-/**
  * Methods provided by NSS device driver for use by GMAC driver
  */
 
@@ -954,58 +891,6 @@ extern nss_tx_status_t nss_tx_virt_if_rx_nwifibuf(void *nss_ctx, struct sk_buff 
  * @return nss_tx_status_t Tx status
  */
 extern nss_tx_status_t nss_tx_virt_if_rxbuf(void *nss_ctx, struct sk_buff *os_buf);
-
-/**
- * Methods provided by NSS driver for use by IPsec stack
- */
-
-/**
- * Callback to receive IPsec events
- */
-typedef void (*nss_ipsec_event_callback_t)(void *if_ctx, uint32_t if_num, void *buf, uint32_t len);
-
-/**
- * Callback to receive ipsec data message
- */
-typedef void (*nss_ipsec_data_callback_t)(void *ctx, void *os_buf);
-
-/**
- * @brief Register to send/receive IPsec data to NSS
- *
- * @param ipsec interface number if_num
- * @param ipsec_data callback ipsec_data_cb
- * @param ctx IPsec context
- *
- * @return void* NSS context
- */
-extern void *nss_register_ipsec_if(uint32_t if_num, nss_ipsec_data_callback_t ipsec_data_cb, void *ctx);
-
-/**
- * @brief Register to send/receive IPsec events to NSS
- *
- * @param ipsec interface number if_num
- * @param ipsec_data callback ipsec_data_cb
- *
- */
-extern void nss_register_ipsec_event_if(uint32_t if_num, nss_ipsec_event_callback_t ipsec_event_cb);
-
-/**
- * @brief Unregister IPsec interface with NSS
- */
-extern void nss_unregister_ipsec_if(uint32_t if_num);
-
-/**
- * @brief Send rule creation message for IPsec Tx node
- *
- * @param nss_ctx NSS context
- * @param interface_num interface number for Ipsec tunnel
- * @param type IPsec rule type
- * @param buf Rule buffer that needs to be sent to NSS
- * @param len Length of valid data in buffer
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_ipsec_rule(void *nss_ctx, uint32_t interface_num, uint32_t type, uint8_t *buf, uint32_t len);
 
 /**
  * Methods provided by NSS driver for use by NSS Profiler

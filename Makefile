@@ -43,13 +43,11 @@ qca-nss-drv-objs := \
 # TODO: Deprecated files should be removed before merge
 #
 qca-nss-drv-objs += \
-			nss_tx_rx_crypto.o \
 			nss_tx_rx_eth_rx.o \
 			nss_tx_rx_freq.o \
 			nss_tx_rx_generic.o \
 			nss_tx_rx_ipv4.o \
 			nss_tx_rx_ipv6.o \
-			nss_tx_rx_ipsec.o \
 			nss_tx_rx_n2h.o \
 			nss_tx_rx_pppoe.o \
 			nss_tx_rx_phys_if.o \

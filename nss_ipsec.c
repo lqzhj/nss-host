@@ -47,10 +47,12 @@ static inline nss_tx_status_t nss_ipsec_set_msg_callback(struct nss_ctx_instance
 	case NSS_IPSEC_ENCAP_IF_NUMBER:
 		nss_top->ipsec_encap_ctx = ipsec_ctx;
 		nss_top->ipsec_encap_callback = cb;
+		break;
 
 	case NSS_IPSEC_DECAP_IF_NUMBER:
 		nss_top->ipsec_decap_ctx = ipsec_ctx;
 		nss_top->ipsec_decap_callback = cb;
+		break;
 
 	default:
 		nss_ipsec_warning("%p: cannot 'set' message callback, incorrect I/F: %d", nss_ctx, if_num);
@@ -205,6 +207,9 @@ nss_tx_status_t nss_ipsec_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_ip
 		nss_ipsec_warning("%p: tx rule dropped as command allocation failed", nss_ctx);
 		return NSS_TX_FAILURE;
 	}
+
+	nss_ipsec_info("msg params version:%d, interface:%d, type:%d, cb:%d, app_data:%d, len:%d\n",
+			ncm->version, ncm->interface, ncm->type, ncm->cb, ncm->app_data, ncm->len);
 
 	nim = (struct nss_ipsec_msg *)skb_put(nbuf, sizeof(struct nss_ipsec_msg));
 	memcpy(nim, msg, sizeof(struct nss_ipsec_msg));
