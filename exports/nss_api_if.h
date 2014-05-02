@@ -91,6 +91,7 @@
 #define NSS_PPPOE_RX_INTERFACE (NSS_SPECIAL_IF_START + 3) /* Special IF for PPPoE sessions */
 #define NSS_IPV4_RX_INTERFACE (NSS_SPECIAL_IF_START + 5) /* Special IF number for IPv4 */
 #define NSS_IPV6_RX_INTERFACE (NSS_SPECIAL_IF_START + 7) /* Special IF number for IPv6 */
+#define NSS_PROFILER_INTERFACE (NSS_SPECIAL_IF_START + 8) /* Special IF number for profile */
 #define NSS_CRYPTO_INTERFACE (NSS_SPECIAL_IF_START + 9) /* Special IF number for Crypto */
 #define NSS_LAG0_INTERFACE_NUM (NSS_SPECIAL_IF_START + 10) /* Special IF number for LAG0 */
 #define NSS_LAG1_INTERFACE_NUM (NSS_SPECIAL_IF_START + 11) /* Special IF number for LAG1 */

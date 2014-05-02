@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -30,8 +30,7 @@ nss_tx_status_t nss_tx_profiler_if_buf(void *ctx, uint8_t *buf, uint32_t len)
 	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *)ctx;
 	struct sk_buff *nbuf;
 	int32_t status;
-	struct nss_tx_metadata_object *ntmo;
-	struct nss_profiler_tx *npt;
+	struct nss_cmn_msg *ncm;
 
 	nss_trace("%p: Profiler If Tx, buf=%p", nss_ctx, buf);
 
@@ -54,12 +53,11 @@ nss_tx_status_t nss_tx_profiler_if_buf(void *ctx, uint8_t *buf, uint32_t len)
 		return NSS_TX_FAILURE;
 	}
 
-	ntmo = (struct nss_tx_metadata_object *)skb_put(nbuf, sizeof(struct nss_tx_metadata_object));
-	ntmo->type = NSS_TX_METADATA_TYPE_PROFILER_TX;
+	ncm = (struct nss_cmn_msg *)skb_put(nbuf, sizeof(*ncm) + len);
+	nss_cmn_msg_init(ncm, NSS_PROFILER_INTERFACE, NSS_TX_METADATA_TYPE_PROFILER_TX,
+			len, NULL, NULL);
 
-	npt = &ntmo->sub.profiler_tx;
-	npt->len = len;
-	memcpy(npt->buf, buf, len);
+	memcpy(ncm+1, buf, len);
 
 	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
 	if (status != NSS_CORE_STATUS_SUCCESS) {
@@ -77,19 +75,30 @@ nss_tx_status_t nss_tx_profiler_if_buf(void *ctx, uint8_t *buf, uint32_t len)
 
 
 /*
- * nss_rx_metadata_profiler_sync()
- *	Handle the syncing of profiler information.
+ * nss_rx_profiler_msg()
+ *	Handle profiler information.
  */
-static void nss_rx_metadata_profiler_sync(struct nss_ctx_instance *nss_ctx, struct nss_profiler_sync *profiler_sync)
+static void nss_rx_profiler_msg(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm, __attribute__((unused))void *app_data)
 {
 	void *ctx = nss_ctx->nss_top->profiler_ctx[nss_ctx->id];
 	nss_profiler_callback_t cb = nss_ctx->nss_top->profiler_callback[nss_ctx->id];
 
 	if (!cb || !ctx) {
 		nss_warning("%p: Event received for profiler interface before registration", nss_ctx);
+		return;
 	}
 
-	cb(ctx, profiler_sync->buf, profiler_sync->len);
+	cb(ctx, (uint8_t *)(ncm+1), ncm->len);
+}
+
+/*
+ * nss_profile_if_register_handler()
+ */
+void nss_profiler_if_register_handler(void)
+{
+	if (nss_core_register_handler(NSS_PROFILER_INTERFACE, nss_rx_profiler_msg, NULL) != NSS_CORE_STATUS_SUCCESS) {
+		nss_warning("Message handler FAILED to be registered for profiler");
+	}
 }
 
 /*
@@ -98,6 +107,9 @@ static void nss_rx_metadata_profiler_sync(struct nss_ctx_instance *nss_ctx, stru
 void *nss_register_profiler_if(nss_profiler_callback_t profiler_callback, nss_core_id_t core_id, void *ctx)
 {
 	nss_assert(core_id < NSS_CORE_MAX);
+
+	if (core_id == NSS_CORE_0)
+		nss_profiler_if_register_handler();
 
 	nss_top_main.profiler_ctx[core_id] = ctx;
 	nss_top_main.profiler_callback[core_id] = profiler_callback;

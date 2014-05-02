@@ -51,6 +51,7 @@ qca-nss-drv-objs += \
 			nss_tx_rx_n2h.o \
 			nss_tx_rx_pppoe.o \
 			nss_tx_rx_phys_if.o \
+			nss_tx_rx_profiler.o \
 			nss_tx_rx_virt_if.o
 
 obj-m += qca-nss-connmgr-ipv4.o
@@ -73,6 +74,8 @@ ccflags-y += -DNSS_CONNMGR_DEBUG_LEVEL=0 -DNSS_CONNMGR_PPPOE_SUPPORT=0
 ccflags-y += -DNSS_TUNIPIP6_DEBUG_LEVEL=0
 ccflags-y += -DNSS_PM_DEBUG_LEVEL=0
 ccflags-y += -I$(TOPDIR)/qca/src/linux/net/bridge -DNSSQDISC_DEBUG_LEVEL=0
+
+obj-y+= profiler/
 
 obj ?= .
 
