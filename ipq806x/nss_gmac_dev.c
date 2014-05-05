@@ -523,6 +523,19 @@ void nss_gmac_disable_crs(nss_gmac_dev *gmacdev)
 }
 
 /*
+ * Enable Carrier sense.
+ * When Carrier sense is enabled GMAC generates Loss of Carier
+ * or No carrier errors and can abort transmissions.
+ * @param[in] pointer to nss_gmac_dev.
+ * @return void.
+ */
+void nss_gmac_enable_crs(nss_gmac_dev *gmacdev)
+{
+	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
+			      GmacConfig, GmacDisableCrs);
+}
+
+/*
  * Selects the GMII port.
  * When called GMII (1000Mbps) port is selected (programmable only in 10/100/1000 Mbps configuration).
  * @param[in] pointer to nss_gmac_dev.
@@ -1312,10 +1325,12 @@ void nss_gmac_mac_init(nss_gmac_dev *gmacdev)
 		nss_gmac_set_full_duplex(gmacdev);
 		nss_gmac_rx_own_enable(gmacdev);
 		nss_gmac_retry_disable(gmacdev);
+		nss_gmac_enable_crs(gmacdev);
 	} else {
 		nss_gmac_set_half_duplex(gmacdev);
 		nss_gmac_rx_own_disable(gmacdev);
 		nss_gmac_retry_enable(gmacdev);
+		nss_gmac_disable_crs(gmacdev);
 	}
 
 	nss_gmac_pad_crc_strip_disable(gmacdev);
