@@ -272,7 +272,7 @@ static uint8_t sha1_hash[NSS_CRYPTO_MAX_KEYLEN_SHA1] = {
 #else
 #error "incorrect ENCR_MCMP_SZ"
 #endif
-static int32_t session_idx;
+static int32_t crypto_sid[NSS_CRYPTO_MAX_IDXS];
 static uint32_t prep = 0;
 static uint8_t pattern_data[CRYPTO_BENCH_MAX_DATA_SZ] = {0};
 static uint8_t *data_ptr;
@@ -337,6 +337,8 @@ struct crypto_bench_param {
 
 	uint32_t ciph_algo;	/**< 1 for AES or 2 for DES */
 	uint32_t auth_algo;	/**< 1 for SHA-1 or 2 for SHA-256 */
+
+	uint32_t sid;		/**< session index to use */
 
 	uint32_t num_reqs;	/**< number of requests in "1" pass */
 	uint32_t num_loops;	/**< number of loops of num_reqs */
@@ -462,6 +464,7 @@ static void crypto_bench_init_param(enum crypto_bench_type type)
 static void crypto_bench_flush(void)
 {
 	struct crypto_op *op;
+	int i = 0;
 
 	prep = 0;
 
@@ -477,10 +480,18 @@ static void crypto_bench_flush(void)
 		kmem_cache_free(crypto_op_zone, op);
 	}
 
-	if (session_idx >= 0) {
-		nss_crypto_session_free(crypto_hdl, session_idx);
-		session_idx = -1;
+
+	for (i = 0; i < NSS_CRYPTO_MAX_IDXS; i++) {
+
+		if (crypto_sid[i] < 0) {
+			continue;
+		}
+
+		nss_crypto_session_free(crypto_hdl, crypto_sid[i]);
+
+		crypto_sid[i] = -1;
 	}
+
 
 	kthread_stop(tx_thread);
 
@@ -576,14 +587,17 @@ static int32_t crypto_bench_prep_op(void)
 		return -1;
 	}
 
-	status = nss_crypto_session_alloc(crypto_hdl, &c_key, &a_key, &session_idx);
-	CRYPTO_BENCH_ASSERT(status == NSS_CRYPTO_STATUS_OK);
+	for (i = 0; i < NSS_CRYPTO_MAX_IDXS; i++) {
+		status = nss_crypto_session_alloc(crypto_hdl, &c_key, &a_key, &crypto_sid[i]);
+
+		CRYPTO_BENCH_ASSERT(status == NSS_CRYPTO_STATUS_OK);
+	}
 
 	crypto_bench_info("preparing crypto bench\n");
 
 	iv_hash_len = NSS_CRYPTO_MAX_IVLEN_AES + CRYPTO_BENCH_RESULTS_SZ + sizeof(uint32_t);
 
-	crypto_bench_info("session = %d\n", session_idx);
+	crypto_bench_info("session = %d\n", crypto_sid[param.sid]);
 
 	for (i = 0; i < param.num_reqs; i++) {
 
@@ -641,7 +655,7 @@ static void crypto_bench_prep_buf(struct crypto_op *op)
 
 	buf->req_type |= (param.auth_op ? NSS_CRYPTO_BUF_REQ_AUTH : 0);
 
-	buf->session_idx = session_idx;
+	buf->session_idx = crypto_sid[param.sid];
 
 	buf->iv_offset = op->iv_offset;
 
@@ -869,6 +883,8 @@ nss_crypto_user_ctx_t crypto_bench_attach(nss_crypto_handle_t crypto)
 
 	debugfs_create_u32("cipher_algo", CRYPTO_BENCH_PERM_RW, droot, &param.ciph_algo);
 	debugfs_create_u32("auth_algo", CRYPTO_BENCH_PERM_RW, droot, &param.auth_algo);
+
+	debugfs_create_u32("session", CRYPTO_BENCH_PERM_RW, droot, &param.sid);
 
 	/* R/W buffer */
 	debugfs_create_file("cmd", CRYPTO_BENCH_PERM_RW, droot, &op_head, &cmd_ops);

@@ -26,6 +26,7 @@
 #define NSS_CRYPTO_DEBUGFS_PERM_RW 0666
 #define NSS_CRYPTO_DEBUGFS_NAME_SZ 64
 #define NSS_CRYPTO_DEBUGFS_BUF_SZ 512
+#define NSS_CRYPTO_MSG_LEN (sizeof(struct nss_crypto_msg) - sizeof(struct nss_cmn_msg))
 
 static ssize_t nss_crypto_read_stats(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos);
 
@@ -544,7 +545,7 @@ void nss_crypto_engine_init(uint32_t eng_count)
 	nss_cmn_msg_init(ncm,
 			NSS_CRYPTO_INTERFACE,
 			NSS_CRYPTO_MSG_TYPE_OPEN_ENG,
-			sizeof(struct nss_crypto_config_eng),
+			NSS_CRYPTO_MSG_LEN,
 			nss_crypto_process_event,
 			(void *)eng_count);
 
@@ -587,7 +588,7 @@ void nss_crypto_reset_session(uint32_t session_idx, enum nss_crypto_session_stat
 	nss_cmn_msg_init(ncm,
 			NSS_CRYPTO_INTERFACE,
 			NSS_CRYPTO_MSG_TYPE_RESET_SESSION,
-			sizeof(struct nss_crypto_config_session),
+			NSS_CRYPTO_MSG_LEN,
 			nss_crypto_process_event,
 			(void *)session_idx);
 
