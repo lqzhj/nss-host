@@ -47,7 +47,7 @@
 #include <nss_cfi_if.h>
 #include "nss_ipsec_mgr.h"
 
-
+#define NSS_IPSEC_MSG_LEN	(sizeof(struct nss_ipsec_msg) - sizeof(struct nss_cmn_msg))
 /*
  * tunnel list head, the protection is required for accessing the
  * list. The integrity of the object will require some type of
@@ -421,7 +421,7 @@ static int nss_ipsec_free_rule(struct nf_conn *ct)
 		return -1;
 	}
 
-	nss_cfi_info("deleting rule: src_ip %d , dest_ip %d , protocol %d,"
+	nss_cfi_dbg("deleting rule: src_ip %d , dest_ip %d , protocol %d,"
 			"src_port %d , dest_port %d\n",sel->src_ip, sel->dst_ip,
 			sel->protocol, sel->src_port, sel->dst_port);
 
@@ -433,7 +433,7 @@ static int nss_ipsec_free_rule(struct nf_conn *ct)
 	nss_cmn_msg_init(&nim.cm,
 			if_num,
 			NSS_IPSEC_MSG_TYPE_DEL_RULE,
-			sizeof(struct nss_ipsec_rule_push),
+			NSS_IPSEC_MSG_LEN,
 			nss_ipsec_event_cb,
 			&gbl_rule_tbl[table_type]);
 
@@ -462,7 +462,7 @@ static int32_t nss_ipsec_free_session(uint32_t crypto_sid)
 	nss_cmn_msg_init(&nim.cm,
 			0,
 			NSS_IPSEC_MSG_TYPE_DEL_SID,
-			sizeof(struct nss_ipsec_rule_push),
+			NSS_IPSEC_MSG_LEN,
 			nss_ipsec_event_cb,
 			NULL);
 
@@ -507,7 +507,7 @@ static int32_t nss_ipsec_free_all(void)
 	nss_cmn_msg_init(&nim.cm,
 			0,
 			NSS_IPSEC_MSG_TYPE_DEL_ALL,
-			sizeof(struct nss_ipsec_rule_push),
+			NSS_IPSEC_MSG_LEN,
 			nss_ipsec_event_cb,
 			NULL);
 	/*
@@ -563,6 +563,8 @@ static int32_t nss_ipsec_trap_encap(struct sk_buff *skb, uint32_t crypto_sid)
 
 	memset(&nim, 0, sizeof(struct nss_ipsec_msg));
 
+	nss_cfi_dbg("encap trap\n");
+
 	/*
 	 * for encap we use the inner header to create the selector
 	 */
@@ -575,7 +577,7 @@ static int32_t nss_ipsec_trap_encap(struct sk_buff *skb, uint32_t crypto_sid)
 	nss_cmn_msg_init(&nim.cm,
 			NSS_IPSEC_ENCAP_INTERFACE,
 			op,
-			sizeof(struct nss_ipsec_rule_push),
+			NSS_IPSEC_MSG_LEN,
 			nss_ipsec_event_cb,
 			&gbl_rule_tbl[NSS_IPSEC_TBL_TYPE_ENCAP]);
 
@@ -591,6 +593,8 @@ static int32_t nss_ipsec_trap_encap(struct sk_buff *skb, uint32_t crypto_sid)
 	if (nss_ipsec_push_rule(&nim, NSS_IPSEC_ENCAP_INTERFACE) < 0) {
 		return -1;
 	}
+
+	nss_cfi_dbg("encap pushed rule successfully\n");
 
 	return 0;
 }
@@ -614,6 +618,8 @@ static int32_t nss_ipsec_trap_decap(struct sk_buff *skb, uint32_t crypto_sid)
 		return -1;
 	};
 
+	nss_cfi_dbg("decap trap\n");
+
 	tun = (struct nss_ipsec_ipv4_hdr *)skb_network_header(skb);
 	ip = (struct nss_ipsec_ipv4_hdr *)(skb->data + NSS_IPSEC_ESPHDR_SZ);
 
@@ -631,7 +637,7 @@ static int32_t nss_ipsec_trap_decap(struct sk_buff *skb, uint32_t crypto_sid)
 	nss_cmn_msg_init(&nim.cm,
 			NSS_IPSEC_DECAP_INTERFACE,
 			op,
-			sizeof(struct nss_ipsec_rule_push),
+			NSS_IPSEC_MSG_LEN,
 			nss_ipsec_event_cb,
 			&gbl_rule_tbl[NSS_IPSEC_TBL_TYPE_DECAP]);
 
@@ -642,6 +648,8 @@ static int32_t nss_ipsec_trap_decap(struct sk_buff *skb, uint32_t crypto_sid)
 	if (nss_ipsec_push_rule(&nim, NSS_IPSEC_DECAP_INTERFACE) < 0) {
 		return -1;
 	}
+
+	nss_cfi_dbg("decap pushed rule successfully\n");
 
 	return 0;
 }
@@ -658,6 +666,8 @@ static void nss_ipsec_data_cb(void *app_data, void *os_buf)
 	struct net_device *dev = gbl_except_dev;
 	struct sk_buff *skb = (struct sk_buff *)os_buf;
 	struct nss_ipsec_ipv4_hdr *ip;
+
+	nss_cfi_dbg("exception data ");
 
 	/*
 	 * need to hold the lock prior to accessing the dev
@@ -694,6 +704,8 @@ static void nss_ipsec_data_cb(void *app_data, void *os_buf)
 	netif_receive_skb(skb);
 
 	dev_put(dev);
+
+	nss_cfi_dbg("delivered\n");
 }
 
 static nss_ipsec_sync_op_t gbl_sync_op[NSS_IPSEC_MSG_TYPE_MAX] = {
