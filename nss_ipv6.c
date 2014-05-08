@@ -41,7 +41,7 @@ static void nss_ipv6_driver_conn_sync_update(struct nss_ctx_instance *nss_ctx, s
 	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_RX_BYTES] += nics->flow_rx_byte_count + nics->return_rx_byte_count;
 	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_TX_PKTS] += nics->flow_tx_packet_count + nics->return_tx_packet_count;
 	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_TX_BYTES] += nics->flow_tx_byte_count + nics->return_tx_byte_count;
-	spin_unlock(&nss_top->stats_lock);
+	spin_unlock_bh(&nss_top->stats_lock);
 
 	/*
 	 * Update the PPPoE interface stats, if there is any PPPoE session on the interfaces.
@@ -153,7 +153,7 @@ static void nss_ipv6_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 		return nss_rx_ipv6_sync(nss_ctx, &nim->msg.conn_stats);
 		break;
 	}
-	
+
 	/*
 	 * Update the callback and app_data for NOTIFY messages, IPv6 sends all notify messages
 	 * to the same callback/app_data.
