@@ -23,6 +23,65 @@
 
 /*
  **********************************
+ Tx APIs
+ **********************************
+ */
+
+/*
+ * nss_n2h_rps_configure()
+ *	Send Message to NSS to enable RPS.
+ *
+ * This API could be used for any additional RPS related
+ * configuration in future.
+ */
+nss_tx_status_t nss_n2h_rps_configure(void *ctx, uint32_t enable_rps) {
+
+	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) ctx;
+	struct sk_buff *nbuf;
+	int32_t status;
+	struct nss_n2h_msg *nnhm;
+	struct nss_n2h_rps *rps_cfg;
+
+	NSS_VERIFY_CTX_MAGIC(nss_ctx);
+	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
+		return NSS_TX_FAILURE_NOT_READY;
+	}
+
+	nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
+	if (unlikely(!nbuf)) {
+		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
+		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
+		spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
+		return NSS_TX_FAILURE;
+	}
+
+	nnhm = (struct nss_n2h_msg *)skb_put(nbuf, sizeof(struct nss_n2h_msg));
+
+	nnhm->cm.type = NSS_TX_METADATA_TYPE_N2H_RPS_CFG;
+	nnhm->cm.version = NSS_HLOS_MESSAGE_VERSION;
+	nnhm->cm.interface = NSS_N2H_INTERFACE;
+	nnhm->cm.len = nbuf->len;
+
+	rps_cfg = &nnhm->msg.rps_cfg;
+
+	rps_cfg->enable = enable_rps;
+
+	nss_info("n22_n2h_rps_configure %d \n", enable_rps);
+
+	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
+	if (status != NSS_CORE_STATUS_SUCCESS) {
+		dev_kfree_skb_any(nbuf);
+		nss_info("%p: unable to enqueue 'nss frequency change' - marked as stopped\n", nss_ctx);
+		return NSS_TX_FAILURE;
+	}
+
+	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit, NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
+
+	return NSS_TX_SUCCESS;
+}
+
+/*
+ **********************************
  Rx APIs
  **********************************
  */
@@ -90,6 +149,11 @@ static void nss_rx_n2h_interface_handler(struct nss_ctx_instance *nss_ctx, struc
 	}
 
 	switch (nnm->cm.type) {
+	case NSS_TX_METADATA_TYPE_N2H_RPS_CFG:
+		nss_ctx->n2h_rps_en = nnm->msg.rps_cfg.enable;
+		nss_info("NSS N2H rps_en %d \n",nnm->msg.rps_cfg.enable);
+		break;
+
 	case NSS_RX_METADATA_TYPE_N2H_STATS_SYNC:
 		nss_rx_metadata_n2h_stats_sync(nss_ctx, &nnm->msg.stats_sync);
 		break;

@@ -49,6 +49,7 @@
  */
 int nss_ctl_redirect __read_mostly = 0;
 int nss_ctl_debug __read_mostly = 0;
+int nss_rps_cfg __read_mostly = 0;
 
 /*
  * PM client handle
@@ -728,6 +729,38 @@ static int nss_debug_handler(ctl_table *ctl, int write, void __user *buffer, siz
 }
 
 /*
+ * nss_rps_handler()
+ *	Enable NSS RPS
+ */
+static int nss_rpscfg_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	struct nss_top_instance *nss_top = &nss_top_main;
+	struct nss_ctx_instance *nss_ctx = &nss_top->nss[0];
+	int ret;
+
+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+	if (!ret) {
+		if ((write) && (nss_rps_cfg == 1)) {
+			printk("Enabling NSS RPS\n");
+			nss_n2h_rps_configure(nss_ctx, 1);
+			return ret;
+		}
+
+		if ((write) && (nss_rps_cfg == 0)) {
+			printk("Runtime disabling of NSS RPS not supported \n");
+			return ret;
+		}
+
+		if (write) {
+			printk("Invalid input value.Valid values are 0 and 1 \n");
+		}
+
+	}
+
+	return ret;
+}
+
+/*
  * nss_coredump_handler()
  *	Send Signal To Coredump NSS Cores
  */
@@ -804,6 +837,14 @@ static ctl_table nss_general_table[] = {
 		.mode                   = 0644,
 		.proc_handler   = &nss_coredump_handler,
 	},
+	{
+		.procname               = "rps",
+		.data                   = &nss_rps_cfg,
+		.maxlen                 = sizeof(int),
+		.mode                   = 0644,
+		.proc_handler   = &nss_rpscfg_handler,
+	},
+
 	{ }
 };
 

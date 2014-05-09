@@ -176,7 +176,11 @@ static int32_t nss_send_c2c_map(struct nss_ctx_instance *nss_own, struct nss_ctx
 static inline uint16_t nss_core_cause_to_queue(uint16_t cause)
 {
 	if (likely(cause == NSS_REGS_N2H_INTR_STATUS_DATA_COMMAND_QUEUE)) {
-		return NSS_IF_DATA_QUEUE;
+		return NSS_IF_DATA_QUEUE_0;
+	}
+
+	if (likely(cause == NSS_REGS_N2H_INTR_STATUS_DATA_QUEUE_1)) {
+		return NSS_IF_DATA_QUEUE_1;
 	}
 
 	if (likely(cause == NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFER_QUEUE)) {
@@ -748,7 +752,7 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 		}
 
 		spin_unlock_bh(&nss_ctx->decongest_cb_lock);
-		nss_ctx->h2n_desc_rings[NSS_IF_DATA_QUEUE].flags &= ~NSS_H2N_DESC_RING_FLAGS_TX_STOPPED;
+		nss_ctx->h2n_desc_rings[NSS_IF_DATA_QUEUE_0].flags &= ~NSS_H2N_DESC_RING_FLAGS_TX_STOPPED;
 
 		/*
 		 * Mask Tx unblocked interrupt and unmask it again when queue full condition is reached
@@ -798,11 +802,16 @@ static uint32_t nss_core_get_prioritized_cause(uint32_t cause, uint32_t *type, i
 		return NSS_REGS_N2H_INTR_STATUS_DATA_COMMAND_QUEUE;
 	}
 
+	if (cause & NSS_REGS_N2H_INTR_STATUS_DATA_QUEUE_1) {
+		*type = NSS_INTR_CAUSE_QUEUE;
+		*weight = NSS_DATA_COMMAND_BUFFER_PROCESSING_WEIGHT;
+		return NSS_REGS_N2H_INTR_STATUS_DATA_QUEUE_1;
+	}
+
 	if (cause & NSS_REGS_H2N_INTR_STATUS_COREDUMP_END) {
 		printk("COREDUMP SIGNAL END");
 		return NSS_REGS_H2N_INTR_STATUS_COREDUMP_END;
 	}
-
 
 	return 0;
 }
@@ -895,7 +904,7 @@ int32_t nss_core_send_crypto(struct nss_ctx_instance *nss_ctx, void *buf, uint32
 {
 	int16_t count, hlos_index, nss_index, size;
 	struct h2n_descriptor *desc;
-	struct hlos_h2n_desc_rings *h2n_desc_ring = &nss_ctx->h2n_desc_rings[NSS_IF_DATA_QUEUE];
+	struct hlos_h2n_desc_rings *h2n_desc_ring = &nss_ctx->h2n_desc_rings[NSS_IF_DATA_QUEUE_0];
 	struct h2n_desc_if_instance *desc_if = &h2n_desc_ring->desc_ring;
 	struct nss_if_mem_map *if_map = (struct nss_if_mem_map *) nss_ctx->vmap;
 
@@ -908,7 +917,7 @@ int32_t nss_core_send_crypto(struct nss_ctx_instance *nss_ctx, void *buf, uint32
 	 * We need to work out if there's sufficent space in our transmit descriptor
 	 * ring to place the crypto packet.
 	 */
-	nss_index = if_map->h2n_nss_index[NSS_IF_DATA_QUEUE];
+	nss_index = if_map->h2n_nss_index[NSS_IF_DATA_QUEUE_0];
 	hlos_index = h2n_desc_ring->hlos_index;
 
 	size = desc_if->size;
@@ -944,7 +953,7 @@ int32_t nss_core_send_crypto(struct nss_ctx_instance *nss_ctx, void *buf, uint32
 	 */
 	hlos_index = (hlos_index + 1) & (size - 1);
 	h2n_desc_ring->hlos_index = hlos_index;
-	if_map->h2n_hlos_index[NSS_IF_DATA_QUEUE] = hlos_index;
+	if_map->h2n_hlos_index[NSS_IF_DATA_QUEUE_0] = hlos_index;
 	spin_unlock_bh(&h2n_desc_ring->lock);
 
 	return NSS_CORE_STATUS_SUCCESS;

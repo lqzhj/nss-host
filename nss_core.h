@@ -111,7 +111,8 @@
  * N2H/H2N Queue IDs
  */
 #define NSS_IF_EMPTY_BUFFER_QUEUE 0
-#define NSS_IF_DATA_QUEUE 1
+#define NSS_IF_DATA_QUEUE_0 1
+#define NSS_IF_DATA_QUEUE_1 2
 #define NSS_IF_CMD_QUEUE 1
 
 
@@ -446,6 +447,7 @@ struct nss_ctx_instance {
 					/* Host to NSS descriptor rings */
 	struct hlos_n2h_desc_ring n2h_desc_ring[15];
 					/* NSS to Host descriptor rings */
+	uint8_t n2h_rps_en;		/* N2H Enable Multiple queues for Data Packets */
 	uint32_t max_buf_size;		/* Maximum buffer size */
 	nss_cmn_queue_decongestion_callback_t queue_decongestion_callback[NSS_MAX_CLIENTS];
 					/* Queue decongestion callbacks */

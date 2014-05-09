@@ -115,8 +115,13 @@ struct nss_c2c_msg {
  * Request/Response types
  */
 enum nss_n2h_metadata_types {
-	NSS_RX_METADATA_TYPE_N2H_STATS_SYNC,
+	NSS_RX_METADATA_TYPE_N2H_STATS_SYNC=0,
+	NSS_TX_METADATA_TYPE_N2H_RPS_CFG,
 	NSS_METADATA_TYPE_N2H_MAX,
+};
+
+struct nss_n2h_rps {
+	uint32_t enable; /* Enable NSS RPS */
 };
 
 /*
@@ -152,6 +157,7 @@ struct nss_n2h_msg {
 	struct nss_cmn_msg cm;			/* Message Header */
 	union {
 		struct nss_n2h_stats_sync stats_sync;	/* Message: N2H stats sync */
+		struct nss_n2h_rps rps_cfg; 		/* Message: RPS configuration */
 	} msg;
 };
 

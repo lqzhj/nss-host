@@ -83,7 +83,7 @@ nss_tx_status_t nss_tx_virt_if_recvbuf(void *ctx, struct sk_buff *os_buf, uint32
 	/*
 	 * Direct the buffer to the NSS
 	 */
-	status = nss_core_send_buffer(nss_ctx, if_num, os_buf, NSS_IF_DATA_QUEUE, bufftype, H2N_BIT_FLAG_VIRTUAL_BUFFER);
+	status = nss_core_send_buffer(nss_ctx, if_num, os_buf, NSS_IF_DATA_QUEUE_0, bufftype, H2N_BIT_FLAG_VIRTUAL_BUFFER);
 	if (unlikely(status != NSS_CORE_STATUS_SUCCESS)) {
 		nss_warning("%p: Virtual Rx packet unable to enqueue\n", nss_ctx);
 		if (!nwifi) {
@@ -95,7 +95,7 @@ nss_tx_status_t nss_tx_virt_if_recvbuf(void *ctx, struct sk_buff *os_buf, uint32
 	/*
 	 * Kick the NSS awake so it can process our new entry.
 	 */
-	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_DATA_QUEUE].desc_ring.int_bit,
+	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_DATA_QUEUE_0].desc_ring.int_bit,
 						NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
 	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_PACKET]);
 	return NSS_TX_SUCCESS;
