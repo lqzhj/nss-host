@@ -207,7 +207,8 @@ static int8_t *nss_stats_str_if_exception_ipv4[NSS_EXCEPTION_EVENT_IPV4_MAX] = {
 	"IPV4_6RD_IP_FRAGMENT",
 	"IPV4_6RD_NEEDS_FRAGMENTATION",
 	"IPV4_DSCP_MARKING_MISMATCH",
-	"IPV4_VLAN_MARKING_MISMATCH"
+	"IPV4_VLAN_MARKING_MISMATCH",
+	"IPV4_INTERFACE_MISMATCH"
 };
 
 /*
@@ -245,6 +246,7 @@ static int8_t *nss_stats_str_if_exception_ipv6[NSS_EXCEPTION_EVENT_IPV6_MAX] = {
 	"IPV6_INGRESS_VID_MISMATCH",
 	"IPV6_DSCP_MARKING_MISMATCH",
 	"IPV6_VLAN_MARKING_MISMATCH",
+	"IPV6_INTERFACE_MISMATCH"
 };
 
 /*
@@ -255,7 +257,8 @@ static int8_t *nss_stats_str_if_exception_pppoe[NSS_EXCEPTION_EVENT_PPPOE_MAX] =
 	"PPPOE_WRONG_VERSION_OR_TYPE",
 	"PPPOE_WRONG_CODE",
 	"PPPOE_HEADER_INCOMPLETE",
-	"PPPOE_UNSUPPORTED_PPP_PROTOCOL"
+	"PPPOE_UNSUPPORTED_PPP_PROTOCOL",
+	"PPPOE_INTERFACE_MISMATCH"
 };
 
 /*
@@ -265,7 +268,6 @@ static int8_t *nss_stats_str_if_exception_pppoe[NSS_EXCEPTION_EVENT_PPPOE_MAX] =
 static ssize_t nss_stats_ipv4_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
 {
 	int32_t i;
-
 	/*
 	 * max output lines = #stats + start tag line + end tag line + three blank lines
 	 */
