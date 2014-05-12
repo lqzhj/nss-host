@@ -909,59 +909,6 @@ static void nssqdisc_child_init_alloc_node_callback(void *app_data, struct nss_i
 }
 
 /*
- * nssqdisc_bounce_callback()
- *	Enqueues packets bounced back from NSS firmware.
- */
-static void nssqdisc_bounce_callback(void *app_data, struct sk_buff *skb)
-{
-	struct Qdisc *sch = (struct Qdisc *)app_data;
-
-	/*
-	 * All we have to do is enqueue for transmit and schedule a dequeue
-	 */
-	__qdisc_enqueue_tail(skb, sch, &sch->q);
-	__netif_schedule(sch);
-}
-
-/*
- * nssqdisc_peek()
- *	Called to peek at the head of an nss qdisc
- */
-static struct sk_buff *nssqdisc_peek(struct Qdisc *sch)
-{
-	return skb_peek(&sch->q);
-}
-
-/*
- * nssqdisc_drop()
- *	Called to drop the packet at the head of queue
- */
-static unsigned int nssqdisc_drop(struct Qdisc *sch)
-{
-	return __qdisc_queue_drop_head(sch, &sch->q);
-}
-
-/*
- * nssqdisc_reset()
- *	Called when a qdisc is reset
- */
-static void nssqdisc_reset(struct Qdisc *sch)
-{
-	struct nssqdisc_qdisc *nq __attribute__ ((unused)) = qdisc_priv(sch);
-
-	nssqdisc_info("%s: Qdisc %p (type %d) resetting\n",
-			__func__, sch, nq->type);
-
-	/*
-	 * Delete all packets pending in the output queue and reset stats
-	 */
-	qdisc_reset_queue(sch);
-
-	nssqdisc_info("%s: Qdisc %p (type %d) reset complete\n",
-			__func__, sch, nq->type);
-}
-
-/*
  * nssqdisc_add_to_tail_protected()
  *	Adds to list while holding the qdisc lock.
  */
@@ -1037,6 +984,94 @@ static inline struct sk_buff *nssqdisc_remove_from_tail(struct Qdisc *sch)
 };
 
 /*
+ * nssqdisc_bounce_callback()
+ *	Enqueues packets bounced back from NSS firmware.
+ */
+static void nssqdisc_bounce_callback(void *app_data, struct sk_buff *skb)
+{
+	struct Qdisc *sch = (struct Qdisc *)app_data;
+
+	/*
+	 * Enqueue the packet for transmit and schedule a dequeue
+	 * This enqueue has to be protected in order to avoid corruption.
+	 */
+	nssqdisc_add_to_tail_protected(skb, sch);
+	__netif_schedule(sch);
+}
+
+/*
+ * nssqdisc_peek()
+ *	Called to peek at the head of an nss qdisc
+ */
+static struct sk_buff *nssqdisc_peek(struct Qdisc *sch)
+{
+	struct nssqdisc_qdisc *nq = qdisc_priv(sch);
+	struct sk_buff *skb;
+
+	if (!nq->is_virtual) {
+		skb = skb_peek(&sch->q);
+	} else {
+		spin_lock_bh(&nq->bounce_protection_lock);
+		skb = skb_peek(&sch->q);
+		spin_unlock_bh(&nq->bounce_protection_lock);
+	}
+
+	return skb;
+}
+
+/*
+ * nssqdisc_drop()
+ *	Called to drop the packet at the head of queue
+ */
+static unsigned int nssqdisc_drop(struct Qdisc *sch)
+{
+	struct nssqdisc_qdisc *nq = qdisc_priv(sch);
+	unsigned int ret;
+
+	if (!nq->is_virtual) {
+		ret = __qdisc_queue_drop_head(sch, &sch->q);
+	} else {
+		spin_lock_bh(&nq->bounce_protection_lock);
+		/*
+		 * This function is safe to call within locks
+		 */
+		ret = __qdisc_queue_drop_head(sch, &sch->q);
+		spin_unlock_bh(&nq->bounce_protection_lock);
+	}
+
+	return ret;
+}
+
+/*
+ * nssqdisc_reset()
+ *	Called when a qdisc is reset
+ */
+static void nssqdisc_reset(struct Qdisc *sch)
+{
+	struct nssqdisc_qdisc *nq = qdisc_priv(sch);
+
+	nssqdisc_info("%s: Qdisc %p (type %d) resetting\n",
+			__func__, sch, nq->type);
+
+	/*
+	 * Delete all packets pending in the output queue and reset stats
+	 */
+	if (!nq->is_virtual) {
+		qdisc_reset_queue(sch);
+	} else {
+		spin_lock_bh(&nq->bounce_protection_lock);
+		/*
+		 * This function is safe to call within locks
+		 */
+		qdisc_reset_queue(sch);
+		spin_unlock_bh(&nq->bounce_protection_lock);
+	}
+
+	nssqdisc_info("%s: Qdisc %p (type %d) reset complete\n",
+			__func__, sch, nq->type);
+}
+
+/*
  * nssqdisc_enqueue()
  *	Generic enqueue call for enqueuing packets into NSS for shaping
  */
@@ -1048,7 +1083,7 @@ static int nssqdisc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 	/*
 	 * If we are not the root qdisc then we should not be getting packets!!
 	 */
-	if (!nq->is_root) {
+	if (unlikely(!nq->is_root)) {
 		nssqdisc_error("%s: Qdisc %p (type %d): unexpected packet "
 			"for child qdisc - skb: %p\n", __func__, sch, nq->type, skb);
 		nssqdisc_add_to_tail(skb, sch);
@@ -1099,50 +1134,53 @@ static int nssqdisc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 		return NET_XMIT_SUCCESS;
 	}
 
-	if (!nq->is_bridge && nq->is_virtual) {
+	if (nq->is_bridge) {
 		/*
-		 * TX to a physical Linux (NSS virtual).  Bounce packet to NSS for
-		 * interface shaping.
+		 * TX to a bridge, this is to be shaped by the b shaper on the virtual interface created
+		 * to represent the bridge interface.
 		 */
-		nss_tx_status_t status = nss_shaper_bounce_interface_packet(nq->bounce_context,
-								nq->nss_interface_number, skb);
-		if (status != NSS_TX_SUCCESS) {
-			/*
-			 * Just transmit anyway, don't want to loose the packet
-			 */
-			nssqdisc_warning("%s: Qdisc %p (type %d): failed to bounce for "
-				"interface: %d, skb: %p\n", __func__, sch, nq->type,
-				nq->nss_interface_number, skb);
-
-			/*
-			 * Protecting the enqueue since this queue is involved in bouncing
-			 * of packets.
-			 */
-			nssqdisc_add_to_tail_protected(skb, sch);
-			__netif_schedule(sch);
+		status = nss_shaper_bounce_bridge_packet(nq->bounce_context, nq->nss_interface_number, skb);
+		if (likely(status == NSS_TX_SUCCESS)) {
+			return NET_XMIT_SUCCESS;
 		}
-		return NET_XMIT_SUCCESS;
-	}
 
-	/*
-	 * TX to a bridge, this is to be shaped by the b shaper on the virtual interface created
-	 * to represent the bridge interface.
-	 */
-	status = nss_shaper_bounce_bridge_packet(nq->bounce_context, nq->nss_interface_number, skb);
-	if (status != NSS_TX_SUCCESS) {
 		/*
 		 * Just transmit anyway, don't want to loose the packet
 		 */
 		nssqdisc_warning("%s: Qdisc %p (type %d): failed to bounce for bridge %d, skb: %p\n",
 					__func__, sch, nq->type, nq->nss_interface_number, skb);
+
 		/*
-		 * Protecting the enqueue since this queue is involved in bouncing
-		 * of packets.
+		 * We were unable to transmit the packet for bridge shaping.
+		 * We therefore drop it.
 		 */
-		nssqdisc_add_to_tail_protected(skb, sch);
-		__netif_schedule(sch);
+		kfree_skb(skb);
+		return NET_XMIT_DROP;
 	}
-	return NET_XMIT_SUCCESS;
+
+	/*
+	 * TX to a physical Linux (NSS virtual).  Bounce packet to NSS for
+	 * interface shaping.
+	 */
+	status = nss_shaper_bounce_interface_packet(nq->bounce_context,
+							nq->nss_interface_number, skb);
+	if (likely(status == NSS_TX_SUCCESS)) {
+		return NET_XMIT_SUCCESS;
+	}
+
+	/*
+	 * Just transmit anyway, don't want to loose the packet
+	 */
+	nssqdisc_warning("%s: Qdisc %p (type %d): failed to bounce for "
+		"interface: %d, skb: %p\n", __func__, sch, nq->type,
+		nq->nss_interface_number, skb);
+
+	/*
+	 * We were unable to transmit the packet for bridge shaping.
+	 * We therefore drop it.
+	 */
+	kfree_skb(skb);
+	return NET_XMIT_DROP;
 }
 
 /*
