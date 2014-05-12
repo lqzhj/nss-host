@@ -955,6 +955,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	struct nss_if_mem_map *if_map = (struct nss_if_mem_map *)nss_ctx->vmap;
 	uint16_t mss = 0;
 	uint32_t frag0phyaddr = 0;
+	bool is_bounce = ((buffer_type == H2N_BUFFER_SHAPER_BOUNCE_INTERFACE) || (buffer_type == H2N_BUFFER_SHAPER_BOUNCE_BRIDGE));
 
 	nr_frags = skb_shinfo(nbuf)->nr_frags;
 
@@ -1015,9 +1016,14 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 
 	/*
 	 * When CONFIG_HIGHMEM is enabled OS is giving a single big chunk buffer without
-	 * any scattered frames
+	 * any scattered frames.
+	 *
+	 * NOTE: We dont have to perform segmentation offload for packets that are being
+	 * bounced. These packets WILL return to the HLOS for freeing or further processing.
+	 * They will NOT be transmitted by the NSS.
 	 */
-	if (skb_is_gso(nbuf)) {
+	if (skb_is_gso(nbuf) && !is_bounce) {
+
 		mss = skb_shinfo(nbuf)->gso_size;
 		flags |= H2N_BIT_FLAG_SEGMENTATION_ENABLE;
 		if (skb_shinfo(nbuf)->gso_type & SKB_GSO_TCPV4) {
@@ -1034,7 +1040,20 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		}
 	}
 
-	if (likely(nr_frags == 0)) {
+	/*
+	 * WARNING! : The following "is_bounce" check has a HUGE potential to cause corruption
+	 * if things change in the NSS. This check allows fragmented packets to be sent down
+	 * with garbage payload information under the ASSUMTION that no-body meddles with the
+	 * buffer. This holds good today for packets that are BOUNCED.
+	 *
+	 * WHY WE ARE DOING THIS - This is done as a temporary work around for issues with
+	 * the handeling of scatter gather in the NSS.
+	 *
+	 * WHAT ARE WE DOING - We treat fragmented packets as normal (if bounced). This is okay
+	 * to do since the skb will eventually be returned to the HLOS for freeing or further
+	 * processing (post shaping). These packets WILL NOT get transmitted/re-used in the NSS.
+	 */
+	if (likely((nr_frags == 0) || is_bounce)) {
 		uint16_t bit_flags;
 
 		bit_flags = flags | H2N_BIT_FLAG_FIRST_SEGMENT | H2N_BIT_FLAG_LAST_SEGMENT;
