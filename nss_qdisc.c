@@ -3352,7 +3352,7 @@ static int nssbf_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
 		nssqdisc_info("Quantum value not provided for bf class on interface %s. "
 				"Setting quantum to %u\n", dev->name, cl->quantum);
 	} else {
-		cl->mtu = qopt->quantum;
+		cl->quantum = qopt->quantum;
 	}
 
 	sch_tree_unlock(sch);
