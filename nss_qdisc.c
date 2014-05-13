@@ -759,7 +759,7 @@ static void nssqdisc_root_init_shaper_assign_callback(void *app_data,
 		nssqdisc_root_cleanup_final(nq);
 		return;
 	} else {
-		nssqdisc_error("%s: Qdisc %x (type %d): shaper assign callback received sane message: %d\n",
+		nssqdisc_info("%s: Qdisc %x (type %d): shaper assign callback received sane message: %d\n",
 			__func__, nq->qos_tag, nq->type, nim->cm.type);
 	}
 
@@ -1238,7 +1238,7 @@ static int nssqdisc_set_default(struct nssqdisc_qdisc *nq)
 
 	state = atomic_read(&nq->state);
 	if (state != NSSQDISC_STATE_READY) {
-		nssqdisc_error("%s: Qdisc %p (type %d): sqdisc_setot ready: %d\n", __func__,
+		nssqdisc_error("%s: Qdisc %p (type %d): qdisc state not ready: %d\n", __func__,
 				nq->qdisc, nq->type, state);
 		BUG();
 	}
@@ -1694,12 +1694,8 @@ static int nssqdisc_init(struct Qdisc *sch, struct nssqdisc_qdisc *nq, nss_shape
 		nq->qos_tag, parent, root->ops->id, root->ops->owner);
 
 	if ((parent != TC_H_ROOT) && (root->ops->owner != THIS_MODULE)) {
-		nssqdisc_error("%s: Qdisc %p (type %d) used outside of NSS shaping "
-			"framework. Parent: %x ops: %p Our Module: %p\n", __func__,
-			nq->qdisc, nq->type, parent, root->ops, THIS_MODULE);
-
-		atomic_set(&nq->state, NSSQDISC_STATE_INIT_FAILED);
-		return -1;
+		nssqdisc_warning("%s: NSS qdisc %p (type %d) used along with non-NSS qdiscs,"
+			" or the interface is currently down", __func__, nq->qdisc, nq->type);
 	}
 
 	/*
@@ -1835,7 +1831,7 @@ static int nssqdisc_init(struct Qdisc *sch, struct nssqdisc_qdisc *nq, nss_shape
 		nq->bounce_context = nss_shaper_register_shaper_bounce_bridge(nq->nss_interface_number,
 							nssqdisc_bounce_callback, nq->qdisc, THIS_MODULE);
 		if (!nq->bounce_context) {
-			nssqdisc_error("%s: Qdisc %p (type %d): root but cannot register "
+			nssqdisc_error("%s: Qdisc %p (type %d): is root but cannot register "
 					"for bridge bouncing\n", __func__, nq->qdisc, nq->type);
 			nss_destroy_virt_if(nq->virtual_interface_context);
 			nss_shaper_unregister_shaping(nq->nss_shaping_ctx);
@@ -1942,7 +1938,7 @@ static int nssqdisc_init(struct Qdisc *sch, struct nssqdisc_qdisc *nq, nss_shape
 		 */
 		if (nssqdisc_refresh_bshaper_assignment(nq->qdisc, NSSQDISC_SCAN_AND_ASSIGN_BSHAPER) < 0) {
 			nssqdisc_destroy(nq);
-			nssqdisc_error("%s: Bridge linking failed\n", __func__);
+			nssqdisc_error("%s: bridge linking failed\n", __func__);
 			return -1;
 		}
 		nssqdisc_info("%s: Bridge linking complete\n", __func__);
