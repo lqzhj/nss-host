@@ -544,7 +544,7 @@ struct nss_top_instance {
 					/* IPv4 protocol exception events per interface */
 	uint64_t stats_if_exception_ipv6[NSS_EXCEPTION_EVENT_IPV6_MAX];
 					/* IPv6 protocol exception events per interface */
-	uint64_t stats_if_exception_pppoe[NSS_MAX_PHYSICAL_INTERFACES][NSS_PPPOE_NUM_SESSION_PER_INTERFACE][NSS_EXCEPTION_EVENT_PPPOE_MAX];
+	uint64_t stats_if_exception_pppoe[NSS_MAX_PHYSICAL_INTERFACES][NSS_PPPOE_NUM_SESSION_PER_INTERFACE][NSS_PPPOE_EXCEPTION_EVENT_MAX];
 					/* PPPoE exception events for per session on per interface */
 	/*
 	 * TODO: Review and update following fields

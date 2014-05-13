@@ -34,7 +34,7 @@
  */
 extern struct nss_top_instance nss_top_main;
 
-uint64_t stats_shadow_pppoe_except[NSS_PPPOE_NUM_SESSION_PER_INTERFACE][NSS_EXCEPTION_EVENT_PPPOE_MAX];
+uint64_t stats_shadow_pppoe_except[NSS_PPPOE_NUM_SESSION_PER_INTERFACE][NSS_PPPOE_EXCEPTION_EVENT_MAX];
 
 /*
  * Statistics structures
@@ -253,7 +253,7 @@ static int8_t *nss_stats_str_if_exception_ipv6[NSS_EXCEPTION_EVENT_IPV6_MAX] = {
  * nss_stats_str_if_exception_pppoe
  *	Interface stats strings for PPPoE exceptions
  */
-static int8_t *nss_stats_str_if_exception_pppoe[NSS_EXCEPTION_EVENT_PPPOE_MAX] = {
+static int8_t *nss_stats_str_if_exception_pppoe[NSS_PPPOE_EXCEPTION_EVENT_MAX] = {
 	"PPPOE_WRONG_VERSION_OR_TYPE",
 	"PPPOE_WRONG_CODE",
 	"PPPOE_HEADER_INCOMPLETE",
@@ -653,7 +653,7 @@ static ssize_t nss_stats_pppoe_read(struct file *fp, char __user *ubuf, size_t s
 	 * max output lines = #stats + start tag line + end tag line + three blank lines
 	 */
 	uint32_t max_output_lines = (NSS_STATS_NODE_MAX + 2) + (NSS_STATS_PPPOE_MAX + 3) +
-					((NSS_MAX_PHYSICAL_INTERFACES * NSS_PPPOE_NUM_SESSION_PER_INTERFACE * (NSS_EXCEPTION_EVENT_PPPOE_MAX + 5)) + 3) + 5;
+					((NSS_MAX_PHYSICAL_INTERFACES * NSS_PPPOE_NUM_SESSION_PER_INTERFACE * (NSS_PPPOE_EXCEPTION_EVENT_MAX + 5)) + 3) + 5;
 	size_t size_al = NSS_STATS_MAX_STR_LENGTH * max_output_lines;
 	size_t size_wr = 0;
 	ssize_t bytes_read = 0;
@@ -716,7 +716,7 @@ static ssize_t nss_stats_pppoe_read(struct file *fp, char __user *ubuf, size_t s
 
 		spin_lock_bh(&nss_top_main.stats_lock);
 		for (k = 0; k < NSS_PPPOE_NUM_SESSION_PER_INTERFACE; k++) {
-			for (i = 0; (i < NSS_EXCEPTION_EVENT_PPPOE_MAX); i++) {
+			for (i = 0; (i < NSS_PPPOE_EXCEPTION_EVENT_MAX); i++) {
 				stats_shadow_pppoe_except[k][i] = nss_top_main.stats_if_exception_pppoe[j][k][i];
 			}
 		}
@@ -725,7 +725,7 @@ static ssize_t nss_stats_pppoe_read(struct file *fp, char __user *ubuf, size_t s
 
 		for (k = 0; k < NSS_PPPOE_NUM_SESSION_PER_INTERFACE; k++) {
 			size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "%d. Session\n", k);
-			for (i = 0; (i < NSS_EXCEPTION_EVENT_PPPOE_MAX); i++) {
+			for (i = 0; (i < NSS_PPPOE_EXCEPTION_EVENT_MAX); i++) {
 				size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
 						"%s = %llu\n",
 						nss_stats_str_if_exception_pppoe[i],

@@ -46,6 +46,7 @@
 #include "nss_if.h"
 #include "nss_phys_if.h"
 #include "nss_virt_if.h"
+#include "nss_pppoe.h"
 
 /*
  * Interface numbers are reserved in the
