@@ -41,8 +41,8 @@
  * Macros
  */
 #define MIN_IMG_SIZE 64*1024
-#define NETAP0_IMAGE "qcom-nss0.bin"
-#define NETAP1_IMAGE "qcom-nss1.bin"
+#define NETAP0_IMAGE "qca-nss0.bin"
+#define NETAP1_IMAGE "qca-nss1.bin"
 
 /*
  * Global declarations
