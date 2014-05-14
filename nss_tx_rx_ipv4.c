@@ -196,6 +196,9 @@ nss_tx_status_t nss_tx_create_ipv4_rule(void *ctx, struct nss_ipv4_create *unic)
 	} else {
 		memcpy(nircm->conn_rule.return_mac, unic->dest_mac, 6);
 	}
+	nircm->dscp_rule.flow_dscp = unic->flow_dscp;
+	nircm->dscp_rule.return_dscp = unic->return_dscp;
+
 	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_CONN_VALID;
 
 	/*
@@ -232,7 +235,9 @@ nss_tx_status_t nss_tx_create_ipv4_rule(void *ctx, struct nss_ipv4_create *unic)
 	/*
 	 * Copy over the qos rules and set the QOS_VALID flag
 	 */
-	nircm->qos_rule.qos_tag = unic->qos_tag;
+	nircm->qos_rule.flow_qos_tag = unic->flow_qos_tag;
+	nircm->qos_rule.return_qos_tag = unic->return_qos_tag;
+
 	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_QOS_VALID;
 
 	if (unic->flags & NSS_IPV4_CREATE_FLAG_NO_SEQ_CHECK) {
@@ -298,6 +303,10 @@ nss_tx_status_t nss_tx_create_ipv4_rule1(void *ctx, struct nss_ipv4_create *unic
 	} else {
 		memcpy(nircm->conn_rule.return_mac, unic->dest_mac, 6);
 	}
+
+	nircm->dscp_rule.flow_dscp = unic->flow_dscp;
+	nircm->dscp_rule.return_dscp = unic->return_dscp;
+
 	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_CONN_VALID;
 
 	/*
@@ -334,32 +343,9 @@ nss_tx_status_t nss_tx_create_ipv4_rule1(void *ctx, struct nss_ipv4_create *unic
 	/*
 	 * Copy over the qos rules and set the QOS_VALID flag
 	 */
-	nircm->qos_rule.qos_tag = unic->qos_tag;
+	nircm->qos_rule.flow_qos_tag = unic->flow_qos_tag;
+	nircm->qos_rule.return_qos_tag = unic->return_qos_tag;
 	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_QOS_VALID;
-
-	/*
-	 * Copy over the dscp marking rules and set the DSCP_MARKING_VALID flag.
-	 */
-	nircm->dscp_rule.dscp_itag = unic->dscp_itag ;
-	nircm->dscp_rule.dscp_imask = unic->dscp_imask;
-	nircm->dscp_rule.dscp_omask = unic->dscp_omask;
-	nircm->dscp_rule.dscp_oval = unic->dscp_oval;
-	if (unic->flags & NSS_IPV4_CREATE_FLAG_DSCP_MARKING) {
-		nircm->rule_flags |= NSS_IPV4_RULE_CREATE_FLAG_DSCP_MARKING;
-		nircm->valid_flags |= NSS_IPV4_RULE_CREATE_DSCP_MARKING_VALID;
-	}
-
-	/*
-	 * Copy over the vlan marking rules and set the VLAN_MARKING_VALID flag.
-	 */
-	nircm->vlan_primary_rule.vlan_imask = unic->vlan_imask;
-	nircm->vlan_primary_rule.vlan_itag = unic->vlan_itag;
-	nircm->vlan_primary_rule.vlan_omask = unic->vlan_omask ;
-	nircm->vlan_primary_rule.vlan_oval = unic->vlan_oval ;
-	if (unic->flags & NSS_IPV4_CREATE_FLAG_VLAN_MARKING) {
-		nircm->rule_flags |= NSS_IPV4_RULE_CREATE_FLAG_VLAN_MARKING;
-		nircm->valid_flags |= NSS_IPV4_RULE_CREATE_VLAN_MARKING_VALID;
-	}
 
 	if (unic->flags & NSS_IPV4_CREATE_FLAG_NO_SEQ_CHECK) {
 		nircm->rule_flags |= NSS_IPV4_RULE_CREATE_FLAG_NO_SEQ_CHECK;

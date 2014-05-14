@@ -106,19 +106,9 @@ struct nss_ipv4_pppoe_rule {
  * DSCP connection rule structure
  */
 struct nss_ipv4_dscp_rule {
-	uint8_t dscp_itag;		/**< Input tag for DSCP marking */
-	uint8_t dscp_imask;		/**< Input mask for DSCP marking */
-	uint8_t dscp_omask;		/**< Output mask for DSCP marking */
-	uint8_t dscp_oval;		/**< Output value of DSCP marking */
-};
-
-/**
- * Action types for VLAN
- */
-enum nss_ipv4_vlan_action_types {
-	NSS_IPV4_VLAN_MATCH = 0,	/**< Check for VLAN tag match */
-	NSS_IPV4_VLAN_ADD = 1,		/**< Add a VLAN tag */
-	NSS_IPV4_VLAN_REMOVE = 2,	/**< Remove a VLAN tag */
+	uint8_t flow_dscp;		/**< Egress DSCP value for flow direction */
+	uint8_t return_dscp;		/**< Egress DSCP value for return direction */
+	uint8_t reserved[2];		/**< Padded for alignment */
 };
 
 /**
@@ -127,12 +117,6 @@ enum nss_ipv4_vlan_action_types {
 struct nss_ipv4_vlan_rule {
 	uint32_t ingress_vlan_tag;	/**< VLAN Tag for the ingress packets */
 	uint32_t egress_vlan_tag;	/**< VLAN Tag for egress packets */
-	uint16_t vlan_itag;		/**< Input tag for VLAN marking */
-	uint16_t vlan_imask;		/**< Input mask for VLAN marking */
-	uint16_t vlan_omask;		/**< Output mask for VLAN marking */
-	uint16_t vlan_oval;		/**< Output value of VLAN marking */
-	uint8_t action;			/**< The type of action to perform */
-	uint8_t reserved[3];		/**< Padded for alignment */
 };
 
 /**
@@ -154,7 +138,8 @@ struct nss_ipv4_protocol_tcp_rule {
  * QoS connection rule structure
  */
 struct nss_ipv4_qos_rule {
-	uint32_t qos_tag;		/**< QoS tag associated with this rule */
+	uint32_t flow_qos_tag;		/**< QoS tag associated with this rule for flow direction */
+	uint32_t return_qos_tag;	/**< QoS tag associated with this rule for return direction */
 };
 
 /**
@@ -226,7 +211,7 @@ struct nss_ipv4_rule_establish {
 	uint16_t return_pppoe_remote_mac[3];	/**< Return direction's PPPoE Server MAC address */
 	uint16_t egress_vlan_tag;		/**< Egress VLAN tag */
 	uint32_t flags;				/**< Bit flags associated with the rule */
-	uint32_t qos_tag;			/**< Qos Tag */
+	uint32_t qos_tag;			/**< QoS Tag */
 };
 
 /**
@@ -284,7 +269,7 @@ struct nss_ipv4_conn_sync {
 	uint32_t reason;		/**< Reason for the sync */
 
 	uint8_t flags;			/**< Bit flags associated with the rule */
-	uint32_t qos_tag;		/**< Qos Tag */
+	uint32_t qos_tag;		/**< QoS Tag */
 };
 
 /**

@@ -771,7 +771,8 @@ static unsigned int nss_connmgr_ipv4_bridge_post_routing_hook(unsigned int hookn
 	/*
 	 * Store the skb->priority as the qos tag
 	 */
-	unic.qos_tag = (uint32_t)skb->priority;
+	unic.flow_qos_tag = (uint32_t)skb->priority;
+	unic.return_qos_tag = (uint32_t)skb->priority;
 
 	/*
 	 * Only set the routed flag if the interface from which this packet came
@@ -1748,7 +1749,8 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 	/*
 	 * Store the skb->priority as the qos tag
 	 */
-	unic.qos_tag = (uint32_t)skb->priority;
+	unic.flow_qos_tag = (uint32_t)skb->priority;
+	unic.return_qos_tag = (uint32_t)skb->priority;
 
 	/*
 	 * Always a routed path
@@ -2213,7 +2215,7 @@ static unsigned int nss_connmgr_ipv4_post_routing_hook(unsigned int hooknum,
 			unic.out_vlan_tag[0],
 			unic.flow_pppoe_session_id,
 			unic.return_pppoe_session_id,
-			unic.qos_tag);
+			unic.flow_qos_tag);
 
 	if (!offload_dscpremark_get_target_info(ct, &unic.dscp_imask, &unic.dscp_itag, &unic.dscp_omask, &unic.dscp_oval)) {
 		NSS_CONNMGR_DEBUG_INFO("DSCP remark information is not present\n");
