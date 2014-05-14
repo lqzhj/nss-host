@@ -75,4 +75,6 @@ extern void nss_macsec_pre_exit(void);
 extern void nss_macsec_bypass_en_set(uint32_t gmac_id, bool enable);
 extern void nss_gmac_link_state_change_notify_register(struct notifier_block *nb);
 extern void nss_gmac_link_state_change_notify_unregister(struct notifier_block *nb);
+
+unsigned int nss_macsec_device_exist(unsigned int dev_id);
 #endif /* End of file */

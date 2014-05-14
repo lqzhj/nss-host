@@ -265,6 +265,9 @@ u32 nss_macsec_secy_en_set(u32 secy_id, bool enable)
 {
 	SHR_PARAM_CHECK((secy_id < FAL_SECY_ID_NUM));
 
+	if(nss_macsec_device_exist(secy_id) != ERROR_OK)
+		return ERROR_ERROR;
+
 	if (enable != g_secy_cfg[secy_id].enable) {
 		if (enable) {
 			nss_macsec_secy_init(secy_id);
