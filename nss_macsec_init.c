@@ -46,6 +46,8 @@ struct nss_macsec_ctx {
 };
 static struct nss_macsec_ctx macsec_ctx;
 static uint32_t macsec_notifier_register_status = 0;
+static uint32_t nss_macsec_pre_init_flag = 0;
+
 
 static int macsec_ncb(struct notifier_block *nb, unsigned long value,
 		      void *priv)
@@ -68,9 +70,23 @@ static struct notifier_block macsec_notifier = {
 	.notifier_call = macsec_ncb,
 };
 
+unsigned int nss_macsec_device_exist(unsigned int dev_id)
+{
+	if(macsec_ctx.macsec_base[dev_id] == NULL) {
+		printk("macsec[%d] doesn't exist, any operation for it is not permitted!\n", dev_id);
+		return ERROR_NOT_SUPPORT;
+	}
+	return ERROR_OK;
+}
+
 int nss_macsec_reg_read(unsigned int dev_id, unsigned int reg_addr,
 			unsigned int *pvalue)
 {
+	if(macsec_ctx.macsec_base[dev_id] == NULL) {
+		printk("macsec[%d] doesn't exist, thus read operation is not permitted!\n", dev_id);
+		return -1;
+	}
+
 	*pvalue =
 	    readl((unsigned char *)((uint32_t) macsec_ctx.macsec_base[dev_id] +
 				    (reg_addr)));
@@ -80,6 +96,10 @@ int nss_macsec_reg_read(unsigned int dev_id, unsigned int reg_addr,
 int nss_macsec_reg_write(unsigned int dev_id, unsigned int reg_addr,
 			 unsigned int pvalue)
 {
+	if(macsec_ctx.macsec_base[dev_id] == NULL) {
+		printk("macsec[%d] doesn't exist, thus write operation is not permitted!\n", dev_id);
+		return -1;
+	}
 	writel(pvalue,
 	       (unsigned char *)((uint32_t) macsec_ctx.macsec_base[dev_id] +
 				 (reg_addr)));
@@ -163,6 +183,12 @@ static int nss_macsec_probe(struct platform_device *pdev)
 	int ret = 0;
 	unsigned int mem_start, mem_len;
 	void __iomem *mmap_io_addr = NULL;
+
+	if(nss_macsec_pre_init_flag == 0) {
+		nss_macsec_pre_init();
+		nss_macsec_pre_init_flag = 1;
+	}
+
 	mem_start = pdev->resource[0].start;
 	mem_len = pdev->resource[0].end - mem_start + 1;
 	if (!request_mem_region(mem_start, mem_len, pdev->name)) {
@@ -223,7 +249,9 @@ static struct platform_driver nss_macsec_drv = {
 
 static int __init nss_macsec_init_module(void)
 {
-	nss_macsec_pre_init();
+	uint32_t dev_id = 0;
+	for(dev_id=0; dev_id<MACSEC_DEVICE_NUM; dev_id++)
+		macsec_ctx.macsec_base[dev_id] = NULL;
 	if (platform_driver_register(&nss_macsec_drv) != 0) {
 		macsec_warning("platform drv reg failure\n");
 		return -EIO;
@@ -242,7 +270,7 @@ static int __init nss_macsec_init(void)
 
 	nss_macsec_init_module();
 
-	macsec_trace("nss_macsec init success\n");
+	printk("nss_macsec init success\n");
 
 	return 0;
 }
@@ -253,9 +281,12 @@ static void __exit nss_macsec_fini(void)
 
 	nss_macsec_mutex_destroy();
 	platform_driver_unregister(&nss_macsec_drv);
-	nss_macsec_pre_exit();
+	if(nss_macsec_pre_init_flag) {
+		nss_macsec_pre_exit();
+		nss_macsec_pre_init_flag = 0;
+	}
 
-	macsec_trace("nss_macsec exit success\n");
+	printk("nss_macsec exit success\n");
 }
 
 module_init(nss_macsec_init);
