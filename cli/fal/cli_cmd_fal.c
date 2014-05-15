@@ -3705,302 +3705,302 @@ DEFCMD(nss_macsec_secy_rx_validate_frame_get_func,
 
 int cli_cmd_fal_init(void)
 {
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_reg_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_reg_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_reg_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_reg_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_tx_drop_sc_sa_invlid_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_tx_drop_sc_sa_invlid_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_tx_unmatched_use_sc_0_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_tx_unmatched_use_sc_0_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_gcm_start_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_gcm_start_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_gcm_start_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_gcm_start_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_tx_drop_class_miss_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_tx_drop_class_miss_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_drop_kay_pkt_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_drop_kay_pkt_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_ctl_filt_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_ctl_filt_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_ctl_filt_clear_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_drop_kay_pkt_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_drop_kay_pkt_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_ctl_filt_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_ctl_filt_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_ctl_filt_clear_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_tx_ctl_filt_clear_all_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_class_lut_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_class_lut_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_class_lut_clear_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_class_lut_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_class_lut_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_class_lut_clear_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_tx_class_lut_clear_all_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sc_create_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sc_en_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sc_en_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sc_del_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sc_del_all_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sc_an_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sc_an_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sc_create_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sc_en_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sc_en_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sc_del_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sc_del_all_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sc_an_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sc_an_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_tx_sc_an_roll_over_en_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_tx_sc_an_roll_over_en_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sc_in_used_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sc_tci_7_2_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sc_tci_7_2_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sc_in_used_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sc_tci_7_2_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sc_tci_7_2_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_tx_sc_confidentiality_offset_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_tx_sc_confidentiality_offset_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sc_protect_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sc_protect_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sc_sci_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sc_protect_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sc_protect_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sc_sci_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_tx_sc_start_stop_time_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_tx_sc_start_stop_time_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sa_create_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sa_en_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sa_en_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sa_del_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sa_del_all_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sa_next_pn_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sa_next_pn_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sa_in_used_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sa_create_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sa_en_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sa_en_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sa_del_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sa_del_all_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sa_next_pn_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sa_next_pn_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sa_in_used_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_tx_sa_start_stop_time_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_tx_sa_start_stop_time_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sak_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sak_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_pn_threshold_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_pn_threshold_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_reg_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_reg_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_ctl_filt_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_ctl_filt_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_ctl_filt_clear_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sak_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sak_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_pn_threshold_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_pn_threshold_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_reg_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_reg_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_ctl_filt_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_ctl_filt_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_ctl_filt_clear_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_rx_ctl_filt_clear_all_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_prc_lut_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_prc_lut_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_prc_lut_clear_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_prc_lut_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_prc_lut_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_prc_lut_clear_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_rx_prc_lut_clear_all_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_sc_create_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_sc_en_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_sc_en_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_sc_del_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_sc_del_all_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_sc_create_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_sc_en_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_sc_en_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_sc_del_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_sc_del_all_cmd);
 #if 0
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_sc_sci_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_sc_sci_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_rx_sc_confidentiality_offset_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_rx_sc_confidentiality_offset_set_cmd);
 #endif
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_rx_sc_validate_frame_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_rx_sc_validate_frame_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_rx_sc_replay_protect_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_rx_sc_replay_protect_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_rx_sc_anti_replay_window_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_rx_sc_anti_replay_window_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_sc_in_used_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_sc_in_used_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_rx_sc_an_roll_over_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_rx_sc_an_roll_over_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_rx_sc_start_stop_time_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_rx_sc_start_stop_time_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_sa_create_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_sa_en_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_sa_en_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_sa_next_pn_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_sa_del_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_sa_del_all_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_sak_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_sak_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_sa_in_used_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_sa_create_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_sa_en_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_sa_en_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_sa_next_pn_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_sa_del_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_sa_del_all_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_sak_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_sak_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_sa_in_used_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_rx_sa_start_stop_time_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_rx_sa_start_stop_time_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_pn_threshold_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_pn_threshold_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_reset_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sw_reset_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_init_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_pn_threshold_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_pn_threshold_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_reset_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sw_reset_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_init_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_sc_sa_mapping_mode_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_sc_sa_mapping_mode_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_controlled_port_en_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_controlled_port_en_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_ip_version_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_cipher_suite_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_cipher_suite_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_mtu_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_mtu_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_en_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_en_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sc_mib_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sa_mib_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_mib_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_sa_mib_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_mib_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_mib_clear_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sc_mib_clear_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_tx_sa_mib_clear_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_mib_clear_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &nss_macsec_secy_rx_sa_mib_clear_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &g_fal_tx_sak_t_init_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_sak_t_sak_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &g_fal_rx_ctl_filt_t_init_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_ctl_filt_t_match_type_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_ctl_filt_t_match_mask_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_ctl_filt_t_bypass_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_ctl_filt_t_sa_da_addr_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_ip_version_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_cipher_suite_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_cipher_suite_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_mtu_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_mtu_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_en_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_en_set_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sc_mib_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sa_mib_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_mib_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_sa_mib_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_mib_get_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_mib_clear_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sc_mib_clear_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_tx_sa_mib_clear_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_mib_clear_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &nss_macsec_secy_rx_sa_mib_clear_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &g_fal_tx_sak_t_init_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_sak_t_sak_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &g_fal_rx_ctl_filt_t_init_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_ctl_filt_t_match_type_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_ctl_filt_t_match_mask_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_ctl_filt_t_bypass_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_ctl_filt_t_sa_da_addr_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&fal_rx_ctl_filt_t_ether_type_da_range_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &g_fal_rx_prc_lut_t_init_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &g_fal_rx_prc_lut_t_init_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&fal_rx_prc_lut_t_ether_type_mask_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_prc_lut_t_sa_mask_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_prc_lut_t_da_mask_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_prc_lut_t_sci_mask_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_prc_lut_t_ether_type_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_prc_lut_t_da_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_prc_lut_t_channel_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_prc_lut_t_sa_mask_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_prc_lut_t_da_mask_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_prc_lut_t_sci_mask_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_prc_lut_t_ether_type_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_prc_lut_t_da_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_prc_lut_t_channel_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&fal_rx_prc_lut_t_uncontrolled_port_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_prc_lut_t_valid_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_prc_lut_t_tci_mask_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_prc_lut_t_sci_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_prc_lut_t_tci_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_prc_lut_t_sa_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_prc_lut_t_action_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_prc_lut_t_offset_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &g_fal_tx_ctl_filt_t_init_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_ctl_filt_t_match_type_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_ctl_filt_t_match_mask_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_ctl_filt_t_bypass_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_ctl_filt_t_sa_da_addr_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_prc_lut_t_valid_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_prc_lut_t_tci_mask_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_prc_lut_t_sci_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_prc_lut_t_tci_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_prc_lut_t_sa_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_prc_lut_t_action_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_prc_lut_t_offset_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &g_fal_tx_ctl_filt_t_init_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_ctl_filt_t_match_type_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_ctl_filt_t_match_mask_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_ctl_filt_t_bypass_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_ctl_filt_t_sa_da_addr_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&fal_tx_ctl_filt_t_ether_type_da_range_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &g_fal_tx_mib_t_init_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_mib_t_untagged_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_mib_t_unknown_sa_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_mib_t_ecc_error_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_mib_t_too_long_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_mib_t_ctl_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &g_fal_rx_mib_t_init_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_mib_t_ctrl_prt_fail_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_mib_t_too_long_packets_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_mib_t_untagged_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_mib_t_no_sci_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &g_fal_tx_mib_t_init_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_mib_t_untagged_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_mib_t_unknown_sa_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_mib_t_ecc_error_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_mib_t_too_long_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_mib_t_ctl_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &g_fal_rx_mib_t_init_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_mib_t_ctrl_prt_fail_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_mib_t_too_long_packets_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_mib_t_untagged_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_mib_t_no_sci_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&fal_rx_mib_t_unctrl_prt_pass_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_mib_t_untagged_hit_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_mib_t_ctrl_prt_pass_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_mib_t_untagged_hit_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_mib_t_ctrl_prt_pass_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&fal_rx_mib_t_unctrl_prt_fail_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_mib_t_igpoc_ctl_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_mib_t_unknown_sci_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_mib_t_ecc_error_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_mib_t_notag_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_mib_t_bad_tag_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_mib_t_ctl_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_mib_t_tagged_miss_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &g_fal_rx_sa_mib_t_init_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_sa_mib_t_ok_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_sa_mib_t_unused_sa_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_sa_mib_t_late_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_mib_t_igpoc_ctl_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_mib_t_unknown_sci_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_mib_t_ecc_error_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_mib_t_notag_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_mib_t_bad_tag_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_mib_t_ctl_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_mib_t_tagged_miss_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &g_fal_rx_sa_mib_t_init_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_sa_mib_t_ok_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_sa_mib_t_unused_sa_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_sa_mib_t_late_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&fal_rx_sa_mib_t_decrypted_octets_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_sa_mib_t_delayed_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_sa_mib_t_invalid_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_sa_mib_t_delayed_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_sa_mib_t_invalid_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&fal_rx_sa_mib_t_validated_octets_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&fal_rx_sa_mib_t_untagged_hit_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&fal_rx_sa_mib_t_hit_drop_redir_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_sa_mib_t_not_using_sa_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_sa_mib_t_unchecked_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_sa_mib_t_not_valid_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &g_fal_rx_sak_t_init_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_rx_sak_t_sak_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &g_fal_tx_class_lut_t_init_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_class_lut_t_sa_mask_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_class_lut_t_vlan_up_mask_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_class_lut_t_vlan_id_mask_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_class_lut_t_udf1_valid_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_class_lut_t_ether_type_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_class_lut_t_da_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_class_lut_t_udf0_valid_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_class_lut_t_channel_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_class_lut_t_udf3_byte_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_class_lut_t_valid_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_class_lut_t_vlan_valid_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_sa_mib_t_not_using_sa_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_sa_mib_t_unchecked_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_sa_mib_t_not_valid_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &g_fal_rx_sak_t_init_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_rx_sak_t_sak_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &g_fal_tx_class_lut_t_init_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_class_lut_t_sa_mask_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_class_lut_t_vlan_up_mask_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_class_lut_t_vlan_id_mask_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_class_lut_t_udf1_valid_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_class_lut_t_ether_type_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_class_lut_t_da_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_class_lut_t_udf0_valid_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_class_lut_t_channel_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_class_lut_t_udf3_byte_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_class_lut_t_valid_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_class_lut_t_vlan_valid_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&fal_tx_class_lut_t_udf1_location_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_class_lut_t_sa_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_class_lut_t_sa_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&fal_tx_class_lut_t_vlan_valid_mask_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&fal_tx_class_lut_t_udf2_location_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_class_lut_t_da_mask_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_class_lut_t_da_mask_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&fal_tx_class_lut_t_ether_type_mask_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_class_lut_t_udf0_byte_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_class_lut_t_udf0_byte_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&fal_tx_class_lut_t_udf0_location_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_class_lut_t_udf2_valid_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_class_lut_t_udf3_valid_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_class_lut_t_vlan_id_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_class_lut_t_udf2_byte_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_class_lut_t_action_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_class_lut_t_udf2_valid_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_class_lut_t_udf3_valid_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_class_lut_t_vlan_id_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_class_lut_t_udf2_byte_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_class_lut_t_action_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&fal_tx_class_lut_t_udf3_location_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_class_lut_t_vlan_up_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_class_lut_t_udf1_byte_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &g_fal_tx_sa_mib_t_init_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_sa_mib_t_encrypted_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_sa_mib_t_protected_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_sa_mib_t_protected2_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_class_lut_t_vlan_up_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_class_lut_t_udf1_byte_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &g_fal_tx_sa_mib_t_init_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_sa_mib_t_encrypted_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_sa_mib_t_protected_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_sa_mib_t_protected2_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&fal_tx_sa_mib_t_hit_drop_redirect_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &g_fal_tx_sc_mib_t_init_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &g_fal_tx_sc_mib_t_init_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&fal_tx_sc_mib_t_protected_octets_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_sc_mib_t_encrypted_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL, &fal_tx_sc_mib_t_protected_pkts_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_sc_mib_t_encrypted_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE, &fal_tx_sc_mib_t_protected_pkts_add_cmd);
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&fal_tx_sc_mib_t_encrypted_octets_add_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_tx_qtag_parse_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_tx_qtag_parse_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_tx_stag_parse_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_tx_stag_parse_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_rx_replay_protect_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_rx_replay_protect_get_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_rx_validate_frame_set_cmd);
-	cli_install_cmd(CLI_MODE_FAL,
+	cli_install_cmd(CLI_MODE_ENABLE,
 			&nss_macsec_secy_rx_validate_frame_get_cmd);
 
 	return CLI_OK;

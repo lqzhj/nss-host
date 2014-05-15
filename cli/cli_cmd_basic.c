@@ -30,33 +30,6 @@ static CLI_MODE_T enableMode = {
 	NULL
 };
 
-static int cli_mode_exit_secy(VTY_T * pVty)
-{
-	pVty->cliMode = CLI_MODE_ENABLE;
-	secyId = 0;
-	strcpy(pVty->prompt, PROMPT_BASE ">");
-	return CLI_OK;
-};
-
-static CLI_MODE_T secyMode = {
-	CLI_MODE_SECY,
-	cli_mode_exit_secy,
-	NULL
-};
-
-static int cli_mode_exit_fal(VTY_T * pVty)
-{
-	pVty->cliMode = CLI_MODE_ENABLE;
-	strcpy(pVty->prompt, PROMPT_BASE ">");
-	return CLI_OK;
-};
-
-static CLI_MODE_T falMode = {
-	CLI_MODE_FAL,
-	cli_mode_exit_fal,
-	NULL
-};
-
 DEFCMD(exit_func,
        exit_cmd, "exit", "Exit current mode and down to previous mode\n")
 {
@@ -73,27 +46,6 @@ DEFCMD(exit_func,
 DEFALIAS(exit_func,
 	 quit_cmd, "quit", "Exit current mode and down to previous mode\n")
 
-    DEFCMD(secy_func,
-       secy_cmd, "secy <0-2>", "Enter SecY config mode\n" "SecY index\n")
-{
-	int secy_id = atoi(argv[1]);
-
-	pVty->cliMode = CLI_MODE_SECY;
-	sprintf(pVty->prompt, PROMPT_BASE "(secy%d)#", secy_id);
-	pVty->data[0] = (sa_u32_t) secy_id;
-
-	return CLI_OK;
-}
-
-DEFCMD(fal_func, fal_cmd, "fal", "Enter FAL config mode\n")
-{
-
-	pVty->cliMode = CLI_MODE_FAL;
-	sprintf(pVty->prompt, PROMPT_BASE "(fal)#");
-
-	return CLI_OK;
-}
-
 int cli_install_mode_basic_cmds(int mode)
 {
 	cli_install_cmd(mode, &exit_cmd);
@@ -107,13 +59,6 @@ int cli_cmd_basic_mode_init(void)
 	/* install enable mode */
 	cli_install_mode(&enableMode);
 
-	/* install secy mode */
-	cli_install_mode(&secyMode);
-
-	/* install dal mode */
-
-	/* install fal mode */
-	cli_install_mode(&falMode);
 	return CLI_OK;
 }
 
@@ -121,12 +66,6 @@ int cli_cmd_basic_mode_init(void)
 int cli_cmd_basic_init(void)
 {
 	cli_install_mode_basic_cmds(CLI_MODE_ENABLE);
-
-	cli_install_cmd(CLI_MODE_ENABLE, &secy_cmd);
-	cli_install_cmd(CLI_MODE_ENABLE, &fal_cmd);
-
-	cli_install_mode_basic_cmds(CLI_MODE_SECY);
-	cli_install_mode_basic_cmds(CLI_MODE_FAL);
 
 	return CLI_OK;
 }

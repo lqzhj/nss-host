@@ -38,9 +38,6 @@
 
 typedef enum {
 	CLI_MODE_ENABLE,	/* first and default mode */
-	CLI_MODE_SECY,		/* enable->secy */
-	CLI_MODE_DAL,		/* enable->dal */
-	CLI_MODE_FAL,		/* enable->fal */
 } CLI_MODE_ID_T;
 
 typedef int (*CLI_MODE_FUN_T) (VTY_T *);
