@@ -228,7 +228,9 @@ struct nss_ipv4_create {
 	uint32_t param_a2;		/**< Custom extra parameter 2 */
 	uint32_t param_a3;		/**< Custom extra parameter 3 */
 	uint32_t param_a4;		/**< Custom extra parameter 4 */
-	uint32_t qos_tag;		/**< QoS tag value */
+	uint32_t qos_tag;		/**< Deprecated, will be removed soon */
+	uint32_t flow_qos_tag;		/**< QoS tag value for flow direction */
+	uint32_t return_qos_tag;	/**< QoS tag value for return direction */
 	uint8_t dscp_itag;		/**< DSCP marking tag */
 	uint8_t dscp_imask;		/**< DSCP marking input mask */
 	uint8_t dscp_omask;		/**< DSCP marking output mask */
@@ -239,6 +241,8 @@ struct nss_ipv4_create {
 	uint16_t vlan_oval;		/**< VLAN marking output val */
 	uint32_t in_vlan_tag[MAX_VLAN_DEPTH];	/**< Ingress VLAN tag expected for this flow */
 	uint32_t out_vlan_tag[MAX_VLAN_DEPTH];	/**< Egress VLAN tag expected for this flow */
+	uint8_t flow_dscp;		/**< IP DSCP value for flow direction */
+	uint8_t return_dscp;		/**< IP DSCP value for return direction */
 };
 
 /**
@@ -321,7 +325,9 @@ struct nss_ipv6_create {
 	uint16_t return_pppoe_session_id;		/**< PPPoE session associated with return */
 	uint8_t return_pppoe_remote_mac[ETH_ALEN];	/**< Remote PPPoE peer MAC address for return */
 	uint16_t egress_vlan_tag;	/**< Egress VLAN tag expected for this flow */
-	uint32_t qos_tag;		/**< QoS tag value */
+	uint32_t qos_tag;		/**< Deprecated, will be removed soon */
+	uint32_t flow_qos_tag;		/**< QoS tag value for flow direction */
+	uint32_t return_qos_tag;	/**< QoS tag value for return direction */
 	uint8_t dscp_itag;		/**< DSCP marking tag */
 	uint8_t dscp_imask;		/**< DSCP marking input mask */
 	uint8_t dscp_omask;		/**< DSCP marking output mask */
@@ -332,6 +338,8 @@ struct nss_ipv6_create {
 	uint16_t vlan_oval;		/**< VLAN marking output val */
 	uint32_t in_vlan_tag[MAX_VLAN_DEPTH];	/**< Ingress VLAN tag expected for this flow */
 	uint32_t out_vlan_tag[MAX_VLAN_DEPTH];	/**< Egress VLAN tag expected for this flow */
+	uint8_t flow_dscp;		/**< IP DSCP value for flow direction */
+	uint8_t return_dscp;		/**< IP DSCP value for return direction */
 };
 
 /**
@@ -403,7 +411,7 @@ struct nss_ipv4_sync {
 	uint32_t param_a4;		/**< Custom extra parameter 4 */
 
 	uint8_t flags;			/**< Flags */
-	uint32_t qos_tag;		/**< Qos Tag */
+	uint32_t qos_tag;		/**< QoS Tag */
 };
 
 /**
@@ -441,7 +449,7 @@ struct nss_ipv4_establish {
 					/**< Return direction's PPPoE Server MAC address */
 	uint16_t egress_vlan_tag;	/**< Egress VLAN tag */
 	uint8_t flags;			/**< Flags */
-	uint32_t qos_tag;		/**< Qos Tag */
+	uint32_t qos_tag;		/**< QoS Tag */
 };
 
 /**
@@ -502,7 +510,7 @@ struct nss_ipv6_sync {
 	uint8_t evicted;		/**< Non-zero if connection evicted */
 
 	uint8_t flags;			/**< Flags */
-	uint32_t qos_tag;		/**< Qos Tag */
+	uint32_t qos_tag;		/**< QoS Tag */
 };
 
 /**
@@ -533,7 +541,7 @@ struct nss_ipv6_establish {
 					/**< Return direction's PPPoE Server MAC address */
 	uint16_t egress_vlan_tag;	/**< Egress VLAN tag */
 	uint8_t flags;			/**< Flags */
-	uint32_t qos_tag;		/**< Qos Tag */
+	uint32_t qos_tag;		/**< QoS Tag */
 };
 
 /**
