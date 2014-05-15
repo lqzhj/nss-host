@@ -424,42 +424,54 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 				}
 				break;
 			case N2H_BUFFER_PACKET_VIRTUAL:
-				NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_VIRTUAL]);
+				{
+					/*
+					 * Packet is destined to virtual interface
+					 */
+					uint32_t xmit_ret;
 
-				/*
-				 * Checksum is already done by NSS for packets forwarded to virtual interfaces
-				 */
-				nbuf->ip_summed = CHECKSUM_NONE;
-
-				/*
-				 * Obtain net_device pointer
-				 */
-				ndev = (struct net_device *)nss_top->if_ctx[interface_num];
-				if (unlikely(ndev == NULL)) {
-					nss_warning("%p: Received packet for unregistered virtual interface %d",
-							nss_ctx, interface_num);
+					NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_VIRTUAL]);
 
 					/*
-					 * NOTE: The assumption is that gather support is not
-					 * implemented in fast path and hence we can not receive
-					 * fragmented packets and so we do not need to take care
-					 * of freeing a fragmented packet
+					 * Checksum is already done by NSS for packets forwarded to virtual interfaces
 					 */
-					dev_kfree_skb_any(nbuf);
-					break;
+					nbuf->ip_summed = CHECKSUM_NONE;
+
+					/*
+					 * Obtain net_device pointer
+					 */
+					ndev = (struct net_device *)nss_top->if_ctx[interface_num];
+					if (unlikely(ndev == NULL)) {
+						nss_warning("%p: Received packet for unregistered virtual interface %d",
+							nss_ctx, interface_num);
+
+						/*
+						 * NOTE: The assumption is that gather support is not
+						 * implemented in fast path and hence we can not receive
+						 * fragmented packets and so we do not need to take care
+						 * of freeing a fragmented packet
+						 */
+						dev_kfree_skb_any(nbuf);
+						break;
+					}
+
+					dev_hold(ndev);		// GGG FIXME THIS IS BROKEN AS NDEV COULD BE DESTROYED BEFORE THE HOLD IS TAKEN!  NDEV SHOULD BE HELD WHEN THE VIRTUAL IS REGISTERED
+								// AND THE HOLD HERE TAKEN INSIDE OF SOME KIND OF MUTEX LOCK WITH VIRTUAL UNREGISTRATION
+					nbuf->dev = ndev;
+
+					/*
+					 * Send the packet to virtual interface
+					 * NOTE: Invoking this will BYPASS any assigned QDisc - this is OKAY
+					 * as TX packets out of the NSS will have been shaped inside the NSS.
+					 */
+					xmit_ret = ndev->netdev_ops->ndo_start_xmit(nbuf, ndev);
+					if (unlikely(xmit_ret == NETDEV_TX_BUSY)) {
+						dev_kfree_skb_any(nbuf);
+						nss_info("%p: Congestion at virtual interface %d, %p", nss_ctx, interface_num, ndev);
+					}
+
+					dev_put(ndev);
 				}
-
-				dev_hold(ndev);		// GGG FIXME THIS IS BROKEN AS NDEV COULD BE DESTROYED BEFORE THE HOLD IS TAKEN!  NDEV SHOULD BE HELD WHEN THE VIRTUAL IS REGISTERED
-							// AND THE HOLD HERE TAKEN INSIDE OF SOME KIND OF MUTEX LOCK WITH VIRTUAL UNREGISTRATION
-				nbuf->dev = ndev;
-
-				/*
-				 * Send the packet to virtual interface
-				 * NOTE: Invoking this will BYPASS any assigned QDisc - this is OKAY
-				 * as TX packets out of the NSS will have been shaped inside the NSS.
-				 */
-				ndev->netdev_ops->ndo_start_xmit(nbuf, ndev);
-				dev_put(ndev);
 				break;
 
 			case N2H_BUFFER_PACKET:
