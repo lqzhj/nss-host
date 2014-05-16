@@ -949,7 +949,7 @@ void nss_macsec_bypass_en_set(uint32_t gmac_id, bool enable)
 	if(gmac_dev == NULL)
 		return;
 
-	spin_lock(&gmac_dev->slock);
+	mutex_lock(&gmac_dev->link_mutex);
 
 	/* If gmac is in link up state, it need to simulate link down event
 	 * before setting IFG and simulate link up event after the operation
@@ -984,7 +984,7 @@ void nss_macsec_bypass_en_set(uint32_t gmac_id, bool enable)
 	if(link_reset_flag)
 		nss_gmac_link_status_set(gmac_id, LINKUP);
 
-	spin_unlock(&gmac_dev->slock);
+	mutex_unlock(&gmac_dev->link_mutex);
 
 	/* Set MACSEC speed */
 	gmac_speed_ctx.mac_id = gmac_dev->macid;
@@ -1023,7 +1023,7 @@ void nss_macsec_pre_exit(void)
 		 */
 		link_reset_flag = 0;
 
-		spin_lock(&gmac_dev->slock);
+		mutex_lock(&gmac_dev->link_mutex);
 
 		if(gmac_dev->link_state == LINKUP)
 			link_reset_flag = 1;
@@ -1038,7 +1038,7 @@ void nss_macsec_pre_exit(void)
 		if(link_reset_flag)
 			nss_gmac_link_status_set(gmac_id, LINKUP);
 
-		spin_unlock(&gmac_dev->slock);
+		mutex_unlock(&gmac_dev->link_mutex);
 	}
 }
 EXPORT_SYMBOL(nss_macsec_pre_exit);

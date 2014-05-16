@@ -792,6 +792,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 
 	spin_lock_init(&gmacdev->stats_lock);
 	spin_lock_init(&gmacdev->slock);
+	mutex_init(&gmacdev->link_mutex);
 
 	gmaccfg = (struct msm_nss_gmac_platform_data *)((pdev->dev).platform_data);
 
