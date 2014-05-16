@@ -187,26 +187,6 @@ struct nss_generic_msg {
 };
 
 /*
- * NSS Profiler messages
- */
-
-/*
- * Profiler Tx command
- */
-struct nss_profiler_tx {
-	uint32_t len;		/* Valid information length */
-	uint8_t buf[1];		/* Buffer */
-};
-
-/*
- * Profiler sync
- */
-struct nss_profiler_sync {
-	uint32_t len;		/* Valid information length */
-	uint8_t buf[1];		/* Buffer */
-};
-
-/*
  * NSS frequency scaling messages
  */
 enum nss_freq_stats_metadata_types {
@@ -214,6 +194,15 @@ enum nss_freq_stats_metadata_types {
 	COREFREQ_METADATA_TYPE_RX_FREQ_CHANGE = 1,
 	COREFREQ_METADATA_TYPE_TX_FREQ_ACK = 2,
 	COREFREQ_METADATA_TYPE_TX_CORE_STATS = 3,
+};
+
+ /*
+ * Types of TX metadata -- legacy code needs to be removed
+ */
+enum nss_tx_metadata_types {
+	NSS_TX_METADATA_TYPE_LEGACY_0,
+	NSS_TX_METADATA_TYPE_NSS_FREQ_CHANGE,
+	NSS_TX_METADATA_TYPE_SHAPER_CONFIGURE,
 };
 
 /*
@@ -246,55 +235,6 @@ struct nss_corefreq_msg {
 		struct nss_freq_change nfc;	/* Message: freq stats */
 		struct nss_core_stats ncs;	/* Message: NSS stats sync */
 	} msg;
-};
-
-/*
- * Types of TX metadata.
- */
-enum nss_tx_metadata_types {
-	NSS_TX_METADATA_TYPE_PROFILER_TX,
-	NSS_TX_METADATA_TYPE_NSS_FREQ_CHANGE,
-	NSS_TX_METADATA_TYPE_SHAPER_CONFIGURE,
-};
-
-/*
- * Structure that describes all TX metadata objects.
- */
-struct nss_tx_metadata_object {
-	enum nss_tx_metadata_types type;	/* Object type */
-	union {				/* Sub-message type */
-		struct nss_profiler_tx profiler_tx;
-		struct nss_freq_change freq_change;
-	} sub;
-};
-
-/*
- * Structure that describes all TX metadata objects.
- */
-struct nss_tx_metadata_object1 {
-	enum nss_tx_metadata_types type;	/* Object type */
-	union {				/* Sub-message type */
-		struct nss_profiler_tx profiler_tx;
-		struct nss_freq_change freq_change;
-	} sub;
-};
-
-/*
- * Types of RX metadata.
- */
-enum nss_rx_metadata_types {
-	NSS_RX_METADATA_TYPE_PROFILER_SYNC,
-	NSS_RX_METADATA_TYPE_SHAPER_RESPONSE,
-};
-
-/*
- * Structure that describes all RX metadata objects.
- */
-struct nss_rx_metadata_object {
-	enum nss_rx_metadata_types type;	/* Object type */
-	union {				/* Sub-message type */
-		struct nss_profiler_sync profiler_sync;
-	} sub;
 };
 
 /*

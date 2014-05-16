@@ -53,7 +53,6 @@ qca-nss-drv-objs += \
 			nss_tx_rx_n2h.o \
 			nss_tx_rx_pppoe.o \
 			nss_tx_rx_phys_if.o \
-			nss_tx_rx_profiler.o \
 			nss_tx_rx_virt_if.o
 
 obj-m += qca-nss-connmgr-ipv4.o
@@ -78,6 +77,7 @@ ccflags-y += -DNSS_TUNIPIP6_DEBUG_LEVEL=0
 ccflags-y += -DNSS_PM_DEBUG_LEVEL=0
 ccflags-y += -DNSS_IPSECMGR_DEBUG_LEVEL=3
 
+qca-nss-drv-objs += nss_profiler.o
 obj-y+= profiler/
 obj-y+= nss_qdisc/
 
