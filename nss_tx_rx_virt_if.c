@@ -181,7 +181,7 @@ void *nss_create_virt_if(struct net_device *if_ctx)
 
 	nvic = &nvim.msg.create;
 	nvic->flags = 0;
-	memcpy(nvic->mac_addr, if_ctx->dev_addr, ETH_HLEN);
+	memcpy(nvic->mac_addr, if_ctx->dev_addr, ETH_ALEN);
 
 	(void)nss_virt_if_tx_msg(&nvim);
 
