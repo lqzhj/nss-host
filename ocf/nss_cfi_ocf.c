@@ -334,10 +334,16 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 		auth_crd = crd;
 		cip_crd  = crd->crd_next;
 
-		if (cip_crd) {
-			nss_cfi_assert(cfi_algo[cip_crd->crd_alg].flag == NSS_CFI_OCF_ALGO_TYPE_IS_CIPHER);
-			nss_cfi_assert((!(cip_crd->crd_flags & CRD_F_ENCRYPT)));
+		if (unlikely(!cip_crd)) {
+			nss_cfi_dbg("Cipher info is not present in pkt\n");
+			crp->crp_etype = ENOENT;
+			crypto_done(crp);
+
+			return 0;
 		}
+
+		nss_cfi_assert(cfi_algo[cip_crd->crd_alg].flag == NSS_CFI_OCF_ALGO_TYPE_IS_CIPHER);
+		nss_cfi_assert((!(cip_crd->crd_flags & CRD_F_ENCRYPT)));
 
 		break;
 
@@ -345,16 +351,27 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 		cip_crd = crd;
 		auth_crd = crd->crd_next;
 
-		if (auth_crd) {
-			nss_cfi_assert(cfi_algo[auth_crd->crd_alg].flag == NSS_CFI_OCF_ALGO_TYPE_IS_AUTH);
-			nss_cfi_assert((crd->crd_flags & CRD_F_ENCRYPT));
+		if (unlikely(!auth_crd)) {
+			nss_cfi_dbg("Authentication info is not present in pkt\n");
+			crp->crp_etype = ENOENT;
+			crypto_done(crp);
+
+			return 0;
 		}
+
+		nss_cfi_assert(cfi_algo[auth_crd->crd_alg].flag == NSS_CFI_OCF_ALGO_TYPE_IS_AUTH);
+		nss_cfi_assert((crd->crd_flags & CRD_F_ENCRYPT));
 
 		break;
 
 	default:
 		nss_cfi_err("wrong cipher or auth algo %d\n",crd->crd_alg);
 		nss_cfi_assert(0);
+
+		crp->crp_etype = ENOENT;
+		crypto_done(crp);
+
+		return 0;
 	}
 
 	/*
