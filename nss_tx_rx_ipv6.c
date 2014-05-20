@@ -184,8 +184,17 @@ nss_tx_status_t nss_tx_create_ipv6_rule(void *ctx, struct nss_ipv6_create *unic)
 	nircm->conn_rule.return_mtu = unic->to_mtu;
 	memcpy(nircm->conn_rule.flow_mac, unic->src_mac, 6);
 	memcpy(nircm->conn_rule.return_mac, unic->dest_mac, 6);
+
+	/*
+	 * Copy over the DSCP rule parameters
+	 */
 	nircm->dscp_rule.flow_dscp = unic->flow_dscp;
 	nircm->dscp_rule.return_dscp = unic->return_dscp;
+	if (unic->flags & NSS_IPV6_CREATE_FLAG_DSCP_MARKING) {
+		nircm->rule_flags |= NSS_IPV6_RULE_CREATE_FLAG_DSCP_MARKING;
+		nircm->valid_flags |= NSS_IPV6_RULE_CREATE_DSCP_MARKING_VALID;
+	}
+
 	nircm->valid_flags |= NSS_IPV6_RULE_CREATE_CONN_VALID;
 
 	/*
@@ -296,9 +305,15 @@ nss_tx_status_t nss_tx_create_ipv6_rule1(void *ctx, struct nss_ipv6_create *unic
 	memcpy(nircm->conn_rule.return_mac, unic->dest_mac, 6);
 	nircm->valid_flags |= NSS_IPV6_RULE_CREATE_CONN_VALID;
 
+	/*
+	 * Copy over the DSCP rule parameters
+	 */
 	nircm->dscp_rule.flow_dscp = unic->flow_dscp;
 	nircm->dscp_rule.return_dscp = unic->return_dscp;
-
+	if (unic->flags & NSS_IPV6_CREATE_FLAG_DSCP_MARKING) {
+		nircm->rule_flags |= NSS_IPV6_RULE_CREATE_FLAG_DSCP_MARKING;
+		nircm->valid_flags |= NSS_IPV6_RULE_CREATE_DSCP_MARKING_VALID;
+	}
 	/*
 	 * Copy over the pppoe rules and set PPPOE_VALID flag
 	 */

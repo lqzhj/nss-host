@@ -196,8 +196,16 @@ nss_tx_status_t nss_tx_create_ipv4_rule(void *ctx, struct nss_ipv4_create *unic)
 	} else {
 		memcpy(nircm->conn_rule.return_mac, unic->dest_mac, 6);
 	}
+
+	/*
+	 * Copy over the DSCP rule parameters
+	 */
 	nircm->dscp_rule.flow_dscp = unic->flow_dscp;
 	nircm->dscp_rule.return_dscp = unic->return_dscp;
+	if (unic->flags & NSS_IPV4_CREATE_FLAG_DSCP_MARKING) {
+		nircm->rule_flags |= NSS_IPV4_RULE_CREATE_FLAG_DSCP_MARKING;
+		nircm->valid_flags |= NSS_IPV4_RULE_CREATE_DSCP_MARKING_VALID;
+	}
 
 	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_CONN_VALID;
 
@@ -304,8 +312,15 @@ nss_tx_status_t nss_tx_create_ipv4_rule1(void *ctx, struct nss_ipv4_create *unic
 		memcpy(nircm->conn_rule.return_mac, unic->dest_mac, 6);
 	}
 
+	/*
+	 * Copy over the DSCP rule parameters
+	 */
 	nircm->dscp_rule.flow_dscp = unic->flow_dscp;
 	nircm->dscp_rule.return_dscp = unic->return_dscp;
+	if (unic->flags & NSS_IPV4_CREATE_FLAG_DSCP_MARKING) {
+		nircm->rule_flags |= NSS_IPV4_RULE_CREATE_FLAG_DSCP_MARKING;
+		nircm->valid_flags |= NSS_IPV4_RULE_CREATE_DSCP_MARKING_VALID;
+	}
 
 	nircm->valid_flags |= NSS_IPV4_RULE_CREATE_CONN_VALID;
 
