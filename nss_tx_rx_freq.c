@@ -118,7 +118,7 @@ static void nss_frequency_workqueue(void)
 
 	nss_cmd_buf.current_freq = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].frequency;
 
-	nss_work = (nss_work_t *)kmalloc(sizeof(nss_work_t), GFP_KERNEL);
+	nss_work = (nss_work_t *)kmalloc(sizeof(nss_work_t), GFP_ATOMIC);
 	if (!nss_work) {
 		nss_info("NSS FREQ WQ kmalloc fail");
 		return;

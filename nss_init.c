@@ -582,7 +582,7 @@ static int nss_current_freq_handler (ctl_table *ctl, int write, void __user *buf
 		return ret;
 	}
 
-	nss_work = (nss_work_t *)kmalloc(sizeof(nss_work_t), GFP_KERNEL);
+	nss_work = (nss_work_t *)kmalloc(sizeof(nss_work_t), GFP_ATOMIC);
 	if (!nss_work) {
 		nss_info("NSS Freq WQ kmalloc fail");
 		return ret;
@@ -620,7 +620,7 @@ static int nss_auto_scale_handler (ctl_table *ctl, int write, void __user *buffe
 		 */
 		if (nss_runtime_samples.freq_scale_ready != 0) {
 			nss_cmd_buf.current_freq = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].frequency;
-			nss_work = (nss_work_t *)kmalloc(sizeof(nss_work_t), GFP_KERNEL);
+			nss_work = (nss_work_t *)kmalloc(sizeof(nss_work_t), GFP_ATOMIC);
 			if (!nss_work) {
 				nss_info("NSS Freq WQ kmalloc fail");
 				return ret;
@@ -653,7 +653,7 @@ static int nss_auto_scale_handler (ctl_table *ctl, int write, void __user *buffe
 	nss_runtime_samples.freq_scale_index = 1;
 	nss_cmd_buf.current_freq = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].frequency;
 
-	nss_work = (nss_work_t *)kmalloc(sizeof(nss_work_t), GFP_KERNEL);
+	nss_work = (nss_work_t *)kmalloc(sizeof(nss_work_t), GFP_ATOMIC);
 	if (!nss_work) {
 		nss_info("NSS Freq WQ kmalloc fail");
 		return ret;
