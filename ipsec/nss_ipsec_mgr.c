@@ -783,11 +783,16 @@ static int nss_ipsec_dev_event(struct notifier_block *this, unsigned long event,
 	switch (event) {
 	case NETDEV_UP:
 
-		if (strncmp(dev->name, "ipsec0", strlen("ipsec0")) != 0) {
+		if (strncmp(dev->name, "ipsec", strlen("ipsec")) != 0) {
 			break;
 		}
 
 		nss_cfi_info("IPsec interface coming up: %s\n", dev->name);
+
+		if (gbl_nss_ctx != NULL) {
+			nss_cfi_info("nss ctx is already initialized \n");
+			break;
+		}
 
 		spin_lock_bh(&gbl_dev_lock);
 
@@ -805,11 +810,16 @@ static int nss_ipsec_dev_event(struct notifier_block *this, unsigned long event,
 
         case NETDEV_DOWN:
 
-		if (strncmp(dev->name, "ipsec0", strlen("ipsec0")) != 0) {
+		if (strncmp(dev->name, "ipsec", strlen("ipsec")) != 0) {
 			break;
 		}
 
 		nss_cfi_info("IPsec interface going down: %s\n", dev->name);
+
+		if (gbl_except_dev == NULL) {
+			nss_cfi_info(" glb_except_dev is NULL\n");
+			break;
+		}
 
 		spin_lock_bh(&gbl_dev_lock);
 
@@ -861,9 +871,9 @@ void __exit nss_ipsec_exit_module(void)
 
 	nss_ipsec_free_all();
 
-	/* nss_ipsec_data_unregister(gbl_nss_ctx, NSS_C2C_TX_INTERFACE); */
-	/* nss_ipsec_msg_unregister(gbl_nss_ctx, NSS_IPSEC_ENCAP_INTERFACE); */
-	/* nss_ipsec_msg_unregister(gbl_nss_ctx, NSS_IPSEC_DECAP_INTERFACE); */
+	nss_ipsec_data_unregister(gbl_nss_ctx, NSS_C2C_TX_INTERFACE);
+	nss_ipsec_notify_unregister(gbl_nss_ctx, NSS_IPSEC_ENCAP_INTERFACE);
+	nss_ipsec_notify_unregister(gbl_nss_ctx, NSS_IPSEC_DECAP_INTERFACE);
 
 	unregister_netdevice_notifier(&nss_ipsec_notifier);
 
