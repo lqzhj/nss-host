@@ -234,7 +234,7 @@ nss_tx_status_t nss_ipsec_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_ip
  */
 
 /*
- * nss_ipsec_msg_notify_register()
+ * nss_ipsec_notify_register()
  * 	register message notifier for the given interface (if_num)
  */
 struct nss_ctx_instance *nss_ipsec_notify_register(uint32_t if_num, nss_ipsec_msg_callback_t cb, void *app_data)
@@ -257,7 +257,7 @@ struct nss_ctx_instance *nss_ipsec_notify_register(uint32_t if_num, nss_ipsec_ms
 }
 
 /*
- * nss_ipsec_msg_notify_unregister()
+ * nss_ipsec_notify_unregister()
  * 	unregister the IPsec notifier for the given interface number (if_num)
  */
 void nss_ipsec_notify_unregister(struct nss_ctx_instance *nss_ctx, uint32_t if_num)
@@ -274,7 +274,7 @@ void nss_ipsec_notify_unregister(struct nss_ctx_instance *nss_ctx, uint32_t if_n
 }
 
 /*
- * nss_ipsec_data_notify_register()
+ * nss_ipsec_data_register()
  * 	register a data callback routine
  */
 struct nss_ctx_instance *nss_ipsec_data_register(uint32_t if_num, nss_ipsec_buf_callback_t cb, void *app_data)
@@ -295,7 +295,7 @@ struct nss_ctx_instance *nss_ipsec_data_register(uint32_t if_num, nss_ipsec_buf_
 }
 
 /*
- * nss_ipsec_data_notify_unregister()
+ * nss_ipsec_data_unregister()
  * 	unregister a data callback routine
  */
 void nss_ipsec_data_unregister(struct nss_ctx_instance *nss_ctx, uint32_t if_num)

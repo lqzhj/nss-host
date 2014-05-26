@@ -216,7 +216,7 @@ extern struct nss_ctx_instance *nss_ipsec_data_register(uint32_t if_num, nss_ips
  *
  * @return
  */
-extern void nss_ipsec_msg_unregister(struct nss_ctx_instance *ctx, uint32_t if_num);
+extern void nss_ipsec_notify_unregister(struct nss_ctx_instance *ctx, uint32_t if_num);
 
 /**
  * @brief unregister the data notifier
