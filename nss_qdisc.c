@@ -2242,10 +2242,8 @@ static int nssfifo_change(struct Qdisc *sch, struct nlattr *opt)
 
 	qopt = nla_data(na[TCA_NSSFIFO_PARMS]);
 
-	if (!qopt->limit) {
-		nssqdisc_error("%s: limit must be non-zero\n", __func__);
-		return -EINVAL;
-	}
+	if (!qopt->limit)
+		qopt->limit = qdisc_dev(sch)->tx_queue_len ? : 1;
 
 	q->limit = qopt->limit;
 
@@ -2451,11 +2449,14 @@ static int nsscodel_change(struct Qdisc *sch, struct nlattr *opt)
 
 	qopt = nla_data(na[TCA_NSSCODEL_PARMS]);
 
-	if (!qopt->target || !qopt->interval || !qopt->limit) {
-		nssqdisc_error("nsscodel requires a non-zero value for target, "
-				"interval and limit\n");
+	if (!qopt->target || !qopt->interval) {
+		nssqdisc_error("nsscodel requires a non-zero value for target "
+				"and interval\n");
 		return -EINVAL;
 	}
+
+	if (!qopt->limit)
+		qopt->limit = dev->tx_queue_len ? : 1;
 
 	q->target = qopt->target;
 	q->limit = qopt->limit;
