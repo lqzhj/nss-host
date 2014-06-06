@@ -82,11 +82,11 @@ void nss_rx_ipv6_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_conn_syn
 	case NSS_IPV6_RULE_SYNC_REASON_FLUSH:
 	case NSS_IPV6_RULE_SYNC_REASON_DESTROY:
 	case NSS_IPV6_RULE_SYNC_REASON_EVICT:
-		nicp.params.sync.final_sync = NSS_IPV6_SYNC_REASON_FLUSH;
+		nicp.params.sync.final_sync = 1;
 		break;
 
 	case NSS_IPV6_RULE_SYNC_REASON_STATS:
-		nicp.params.sync.final_sync = NSS_IPV6_SYNC_REASON_STATS;
+		nicp.params.sync.final_sync = 0;
 		break;
 
 	default:
