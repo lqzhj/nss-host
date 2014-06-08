@@ -52,22 +52,35 @@
 #define nss_assert(c) if (!(c)) { BUG_ON(!(c)); }
 #endif
 
-#if (NSS_DEBUG_LEVEL < 2)
-#define nss_warning(fmt, args...)
+#if defined(CONFIG_DYNAMIC_DEBUG)
+/*
+ * Compile messages for dynamic enable/disable
+ */
+#define nss_warning(s, ...) pr_debug("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define nss_info(s, ...) pr_debug("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define nss_trace(s, ...) pr_debug("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #else
-#define nss_warning(fmt, args...) printk(KERN_WARNING "nss:"fmt, ##args)
+
+/*
+ * Statically compile messages at different levels
+ */
+#if (NSS_DEBUG_LEVEL < 2)
+#define nss_warning(s, ...)
+#else
+#define nss_warning(s, ...) pr_warn("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #endif
 
 #if (NSS_DEBUG_LEVEL < 3)
-#define nss_info(fmt, args...)
+#define nss_info(s, ...)
 #else
-#define nss_info(fmt, args...) printk(KERN_INFO "nss:"fmt, ##args)
+#define nss_info(s, ...) pr_notice("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #endif
 
 #if (NSS_DEBUG_LEVEL < 4)
-#define nss_trace(fmt, args...)
+#define nss_trace(s, ...)
 #else
-#define nss_trace(fmt, args...) printk(KERN_DEBUG "nss:"fmt, ##args)
+#define nss_trace(s, ...) pr_info("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#endif
 #endif
 
 #if (NSS_PKT_STATS_ENABLED == 1)
