@@ -74,7 +74,7 @@ ccflags-y += -I$(obj)/nss_hal/include -I$(obj)/exports -DNSS_DEBUG_LEVEL=0 -DNSS
 ccflags-y += -DNSS_CONNMGR_DEBUG_LEVEL=0 -DNSS_CONNMGR_PPPOE_SUPPORT=0
 ccflags-y += -DNSS_TUNIPIP6_DEBUG_LEVEL=0
 ccflags-y += -DNSS_PM_DEBUG_LEVEL=0
-ccflags-y += -I$(TOPDIR)/qca/src/linux/net/bridge -DNSSQDISC_DEBUG_LEVEL=0
+ccflags-y += -I$(srctree)/net/bridge -DNSSQDISC_DEBUG_LEVEL=0
 
 obj-y+= profiler/
 
