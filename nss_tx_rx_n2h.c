@@ -55,9 +55,19 @@ static void nss_rx_metadata_n2h_stats_sync(struct nss_ctx_instance *nss_ctx, str
 	nss_ctx->stats_n2h[NSS_STATS_N2H_ITERATIONS] += nnss->iterations;
 
 	/*
-	 * pbuf/payload mgr stats
+	 * pbuf manager ocm and default pool stats
 	 */
-	nss_ctx->stats_n2h[NSS_STATS_N2H_PBUF_ALLOC_FAILS] += nnss->pbuf_alloc_fails;
+	nss_ctx->stats_n2h[NSS_STATS_N2H_PBUF_OCM_ALLOC_FAILS] += nnss->pbuf_ocm_stats.pbuf_alloc_fails;
+	nss_ctx->stats_n2h[NSS_STATS_N2H_PBUF_OCM_FREE_COUNT] = nnss->pbuf_ocm_stats.pbuf_free_count;
+	nss_ctx->stats_n2h[NSS_STATS_N2H_PBUF_OCM_TOTAL_COUNT] = nnss->pbuf_ocm_stats.pbuf_total_count;
+
+	nss_ctx->stats_n2h[NSS_STATS_N2H_PBUF_DEFAULT_ALLOC_FAILS] += nnss->pbuf_default_stats.pbuf_alloc_fails;
+	nss_ctx->stats_n2h[NSS_STATS_N2H_PBUF_DEFAULT_FREE_COUNT] = nnss->pbuf_default_stats.pbuf_free_count;
+	nss_ctx->stats_n2h[NSS_STATS_N2H_PBUF_DEFAULT_TOTAL_COUNT] = nnss->pbuf_default_stats.pbuf_total_count;
+
+	/*
+	 * payload mgr stats
+	 */
 	nss_ctx->stats_n2h[NSS_STATS_N2H_PAYLOAD_ALLOC_FAILS] += nnss->payload_alloc_fails;
 
 	spin_unlock_bh(&nss_top->stats_lock);

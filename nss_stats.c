@@ -89,7 +89,12 @@ static int8_t *nss_stats_str_n2h[NSS_STATS_N2H_MAX] = {
 	"ticks",
 	"worst_ticks",
 	"iterations",
-	"pbuf_fails",
+	"pbuf_ocm_alloc_fails",
+	"pbuf_ocm_free_count",
+	"pbuf_ocm_total_count",
+	"pbuf_default_alloc_fails",
+	"pbuf_default_free_count",
+	"pbuf_default_total_count",
 	"payload_fails"
 };
 
