@@ -151,7 +151,7 @@ u32 nss_macsec_secy_rx_prc_lut_get(u32 secy_id, u32 index,
 	pentry->da[1] = (u8)(igc.da_1 >> 16);
 	pentry->da[0] = (u8)(igc.da_1 >> 24);
 
-	pentry->sa_mask = (igc.sa_mask_0 << 4) + igc.sa_mask_1;
+	pentry->sa_mask = (igc.sa_mask_0 << 2) + igc.sa_mask_1;
 	pentry->sa[5] = (u8)(igc.sa_0);
 	pentry->sa[4] = (u8)(igc.sa_0 >> 8);
 	pentry->sa[3] = (u8)(igc.sa_0 >> 16);
