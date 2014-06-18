@@ -36,30 +36,26 @@
  * NSS QDisc debug macros
  */
 #if (NSSQDISC_DEBUG_LEVEL < 1)
-#define nssqdisc_assert(fmt, args...)
-#else
-#define nssqdisc_assert(c) if (!(c)) { BUG_ON(!(c)); }
-#endif
-
-#if (NSSQDISC_DEBUG_LEVEL < 2)
+#define nssqdisc_assert(c, s, args...)
 #define nssqdisc_error(fmt, args...)
 #else
+#define nssqdisc_assert(c, s, args...) if (!(c)) { printk("%d:ASSERT:"s, __LINE__, ##args); BUG(); }
 #define nssqdisc_error(fmt, args...) printk(KERN_ERR "%d:ERROR:"fmt, __LINE__, ##args)
 #endif
 
-#if (NSSQDISC_DEBUG_LEVEL < 3)
+#if (NSSQDISC_DEBUG_LEVEL < 2)
 #define nssqdisc_warning(fmt, args...)
 #else
 #define nssqdisc_warning(fmt, args...) printk(KERN_WARNING "%d:WARN:"fmt, __LINE__, ##args)
 #endif
 
-#if (NSSQDISC_DEBUG_LEVEL < 4)
+#if (NSSQDISC_DEBUG_LEVEL < 3)
 #define nssqdisc_info(fmt, args...)
 #else
 #define nssqdisc_info(fmt, args...) printk(KERN_INFO "%d:INFO:"fmt, __LINE__, ##args)
 #endif
 
-#if (NSSQDISC_DEBUG_LEVEL < 5)
+#if (NSSQDISC_DEBUG_LEVEL < 4)
 #define nssqdisc_trace(fmt, args...)
 #else
 #define nssqdisc_trace(fmt, args...) printk(KERN_DEBUG "%d:TRACE:"fmt, __LINE__, ##args)
@@ -265,9 +261,9 @@ static int nssqdisc_attach_bshaper(struct Qdisc *sch, uint32_t if_num)
 
 	state = atomic_read(&nq->state);
 	if (state != NSSQDISC_STATE_READY) {
-		nssqdisc_error("%s: qdisc %p (type %d) is not ready: State - %d\n",
+		nssqdisc_warning("%s: qdisc %p (type %d) is not ready: State - %d\n",
 				__func__, sch, nq->type, state);
-		BUG();
+		return -1;
 	}
 
 	/*
@@ -346,9 +342,9 @@ static int nssqdisc_detach_bshaper(struct Qdisc *sch, uint32_t if_num)
 
 	state = atomic_read(&nq->state);
 	if (state != NSSQDISC_STATE_READY) {
-		nssqdisc_error("%s: qdisc %p (type %d) is not ready: %d\n",
+		nssqdisc_warning("%s: qdisc %p (type %d) is not ready: %d\n",
 				__func__, sch, nq->type, state);
-		BUG();
+		return -1;
 	}
 
 	/*
@@ -470,10 +466,9 @@ nextdev:
 			if (nssqdisc_detach_bshaper(br_qdisc, br_update.port_list[i]) >= 0) {
 				continue;
 			}
-			nssqdisc_error("%s: Unable to detach bshaper with shaper-id: %u, "
+			nssqdisc_assert(NULL, "%s: Unable to detach bshaper with shaper-id: %u, "
 				"from interface if_num: %d\n", __func__, nq->shaper_id,
 				br_update.port_list[i]);
-			BUG();
 		}
 
 		nssqdisc_info("%s: Failed to link interfaces to bridge\n", __func__);
@@ -488,10 +483,9 @@ nextdev:
 					__func__, br_update.port_list[i], br_dev->name);
 				continue;
 			}
-			nssqdisc_error("%s: Unable to detach bshaper with shaper-id: %u, "
+			nssqdisc_assert(NULL, "%s: Unable to detach bshaper with shaper-id: %u, "
 				"from interface if_num: %d\n", __func__, nq->shaper_id,
 				br_update.port_list[i]);
-			BUG();
 		}
 	}
 
@@ -564,9 +558,9 @@ static void nssqdisc_root_cleanup_shaper_unassign_callback(void *app_data,
 {
 	struct nssqdisc_qdisc *nq = (struct nssqdisc_qdisc *)app_data;
 	if (nim->cm.response != NSS_CMN_RESPONSE_ACK) {
-		nssqdisc_error("%s: Root qdisc %p (type %d) shaper unsassign FAILED\n", __func__, nq->qdisc, nq->type);
-		BUG();
+		nssqdisc_assert(NULL, "%s: Root qdisc %p (type %d) shaper unsassign FAILED\n", __func__, nq->qdisc, nq->type);
 	}
+
 	nssqdisc_root_cleanup_final(nq);
 }
 
@@ -608,10 +602,9 @@ static void nssqdisc_root_cleanup_free_node_callback(void *app_data,
 {
 	struct nssqdisc_qdisc *nq = (struct nssqdisc_qdisc *)app_data;
 	if (nim->cm.response != NSS_CMN_RESPONSE_ACK) {
-		nssqdisc_error("%s: Root qdisc %p (type %d) free FAILED response "
+		nssqdisc_assert(NULL, "%s: Root qdisc %p (type %d) free FAILED response "
 				"type: %d\n", __func__, nq->qdisc, nq->type,
 				nim->msg.shaper_configure.config.response_type);
-		BUG();
 	}
 
 	nssqdisc_info("%s: Root qdisc %p (type %d) free SUCCESS - response "
@@ -1238,9 +1231,9 @@ static int nssqdisc_set_default(struct nssqdisc_qdisc *nq)
 
 	state = atomic_read(&nq->state);
 	if (state != NSSQDISC_STATE_READY) {
-		nssqdisc_error("%s: Qdisc %p (type %d): qdisc state not ready: %d\n", __func__,
+		nssqdisc_warning("%s: Qdisc %p (type %d): qdisc state not ready: %d\n", __func__,
 				nq->qdisc, nq->type, state);
-		BUG();
+		return -1;
 	}
 
 	/*
@@ -1324,9 +1317,9 @@ static int nssqdisc_node_attach(struct nssqdisc_qdisc *nq,
 
 	state = atomic_read(&nq->state);
 	if (state != NSSQDISC_STATE_READY) {
-		nssqdisc_error("%s: Qdisc %p (type %d): not ready, state: %d\n",
+		nssqdisc_warning("%s: Qdisc %p (type %d): not ready, state: %d\n",
 				__func__, nq->qdisc, nq->type, state);
-		BUG();
+		return -1;
 	}
 
 	/*
@@ -1408,9 +1401,9 @@ static int nssqdisc_node_detach(struct nssqdisc_qdisc *nq,
 
 	state = atomic_read(&nq->state);
 	if (state != NSSQDISC_STATE_READY) {
-		nssqdisc_error("%s: Qdisc %p (type %d): not ready, state: %d\n",
+		nssqdisc_warning("%s: Qdisc %p (type %d): not ready, state: %d\n",
 				__func__, nq->qdisc, nq->type, state);
-		BUG();
+		return -1;
 	}
 
 	/*
@@ -1491,9 +1484,9 @@ static int nssqdisc_configure(struct nssqdisc_qdisc *nq,
 
 	state = atomic_read(&nq->state);
 	if (state != NSSQDISC_STATE_READY) {
-		nssqdisc_error("%s: Qdisc %p (type %d): not ready for configure, "
-			"state : %d\n", __func__, nq->qdisc, nq->type, state);
-		BUG();
+		nssqdisc_warning("%s: Qdisc %p (type %d): not ready for configure, "
+				"state : %d\n", __func__, nq->qdisc, nq->type, state);
+		return -1;
 	}
 
 	/*
@@ -1553,9 +1546,9 @@ static void nssqdisc_destroy(struct nssqdisc_qdisc *nq)
 
 	state = atomic_read(&nq->state);
 	if (state != NSSQDISC_STATE_READY) {
-		nssqdisc_error("%s: Qdisc %p (type %d): destroy not ready, "
+		nssqdisc_warning("%s: Qdisc %p (type %d): destroy not ready, "
 				"state: %d\n", __func__, nq->qdisc, nq->type, state);
-		BUG();
+		return;
 	}
 
 	/*
