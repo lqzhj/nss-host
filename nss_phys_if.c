@@ -64,7 +64,7 @@ static void nss_phys_if_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 		return;
 	}
 
-	if (ncm->interface > NSS_MAX_PHYSICAL_INTERFACES) {
+	if (!NSS_IS_IF_TYPE(PHYSICAL, ncm->interface)) {
 		nss_warning("%p: response for another interface: %d", nss_ctx, ncm->interface);
 		return;
 	}

@@ -41,7 +41,7 @@ static void nss_virt_if_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 		return;
 	}
 
-	if (ncm->interface > NSS_MAX_VIRTUAL_INTERFACES) {
+	if (!NSS_IS_IF_TYPE(VIRTUAL, ncm->interface)) {
 		nss_warning("%p: response for another interface: %d", nss_ctx, ncm->interface);
 		return;
 	}

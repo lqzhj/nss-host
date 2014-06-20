@@ -157,7 +157,7 @@ void *nss_create_virt_if(struct net_device *if_ctx)
 	 * Find a free virtual interface
 	 */
 	spin_lock_bh(&nss_top_main.lock);
-	for (if_num = NSS_MAX_PHYSICAL_INTERFACES; if_num < NSS_MAX_DEVICE_INTERFACES; ++if_num) {
+	for (if_num = NSS_VIRTUAL_IF_START; if_num < NSS_VIRTUAL_IF_START + NSS_MAX_VIRTUAL_INTERFACES; ++if_num) {
 		if (!nss_top_main.if_ctx[if_num]) {
 			/*
 			 * Use this redirection interface
@@ -168,7 +168,7 @@ void *nss_create_virt_if(struct net_device *if_ctx)
 	}
 
 	spin_unlock_bh(&nss_top_main.lock);
-	if (if_num == NSS_MAX_DEVICE_INTERFACES) {
+	if (if_num == NSS_VIRTUAL_IF_START + NSS_MAX_VIRTUAL_INTERFACES) {
 		/*
 		 * No available virtual contexts
 		 */
