@@ -2316,7 +2316,6 @@ static int nssfifo_dump(struct Qdisc *sch, struct sk_buff *skb)
 	}
 
 	opt.limit = q->limit;
-	opt.set_default = q->set_default;
 
 	opts = nla_nest_start(skb, TCA_OPTIONS);
 	if (opts == NULL) {
@@ -2539,7 +2538,6 @@ static int nsscodel_dump(struct Qdisc *sch, struct sk_buff *skb)
 	opt.target = q->target;
 	opt.limit = q->limit;
 	opt.interval = q->interval;
-	opt.set_default = q->set_default;
 	opts = nla_nest_start(skb, TCA_OPTIONS);
 	if (opts == NULL) {
 		goto nla_put_failure;
@@ -3620,7 +3618,12 @@ static int nssbf_dump_class(struct Qdisc *sch, unsigned long arg, struct sk_buff
 	qopt.mtu = cl->mtu;
 	qopt.quantum = cl->quantum;
 
-	tcm->tcm_handle |= TC_H_MIN(cl->cl_common.classid);
+	/*
+	 * All bf group nodes are root nodes. i.e. they dont
+	 * have any mode bf groups attached beneath them.
+	 */
+	tcm->tcm_parent = TC_H_ROOT;
+	tcm->tcm_handle = cl->cl_common.classid;
 	tcm->tcm_info = cl->qdisc->handle;
 
 	opts = nla_nest_start(skb, TCA_OPTIONS);
@@ -3689,7 +3692,7 @@ static int nssbf_init_qdisc(struct Qdisc *sch, struct nlattr *opt)
 	if (err < 0)
 		return err;
 
-	q->root.cl_common.classid = sch->handle + 1;
+	q->root.cl_common.classid = sch->handle;
 	q->root.qdisc = &noop_qdisc;
 
 	qdisc_class_hash_insert(&q->clhash, &q->root.cl_common);
@@ -4295,7 +4298,12 @@ static int nsswrr_dump_class(struct Qdisc *sch, unsigned long arg, struct sk_buf
 
 	qopt.quantum = cl->quantum;
 
-	tcm->tcm_handle |= TC_H_MIN(cl->cl_common.classid);
+	/*
+	 * All bf group nodes are root nodes. i.e. they dont
+	 * have any mode bf groups attached beneath them.
+	 */
+	tcm->tcm_parent = TC_H_ROOT;
+	tcm->tcm_handle = cl->cl_common.classid;
 	tcm->tcm_info = cl->qdisc->handle;
 
 	opts = nla_nest_start(skb, TCA_OPTIONS);
@@ -4360,7 +4368,7 @@ static int nsswrr_init_qdisc(struct Qdisc *sch, struct nlattr *opt)
 	if (err < 0)
 		return err;
 
-	q->root.cl_common.classid = sch->handle + 1;
+	q->root.cl_common.classid = sch->handle;
 	q->root.qdisc = &noop_qdisc;
 
 	qdisc_class_hash_insert(&q->clhash, &q->root.cl_common);
