@@ -461,6 +461,8 @@ enum nss_ipv4_cb_reason {
 	NSS_IPV4_CB_REASON_ESTABLISH = 0,
 					/**< Reason is rule establish */
 	NSS_IPV4_CB_REASON_SYNC,	/**< Reason is rule sync */
+	NSS_IPV4_CB_REASON_ESTABLISH_FAIL,
+					/**< Reason is rule establish failes */
 };
 
 /**
@@ -553,6 +555,8 @@ enum nss_ipv6_cb_reason {
 	NSS_IPV6_CB_REASON_ESTABLISH = 0,
 					/**< Reason is rule establish */
 	NSS_IPV6_CB_REASON_SYNC,	/**< Reason is rule sync */
+	NSS_IPV6_CB_REASON_ESTABLISH_FAIL,
+					/**< Reason is rule establish failes */
 };
 
 /**

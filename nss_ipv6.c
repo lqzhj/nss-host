@@ -22,6 +22,7 @@
 #include "nss_tx_rx_common.h"
 
 extern void nss_rx_metadata_ipv6_rule_establish(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_rule_establish *nire);
+extern void nss_rx_metadata_ipv6_create_response(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_msg *nim);
 extern void nss_rx_ipv6_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_conn_sync *nirs);
 
 /*
@@ -151,6 +152,10 @@ static void nss_ipv6_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 		 */
 		nss_ipv6_driver_conn_sync_update(nss_ctx, &nim->msg.conn_stats);
 		return nss_rx_ipv6_sync(nss_ctx, &nim->msg.conn_stats);
+		break;
+
+	case NSS_IPV6_TX_CREATE_RULE_MSG:
+		nss_rx_metadata_ipv6_create_response(nss_ctx, nim);
 		break;
 	}
 
