@@ -2316,6 +2316,7 @@ static int nssfifo_dump(struct Qdisc *sch, struct sk_buff *skb)
 	}
 
 	opt.limit = q->limit;
+	opt.set_default = q->set_default;
 
 	opts = nla_nest_start(skb, TCA_OPTIONS);
 	if (opts == NULL) {
@@ -2538,6 +2539,7 @@ static int nsscodel_dump(struct Qdisc *sch, struct sk_buff *skb)
 	opt.target = q->target;
 	opt.limit = q->limit;
 	opt.interval = q->interval;
+	opt.set_default = q->set_default;
 	opts = nla_nest_start(skb, TCA_OPTIONS);
 	if (opts == NULL) {
 		goto nla_put_failure;
@@ -3504,12 +3506,19 @@ static int nssbf_delete_class(struct Qdisc *sch, unsigned long arg)
 static int nssbf_graft_class(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
 								 struct Qdisc **old)
 {
+	struct nssbf_sched_data *q = qdisc_priv(sch);
 	struct nssbf_class_data *cl = (struct nssbf_class_data *)arg;
 	struct nss_if_msg nim_detach;
 	struct nss_if_msg nim_attach;
 	struct nssqdisc_qdisc *nq_new = qdisc_priv(new);
 
 	nssqdisc_info("Grafting class %p\n", sch);
+
+	if (cl == &q->root) {
+		nssqdisc_error("%p: Can't graft root class\n", cl);
+		return -EINVAL;
+	}
+
 	if (new == NULL)
 		new = &noop_qdisc;
 
@@ -4187,12 +4196,19 @@ static int nsswrr_delete_class(struct Qdisc *sch, unsigned long arg)
 static int nsswrr_graft_class(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
 								 struct Qdisc **old)
 {
+	struct nsswrr_sched_data *q = qdisc_priv(sch);
 	struct nsswrr_class_data *cl = (struct nsswrr_class_data *)arg;
 	struct nss_if_msg nim_detach;
 	struct nss_if_msg nim_attach;
 	struct nssqdisc_qdisc *nq_new = qdisc_priv(new);
 
 	nssqdisc_info("Grafting class %p\n", sch);
+
+	if (cl == &q->root) {
+		nssqdisc_error("%p: Can't graft root class\n", cl);
+		return -EINVAL;
+	}
+
 	if (new == NULL)
 		new = &noop_qdisc;
 
