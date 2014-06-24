@@ -120,6 +120,15 @@ enum nss_n2h_metadata_types {
 };
 
 /*
+ * NSS Pbuf mgr stats
+ */
+struct nss_n2h_pbuf_mgr_stats {
+	uint32_t pbuf_alloc_fails;		/* Pbuf ocm alloc fail */
+	uint32_t pbuf_free_count;		/* Pbuf ocm free count */
+	uint32_t pbuf_total_count;		/* Pbuf ocm total count */
+};
+
+/*
  * The NSS N2H statistics sync structure.
  */
 struct nss_n2h_stats_sync {
@@ -129,7 +138,10 @@ struct nss_n2h_stats_sync {
 	uint32_t total_ticks;		/* Total clock ticks spend inside the PE */
 	uint32_t worst_case_ticks;	/* Worst case iteration of the PE in ticks */
 	uint32_t iterations;		/* Number of iterations around the PE */
-	uint32_t pbuf_alloc_fails;	/* Number of pbuf allocations that have failed */
+
+	struct nss_n2h_pbuf_mgr_stats pbuf_ocm_stats; 		/* Pbuf OCM Stats */
+	struct nss_n2h_pbuf_mgr_stats pbuf_default_stats; 	/* Pbuf Default Stats */
+
 	uint32_t payload_alloc_fails;
 };
 
