@@ -149,6 +149,47 @@ void nss_rx_metadata_ipv4_rule_establish(struct nss_ctx_instance *nss_ctx, struc
 }
 
 /*
+ * nss_rx_metadata_ipv4_create_response()
+ *	Handle the ACK/NACK for IPv4 create rule.
+ */
+void nss_rx_metadata_ipv4_create_response(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_msg *nim)
+{
+	struct nss_ipv4_cb_params nicp;
+	nss_ipv4_callback_t cb;
+	struct nss_ipv4_rule_create_msg *nircm;
+	struct nss_ipv4_establish *nie;
+
+	if (nim->cm.response == NSS_CMN_RESPONSE_ACK) {
+		return;
+	}
+
+	nicp.reason = NSS_IPV4_CB_REASON_ESTABLISH_FAIL;
+
+	nircm = &nim->msg.rule_create;
+	nie = &nicp.params.establish;
+
+	nie->protocol = nircm->tuple.protocol;
+	nie->flow_ip = nircm->tuple.flow_ip;
+	nie->flow_ip_xlate = nircm->conn_rule.flow_ip_xlate;
+	nie->flow_ident = nircm->tuple.flow_ident;
+	nie->flow_ident_xlate = nircm->conn_rule.flow_ident_xlate;
+	nie->return_ip = nircm->tuple.return_ip;
+	nie->return_ip_xlate = nircm->conn_rule.return_ip_xlate;
+	nie->return_ident = nircm->tuple.return_ident;
+	nie->return_ident_xlate = nircm->conn_rule.return_ident_xlate;
+
+	/*
+	 * Call IPv4 manager callback function
+	 */
+	if (!nss_tx_rx_ipv4_event_callback) {
+		nss_info("%p: IPV4 create response message received before connection manager has registered", nss_ctx);
+		return;
+	}
+	cb = nss_tx_rx_ipv4_event_callback;
+	cb(&nicp);
+}
+
+/*
  * nss_tx_create_ipv4_rule()
  *	Create a nss entry to accelerate the given connection
  */

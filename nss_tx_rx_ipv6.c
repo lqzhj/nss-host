@@ -140,6 +140,49 @@ void nss_rx_metadata_ipv6_rule_establish(struct nss_ctx_instance *nss_ctx, struc
 }
 
 /*
+ * nss_rx_metadata_ipv6_create_response()
+ *	Handle the ACK/NACK responses for IPv6 create rule.
+ */
+void nss_rx_metadata_ipv6_create_response(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_msg *nim)
+{
+	struct nss_ipv6_cb_params nicp;
+	nss_ipv6_callback_t cb;
+	struct nss_ipv6_rule_create_msg *nircm;
+	struct nss_ipv6_establish *nie;
+
+	if (nim->cm.response == NSS_CMN_RESPONSE_ACK) {
+		return;
+	}
+
+	nicp.reason = NSS_IPV6_CB_REASON_ESTABLISH_FAIL;
+
+	nircm = &nim->msg.rule_create;
+	nie = &nicp.params.establish;
+
+	nie->protocol = nircm->tuple.protocol;
+	nie->flow_ip[0] = nircm->tuple.flow_ip[0];
+	nie->flow_ip[1] = nircm->tuple.flow_ip[1];
+	nie->flow_ip[2] = nircm->tuple.flow_ip[2];
+	nie->flow_ip[3] = nircm->tuple.flow_ip[3];
+	nie->flow_ident = nircm->tuple.flow_ident;
+	nie->return_ip[0] = nircm->tuple.return_ip[0];
+	nie->return_ip[1] = nircm->tuple.return_ip[1];
+	nie->return_ip[2] = nircm->tuple.return_ip[2];
+	nie->return_ip[3] = nircm->tuple.return_ip[3];
+	nie->return_ident = nircm->tuple.return_ident;
+
+	/*
+	 * Call IPv4 manager callback function
+	 */
+	if (!nss_tx_rx_ipv6_event_callback) {
+		nss_info("%p: IPV6 create response message received before connection manager has registered", nss_ctx);
+		return;
+	}
+	cb = nss_tx_rx_ipv6_event_callback;
+	cb(&nicp);
+}
+
+/*
  * nss_tx_create_ipv6_rule()
  *	Create a NSS entry to accelerate the given connection
  */
