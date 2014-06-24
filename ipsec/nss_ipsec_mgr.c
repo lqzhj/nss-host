@@ -871,9 +871,11 @@ void __exit nss_ipsec_exit_module(void)
 
 	nss_ipsec_free_all();
 
-	nss_ipsec_data_unregister(gbl_nss_ctx, NSS_C2C_TX_INTERFACE);
-	nss_ipsec_notify_unregister(gbl_nss_ctx, NSS_IPSEC_ENCAP_INTERFACE);
-	nss_ipsec_notify_unregister(gbl_nss_ctx, NSS_IPSEC_DECAP_INTERFACE);
+	if (gbl_nss_ctx) {
+		nss_ipsec_data_unregister(gbl_nss_ctx, NSS_C2C_TX_INTERFACE);
+		nss_ipsec_notify_unregister(gbl_nss_ctx, NSS_IPSEC_ENCAP_INTERFACE);
+		nss_ipsec_notify_unregister(gbl_nss_ctx, NSS_IPSEC_DECAP_INTERFACE);
+	}
 
 	unregister_netdevice_notifier(&nss_ipsec_notifier);
 
