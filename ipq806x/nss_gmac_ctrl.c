@@ -806,6 +806,9 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	gmacdev->phy_mii_type = gmaccfg->phy_mii_type;
 	gmacdev->phy_base = gmaccfg->phy_mdio_addr;
 	gmacdev->loop_back_mode = NOLOOPBACK;
+	if (ctx.socver == 0) {
+		ctx.socver = gmaccfg->socver;
+	}
 
 	if (gmaccfg->poll_required) {
 		test_and_set_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags);

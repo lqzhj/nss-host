@@ -246,6 +246,7 @@ struct nss_gmac_global_ctx {
 					   global interface registers		*/
 	uint32_t *qsgmii_base;
 	spinlock_t reg_lock;	/* Lock to protect NSS register	*/
+	uint32_t socver;		/* SOC version				*/
 	nss_gmac_dev *nss_gmac[NSS_MAX_GMACS];
 };
 
