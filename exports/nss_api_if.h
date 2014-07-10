@@ -75,7 +75,7 @@
 #define NSS_MAX_PHYSICAL_INTERFACES 4
 #define NSS_MAX_VIRTUAL_INTERFACES 16
 #define NSS_MAX_TUNNEL_INTERFACES 4
-#define NSS_MAX_SPECIAL_INTERFACES 25
+#define NSS_MAX_SPECIAL_INTERFACES 26
 #define NSS_MAX_DYNAMIC_INTERFACES 32
 
 /**
@@ -115,6 +115,7 @@
 #define NSS_LSO_RX_INTERFACE (NSS_SPECIAL_IF_START + 22) /* Interface number for lso */
 #define NSS_SJACK_INTERFACE (NSS_SPECIAL_IF_START + 23) /* Interface Number for GRE REDIR base interface */
 #define NSS_IPV4_REASM_INTERFACE (NSS_SPECIAL_IF_START + 24) /* Special IF number for IPv4 */
+#define NSS_DEBUG_INTERFACE (NSS_SPECIAL_IF_START + 25) /* Special IF number for debug interface */
 
 /**
  * This macro converts format for IPv6 address (from Linux to NSS)

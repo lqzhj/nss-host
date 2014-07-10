@@ -1644,6 +1644,8 @@ void nss_stats_init(void)
 		nss_warning("Failed to create qca-nss-drv/stats/sjack file in debugfs");
 		return;
 	}
+
+	nss_log_init();
 }
 
 

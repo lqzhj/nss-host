@@ -53,6 +53,7 @@
 int nss_ctl_redirect __read_mostly = 0;
 int nss_ctl_debug __read_mostly = 0;
 int nss_rps_cfg __read_mostly = 0;
+int nss_ctl_logbuf __read_mostly = 0;
 
 /*
  * PM client handle
@@ -168,7 +169,7 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 		goto err_init_0;
 	}
 
-	printk("nss_driver - fw of size %u  bytes copied to load addr: %x\n", nss_fw->size, npd->load_addr);
+	printk("nss_driver - fw of size %u  bytes copied to load addr: %x, nss_id : %d\n", nss_fw->size, npd->load_addr, nss_dev->id);
 	memcpy_toio(load_mem, nss_fw->data, nss_fw->size);
 	release_firmware(nss_fw);
 	iounmap(load_mem);
@@ -864,6 +865,13 @@ static ctl_table nss_general_table[] = {
 		.maxlen                 = sizeof(int),
 		.mode                   = 0644,
 		.proc_handler   	= &nss_rpscfg_handler,
+	},
+	{
+		.procname               = "logbuf",
+		.data                   = &nss_ctl_logbuf,
+		.maxlen                 = sizeof(int),
+		.mode                   = 0644,
+		.proc_handler   	= &nss_logbuffer_handler,
 	},
 	{ }
 };
