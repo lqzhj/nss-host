@@ -769,7 +769,7 @@ typedef void (*nss_phys_if_event_callback_t)(void *if_ctx, nss_gmac_event_t ev_t
 /**
  * Callback to receive GMAC packets
  */
-typedef void (*nss_phys_if_rx_callback_t)(void *if_ctx, void *os_buf);
+typedef void (*nss_phys_if_rx_callback_t)(void *if_ctx, void *os_buf, struct napi_struct *napi);
 
 /**
  * @brief Register to send/receive GMAC packets/messages

@@ -105,7 +105,7 @@ extern nss_tx_status_t nss_tun6rd_tx(struct nss_ctx_instance *nss_ctx, struct ns
  *
  * @return void
  */
-typedef void (*nss_tun6rd_callback_t)(void *app_data, void *os_buf);
+typedef void (*nss_tun6rd_callback_t)(void *app_data, void *os_buf, struct napi_struct *napi);
 
 /**
  * @brief Register to send/receive 6rd tunnel messages to NSS
