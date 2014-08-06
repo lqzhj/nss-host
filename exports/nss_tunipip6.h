@@ -103,7 +103,7 @@ extern nss_tx_status_t nss_tunipip6_tx(struct nss_ctx_instance *nss_ctx, struct 
  *
  * @return void
  */
-typedef void (*nss_tunipip6_callback_t)(void *app_data, void *os_buf);
+typedef void (*nss_tunipip6_callback_t)(void *app_data, void *os_buf, struct napi_struct *napi);
 
 /*
  * @brief Register to send/receive DS-Lite messages to NSS

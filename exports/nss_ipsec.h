@@ -174,7 +174,7 @@ typedef void (*nss_ipsec_msg_callback_t)(void *app_data, struct nss_ipsec_msg *m
  *
  * @return
  */
-typedef void (*nss_ipsec_buf_callback_t)(void *app_data, void *os_buf);
+typedef void (*nss_ipsec_buf_callback_t)(void *app_data, void *os_buf, struct napi_struct *napi);
 
 /**
  * @brief send an IPsec message
