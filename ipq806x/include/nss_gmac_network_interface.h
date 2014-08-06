@@ -33,7 +33,7 @@ int32_t nss_gmac_linux_change_mtu(struct net_device *netdev, int32_t newmtu);
 void nss_gmac_linux_tx_timeout(struct net_device *netdev);
 
 /* NSS driver interface APIs */
-void nss_gmac_receive(void *if_ctx, void *os_buf);
+void nss_gmac_receive(void *if_ctx, void *os_buf, struct napi_struct *napi);
 void nss_gmac_event_receive(void *if_ctx, nss_gmac_event_t ev_type,
 			    void *os_buf, uint32_t len);
 void nss_gmac_work(struct work_struct *work);
