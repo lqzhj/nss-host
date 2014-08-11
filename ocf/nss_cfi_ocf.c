@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -45,6 +45,8 @@
 
 static struct nss_cfi_ocf g_cfi_ocf = {{{0}}};
 
+static struct nss_cfi_crypto_info gbl_crypto_info[NSS_CRYPTO_MAX_IDXS];
+
 /*
  * cfi supported cipehr and auth algorithms and max key, iv and hash lengths
  */
@@ -53,12 +55,14 @@ static struct nss_cfi_ocf_algo cfi_algo[CRYPTO_ALGORITHM_MAX] = {
 					NSS_CRYPTO_CIPHER_AES,
 					NSS_CRYPTO_MAX_KEYLEN_AES,
 					NSS_CRYPTO_MAX_IVLEN_AES,
+					NSS_CRYPTO_MAX_BLKLEN_AES,
 					0,
 					NSS_CFI_OCF_ALGO_TYPE_IS_CIPHER
 			   	},
 	[CRYPTO_SHA1_HMAC] = 	{
 					NSS_CRYPTO_AUTH_SHA1_HMAC,
 					NSS_CRYPTO_MAX_KEYLEN_SHA1,
+					0,
 					0,
 					NSS_CRYPTO_MAX_HASHLEN_SHA1,
 					NSS_CFI_OCF_ALGO_TYPE_IS_AUTH
@@ -67,6 +71,7 @@ static struct nss_cfi_ocf_algo cfi_algo[CRYPTO_ALGORITHM_MAX] = {
 					NSS_CRYPTO_CIPHER_DES,
 					(NSS_CRYPTO_MAX_KEYLEN_DES)/3,
 					NSS_CRYPTO_MAX_IVLEN_DES,
+					NSS_CRYPTO_MAX_BLKLEN_DES,
 					0,
 					NSS_CFI_OCF_ALGO_TYPE_IS_CIPHER
 				},
@@ -74,6 +79,23 @@ static struct nss_cfi_ocf_algo cfi_algo[CRYPTO_ALGORITHM_MAX] = {
 					NSS_CRYPTO_CIPHER_DES,
 					NSS_CRYPTO_MAX_KEYLEN_DES,
 					NSS_CRYPTO_MAX_IVLEN_DES,
+					NSS_CRYPTO_MAX_BLKLEN_DES,
+					0,
+					NSS_CFI_OCF_ALGO_TYPE_IS_CIPHER
+				},
+	[CRYPTO_NULL_HMAC] =    {
+					NSS_CRYPTO_AUTH_NULL,
+					0,
+					0,
+					0,
+					0,
+					NSS_CFI_OCF_ALGO_TYPE_IS_AUTH
+				},
+	[CRYPTO_NULL_CBC] =     {
+					NSS_CRYPTO_CIPHER_NULL,
+					0,
+					0,
+					NSS_CRYPTO_MAX_BLKLEN_NULL,
 					0,
 					NSS_CFI_OCF_ALGO_TYPE_IS_CIPHER
 				}
@@ -141,6 +163,7 @@ static int nss_cfi_ocf_newsession(device_t dev, uint32_t *sidp, struct cryptoini
 	struct cryptoini *auth_ini = NULL;
 	nss_crypto_status_t status;
 	int alg;
+	struct nss_cfi_crypto_info cfi_crypto = {.cipher_algo = NSS_CRYPTO_CIPHER_NULL, .auth_algo = NSS_CRYPTO_AUTH_NULL};
 
 	nss_cfi_assert(sidp != NULL);
 	nss_cfi_assert(cri != NULL);
@@ -206,7 +229,7 @@ static int nss_cfi_ocf_newsession(device_t dev, uint32_t *sidp, struct cryptoini
 		break;
 
 	default:
-		nss_cfi_err("wrong algo %d\n",alg);
+		nss_cfi_err("wrong algo %d\n", alg);
 		return EINVAL;
 	}
 
@@ -214,6 +237,8 @@ static int nss_cfi_ocf_newsession(device_t dev, uint32_t *sidp, struct cryptoini
 		cip.key_len = cip_ini->cri_klen;
 		cip.algo = cfi_algo[cip_ini->cri_alg].core_algo;
 		cip.key = cip_ini->cri_key;
+
+		cfi_crypto.cipher_algo = cip.algo;
 
 		cip_ptr = &cip;
 
@@ -225,6 +250,9 @@ static int nss_cfi_ocf_newsession(device_t dev, uint32_t *sidp, struct cryptoini
 		auth.algo = cfi_algo[auth_ini->cri_alg].core_algo;
 		auth.key = auth_ini->cri_key;
 
+		cfi_crypto.auth_algo = auth.algo;
+		cfi_crypto.hash_len = cfi_algo[auth_ini->cri_alg].max_hashlen;
+
 		auth_ptr = &auth;
 
 		nss_cfi_info("auth algo received %d, sent %d\n",auth_ini->cri_alg, auth.algo);
@@ -235,6 +263,9 @@ static int nss_cfi_ocf_newsession(device_t dev, uint32_t *sidp, struct cryptoini
 		nss_cfi_err("unable to allocate session: status %d\n", status);
 		return EINVAL;
 	}
+
+	cfi_crypto.sid = *sidp;
+	memcpy(&gbl_crypto_info[*sidp], &cfi_crypto, sizeof(struct nss_cfi_crypto_info));
 
 	return 0;
 }
@@ -250,6 +281,7 @@ static int nss_cfi_ocf_freesession(device_t dev, uint64_t tid)
 
 	sc->session_fn(sid);
 
+	memset(&gbl_crypto_info[sid], 0, sizeof(struct nss_cfi_crypto_info));
 	nss_cfi_info("freeing index %d\n",sid);
 
 	status = nss_crypto_session_free(sc->crypto, sid);
@@ -273,7 +305,7 @@ static void nss_cfi_ocf_process_done(struct nss_crypto_buf *buf)
 	crp = (struct cryptop *)buf->cb_ctx;
 
 	if (nss_crypto_buf_check_req_type(buf, NSS_CRYPTO_BUF_REQ_DECRYPT)) {
-		g_cfi_ocf.decrypt_fn((struct sk_buff *)crp->crp_buf, buf->session_idx);
+		g_cfi_ocf.decrypt_fn((struct sk_buff *)crp->crp_buf, &gbl_crypto_info[buf->session_idx]);
 	}
 
 	nss_crypto_buf_free(g_cfi_ocf.crypto, buf);
@@ -404,9 +436,6 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 			if (!(cip_crd->crd_flags & CRD_F_IV_PRESENT)) {
 				get_random_bytes((data + cip_crd->crd_inject), ivsize);
 			}
-
-			sc->encrypt_fn((struct sk_buff *)crp->crp_buf, buf->session_idx);
-
 			flag = NSS_CRYPTO_BUF_REQ_ENCRYPT;
 		}
 
@@ -428,9 +457,17 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 		buf->auth_len = auth_crd->crd_len;
 		buf->auth_skip = auth_crd->crd_skip;
 		buf->hash_offset = auth_crd->crd_inject;
+		gbl_crypto_info[buf->session_idx].hash_len = buf->hash_len;
 
 		nss_cfi_dbg("auth len %d auth skip %d hash_offset %d\n",
 				buf->auth_len, buf->auth_skip, buf->hash_offset);
+	}
+
+	/*
+	 * If packet is for encryption call the registered trap function
+	 */
+	if (cip_crd->crd_flags & CRD_F_ENCRYPT) {
+		sc->encrypt_fn((struct sk_buff *)crp->crp_buf, &gbl_crypto_info[buf->session_idx]);
 	}
 
 	flag |= NSS_CRYPTO_BUF_REQ_HOST;
