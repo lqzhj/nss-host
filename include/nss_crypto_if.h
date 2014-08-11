@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -57,8 +57,18 @@ enum nss_crypto_max_keylen {
  * @brief max IV lengths for algorithms supported by the H/W
  */
 enum nss_crypto_max_ivlen {
+	NSS_CRYPTO_MAX_IVLEN_NULL = 0,		/**< amx IV size for NULL (bytes) */
 	NSS_CRYPTO_MAX_IVLEN_DES = 8,		/**< max IV size for DES (bytes) */
 	NSS_CRYPTO_MAX_IVLEN_AES = 16,		/**< max IV size for AES (bytes) */
+};
+
+/**
+ * @brief supported cipher algorithms block lengths
+ */
+enum nss_crypto_max_blocklen {
+	NSS_CRYPTO_MAX_BLKLEN_NULL = 4,		/**< max block length for NULL (bytes) */
+	NSS_CRYPTO_MAX_BLKLEN_DES = 8,		/**< max block length for DES (bytes) */
+	NSS_CRYPTO_MAX_BLKLEN_AES = 16,		/**< max block length for AES (bytes) */
 };
 
 /**
@@ -86,6 +96,7 @@ enum nss_crypto_cipher {
 	NSS_CRYPTO_CIPHER_NONE = 0,		/**< Cipher not required*/
 	NSS_CRYPTO_CIPHER_AES,			/**< AES, CBC for 128-bit & 256-bit key sizes*/
 	NSS_CRYPTO_CIPHER_DES,			/**< DES, CBC for 64-bit key size */
+	NSS_CRYPTO_CIPHER_NULL,			/**< NULL, CBC */
 	NSS_CRYPTO_CIPHER_MAX
 };
 
@@ -93,9 +104,10 @@ enum nss_crypto_cipher {
  * @brief supported authentication algorithms
  */
 enum nss_crypto_auth {
-	NSS_CRYPTO_AUTH_NONE = 0,		/**< Authentication not required*/
-	NSS_CRYPTO_AUTH_SHA1_HMAC,		/**< SHA1_HMAC,160-bit key*/
-	NSS_CRYPTO_AUTH_SHA256_HMAC,		/**< SHA256_HMAC,256-bit key*/
+	NSS_CRYPTO_AUTH_NONE = 0,		/**< Authentication not required */
+	NSS_CRYPTO_AUTH_SHA1_HMAC,		/**< SHA1_HMAC,160-bit key */
+	NSS_CRYPTO_AUTH_SHA256_HMAC,		/**< SHA256_HMAC,256-bit key */
+	NSS_CRYPTO_AUTH_NULL,			/**< NULL Authentication */
 	NSS_CRYPTO_AUTH_MAX
 };
 
@@ -144,84 +156,6 @@ struct nss_crypto_key {
 	uint8_t *key;			/**< location of the key stored in memory */
 };
 
-#if 0
-/**
- * @brief crypto session index type
- */
-struct nss_crypto_idx {
-	uint16_t pp_num; 		/**< pipe pair index number */
-	uint16_t cmd0_len;		/**< cmd0 block length, as this varies per session */
-	uint32_t cblk_paddr;		/**< cmd block phy_addr */
-};
-
-/**
- * @brief open engine message sent to NSS when each is probed
- */
-struct nss_crypto_config_eng {
-	uint32_t eng_id;				/**< engine number to open */
-	uint32_t bam_pbase;				/**< BAM base addr (physical) */
-	uint32_t crypto_pbase;				/**< Crypto base addr (physical) */
-	uint32_t desc_paddr[NSS_CRYPTO_BAM_PP];		/**< pipe desc addr (physical) */
-	struct nss_crypto_idx idx[NSS_CRYPTO_MAX_IDXS];	/**< allocated ession indexes */
-};
-
-/**
- * @brief Reset session related state in NSS
- */
-struct nss_crypto_config_session {
-	uint32_t idx;					/*< session idx on which will be reset */
-};
-
-/**
- * @brief Config message sent to NSS
- */
-struct nss_crypto_config {
-	uint32_t type;					/*< Config type */
-
-	union {
-		struct nss_crypto_config_eng eng;		/*< open engine msg structure */
-		struct nss_crypto_config_session session;	/*< reset stats msg structure */
-	} msg;
-};
-
-/**
- * @brief crypto statistics
- */
-struct nss_crypto_stats {
-	uint32_t queued;	/**< no. of queued frames */
-	uint32_t completed;	/**< no. of completed frames */
-	uint32_t dropped;	/**< no. of dropped frames */
-};
-
-/**
- * @brief statistic sync structure
- */
-struct nss_crypto_sync_stats {
-	struct nss_crypto_stats eng[NSS_CRYPTO_ENGINES];	/**< engine stats */
-	struct nss_crypto_stats idx[NSS_CRYPTO_MAX_IDXS];	/**< session stats */
-	struct nss_crypto_stats total;				/**< Total stats */
-};
-
-/**
- * @brief engine sync structure
- */
-struct nss_crypto_sync_eng {
-	uint32_t eng_id;			/**< Engine number */
-};
-
-/**
- * @brief crypto sync message
- */
-struct nss_crypto_sync {
-	uint32_t type;				/**< sync message type */
-
-	union {
-		struct nss_crypto_sync_eng eng;	/**< engine configuration sync */
-		struct nss_crypto_sync_stats stats;	/**< statistics sync */
-	} msg;
-};
-
-#endif
 /**
  * @brief crypto request buffer for doing operation with the crypto driver
  *
