@@ -24,9 +24,11 @@ static void nss_tun6rd_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_
 {
 	struct nss_tun6rd_msg *ntm = (struct nss_tun6rd_msg *)ncm;
 	void *ctx;
+
 	nss_tun6rd_msg_callback_t cb;
 
-	BUG_ON(ncm->interface != NSS_TUN6RD_INTERFACE);
+	BUG_ON(!nss_is_dynamic_interface(ncm->interface));
+
 	/*
 	 * Is this a valid request/response packet?
 	 */
@@ -77,7 +79,6 @@ static void nss_tun6rd_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_
 	cb(ctx, ntm);
 }
 
-
 /*
  * nss_tun6rd_tx()
  * 	Transmit a tun6rd message to NSSFW
@@ -98,7 +99,7 @@ nss_tx_status_t nss_tun6rd_tx(struct nss_ctx_instance *nss_ctx, struct nss_tun6r
 	/*
 	 * Sanity check the message
 	 */
-	if (ncm->interface != NSS_TUN6RD_INTERFACE) {
+	if (!nss_is_dynamic_interface(ncm->interface)) {
 		nss_warning("%p: tx request for another interface: %d", nss_ctx, ncm->interface);
 		return NSS_TX_FAILURE;
 	}
@@ -151,17 +152,26 @@ nss_tx_status_t nss_tun6rd_tx(struct nss_ctx_instance *nss_ctx, struct nss_tun6r
 /*
  * nss_register_tun6rd_if()
  */
-struct nss_ctx_instance *nss_register_tun6rd_if(uint32_t if_num,
-                                nss_tun6rd_callback_t tun6rd_callback,
-                                nss_tun6rd_msg_callback_t event_callback, struct net_device *netdev)
+struct nss_ctx_instance *nss_register_tun6rd_if(uint32_t if_num, nss_tun6rd_callback_t tun6rd_callback,
+			nss_tun6rd_msg_callback_t event_callback, struct net_device *netdev)
 {
-        nss_assert((if_num >= NSS_MAX_VIRTUAL_INTERFACES) && (if_num < NSS_MAX_NET_INTERFACES));
+	nss_assert((if_num >=  NSS_DYNAMIC_IF_START) && (if_num < NSS_SPECIAL_IF_START));
 
-        nss_top_main.if_ctx[if_num] = netdev;
-        nss_top_main.if_rx_callback[if_num] = tun6rd_callback;
-        nss_top_main.tun6rd_msg_callback = event_callback;
+	nss_top_main.if_ctx[if_num] = netdev;
+	nss_top_main.if_rx_callback[if_num] = tun6rd_callback;
+	nss_top_main.tun6rd_msg_callback = event_callback;
 
-        return (struct nss_ctx_instance *)&nss_top_main.nss[nss_top_main.tun6rd_handler_id];
+	nss_core_register_handler(if_num, nss_tun6rd_handler, NULL);
+
+	return (struct nss_ctx_instance *)&nss_top_main.nss[nss_top_main.tun6rd_handler_id];
+}
+
+/*
+ * nss_get_tun6rd_context()
+ */
+struct nss_ctx_instance * nss_tun6rd_get_context()
+{
+	return (struct nss_ctx_instance *)&nss_top_main.nss[nss_top_main.tun6rd_handler_id];
 }
 
 /*
@@ -169,22 +179,16 @@ struct nss_ctx_instance *nss_register_tun6rd_if(uint32_t if_num,
  */
 void nss_unregister_tun6rd_if(uint32_t if_num)
 {
-        nss_assert((if_num >= NSS_MAX_VIRTUAL_INTERFACES) && (if_num < NSS_MAX_NET_INTERFACES));
+	nss_assert(nss_is_dynamic_interface(ncm->interface));
 
-        nss_top_main.if_rx_callback[if_num] = NULL;
-        nss_top_main.if_ctx[if_num] = NULL;
-        nss_top_main.tun6rd_msg_callback = NULL;
+	nss_top_main.if_rx_callback[if_num] = NULL;
+	nss_top_main.if_ctx[if_num] = NULL;
+	nss_top_main.tun6rd_msg_callback = NULL;
+
+	nss_core_unregister_handler(if_num);
 }
 
-/*
- * nss_tun6rd_register_handler()
- */
-void nss_tun6rd_register_handler()
-{
-	nss_core_register_handler(NSS_TUN6RD_INTERFACE, nss_tun6rd_handler, NULL);
-}
-
-
+EXPORT_SYMBOL(nss_tun6rd_get_context);
 EXPORT_SYMBOL(nss_tun6rd_tx);
 EXPORT_SYMBOL(nss_register_tun6rd_if);
 EXPORT_SYMBOL(nss_unregister_tun6rd_if);

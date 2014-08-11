@@ -370,7 +370,6 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 
 	if (npd->tun6rd_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->tun6rd_handler_id = nss_dev->id;
-		nss_tun6rd_register_handler();
 	}
 
 	if (npd->tunipip6_enabled == NSS_FEATURE_ENABLED) {

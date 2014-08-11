@@ -336,5 +336,15 @@ void nss_dynamic_interface_register_handler(void)
 	di.current_if_num = -1;
 }
 
+/*
+ * nss_is_dynamic_interface()
+ *	Judge it is a valid dynamic interface
+ */
+bool nss_is_dynamic_interface(int if_num)
+{
+	return (if_num >= NSS_DYNAMIC_IF_START && if_num < NSS_SPECIAL_IF_START);
+}
+
 EXPORT_SYMBOL(nss_dynamic_interface_alloc_node);
 EXPORT_SYMBOL(nss_dynamic_interface_dealloc_node);
+EXPORT_SYMBOL(nss_is_dynamic_interface);
