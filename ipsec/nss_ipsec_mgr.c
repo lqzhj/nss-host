@@ -661,7 +661,7 @@ static int32_t nss_ipsec_trap_decap(struct sk_buff *skb, uint32_t crypto_sid)
  * exception function called by NSS HLOS driver when it receives
  * a packet for exception with the interface number for decap
  */
-static void nss_ipsec_data_cb(void *app_data, void *os_buf)
+static void nss_ipsec_data_cb(void *app_data, void *os_buf, __attribute__((unused)) struct napi_struct *napi)
 {
 	struct net_device *dev = gbl_except_dev;
 	struct sk_buff *skb = (struct sk_buff *)os_buf;
