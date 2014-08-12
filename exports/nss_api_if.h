@@ -50,6 +50,7 @@
 #include "nss_pppoe.h"
 #include "nss_crypto.h"
 #include "nss_profiler.h"
+#include "nss_dynamic_interface.h"
 
 /*
  * Interface numbers are reserved in the
@@ -57,10 +58,14 @@
  * 	Physical
  * 	Virtual
  *	Tunnel
+ *	Dynamic
  *	Special
  *
  * Interfaces starting from 'Special' do
  * not have statistics associated with them.
+ * This is just an intermediate number for dynamic interfaces.
+ * once all virtual and tunnel interfaces are converted to
+ * dynamic interfaces, they will be added to dynamic interfaces.
  */
 
 /*
@@ -68,8 +73,9 @@
  */
 #define NSS_MAX_PHYSICAL_INTERFACES 4
 #define NSS_MAX_VIRTUAL_INTERFACES 16
-#define NSS_MAX_TUNNEL_INTERFACES 12
+#define NSS_MAX_TUNNEL_INTERFACES 4
 #define NSS_MAX_SPECIAL_INTERFACES 24
+#define NSS_MAX_DYNAMIC_INTERFACES 3
 
 /**
  * Start of individual interface groups
@@ -77,7 +83,8 @@
 #define NSS_PHYSICAL_IF_START 0
 #define NSS_VIRTUAL_IF_START (NSS_PHYSICAL_IF_START + NSS_MAX_PHYSICAL_INTERFACES)
 #define NSS_TUNNEL_IF_START (NSS_VIRTUAL_IF_START + NSS_MAX_VIRTUAL_INTERFACES)
-#define NSS_SPECIAL_IF_START (NSS_TUNNEL_IF_START + NSS_MAX_TUNNEL_INTERFACES)
+#define NSS_DYNAMIC_IF_START (NSS_TUNNEL_IF_START + NSS_MAX_TUNNEL_INTERFACES)
+#define NSS_SPECIAL_IF_START (NSS_DYNAMIC_IF_START + NSS_MAX_DYNAMIC_INTERFACES)
 
 /**
  * Tunnel interface numbers
@@ -101,6 +108,7 @@
 #define NSS_LAG1_INTERFACE_NUM (NSS_SPECIAL_IF_START + 11) /* Special IF number for LAG1 */
 #define NSS_C2C_TX_INTERFACE (NSS_SPECIAL_IF_START + 12) /* Virtual Interface Number for IPSec Tunnel */
 #define NSS_COREFREQ_INTERFACE (NSS_SPECIAL_IF_START + 19) /* Virtual Interface Number for Corefreq */
+#define NSS_DYNAMIC_INTERFACE (NSS_SPECIAL_IF_START + 20) /* Special Interface Number for Dynamic Interfaces */
 
 /**
  * This macro converts format for IPv6 address (from Linux to NSS)

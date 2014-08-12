@@ -93,7 +93,7 @@
  * NSS max values supported
  */
 #define NSS_MAX_CORES 2
-#define NSS_MAX_DEVICE_INTERFACES (NSS_MAX_PHYSICAL_INTERFACES + NSS_MAX_VIRTUAL_INTERFACES + NSS_MAX_TUNNEL_INTERFACES)
+#define NSS_MAX_DEVICE_INTERFACES (NSS_MAX_PHYSICAL_INTERFACES + NSS_MAX_VIRTUAL_INTERFACES + NSS_MAX_TUNNEL_INTERFACES + NSS_MAX_DYNAMIC_INTERFACES)
 #define NSS_MAX_NET_INTERFACES (NSS_MAX_DEVICE_INTERFACES + NSS_MAX_SPECIAL_INTERFACES)
 
 #define NSS_DEVICE_IF_START NSS_PHYSICAL_IF_START
@@ -543,6 +543,8 @@ struct nss_top_instance {
 					/* Registrants for bridge shaper bounce operations */
 	nss_lag_event_callback_t lag_event_callback;
 
+	uint32_t dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_MAX];
+
 	/*
 	 * Interface contexts (non network device)
 	 */
@@ -702,6 +704,7 @@ extern int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t i
 extern int32_t nss_core_send_crypto(struct nss_ctx_instance *nss_ctx, void *buf, uint32_t buf_paddr, uint16_t len);
 extern void nss_wq_function( struct work_struct *work);
 extern uint32_t nss_core_register_handler(uint32_t interface, nss_core_rx_callback_t cb, void *app_data);
+extern uint32_t nss_core_unregister_handler(uint32_t interface);
 
 /*
  * APIs provided by nss_tx_rx.c
