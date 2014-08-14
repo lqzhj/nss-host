@@ -137,7 +137,7 @@ typedef void (*nss_phys_if_msg_callback_t)(void *app_data, struct nss_phys_if_ms
  *
  * @return void
  */
-typedef void (*nss_phys_if_rx_callback_t)(void *app_data, void *os_buf);
+typedef void (*nss_phys_if_rx_callback_t)(void *app_data, void *os_buf, struct napi_struct *napi);
 
 /**
  * @brief Get NAPI context

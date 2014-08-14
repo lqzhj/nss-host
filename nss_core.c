@@ -495,7 +495,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 					/*
 					 * Packet was received on Physical interface
 					 */
-					cb(ctx, (void *)nbuf);
+					cb(ctx, (void *)nbuf, &(int_ctx->napi));
 				} else if (NSS_IS_IF_TYPE(VIRTUAL, interface_num)) {
 					/*
 					 * Packet was received on Virtual interface

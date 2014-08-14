@@ -66,7 +66,7 @@
 #define nss_tunipip6_trace(fmt, args...) printk(KERN_DEBUG "nss tunipip6 :"fmt, ##args)
 #endif
 
-void nss_tunipip6_exception(void *ctx, void *buf);
+void nss_tunipip6_exception(void *ctx, void *buf, __attribute__((unused)) struct napi_struct *napi);
 void nss_tunipip6_event_receive(void *ctx, struct nss_tunipip6_msg *msg);
 
 /*
@@ -288,7 +288,7 @@ static int nss_tunipip6_dev_event(struct notifier_block  *nb,
  * nss_tunipip6_exception()
  *	Exception handler registered to NSS driver
  */
-void nss_tunipip6_exception(void *ctx, void *buf)
+void nss_tunipip6_exception(void *ctx, void *buf, __attribute__((unused)) struct napi_struct *napi)
 {
 	struct net_device *dev = (struct net_device *)ctx;
 	struct sk_buff *skb = (struct sk_buff *)buf;
