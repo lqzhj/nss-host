@@ -25,6 +25,35 @@
 extern int nss_ctl_redirect;
 
 /*
+ * nss_register_virt_if()
+ */
+void *nss_register_virt_if(void *ctx,
+				nss_virt_if_rx_callback_t rx_callback,
+				struct net_device *if_ctx)
+{
+	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[nss_top_main.ipv4_handler_id];
+	int32_t if_num = (int32_t)ctx;
+
+	nss_assert(NSS_IS_IF_TYPE(VIRTUAL, if_num));
+
+	nss_top_main.if_ctx[if_num] = (void *)if_ctx;
+	nss_top_main.if_rx_callback[if_num] = rx_callback;
+
+	return nss_ctx;
+}
+
+/*
+ * nss_unregister_virt_if()
+ */
+void nss_unregister_virt_if(void *ctx)
+{
+	int32_t if_num = (int32_t)ctx;
+
+	nss_assert(NSS_IS_IF_TYPE(VIRTUAL, if_num));
+	nss_top_main.if_rx_callback[if_num] = NULL;
+}
+
+/*
  * nss_tx_virt_if_recvbuf()
  *	HLOS interface has received a packet which we redirect to the NSS, if appropriate to do so.
  */
@@ -242,5 +271,6 @@ EXPORT_SYMBOL(nss_tx_virt_if_rxbuf);
 EXPORT_SYMBOL(nss_tx_virt_if_rx_nwifibuf);
 EXPORT_SYMBOL(nss_create_virt_if);
 EXPORT_SYMBOL(nss_destroy_virt_if);
-
+EXPORT_SYMBOL(nss_register_virt_if);
+EXPORT_SYMBOL(nss_unregister_virt_if);
 

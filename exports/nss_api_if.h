@@ -874,6 +874,32 @@ extern nss_tx_status_t nss_tx_phys_if_get_napi_ctx(void *nss_ctx, struct napi_st
  */
 
 /**
+ * Callback to receive virtual packets
+ */
+typedef void (*nss_virt_if_rx_callback_t)(void *if_ctx, void *os_buf, struct napi_struct *napi);
+
+/**
+ * @brief Register to send/receive virtual packets/messages
+ *
+ * @param ctx Context provided by NSS driver during creation
+ * @param rx_callback Receive callback for packets
+ * @param if_ctx Interface context provided in callback
+ *		(must be OS network device context pointer e.g.
+ *		struct net_device * in Linux)
+ *
+ * @return struct napi_struct * NSS NAPI context
+ */
+extern void *nss_register_virt_if(void *ctx, nss_virt_if_rx_callback_t rx_callback,
+					struct net_device *if_ctx);
+
+/**
+ * @brief Unregister virtual handlers with NSS driver
+ *
+ * @param ctx Context provided by NSS driver during creation
+ */
+extern void nss_unregister_virt_if(void *ctx);
+
+/**
  * @brief Create virtual interface (VAPs)
  *
  * @param if_ctx Interface context

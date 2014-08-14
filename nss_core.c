@@ -1081,6 +1081,8 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 
 		if (likely(nbuf->ip_summed == CHECKSUM_PARTIAL)) {
 			bit_flags |= H2N_BIT_FLAG_GEN_IP_TRANSPORT_CHECKSUM;
+		} else if (nbuf->ip_summed == CHECKSUM_UNNECESSARY) {
+			bit_flags |= H2N_BIT_FLAG_GEN_IP_TRANSPORT_CHECKSUM_NONE;
 		}
 
 		desc->buffer_type = buffer_type;
