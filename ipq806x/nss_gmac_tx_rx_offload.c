@@ -167,7 +167,7 @@ static void nss_gmac_stats_receive(nss_gmac_dev *gmacdev,
  * @param[in] pointer to skb
  * @return Returns void
  */
-void nss_gmac_receive(void *if_ctx, void *os_buf)
+void nss_gmac_receive(void *if_ctx, void *os_buf, struct napi_struct *napi)
 {
 	struct net_device *netdev;
 	struct sk_buff *skb;
@@ -187,7 +187,7 @@ void nss_gmac_receive(void *if_ctx, void *os_buf)
 		      "%s: Rx on gmac%d, packet len %d, CSUM %d",
 		      __FUNCTION__, gmacdev->macid, skb->len, skb->ip_summed);
 
-	napi_gro_receive(gmacdev->napi, skb);
+	napi_gro_receive(napi, skb);
 }
 
 
