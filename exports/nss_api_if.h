@@ -36,6 +36,7 @@
 #include <linux/if_ether.h>
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
+#include "nss_skb_recycler.h"
 #include "nss_cmn.h"
 #include "nss_tun6rd.h"
 #include "nss_tunipip6.h"

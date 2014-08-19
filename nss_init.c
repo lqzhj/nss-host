@@ -955,6 +955,8 @@ static int __init nss_init(void)
 		nss_warning("Error registering with PM driver");
 	}
 
+	nss_skb_recycler_init();
+
 	/*
 	 * Register platform_driver
 	 */
