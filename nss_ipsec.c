@@ -226,6 +226,7 @@ nss_tx_status_t nss_ipsec_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_ip
 
 	return NSS_TX_SUCCESS;
 }
+EXPORT_SYMBOL(nss_ipsec_tx_msg);
 
 /*
  **********************************
@@ -255,6 +256,7 @@ struct nss_ctx_instance *nss_ipsec_notify_register(uint32_t if_num, nss_ipsec_ms
 
 	return nss_ctx;
 }
+EXPORT_SYMBOL(nss_ipsec_notify_register);
 
 /*
  * nss_ipsec_notify_unregister()
@@ -272,6 +274,7 @@ void nss_ipsec_notify_unregister(struct nss_ctx_instance *nss_ctx, uint32_t if_n
 		return;
 	}
 }
+EXPORT_SYMBOL(nss_ipsec_notify_unregister);
 
 /*
  * nss_ipsec_data_register()
@@ -293,6 +296,7 @@ struct nss_ctx_instance *nss_ipsec_data_register(uint32_t if_num, nss_ipsec_buf_
 
 	return nss_ctx;
 }
+EXPORT_SYMBOL(nss_ipsec_data_register);
 
 /*
  * nss_ipsec_data_unregister()
@@ -308,6 +312,17 @@ void nss_ipsec_data_unregister(struct nss_ctx_instance *nss_ctx, uint32_t if_num
 	nss_ctx->nss_top->if_ctx[if_num] = NULL;
 	nss_ctx->nss_top->if_rx_callback[if_num] = NULL;
 }
+EXPORT_SYMBOL(nss_ipsec_data_unregister);
+
+/*
+ * nss_ipsec_get_ctx()
+ * 	get NSS context instance for IPsec handle
+ */
+struct nss_ctx_instance *nss_ipsec_get_context(void)
+{
+	return &nss_top_main.nss[nss_top_main.ipsec_handler_id];
+}
+EXPORT_SYMBOL(nss_ipsec_get_context);
 
 /*
  * nss_ipsec_register_handler()
@@ -323,8 +338,3 @@ void nss_ipsec_register_handler()
 	nss_core_register_handler(NSS_IPSEC_DECAP_IF_NUMBER, nss_ipsec_msg_handler, NULL);
 }
 
-EXPORT_SYMBOL(nss_ipsec_notify_register);
-EXPORT_SYMBOL(nss_ipsec_notify_unregister);
-EXPORT_SYMBOL(nss_ipsec_data_register);
-EXPORT_SYMBOL(nss_ipsec_data_unregister);
-EXPORT_SYMBOL(nss_ipsec_tx_msg);
