@@ -25,9 +25,47 @@
 /**
  * @file Interface to communicate OCF specific data to Core specific data.
  */
+#define NSS_CFI_DEBUG_LVL_ERROR 1
+#define NSS_CFI_DEBUG_LVL_WARN 2
+#define NSS_CFI_DEBUG_LVL_INFO 3
+#define NSS_CFI_DEBUG_LVL_TRACE 4
 
-#define nss_cfi_info(fmt, arg...)    printk(KERN_INFO "<NSS-CFI>:" fmt, ## arg)
-#define nss_cfi_err(fmt, arg...)     printk(KERN_ERR "<NSS-CFI>:" fmt, ## arg)
+
+#if defined(CONFIG_DYNAMIC_DEBUG)
+/*
+ * Compile messages for dynamic enable/disable
+ */
+#define nss_cfi_err(s, ...) pr_debug("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define nss_cfi_warn(s, ...) pr_debug("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define nss_cfi_info(s, ...) pr_debug("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define nss_cfi_trace(s, ...) pr_debug("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+
+#else
+/*
+ * Statically compile messages at different levels
+ */
+#define nss_cfi_err(s, ...) {	\
+	if (NSS_CFI_DEBUG_LEVEL < NSS_CFI_DEBUG_LVL_ERROR) {	\
+		pr_alert("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__);	\
+	}	\
+}
+#define nss_cfi_warn(s, ...) {	\
+	if (NSS_CFI_DEBUG_LEVEL < NSS_CFI_DEBUG_LVL_WARN) {	\
+		pr_warn("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__);	\
+	}	\
+}
+#define nss_cfi_info(s, ...) {	\
+	if (NSS_CFI_DEBUG_LEVEL < NSS_CFI_DEBUG_LVL_INFO) {	\
+		pr_notice("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__);	\
+	}	\
+}
+#define nss_cfi_trace(s, ...) {	\
+	if (NSS_CFI_DEBUG_LEVEL < NSS_CFI_DEBUG_LVL_TRACE) {	\
+		pr_info("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__);	\
+	}	\
+}
+
+#endif /* !CONFIG_DYNAMIC_DEBUG */
 
 #if !defined (CONFIG_NSS_CFI_DBG)
 #define nss_cfi_assert(expr)
