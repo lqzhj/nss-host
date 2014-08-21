@@ -51,6 +51,7 @@
 #include "nss_crypto.h"
 #include "nss_profiler.h"
 #include "nss_dynamic_interface.h"
+#include "nss_gre_redir.h"
 
 /*
  * Interface numbers are reserved in the
@@ -109,6 +110,7 @@
 #define NSS_C2C_TX_INTERFACE (NSS_SPECIAL_IF_START + 12) /* Virtual Interface Number for IPSec Tunnel */
 #define NSS_COREFREQ_INTERFACE (NSS_SPECIAL_IF_START + 19) /* Virtual Interface Number for Corefreq */
 #define NSS_DYNAMIC_INTERFACE (NSS_SPECIAL_IF_START + 20) /* Special Interface Number for Dynamic Interfaces */
+#define NSS_GRE_REDIR_INTERFACE (NSS_SPECIAL_IF_START + 21) /* Interface Number for GRE REDIR base interface */
 
 /**
  * This macro converts format for IPv6 address (from Linux to NSS)
@@ -658,6 +660,11 @@ typedef enum {
 /**
  * General utilities
  */
+
+/*
+ * General callback function for all interface messages.
+ */
+typedef void (*nss_if_rx_msg_callback_t)(void *app_data, struct nss_cmn_msg *msg);
 
 /**
  * Methods provided by NSS device driver for use by connection tracking logic for IPv4.

@@ -40,7 +40,7 @@ enum nss_ipv4_message_types {
 };
 
 /**
- * NA IPv4 rule creation flags.
+ * NA IPv4 rule creation & rule update flags.
  */
 #define NSS_IPV4_RULE_CREATE_FLAG_NO_SEQ_CHECK 0x01
 					/**< Do not perform TCP sequence number checks */
@@ -52,6 +52,8 @@ enum nss_ipv4_message_types {
 					/**< Rule has for a DSCP marking configured*/
 #define NSS_IPV4_RULE_CREATE_FLAG_VLAN_MARKING 0x10
 					/**< Rule has for a VLAN marking configured*/
+#define NSS_IPV4_RULE_UPDATE_FLAG_CHANGE_MTU 0x20
+					/**< Update MTU of connection interfaces */
 
 /**
  * IPv4 rule creation validity flags.

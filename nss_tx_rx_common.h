@@ -76,6 +76,7 @@ extern void nss_core_freq_register_handler(void);
 extern void nss_eth_rx_register_handler(void);
 extern void nss_lag_register_handler(void);
 extern void nss_dynamic_interface_register_handler(void);
+extern void nss_gre_redir_register_handler(void);
 
 /*
  * nss_if_msg_handler()

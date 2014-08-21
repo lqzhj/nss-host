@@ -378,6 +378,12 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 		nss_tunipip6_register_handler();
 	}
 
+	if (npd->gre_redir_enabled == NSS_FEATURE_ENABLED) {
+		nss_top->gre_redir_handler_id = nss_dev->id;
+		nss_top->dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_GRE_REDIR] =  nss_dev->id;
+		nss_gre_redir_register_handler();
+	}
+
 	if (npd->gmac_enabled[0] == NSS_FEATURE_ENABLED) {
 		nss_top->phys_if_handler_id[0] = nss_dev->id;
 		nss_phys_if_register_handler(0);
