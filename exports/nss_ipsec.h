@@ -100,15 +100,17 @@ struct nss_ipsec_rule_oip {
  * @brief IPsec rule data to be used for per packet transformation
  */
 struct nss_ipsec_rule_data {
-	uint16_t esp_iv_len;		/**< ESP header's IV length to apply */
-	uint16_t esp_icv_len;		/**< ESP trailers ICV length to apply */
 
-	uint16_t crypto_blk_len;	/**< crypto block len for the SA */
 	uint16_t crypto_index;		/**< crypto index for the SA */
 	uint16_t window_size;		/**< ESP sequence number window */
 
-	uint8_t nat_t_req;		/**< NAT-T required */
+	uint8_t cipher_algo;		/**< Cipher algorithm */
+	uint8_t auth_algo;		/**< Authentication algorithm */
 	uint8_t esp_seq_skip;		/**< Skip ESP sequence number */
+	uint8_t esp_icv_len;		/**< ESP trailers ICV length to apply */
+
+	uint8_t nat_t_req;		/**< NAT-T required */
+	uint8_t res[3];			/**< Reserve bytes for alignment */
 };
 
 /*

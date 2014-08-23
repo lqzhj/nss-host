@@ -57,16 +57,17 @@ struct nss_ipsecmgr_encap_add {
 	uint16_t inner_src_port;	/**< inner protocol's source port */
 	uint16_t inner_dst_port;	/**< inner protocol's destination port */
 
-	uint16_t esp_iv_len;		/**< ESP header's IV length {8 or 16 bytes} */
-	uint16_t esp_icv_len;		/**< ESP trailer's ICV length */
-
-	uint16_t crypto_blk_len;	/**< Block length of the crypto algorithm */
 	uint16_t crypto_index;		/**< crypto session index returned by the driver */
+	uint8_t cipher_algo;		/**< Cipher algorithm */
+	uint8_t auth_algo;		/**< Authentication algorithm */
 
 	uint8_t nat_t_req;		/**< apply NAT-T header */
 	uint8_t inner_ipv4_proto;	/**< inner IPv4 protocol */
 	uint8_t outer_ipv4_ttl;		/**< outer IPv4 time to live */
+	uint8_t esp_icv_len;		/**< ESP trailer's ICV length */
+
 	uint8_t esp_seq_skip;		/**< Skip ESP sequence number in header*/
+	uint8_t res[3];			/**< reserve for 4-byte alignment */
 };
 
 /**
@@ -92,14 +93,13 @@ struct nss_ipsecmgr_decap_add {
 
 	uint32_t esp_spi;		/**< ESP header's SPI index */
 
-	uint16_t esp_iv_len;		/**< ESP header's IV length {8 or 16 bytes} */
-	uint16_t esp_icv_len;		/**< ESP trailer's ICV length */
-
-	uint16_t crypto_blk_len;	/**< Block length of the crypto algorithm */
 	uint16_t crypto_index;		/**< crypto session index returned by the driver */
-
 	uint16_t window_size;		/**< sequence number window size for anti-replay */
-	uint8_t res[2];			/**< reserve for 4-byte alignment */
+
+	uint8_t cipher_algo;		/**< Cipher algorithm */
+	uint8_t auth_algo;		/**< Authentication algorithm */
+	uint8_t esp_icv_len;		/**< ESP trailer's ICV length */
+	uint8_t res[1];			/**< reserve for 4-byte alignment */
 };
 
 /**
