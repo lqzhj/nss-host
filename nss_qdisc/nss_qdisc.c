@@ -16,7 +16,11 @@
 
 #include "nss_qdisc.h"
 
-void *nss_qdisc_ctx;		/* Shaping context for nss_qdisc */
+void *nss_qdisc_ctx;			/* Shaping context for nss_qdisc */
+wait_queue_head_t nss_qdics_wq;			/* Wait queue used to wait on responses from the NSS */
+
+#define NSS_QDISC_COMMAND_TIMEOUT 5*HZ	/* We set 5sec to be the timeout value for responses to */
+					/* come back from the NSS */
 
 /*
  * nss_qdisc_get_interface_msg()
@@ -1879,6 +1883,7 @@ static void nss_qdisc_basic_stats_callback(void *app_data,
 
 	if (atomic_read(refcnt) == 0) {
 		atomic_sub(1, &nq->pending_stat_requests);
+		wake_up(&nss_qdics_wq);
 		return;
 	}
 
@@ -1919,6 +1924,7 @@ static void nss_qdisc_get_stats_timer_callback(unsigned long int data)
 		nss_qdisc_error("%s: %p: basic stats get failed to send\n",
 				__func__, nq->qdisc);
 		atomic_sub(1, &nq->pending_stat_requests);
+		wake_up(&nss_qdics_wq);
 	}
 }
 
@@ -1943,10 +1949,24 @@ void nss_qdisc_start_basic_stats_polling(struct nss_qdisc *nq)
 void nss_qdisc_stop_basic_stats_polling(struct nss_qdisc *nq)
 {
 	/*
-	 * We wait until we have received the final stats
+	 * If the timer was active, then delete timer and return.
 	 */
-	while (atomic_read(&nq->pending_stat_requests) != 0) {
-		yield();
+	if (del_timer(&nq->stats_get_timer) > 0) {
+		/*
+		 * The timer was still active (counting down) when it was deleted.
+		 * Therefore we are sure that there are no pending stats request
+		 * for which we need to wait for. We can therefore return.
+		 */
+		return;
+	}
+
+	/*
+	 * The timer has already fired, which means we have a pending stat response.
+	 * We will have to wait until we have received the pending response.
+	 */
+	if (!wait_event_timeout(nss_qdics_wq, atomic_read(&nq->pending_stat_requests) == 0,
+				NSS_QDISC_COMMAND_TIMEOUT)) {
+		nss_qdisc_error("Stats request command for %x timedout!\n", nq->qos_tag);
 	}
 }
 
@@ -2029,6 +2049,11 @@ static int __init nss_qdisc_module_init(void)
 	int ret;
 	nss_qdisc_info("Module initializing");
 	nss_qdisc_ctx = nss_shaper_register_shaping();
+
+	/*
+	 * Initialize the wait queue node
+	 */
+	init_waitqueue_head(&nss_qdics_wq);
 
 	ret = register_qdisc(&nss_pfifo_qdisc_ops);
 	if (ret != 0)
