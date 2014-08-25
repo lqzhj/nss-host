@@ -105,6 +105,34 @@ struct nss_cfi_ipsec_tunnel tunnel_map[NSS_CFI_IPSEC_MAX_TUN];	/* per tunnel dev
 struct nss_cfi_ipsec_sa sa_tbl[NSS_CRYPTO_MAX_IDXS];		/* per crypto session table */
 
 /*
+ * nss_cfi_ipsec_get_iv_len
+ * 	get ipsec algorithm specific iv len
+ */
+static int32_t nss_cfi_ipsec_get_iv_len(uint32_t algo)
+{
+	uint32_t result = -1;
+
+	switch (algo) {
+		case NSS_CRYPTO_CIPHER_AES:
+			result = NSS_CRYPTO_MAX_IVLEN_AES;
+			break;
+
+		case NSS_CRYPTO_CIPHER_DES:
+			result = NSS_CRYPTO_MAX_IVLEN_DES;
+			break;
+
+		case NSS_CRYPTO_CIPHER_NULL:
+			result = NSS_CRYPTO_MAX_IVLEN_NULL;
+			break;
+
+		default:
+			nss_cfi_err("Invalid algorithm\n");
+			break;
+	}
+	return result;
+}
+
+/*
  * nss_cfi_ipsec_get_dev()
  * 	get ipsec netdevice from skb. Openswan stack fills up ipsec_dev in skb.
  */
@@ -194,7 +222,7 @@ static int32_t nss_cfi_ipsec_free_session(uint32_t crypto_sid)
  * nss_cfi_ipsec_trap_encap()
  * 	Trap IPsec pkts for sending encap fast path rules.
  */
-static int32_t nss_cfi_ipsec_trap_encap(struct sk_buff *skb, uint32_t crypto_sid)
+static int32_t nss_cfi_ipsec_trap_encap(struct sk_buff *skb, struct nss_cfi_crypto_info* crypto)
 {
 	union nss_ipsecmgr_rule rule = {{0}};
 	struct iphdr *outer_ip;
@@ -206,6 +234,7 @@ static int32_t nss_cfi_ipsec_trap_encap(struct sk_buff *skb, uint32_t crypto_sid
 	struct net_device *nss_dev;
 	uint32_t index = 0;
 	struct nss_ipsecmgr_encap_del *encap_del;
+	uint32_t ivsize = 0;
 
 	hlos_dev = nss_cfi_ipsec_get_dev(skb);
 	if (hlos_dev == NULL) {
@@ -213,10 +242,16 @@ static int32_t nss_cfi_ipsec_trap_encap(struct sk_buff *skb, uint32_t crypto_sid
 		return -1;
 	}
 
+	ivsize = nss_cfi_ipsec_get_iv_len(crypto->cipher_algo);
+	if (ivsize < 0) {
+		nss_cfi_err("Invalid IV\n");
+		return -1;
+	}
+
 	outer_ip = (struct iphdr *)skb->data;
 	esp = (struct ip_esp_hdr *)(skb->data + sizeof(struct iphdr));
 	/* XXX: this should use the IV len fed by CFI */
-	inner_ip = (struct iphdr *)(skb->data + sizeof(struct iphdr) + sizeof(struct ip_esp_hdr)+ NSS_CRYPTO_MAX_IVLEN_AES);
+	inner_ip = (struct iphdr *)(skb->data + sizeof(struct iphdr) + sizeof(struct ip_esp_hdr) + ivsize);
 
 	if ((outer_ip->version != IPVERSION) || (outer_ip->ihl != 5)) {
 		nss_cfi_dbg("Outer non-IPv4 packet {0x%x, 0x%x}\n", outer_ip->version, outer_ip->ihl);
@@ -255,10 +290,10 @@ static int32_t nss_cfi_ipsec_trap_encap(struct sk_buff *skb, uint32_t crypto_sid
 	}
 
 	/* XXX:All this needs to be fed by CFI */
-	rule.encap_add.esp_iv_len = 16;
-	rule.encap_add.esp_icv_len = 12;
-	rule.encap_add.crypto_blk_len = 16;
-	rule.encap_add.crypto_index = crypto_sid;
+	rule.encap_add.cipher_algo = crypto->cipher_algo;
+	rule.encap_add.esp_icv_len = crypto->hash_len;
+	rule.encap_add.auth_algo = crypto->auth_algo;
+	rule.encap_add.crypto_index = crypto->sid;
 	rule.encap_add.nat_t_req = 0;
 
 	rule.encap_add.inner_ipv4_proto = inner_ip->protocol;
@@ -281,10 +316,10 @@ static int32_t nss_cfi_ipsec_trap_encap(struct sk_buff *skb, uint32_t crypto_sid
 	 * session delete
 	 */
 
-	sa_tbl[crypto_sid].type = NSS_IPSECMGR_RULE_TYPE_ENCAP;
-	sa_tbl[crypto_sid].nss_dev = nss_dev;
+	sa_tbl[crypto->sid].type = NSS_IPSECMGR_RULE_TYPE_ENCAP;
+	sa_tbl[crypto->sid].nss_dev = nss_dev;
 
-	encap_del = &sa_tbl[crypto_sid].rule_del.encap;
+	encap_del = &sa_tbl[crypto->sid].rule_del.encap;
 
 	encap_del->inner_ipv4_src = rule.encap_add.inner_ipv4_src;
 	encap_del->inner_ipv4_dst = rule.encap_add.inner_ipv4_dst;
@@ -301,7 +336,7 @@ static int32_t nss_cfi_ipsec_trap_encap(struct sk_buff *skb, uint32_t crypto_sid
  * nss_cfi_ipsec_trap_decap()
  * 	Trap IPsec pkts for sending decap fast path rules.
  */
-static int32_t nss_cfi_ipsec_trap_decap(struct sk_buff *skb, uint32_t crypto_sid)
+static int32_t nss_cfi_ipsec_trap_decap(struct sk_buff *skb, struct nss_cfi_crypto_info* crypto)
 {
 	union nss_ipsecmgr_rule rule = {{0}};
 	struct iphdr *outer_ip;
@@ -311,10 +346,17 @@ static int32_t nss_cfi_ipsec_trap_decap(struct sk_buff *skb, uint32_t crypto_sid
 	struct net_device *nss_dev;
 	struct nss_ipsecmgr_decap_del *decap_del;
 	uint8_t index = 0;
+	uint32_t ivsize = 0;
 
 	hlos_dev = nss_cfi_ipsec_get_dev(skb);
 	if (hlos_dev == NULL) {
 		nss_cfi_err("hlos dev is NULL\n");
+		return -1;
+	}
+
+	ivsize = nss_cfi_ipsec_get_iv_len(crypto->cipher_algo);
+	if (ivsize < 0) {
+		nss_cfi_err("Invalid IV\n");
 		return -1;
 	}
 
@@ -323,7 +365,7 @@ static int32_t nss_cfi_ipsec_trap_decap(struct sk_buff *skb, uint32_t crypto_sid
 	outer_ip = (struct iphdr *)skb_network_header(skb);
 	esp = (struct ip_esp_hdr *)skb->data;
 	/* XXX: this should use the IV len fed by CFI */
-	inner_ip = (struct iphdr *)(skb->data + sizeof(struct ip_esp_hdr) + NSS_CRYPTO_MAX_IVLEN_AES);
+	inner_ip = (struct iphdr *)(skb->data + sizeof(struct ip_esp_hdr) + ivsize);
 
 	rule.decap_add.outer_ipv4_src = ntohl(outer_ip->saddr);
 	rule.decap_add.outer_ipv4_dst = ntohl(outer_ip->daddr);
@@ -331,10 +373,10 @@ static int32_t nss_cfi_ipsec_trap_decap(struct sk_buff *skb, uint32_t crypto_sid
 	rule.decap_add.esp_spi = ntohl(esp->spi);
 
 	/* XXX:All this needs to be fed by CFI */
-	rule.decap_add.esp_iv_len = 16;
-	rule.decap_add.esp_icv_len = 12;
-	rule.decap_add.crypto_blk_len = 16;
-	rule.decap_add.crypto_index = crypto_sid;
+	rule.decap_add.cipher_algo = crypto->cipher_algo;
+	rule.decap_add.auth_algo = crypto->auth_algo;
+	rule.decap_add.esp_icv_len = crypto->hash_len;
+	rule.decap_add.crypto_index = crypto->sid;
 
 	/* XXX:This needs to come from openswan */
 	rule.decap_add.window_size = 0;
@@ -355,10 +397,10 @@ static int32_t nss_cfi_ipsec_trap_decap(struct sk_buff *skb, uint32_t crypto_sid
 	 * Need to save the selector for deletion as it will for issued for
 	 * session delete
 	 */
-	sa_tbl[crypto_sid].type = NSS_IPSECMGR_RULE_TYPE_DECAP;
-	sa_tbl[crypto_sid].nss_dev = nss_dev;
+	sa_tbl[crypto->sid].type = NSS_IPSECMGR_RULE_TYPE_DECAP;
+	sa_tbl[crypto->sid].nss_dev = nss_dev;
 
-	decap_del = &sa_tbl[crypto_sid].rule_del.decap;
+	decap_del = &sa_tbl[crypto->sid].rule_del.decap;
 
 	decap_del->outer_ipv4_src = rule.decap_add.outer_ipv4_src;
 	decap_del->outer_ipv4_dst = rule.decap_add.outer_ipv4_dst;

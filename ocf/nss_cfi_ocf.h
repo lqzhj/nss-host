@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -61,6 +61,7 @@ struct nss_cfi_ocf_algo {
 	uint32_t core_algo;			/**< ALGO provided by core */
 	uint32_t max_keylen;			/**< max keylen supported by algo */
 	uint32_t max_ivlen;			/**< max ivlen supported by algo */
+	uint32_t max_blklen;			/**< max blklen supported by algo */
 	uint32_t max_hashlen;			/**< max hashlen supported by algo */
 	enum nss_cfi_ocf_algo_type flag;	/**< IS_AUTH or IS_CIPHER algo */
 };
