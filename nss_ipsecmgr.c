@@ -180,11 +180,12 @@ static void nss_ipsecmgr_copy_encap_add(struct net_device *dev, struct nss_ipsec
 	/*
 	 * Populate the data part
 	 */
-	data->esp_iv_len = encap->esp_iv_len;
-	data->esp_icv_len = encap->esp_icv_len;
+	data->cipher_algo = encap->cipher_algo;
 	data->esp_seq_skip = (encap->esp_seq_skip == 1);
 
-	data->crypto_blk_len = encap->crypto_blk_len;
+	data->esp_icv_len = encap->esp_icv_len;
+	data->auth_algo = encap->auth_algo;
+
 	data->crypto_index = encap->crypto_index;
 
 	data->nat_t_req = encap->nat_t_req;
@@ -212,10 +213,11 @@ static void nss_ipsecmgr_copy_decap_add(struct net_device *dev, struct nss_ipsec
 	/*
 	 * Populate the data part
 	 */
-	data->esp_iv_len = decap->esp_iv_len;
-	data->esp_icv_len = decap->esp_icv_len;
+	data->cipher_algo = decap->cipher_algo;
 
-	data->crypto_blk_len = decap->crypto_blk_len;
+	data->esp_icv_len = decap->esp_icv_len;
+	data->auth_algo = decap->auth_algo;
+
 	data->crypto_index = decap->crypto_index;
 
 	data->window_size = decap->window_size;
