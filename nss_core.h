@@ -512,7 +512,7 @@ struct nss_top_instance {
 	uint8_t tun6rd_handler_id;
 	uint8_t tunipip6_handler_id;
 	uint8_t frequency_handler_id;
-
+	uint8_t sjack_handler_id;
 	/*
 	 * Data/Message callbacks for various interfaces
 	 */

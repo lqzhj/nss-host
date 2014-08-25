@@ -35,6 +35,7 @@ qca-nss-drv-objs := \
 			nss_lag.o \
 			nss_phys_if.o \
 			nss_pm.o \
+			nss_sjack.o \
 			nss_stats.o \
 			nss_tun6rd.o \
 			nss_tunipip6.o \
