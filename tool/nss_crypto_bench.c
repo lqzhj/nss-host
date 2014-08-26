@@ -31,6 +31,7 @@
 
 #include <nss_crypto_if.h>
 #include <nss_crypto_hlos.h>
+#include <nss_api_if.h>
 
 
 #define CRYPTO_BENCH_PERM_RO		0444
