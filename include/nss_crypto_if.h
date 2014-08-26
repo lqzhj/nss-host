@@ -80,38 +80,6 @@ enum nss_crypto_max_hashlen {
 };
 
 /**
- * @brief hash sizes supported by H/W.
- */
-enum nss_crypto_hash {
-	NSS_CRYPTO_HASH_SHA96 = 12,		/**< 96-bit hash size */
-	NSS_CRYPTO_HASH_SHA128 = 16,		/**< 128-bit hash size */
-	NSS_CRYPTO_HASH_SHA160 = 20,		/**< 160-bit hash size */
-	NSS_CRYPTO_HASH_SHA256 = 32		/**< 256-bit hash size */
-};
-
-/**
- * @brief supported cipher algorithms
- */
-enum nss_crypto_cipher {
-	NSS_CRYPTO_CIPHER_NONE = 0,		/**< Cipher not required*/
-	NSS_CRYPTO_CIPHER_AES,			/**< AES, CBC for 128-bit & 256-bit key sizes*/
-	NSS_CRYPTO_CIPHER_DES,			/**< DES, CBC for 64-bit key size */
-	NSS_CRYPTO_CIPHER_NULL,			/**< NULL, CBC */
-	NSS_CRYPTO_CIPHER_MAX
-};
-
-/**
- * @brief supported authentication algorithms
- */
-enum nss_crypto_auth {
-	NSS_CRYPTO_AUTH_NONE = 0,		/**< Authentication not required */
-	NSS_CRYPTO_AUTH_SHA1_HMAC,		/**< SHA1_HMAC,160-bit key */
-	NSS_CRYPTO_AUTH_SHA256_HMAC,		/**< SHA256_HMAC,256-bit key */
-	NSS_CRYPTO_AUTH_NULL,			/**< NULL Authentication */
-	NSS_CRYPTO_AUTH_MAX
-};
-
-/**
  * @brief crypto buffer request type
  */
 enum nss_crypto_buf_req_type {
