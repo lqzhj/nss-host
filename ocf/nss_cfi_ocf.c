@@ -39,6 +39,7 @@
 #include <linux/delay.h>
 #include <cryptodev.h>
 
+#include <nss_api_if.h>
 #include <nss_crypto_if.h>
 #include <nss_cfi_if.h>
 #include <nss_cfi_ocf.h>
