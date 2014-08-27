@@ -87,7 +87,7 @@ enum nss_crypto_buf_req_type {
 	NSS_CRYPTO_BUF_REQ_ENCRYPT = 0x0002,		/**< encryption request*/
 	NSS_CRYPTO_BUF_REQ_AUTH = 0x0004,		/**< authentication request */
 	NSS_CRYPTO_BUF_REQ_HOST = 0x0100,		/**< request originated from host */
-	NSS_CRYPTO_BUF_REQ_IPSEC = 0x0200		/**< request originates from IPsec fast path */
+	NSS_CRYPTO_BUF_REQ_NSS = 0x0200			/**< request originates from nss fast path */
 };
 
 /**
