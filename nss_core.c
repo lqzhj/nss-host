@@ -930,6 +930,16 @@ int32_t nss_core_send_crypto(struct nss_ctx_instance *nss_ctx, void *buf, uint32
 		spin_unlock_bh(&h2n_desc_ring->lock);
 		nss_warning("%p: Data/Command Queue full reached", nss_ctx);
 
+#if (NSS_PKT_STATS_ENABLED == 1)
+		if (nss_ctx->id == NSS_CORE_0) {
+			NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_QUEUE_FULL_0]);
+		} else if (nss_ctx->id == NSS_CORE_1) {
+			NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_QUEUE_FULL_1]);
+		} else {
+			nss_warning("%p: Invalid nss core: %d\n", nss_ctx, nss_ctx->id);
+		}
+#endif
+
 		/*
 		 * Enable de-congestion interrupt from NSS
 		 */
@@ -1018,6 +1028,16 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		h2n_desc_ring->flags |= NSS_H2N_DESC_RING_FLAGS_TX_STOPPED;
 		spin_unlock_bh(&h2n_desc_ring->lock);
 		nss_warning("%p: Data/Command Queue full reached", nss_ctx);
+
+#if (NSS_PKT_STATS_ENABLED == 1)
+		if (nss_ctx->id == NSS_CORE_0) {
+			NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_QUEUE_FULL_0]);
+		} else if (nss_ctx->id == NSS_CORE_1) {
+			NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_QUEUE_FULL_1]);
+		} else {
+			nss_warning("%p: Invalid nss core: %d\n", nss_ctx, nss_ctx->id);
+		}
+#endif
 
 		/*
 		 * Enable de-congestion interrupt from NSS
