@@ -309,6 +309,21 @@ enum nss_stats_gmac {
 };
 
 /*
+ * ETH_RX node statistics
+ *
+ * WARNING: There is a 1:1 mapping between values below and corresponding
+ *	stats string array in nss_stats.c
+ */
+enum nss_stats_eth_rx {
+	NSS_STATS_ETH_RX_TOTAL_TICKS = 0,
+					/* Total clock ticks spend inside the eth_rx package */
+	NSS_STATS_ETH_RX_WORST_CASE_TICKS,
+					/* Worst case iteration of the eth_rx in ticks */
+	NSS_STATS_ETH_RX_ITERATIONS,	/* Number of iterations around the eth_rx */
+	NSS_STATS_ETH_RX_MAX,
+};
+
+/*
  * Node statistics
  *
  * WARNING: There is a 1:1 mapping between values below and corresponding
@@ -559,6 +574,8 @@ struct nss_top_instance {
 					/* PPPoE statistics */
 	uint64_t stats_gmac[NSS_MAX_PHYSICAL_INTERFACES][NSS_STATS_GMAC_MAX];
 					/* GMAC statistics */
+	uint64_t stats_eth_rx[NSS_STATS_ETH_RX_MAX];
+					/* ETH_RX statistics */
 	uint64_t stats_node[NSS_MAX_NET_INTERFACES][NSS_STATS_NODE_MAX];
 					/* IPv4 statistics per interface */
 	uint64_t stats_if_exception_eth_rx[NSS_EXCEPTION_EVENT_ETH_RX_MAX];
