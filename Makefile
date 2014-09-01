@@ -77,6 +77,7 @@ ccflags-y += -DNSS_CONNMGR_DEBUG_LEVEL=0 -DNSS_CONNMGR_PPPOE_SUPPORT=0
 ccflags-y += -DNSS_TUNIPIP6_DEBUG_LEVEL=0
 ccflags-y += -DNSS_PM_DEBUG_LEVEL=0
 ccflags-y += -DNSS_IPSECMGR_DEBUG_LEVEL=3
+ccflags-y += -DNSS_SKB_RECYCLER=1
 
 obj-y+= profiler/
 obj-y+= nss_qdisc/
