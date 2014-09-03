@@ -15,7 +15,7 @@
  */
 
 /*
- * nss_tx_rx_ipv4.c
+ * nss_ipv4.c
  *	NSS IPv4 APIs
  */
 #include <linux/ppp_channel.h>
@@ -115,7 +115,7 @@ static void nss_ipv4_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 	/*
 	 * Sanity check the message type
 	 */
-	if (ncm->type > NSS_IPV4_MAX_MSG_TYPES) {
+	if (ncm->type >= NSS_IPV4_MAX_MSG_TYPES) {
 		nss_warning("%p: message type out of range: %d", nss_ctx, ncm->type);
 		return;
 	}
@@ -206,7 +206,7 @@ nss_tx_status_t nss_ipv4_tx(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_ms
 		return NSS_TX_FAILURE;
 	}
 
-	if (ncm->type > NSS_IPV4_MAX_MSG_TYPES) {
+	if (ncm->type >= NSS_IPV4_MAX_MSG_TYPES) {
 		nss_warning("%p: message type out of range: %d", nss_ctx, ncm->type);
 		return NSS_TX_FAILURE;
 	}
