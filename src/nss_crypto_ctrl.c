@@ -581,7 +581,8 @@ static void nss_crypto_key_update(struct nss_crypto_ctrl_eng *eng, uint32_t idx,
  * nss_crypto_cblk_update()
  * 	update the configuration command block using buffer informantion
  */
-static inline void nss_crypto_cblk_update(struct nss_crypto_ctrl_eng *eng, struct nss_crypto_cmd_block *cblk, struct nss_crypto_buf *buf)
+static inline void nss_crypto_cblk_update(struct nss_crypto_ctrl_eng *eng, struct nss_crypto_cmd_block *cblk,
+						struct nss_crypto_params *params)
 {
 	struct nss_crypto_cmd_config *cfg;
 	uint32_t base_addr = eng->cmd_base;
@@ -593,8 +594,8 @@ static inline void nss_crypto_cblk_update(struct nss_crypto_ctrl_eng *eng, struc
 	/*
 	 * update the skip values as the assumption is that it remains constant for a session
 	 */
-	nss_crypto_write_cblk(&cfg->encr_seg_start, CRYPTO_ENCR_SEG_START + base_addr, buf->cipher_skip);
-	nss_crypto_write_cblk(&cfg->auth_seg_start, CRYPTO_AUTH_SEG_START + base_addr, buf->auth_skip);
+	nss_crypto_write_cblk(&cfg->encr_seg_start, CRYPTO_ENCR_SEG_START + base_addr, params->cipher_skip);
+	nss_crypto_write_cblk(&cfg->auth_seg_start, CRYPTO_AUTH_SEG_START + base_addr, params->auth_skip);
 
 	/*
 	 * update the segment configuration for encrypt or decrypt type
@@ -602,7 +603,7 @@ static inline void nss_crypto_cblk_update(struct nss_crypto_ctrl_eng *eng, struc
 	encr_cfg = nss_crypto_read_cblk(&cfg->encr_seg_cfg);
 	auth_cfg = nss_crypto_read_cblk(&cfg->auth_seg_cfg);
 
-        switch (buf->req_type & req_mask) {
+        switch (params->req_type & req_mask) {
         case NSS_CRYPTO_BUF_REQ_ENCRYPT:
                 encr_cfg |= CRYPTO_ENCR_SEG_CFG_ENC;
                 auth_cfg |= CRYPTO_AUTH_SEG_CFG_POS_AFTER;
@@ -622,19 +623,34 @@ static inline void nss_crypto_cblk_update(struct nss_crypto_ctrl_eng *eng, struc
 	nss_crypto_write_cblk(&cfg->auth_seg_cfg, CRYPTO_AUTH_SEG_CFG + base_addr, auth_cfg);
 }
 
-void nss_crypto_session_update(struct nss_crypto_ctrl *ctrl, struct nss_crypto_buf *buf)
+void nss_crypto_session_update(nss_crypto_handle_t crypto, uint32_t session_idx, struct nss_crypto_params *params)
 {
+	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
 	struct nss_crypto_ctrl_eng *e_ctrl = &ctrl->eng[0];
 	struct nss_crypto_ctrl_idx *ctrl_idx;
-	uint32_t idx = buf->session_idx;
 	int i = 0;
 
-	for (i = 0; i < NSS_CRYPTO_ENGINES; i++, e_ctrl++) {
-		ctrl_idx = &e_ctrl->idx_tbl[idx];
+	/*
+	 * Check if the common command block parameters are already set for
+	 * this session
+	 */
+	if (nss_crypto_check_idx_state(ctrl->idx_state_bitmap, session_idx)) {
+		return;
+	}
 
-		nss_crypto_cblk_update(e_ctrl, ctrl_idx->cblk, buf);
+	rmb();
+	nss_crypto_set_idx_state(&ctrl->idx_state_bitmap, session_idx);
+
+	for (i = 0; i < NSS_CRYPTO_ENGINES; i++, e_ctrl++) {
+		ctrl_idx = &e_ctrl->idx_tbl[session_idx];
+
+		/*
+		 * Update session specific config data
+		 */
+		nss_crypto_cblk_update(e_ctrl, ctrl_idx->cblk, params);
 	}
 }
+EXPORT_SYMBOL(nss_crypto_session_update);
 
 /*
  * nss_crypto_session_alloc()

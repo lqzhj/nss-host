@@ -125,6 +125,17 @@ struct nss_crypto_key {
 };
 
 /**
+ * @brief crypto parameters info
+ */
+struct nss_crypto_params {
+	uint16_t cipher_skip;		/**< start encrypt/decrypt from here */
+	uint16_t auth_skip;		/**< skip bytes from data to start authenticating */
+
+	uint16_t req_type;		/**< nss_crypto_req_type */
+	uint8_t  res[2];		/**< reserve for 4 byte alignment */
+};
+
+/**
  * @brief crypto request buffer for doing operation with the crypto driver
  *
  *        Buffer elements and its use within data
@@ -230,8 +241,9 @@ typedef void (*nss_crypto_detach_t)(nss_crypto_user_ctx_t ctx);
  *
  * @param attach[IN] called when device is ready
  * @param detach[IN] called when device has stopped or user has unregistered
+ * @param user_name[IN] user name
  */
-void nss_crypto_register_user(nss_crypto_attach_t attach, nss_crypto_detach_t detach);
+void nss_crypto_register_user(nss_crypto_attach_t attach, nss_crypto_detach_t detach, uint8_t *user_name);
 
 /**
  * @brief unregister user from the list of crypto device users
@@ -276,6 +288,16 @@ void nss_crypto_buf_free(nss_crypto_handle_t crypto, struct nss_crypto_buf *buf)
  */
 nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct nss_crypto_key *cipher, struct nss_crypto_key *auth,
 						uint32_t *session_idx);
+
+/**
+ * @brief update per session global config inforamtion,this API is used configure
+ * cipher/authentication skip lengths and crypto mode (encryption/decryption)
+ *
+ * @param crypto[IN] crypto device handle
+ * @param session_idx[IN] session index for the crypto transform
+ * @param params[IN] session specific configuration information
+ */
+void nss_crypto_session_update(nss_crypto_handle_t crypto, uint32_t session_idx, struct nss_crypto_params *params);
 
 /**
  * @brief Free an existing session, this flushes all state related to the session

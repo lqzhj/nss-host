@@ -28,6 +28,9 @@
 #define NSS_CRYPTO_DEBUGFS_BUF_SZ 512
 #define NSS_CRYPTO_MSG_LEN (sizeof(struct nss_crypto_msg) - sizeof(struct nss_cmn_msg))
 
+#define NSS_CRYPTO_ZONE_NAME_LEN	64
+#define NSS_CRYPTO_ZONE_DEFAULT_NAME	"crypto_buf-"
+
 static ssize_t nss_crypto_read_stats(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos);
 
 /*
@@ -134,6 +137,7 @@ struct nss_crypto_user {
 	nss_crypto_detach_t detach;		/* detach function*/
 
 	struct kmem_cache *zone;
+	uint8_t zone_name[NSS_CRYPTO_ZONE_NAME_LEN];
 };
 
 /*
@@ -155,7 +159,7 @@ static uint32_t pool_seed = 1024;
  * nss_crypto_register_user()
  * 	register a new user of the crypto driver
  */
-void nss_crypto_register_user(nss_crypto_attach_t attach, nss_crypto_detach_t detach)
+void nss_crypto_register_user(nss_crypto_attach_t attach, nss_crypto_detach_t detach, uint8_t *user_name)
 {
 	struct nss_crypto_user *user;
 	struct nss_crypto_buf_node *entry;
@@ -169,6 +173,7 @@ void nss_crypto_register_user(nss_crypto_attach_t attach, nss_crypto_detach_t de
 	user->attach = attach;
 	user->ctx = user->attach(user);
 	user->detach = detach;
+	strlcpy(user->zone_name, NSS_CRYPTO_ZONE_DEFAULT_NAME, NSS_CRYPTO_ZONE_NAME_LEN);
 
 	/*
 	 * initialize the lockless list
@@ -179,7 +184,8 @@ void nss_crypto_register_user(nss_crypto_attach_t attach, nss_crypto_detach_t de
 	 * Allocated the kmem_cache pool of crypto_bufs
 	 * XXX: we can use the constructor
 	 */
-	user->zone = kmem_cache_create("crypto_buf", sizeof(struct nss_crypto_buf_node), 0, SLAB_HWCACHE_ALIGN, NULL);
+	strlcat(user->zone_name, user_name, NSS_CRYPTO_ZONE_NAME_LEN);
+	user->zone = kmem_cache_create(user->zone_name, sizeof(struct nss_crypto_buf_node), 0, SLAB_HWCACHE_ALIGN, NULL);
 
 	for (i = 0; i < pool_seed; i++) {
 		entry = kmem_cache_alloc(user->zone, GFP_KERNEL);
@@ -387,14 +393,8 @@ void nss_crypto_process_event(void *app_data, struct nss_crypto_msg *nim)
  */
 nss_crypto_status_t nss_crypto_transform_payload(nss_crypto_handle_t crypto, struct nss_crypto_buf *buf)
 {
-	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
 	nss_tx_status_t nss_status;
 	uint32_t paddr;
-
-	if (!nss_crypto_check_idx_state(ctrl->idx_state_bitmap, buf->session_idx)) {
-		nss_crypto_session_update(ctrl, buf);
-		nss_crypto_set_idx_state(&ctrl->idx_state_bitmap, buf->session_idx);
-	}
 
 	buf->data_paddr = dma_map_single(NULL, buf->data, buf->data_len, DMA_TO_DEVICE);
 	paddr = dma_map_single(NULL, buf, sizeof(struct nss_crypto_buf), DMA_TO_DEVICE);
