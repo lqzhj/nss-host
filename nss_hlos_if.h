@@ -62,6 +62,9 @@ enum exception_events_eth_rx {
 struct nss_eth_rx_node_sync {
 	struct nss_cmn_node_stats node_stats;
 				/* Common node stats for ETH_RX */
+	uint32_t total_ticks;		/* Total clock ticks spend inside the eth_rx */
+	uint32_t worst_case_ticks;	/* Worst case iteration of the eth_rx in ticks */
+	uint32_t iterations;		/* Number of iterations around the eth_rx */
 	uint32_t exception_events[NSS_EXCEPTION_EVENT_ETH_RX_MAX];
 				/* Number of ETH_RX exception events */
 };

@@ -44,6 +44,10 @@ static void nss_rx_metadata_eth_rx_stats_sync(struct nss_ctx_instance *nss_ctx, 
 	nss_top->stats_node[NSS_ETH_RX_INTERFACE][NSS_STATS_NODE_TX_PKTS] += nens->node_stats.tx_packets;
 	nss_top->stats_node[NSS_ETH_RX_INTERFACE][NSS_STATS_NODE_TX_BYTES] += nens->node_stats.tx_bytes;
 
+	nss_top->stats_eth_rx[NSS_STATS_ETH_RX_TOTAL_TICKS] += nens->total_ticks;
+	nss_top->stats_eth_rx[NSS_STATS_ETH_RX_WORST_CASE_TICKS] += nens->worst_case_ticks;
+	nss_top->stats_eth_rx[NSS_STATS_ETH_RX_ITERATIONS] += nens->iterations;
+
 	for (i = 0; i < NSS_EXCEPTION_EVENT_ETH_RX_MAX; i++) {
 		nss_top->stats_if_exception_eth_rx[i] += nens->exception_events[i];
 	}
