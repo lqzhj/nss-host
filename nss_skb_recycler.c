@@ -68,8 +68,6 @@ dequeue:
 
 		local_irq_save(flags);
 		skb = __skb_dequeue(h);
-		local_irq_restore(flags);
-
 		put_cpu_var(cpu_recycle_list);
 
 		if (likely(skb)) {
@@ -77,10 +75,11 @@ dequeue:
 #ifdef NET_SKBUFF_DATA_USES_OFFSET
 			skb->mac_header = ~0U;
 #endif
+			local_irq_restore(flags);
 			return skb;
 		}
 
-		spin_lock_bh(&global_recycle_list.lock);
+		spin_lock(&global_recycle_list.lock);
 
 		/* If the Global recycle list is not empty, use buffers from there */
 		head = global_recycle_list.head;
@@ -89,12 +88,14 @@ dequeue:
 			/* Move the SKBs from global pool to CPU pool */
 			skb_queue_splice_init(&global_recycle_list.pool[head], h);
 			global_recycle_list.head =  (head + 1) & NSS_SKB_RECYCLE_MAX_SHARED_POOLS_MASK;
-			spin_unlock_bh(&global_recycle_list.lock);
+			spin_unlock(&global_recycle_list.lock);
+			local_irq_restore(flags);
 
 			goto dequeue;
 		}
 
-		spin_unlock_bh(&global_recycle_list.lock);
+		spin_unlock(&global_recycle_list.lock);
+		local_irq_restore(flags);
 	}
 
 	return dev_alloc_skb(length);
