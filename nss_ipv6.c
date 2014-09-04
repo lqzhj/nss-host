@@ -64,7 +64,6 @@ static void nss_ipv6_driver_conn_sync_update(struct nss_ctx_instance *nss_ctx, s
 			dev_put(pppoe_dev);
 		}
 	}
-
 }
 
 /*
@@ -116,7 +115,7 @@ static void nss_ipv6_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 	/*
 	 * Is this a valid request/response packet?
 	 */
-	if (nim->cm.type >= NSS_IPV6_MAX_MSG_TYPES) {
+	if (ncm->type >= NSS_IPV6_MAX_MSG_TYPES) {
 		nss_warning("%p: received invalid message %d for IPv6 interface", nss_ctx, nim->cm.type);
 		return;
 	}
@@ -151,7 +150,7 @@ static void nss_ipv6_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 		 * Update driver statistics on connection sync.
 		 */
 		nss_ipv6_driver_conn_sync_update(nss_ctx, &nim->msg.conn_stats);
-		return nss_rx_ipv6_sync(nss_ctx, &nim->msg.conn_stats);
+		nss_rx_ipv6_sync(nss_ctx, &nim->msg.conn_stats);
 		break;
 
 	case NSS_IPV6_TX_CREATE_RULE_MSG:
@@ -207,7 +206,7 @@ nss_tx_status_t nss_ipv6_tx(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_ms
 		return NSS_TX_FAILURE;
 	}
 
-	if (ncm->type > NSS_IPV6_MAX_MSG_TYPES) {
+	if (ncm->type >= NSS_IPV6_MAX_MSG_TYPES) {
 		nss_warning("%p: message type out of range: %d", nss_ctx, ncm->type);
 		return NSS_TX_FAILURE;
 	}
