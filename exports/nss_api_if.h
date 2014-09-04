@@ -36,6 +36,7 @@
 #include <linux/if_ether.h>
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
+#include "nss_def.h"
 #include "nss_cmn.h"
 #include "nss_tun6rd.h"
 #include "nss_tunipip6.h"
@@ -314,7 +315,7 @@ struct nss_ipv4_destroy {
 					/**< Sync is to destroy a cache entry which belongs to a particular PPPoE session */
 
 /**
- * Structure to be used while sending an IPv6 flow/connection destroy rule.
+ * Structure to be used while sending an IPv6 flow/connection create rule.
  *
  * Caution: All fields must be passed in host endian order
  */

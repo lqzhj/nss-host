@@ -37,6 +37,7 @@ enum nss_ipv6_message_types {
 	NSS_IPV6_RX_CONN_STATS_SYNC_MSG,	/**< IPv6 connection stats sync message */
 	NSS_IPV6_RX_NODE_STATS_SYNC_MSG,	/**< IPv6 generic statistics sync message */
 	NSS_IPV6_TX_CONN_CFG_RULE_MSG,		/**< IPv6 connection cfg rule message */
+	NSS_IPV6_TX_CREATE_MC_RULE_MSG,		/**< IPv6 create multicast rule message */
 	NSS_IPV6_MAX_MSG_TYPES,
 };
 
@@ -70,6 +71,33 @@ enum nss_ipv6_message_types {
 #define NSS_IPV6_RULE_CREATE_VLAN_VALID 0x10		/**< VLAN fields are valid */
 #define NSS_IPV6_RULE_CREATE_DSCP_MARKING_VALID 0x20	/**< DSCP marking fields are valid */
 #define NSS_IPV6_RULE_CREATE_VLAN_MARKING_VALID 0x40	/**< VLAN marking fields are valid */
+
+/**
+ * IPv6 multicast command rule flags
+ */
+#define NSS_IPV6_MC_RULE_CREATE_FLAG_MC_UPDATE 0x01	/**< Multicast Rule update */
+
+/**
+ * IPv6 multicast command validity flags
+ */
+#define NSS_IPV6_MC_RULE_CREATE_FLAG_QOS_VALID 0x01		/**< QoS fields are valid */
+#define NSS_IPV6_MC_RULE_CREATE_FLAG_DSCP_MARKING_VALID 0x02	/**< DSCP fields are valid */
+#define NSS_IPV6_MC_RULE_CREATE_FLAG_INGRESS_VLAN_VALID 0x04	/**< Ingress VLAN fields are valid */
+#define NSS_IPV6_MC_RULE_CREATE_FLAG_INGRESS_PPPOE 0x08		/**< Ingress PPPoE fields are valid */
+
+/**
+ * IPv6 multicast connection per-interface rule flags (to be used with rule_flags field of nss_ipv4_mc_if_rule structure)
+ */
+#define NSS_IPV6_MC_RULE_CREATE_IF_FLAG_BRIDGE_FLOW 0x01	/**< Bridge Flow */
+#define NSS_IPV6_MC_RULE_CREATE_IF_FLAG_ROUTED_FLOW 0x02	/**< Routed flow */
+#define NSS_IPV6_MC_RULE_CREATE_IF_FLAG_JOIN 0x04		/**< Interface has joined the flow */
+#define NSS_IPV6_MC_RULE_CREATE_IF_FLAG_LEAVE 0x08		/**< Interface has left the flow */
+
+/**
+ * IPv6 multicast connection per-interface valid flags (to be used with valid_flags field of nss_ipv4_mc_if_rule structure)
+ */
+#define NSS_IPV6_MC_RULE_CREATE_IF_FLAG_VLAN_VALID 0x01		/**< VLAN fields are valid */
+#define NSS_IPV6_MC_RULE_CREATE_IF_FLAG_PPPOE_VALID 0x02	/**< PPPoE fields are valid */
 
 /**
  * Exception events from IPv6 bridge/route handler
@@ -116,6 +144,10 @@ enum exception_events_ipv6 {
 	NSS_EXCEPTION_EVENT_IPV6_UDPLITE_NO_ICME,			/**<  NSS Exception event: UDPLite protocol no IPv6 connection match entry */
 	NSS_EXCEPTION_EVENT_IPV6_UDPLITE_SMALL_HOP_LIMIT,		/**<  NSS Exception event: UDPLite protocol small hop limit reached */
 	NSS_EXCEPTION_EVENT_IPV6_UDPLITE_NEEDS_FRAGMENTATION,		/**<  NSS Exception event: UDPLite protocol needs fragmentation */
+	NSS_EXCEPTION_EVENT_IPV6_MC_UDP_NO_ICME,			/**<  NSS Exception event: UDP protocol no multicast IPv6 connection match entry */
+	NSS_EXCEPTION_EVENT_IPV6_MC_MEM_ALLOC_FAILURE,			/**<  NSS Exception event: IPv6 Multicast Memory allocation failure */
+	NSS_EXCEPTION_EVENT_IPV6_MC_UPDATE_FAILURE,			/**<  NSS Exception event: IPv6 Multicast rule update failure */
+	NSS_EXCEPTION_EVENT_IPV6_MC_PBUF_ALLOC_FAILURE,			/**<  NSS Exception event: IPv6 Multicast buffer allocation failure */
 	NSS_EXCEPTION_EVENT_IPV6_MAX					/**<  IPv6 exception events max type number */
 };
 
@@ -200,7 +232,8 @@ struct nss_ipv6_qos_rule {
  * Error types for ipv6 messages
  */
 enum nss_ipv6_error_response_types {
-	NSS_IPV6_CR_INVALID_PNODE_ERROR = 1,			/**< NSS Error: Invalid interface number */
+	NSS_IPV6_UNKNOWN_MSG_TYPE = 1,				/**< NSS Error: Unknown error */
+	NSS_IPV6_CR_INVALID_PNODE_ERROR,			/**< NSS Error: Invalid interface number */
 	NSS_IPV6_CR_MISSING_CONNECTION_RULE_ERROR,		/**< NSS Error: Missing connection rule */
 	NSS_IPV6_CR_BUFFER_ALLOC_FAIL_ERROR,			/**< NSS Error: Buffer allocation failure */
 	NSS_IPV6_CR_PPPOE_SESSION_CREATION_ERROR,		/**< NSS Error: Unable to create PPPoE session */
@@ -209,7 +242,9 @@ enum nss_ipv6_error_response_types {
 	NSS_IPV6_CR_CONN_CFG_NOT_MULTIPLE_OF_QUANTA_ERROR,	/**< NSS Error: Conn cfg input is not multiple of quanta */
 	NSS_IPV6_CR_CONN_CFG_EXCEEDS_LIMIT_ERROR,		/**< NSS Error: Conn cfg input exceeds max supported connections*/
 	NSS_IPV6_CR_CONN_CFG_MEM_ALLOC_FAIL_ERROR,		/**< NSS Error: Conn cfg mem alloc fail at NSS FW */
-	NSS_IPV6_UNKNOWN_MSG_TYPE,				/**< NSS Error: Unknown error */
+	NSS_IPV6_CR_MULTICAST_INVALID_PROTOCOL,			/**< NSS Error: Invalid L4 protocol for multicast rule create */
+	NSS_IPV6_CR_MULTICAST_UPDATE_INVALID_FLAGS,		/**< NSS Error: Invalid multicast flags for multicast update */
+	NSS_IPV6_CR_MULTICAST_UPDATE_INVALID_IF,		/**< NSS Error: Invalid interface for multicast update */
 };
 
 /**
@@ -234,6 +269,42 @@ struct nss_ipv6_rule_create_msg {
 	 * Response
 	 */
 	uint32_t index;					/**< Slot ID for cache stats to host OS */
+};
+
+/**
+ * The IPv6 multicast rule create per-interface information
+ */
+struct nss_ipv6_mc_if_rule {
+	uint16_t rule_flags;				/**< Bit flags associated with the rule for this if */
+	uint16_t valid_flags;				/**< Bit flags associated with the validity of parameters for this if */
+	uint32_t egress_vlan_tag[MAX_VLAN_DEPTH];	/**< VLAN Tag stack for the egress packets */
+	uint16_t pppoe_session_id;			/**< PPPoE session ID. */
+	uint16_t pppoe_remote_mac[3];			/**< PPPoE Server MAC address */
+	uint32_t if_num;				/**< Interface number */
+	uint32_t if_mtu;				/**< Interface`s MTU */
+	uint16_t if_mac[3];				/**< Interface MAC address */
+	uint8_t reserved[2];
+};
+
+/**
+ * The IPv6 multicast rule create sub-message structure.
+ */
+struct nss_ipv6_mc_rule_create_msg {
+	struct nss_ipv6_5tuple tuple;			/**< Holds values of the 5 tuple */
+
+	uint32_t rule_flags;				/**< Multicast command rule flags */
+	uint32_t valid_flags;				/**< Multicast command validity flags */
+	uint32_t src_interface_num;			/**< Source i/f number (virtual/physical) */
+	uint32_t ingress_vlan_tag[MAX_VLAN_DEPTH];	/**< VLAN Tag stack for the ingress packets */
+	uint16_t ingress_pppoe_session_id;		/**< PPPoE session ID at ingress */
+	uint16_t ingress_pppoe_remote_mac[3];		/**< PPPoE Server MAC address */
+	uint32_t qos_tag;				/**< QoS Tag for the flow */
+	uint16_t dest_mac[3];				/**< Destination Multicast MAC address */
+	uint16_t if_count;				/**< Number of destination interfaces */
+	uint8_t egress_dscp;				/**< Egress DSCP value for flow */
+	uint8_t reserved[3];
+
+	struct nss_ipv6_mc_if_rule if_rule[NSS_MC_IF_MAX];	/**< Per interface information */
 };
 
 /**
@@ -359,6 +430,18 @@ struct nss_ipv6_node_sync {
 				/**< Number of successful IPv6 fragmentations */
 	uint32_t ipv6_frag_fails;
 				/**< Number of IPv6 fragmentation fails */
+	uint32_t ipv6_mc_connection_create_requests;
+				/**< Number of IPv6 Multicast connection create requests */
+	uint32_t ipv6_mc_connection_update_requests;
+				/**< Number of IPv6 Multicast connection update requests */
+	uint32_t ipv6_mc_connection_create_invalid_interface;
+				/**< Number of IPv6 Multicast connection create requests that had invalid interface */
+	uint32_t ipv6_mc_connection_destroy_requests;
+				/**< Number of IPv6 Multicast connection destroy requests */
+	uint32_t ipv6_mc_connection_destroy_misses;
+				/**< Number of IPv6 Multicast connection destroy requests that missed the cache */
+	uint32_t ipv6_mc_connection_flushes;
+				/**< Number of IPv6 Multicast connection flushes */
 	uint32_t exception_events[NSS_EXCEPTION_EVENT_IPV6_MAX];
 				/**< Number of IPv6 exception events */
 };
@@ -375,6 +458,7 @@ struct nss_ipv6_msg {
 		struct nss_ipv6_conn_sync conn_stats;		/**< Message: stats sync */
 		struct nss_ipv6_node_sync node_stats;		/**< Message: node stats sync */
 		struct nss_ipv6_rule_conn_cfg_msg rule_conn_cfg;/**< Message: rule conn cfg */
+		struct nss_ipv6_mc_rule_create_msg mc_rule_create; /**<Message: Multicast rule create */
 	} msg;
 };
 

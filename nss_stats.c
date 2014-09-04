@@ -66,7 +66,13 @@ static int8_t *nss_stats_str_ipv4[NSS_STATS_IPV4_MAX] = {
 	"hash_reorders",
 	"flushes",
 	"evictions",
-	"fragmentations"
+	"fragmentations",
+	"mc_create_requests",
+	"mc_update_requests",
+	"mc_create_invalid_interface",
+	"mc_destroy_requests",
+	"mc_destroy_misses",
+	"mc_flushes",
 };
 
 /*
@@ -99,6 +105,12 @@ static int8_t *nss_stats_str_ipv6[NSS_STATS_IPV6_MAX] = {
 	"evictions",
 	"fragmentations",
 	"frag_fails",
+	"mc_create_requests",
+	"mc_update_requests",
+	"mc_create_invalid_interface",
+	"mc_destroy_requests",
+	"mc_destroy_misses",
+	"mc_flushes",
 };
 
 /*
@@ -291,7 +303,11 @@ static int8_t *nss_stats_str_if_exception_ipv4[NSS_EXCEPTION_EVENT_IPV4_MAX] = {
 	"IPV4_UDPLITE_IP_OPTION",
 	"IPV4_UDPLITE_IP_FRAGMENT",
 	"IPV4_UDPLITE_SMALL_TTL",
-	"IPV4_UDPLITE_NEEDS_FRAGMENTATION"
+	"IPV4_UDPLITE_NEEDS_FRAGMENTATION",
+	"IPV4_MC_UDP_NO_ICME",
+	"IPV4_MC_MEM_ALLOC_FAILURE",
+	"IPV4_MC_UPDATE_FAILURE",
+	"IPV4_MC_PBUF_ALLOC_FAILURE"
 };
 
 /*
@@ -339,7 +355,11 @@ static int8_t *nss_stats_str_if_exception_ipv6[NSS_EXCEPTION_EVENT_IPV6_MAX] = {
 	"IPV6_UDPLITE_HEADER_INCOMPLETE",
 	"IPV6_UDPLITE_NO_ICME",
 	"IPV6_UDPLITE_SMALL_HOP_LIMIT",
-	"IPV6_UDPLITE_NEEDS_FRAGMENTATION"
+	"IPV6_UDPLITE_NEEDS_FRAGMENTATION",
+	"IPV6_MC_UDP_NO_ICME",
+	"IPV6_MC_MEM_ALLOC_FAILURE",
+	"IPV6_MC_UPDATE_FAILURE",
+	"IPV6_MC_PBUF_ALLOC_FAILURE"
 };
 
 /*

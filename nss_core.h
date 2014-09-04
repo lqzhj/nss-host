@@ -239,6 +239,18 @@ enum nss_stats_ipv4 {
 					/* Number of IPv4 connection evictions */
 	NSS_STATS_IPV4_FRAGMENTATIONS,
 					/* Number of successful IPv4 fragmentations performed */
+	NSS_STATS_IPV4_MC_CONNECTION_CREATE_REQUESTS,
+					/* Number of successful IPv4 Multicast create requests */
+	NSS_STATS_IPV4_MC_CONNECTION_UPDATE_REQUESTS,
+					/* Number of successful IPv4 Multicast update requests */
+	NSS_STATS_IPV4_MC_CONNECTION_CREATE_INVALID_INTERFACE,
+					/* Number of IPv4 Multicast connection create requests that had invalid interface */
+	NSS_STATS_IPV4_MC_CONNECTION_DESTROY_REQUESTS,
+					/* Number of IPv4 Multicast connection destroy requests */
+	NSS_STATS_IPV4_MC_CONNECTION_DESTROY_MISSES,
+					/* Number of IPv4 Multicast connection destroy requests that missed the cache */
+	NSS_STATS_IPV4_MC_CONNECTION_FLUSHES,
+					/* Number of IPv4 Multicast connection flushes */
 	NSS_STATS_IPV4_MAX,
 };
 
@@ -295,6 +307,18 @@ enum nss_stats_ipv6 {
 					/* Number of successful IPv6 fragmentations performed */
 	NSS_STATS_IPV6_FRAG_FAILS,
 					/* Number of IPv6 fragmentation fails */
+	NSS_STATS_IPV6_MC_CONNECTION_CREATE_REQUESTS,
+					/* Number of successful IPv6 Multicast create requests */
+	NSS_STATS_IPV6_MC_CONNECTION_UPDATE_REQUESTS,
+					/* Number of successful IPv6 Multicast update requests */
+	NSS_STATS_IPV6_MC_CONNECTION_CREATE_INVALID_INTERFACE,
+					/* Number of IPv6 Multicast connection create requests that had invalid interface */
+	NSS_STATS_IPV6_MC_CONNECTION_DESTROY_REQUESTS,
+					/* Number of IPv6 Multicast connection destroy requests */
+	NSS_STATS_IPV6_MC_CONNECTION_DESTROY_MISSES,
+					/* Number of IPv6 Multicast connection destroy requests that missed the cache */
+	NSS_STATS_IPV6_MC_CONNECTION_FLUSHES,
+					/* Number of IPv6 Multicast connection flushes */
 	NSS_STATS_IPV6_MAX,
 };
 

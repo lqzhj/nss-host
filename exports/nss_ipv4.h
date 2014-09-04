@@ -37,6 +37,7 @@ enum nss_ipv4_message_types {
 	NSS_IPV4_RX_CONN_STATS_SYNC_MSG,	/**< IPv4 connection stats sync message */
 	NSS_IPV4_RX_NODE_STATS_SYNC_MSG,	/**< IPv4 generic statistics sync message */
 	NSS_IPV4_TX_CONN_CFG_RULE_MSG,		/**< IPv4 number of connections supported rule message */
+	NSS_IPV4_TX_CREATE_MC_RULE_MSG,		/**< IPv4 multicast create rule message */
 	NSS_IPV4_MAX_MSG_TYPES,			/**< IPv4 message max type number */
 };
 
@@ -70,6 +71,34 @@ enum nss_ipv4_message_types {
 #define NSS_IPV4_RULE_CREATE_VLAN_VALID 0x10		/**< VLAN fields are valid */
 #define NSS_IPV4_RULE_CREATE_DSCP_MARKING_VALID 0x20	/**< DSCP marking fields are valid */
 #define NSS_IPV4_RULE_CREATE_VLAN_MARKING_VALID 0x40	/**< VLAN marking fields are valid */
+
+/**
+ * IPv4 multicast command rule flags
+ */
+#define NSS_IPV4_MC_RULE_CREATE_FLAG_MC_UPDATE 0x01		/**< Multicast Rule update */
+
+/**
+ * IPv4 multicast command validity flags
+ */
+#define NSS_IPV4_MC_RULE_CREATE_FLAG_QOS_VALID 0x01		/**< QoS fields are valid */
+#define NSS_IPV4_MC_RULE_CREATE_FLAG_DSCP_MARKING_VALID 0x02	/**< DSCP fields are valid */
+#define NSS_IPV4_MC_RULE_CREATE_FLAG_INGRESS_VLAN_VALID 0x04	/**< Ingress VLAN fields are valid */
+#define NSS_IPV4_MC_RULE_CREATE_FLAG_INGRESS_PPPOE 0x08		/**< Ingress PPPoE fields are valid */
+
+/**
+ * IPv4 multicast connection per-interface rule flags (to be used with rule_flags field of nss_ipv4_mc_if_rule structure)
+ */
+#define NSS_IPV4_MC_RULE_CREATE_IF_FLAG_BRIDGE_FLOW 0x01	/**< Bridge Flow */
+#define NSS_IPV4_MC_RULE_CREATE_IF_FLAG_ROUTED_FLOW 0x02	/**< Routed flow */
+#define NSS_IPV4_MC_RULE_CREATE_IF_FLAG_JOIN 0x04		/**< Interface has joined the flow */
+#define NSS_IPV4_MC_RULE_CREATE_IF_FLAG_LEAVE 0x08		/**< Interface has left the flow */
+
+/**
+ * IPv4 multicast connection per-interface valid flags (to be used with valid_flags field of nss_ipv4_mc_if_rule structure)
+ */
+#define NSS_IPV4_MC_RULE_CREATE_IF_FLAG_VLAN_VALID 0x01		/**< VLAN fields are valid */
+#define NSS_IPV4_MC_RULE_CREATE_IF_FLAG_PPPOE_VALID 0x02	/**< PPPoE fields are valid */
+#define NSS_IPV4_MC_RULE_CREATE_IF_FLAG_NAT_VALID 0x4		/**< Interface is configured with Source-NAT */
 
 /**
  * Common 5 tuple structure
@@ -153,7 +182,8 @@ struct nss_ipv4_qos_rule {
  * Error types for ipv4 messages
  */
 enum nss_ipv4_error_response_types {
-	NSS_IPV4_CR_INVALID_PNODE_ERROR = 1,			/**< NSS Error: Invalid interface number */
+	NSS_IPV4_UNKNOWN_MSG_TYPE = 1,				/**< NSS Error: Unknown error */
+	NSS_IPV4_CR_INVALID_PNODE_ERROR,			/**< NSS Error: Invalid interface number */
 	NSS_IPV4_CR_MISSING_CONNECTION_RULE_ERROR, 		/**< NSS Error: Missing connection rule */
 	NSS_IPV4_CR_BUFFER_ALLOC_FAIL_ERROR,			/**< NSS Error: Buffer allocation failure */
 	NSS_IPV4_CR_PPPOE_SESSION_CREATION_ERROR,		/**< NSS Error: Unable to create PPPoE session */
@@ -162,7 +192,9 @@ enum nss_ipv4_error_response_types {
 	NSS_IPV4_CR_CONN_CFG_NOT_MULTIPLE_OF_QUANTA_ERROR,	/**< NSS Error: Conn cfg input is not multiple of quanta */
 	NSS_IPV4_CR_CONN_CFG_EXCEEDS_LIMIT_ERROR,		/**< NSS Error: Conn cfg input exceeds max supported connections*/
 	NSS_IPV4_CR_CONN_CFG_MEM_ALLOC_FAIL_ERROR,		/**< NSS Error: Conn cfg mem alloc fail at NSS FW */
-	NSS_IPV4_UNKNOWN_MSG_TYPE,				/**< NSS Error: Unknown error */
+	NSS_IPV4_CR_MULTICAST_INVALID_PROTOCOL,			/**< NSS Error: Invalid L4 protocol for multicast rule create */
+	NSS_IPV4_CR_MULTICAST_UPDATE_INVALID_FLAGS,		/**< NSS Error: Invalid multicast flags for multicast update */
+	NSS_IPV4_CR_MULTICAST_UPDATE_INVALID_IF,		/**< NSS Error: Invalid interface for multicast update */
 	NSS_IPV4_LAST						/**< NSS IPv4 max error response type */
 };
 
@@ -186,6 +218,44 @@ struct nss_ipv4_rule_create_msg {
 
 	/* Response */
 	uint32_t index;					/**< Slot ID for cache stats to host OS */
+};
+
+/**
+ * The IPv4 multicast rule create per-interface information
+ */
+struct nss_ipv4_mc_if_rule {
+	uint16_t rule_flags;				/**< Bit flags associated with the rule */
+	uint16_t valid_flags;				/**< Bit flags associated with the validity of parameters */
+	uint32_t xlate_src_ip;				/**< Translated flow IP address */
+	uint32_t xlate_src_ident;			/**< Translated flow ident (e.g. port) */
+	uint32_t egress_vlan_tag[MAX_VLAN_DEPTH];	/**< VLAN Tag stack for the egress packets */
+	uint16_t pppoe_session_id;			/**< PPPoE session ID. */
+	uint16_t pppoe_remote_mac[3];			/**< PPPoE Server MAC address */
+	uint32_t if_num;				/**< Interface number */
+	uint32_t if_mtu;				/**< Interface MTU */
+	uint16_t if_mac[3];				/**< Interface MAC address */
+	uint8_t reserved[2];
+};
+
+/**
+ * The IPv4 multicast rule create sub-message structure.
+ */
+struct nss_ipv4_mc_rule_create_msg {
+	struct nss_ipv4_5tuple tuple;			/**< Holds values of the 5 tuple */
+
+	uint32_t rule_flags;				/**< Multicast command rule flags */
+	uint32_t valid_flags;				/**< Multicast command validity flags */
+	uint32_t src_interface_num;			/**< Source i/f number (virtual/physical) */
+	uint32_t ingress_vlan_tag[MAX_VLAN_DEPTH];	/**< VLAN Tag stack for the ingress packets */
+	uint16_t ingress_pppoe_session_id;		/**< PPPoE session ID at ingress */
+	uint16_t ingress_pppoe_remote_mac[3];		/**< PPPoE Server MAC address */
+	uint32_t qos_tag;				/**< Qos Tag for the rule */
+	uint16_t dest_mac[3];				/**< Destination Multicast MAC address */
+	uint16_t if_count;				/**< Number of destination interfaces */
+	uint8_t egress_dscp;				/**< Egress DSCP value for flow */
+	uint8_t reserved[3];
+
+	struct nss_ipv4_mc_if_rule if_rule[NSS_MC_IF_MAX];	/**< Per if information */
 };
 
 /**
@@ -319,7 +389,7 @@ enum exception_events_ipv4 {
 	NSS_EXCEPTION_EVENT_IPV4_TCP_ACK_EXCEEDS_RIGHT_EDGE,		/**<  NSS Exception event: TCP protocol ack exceeds right edge */
 	NSS_EXCEPTION_EVENT_IPV4_TCP_ACK_BEFORE_LEFT_EDGE,		/**<  NSS Exception event: TCP protocol ack before left edge */
 	NSS_EXCEPTION_EVENT_IPV4_UDP_HEADER_INCOMPLETE,			/**<  NSS Exception event: UDP protocol header incomplete */
-	NSS_EXCEPTION_EVENT_IPV4_UDP_NO_ICME,				/**<  NSS Exception event: UDP protocol no IPv6 connection match entry */
+	NSS_EXCEPTION_EVENT_IPV4_UDP_NO_ICME,				/**<  NSS Exception event: UDP protocol no IPv4 connection match entry */
 	NSS_EXCEPTION_EVENT_IPV4_UDP_IP_OPTION,				/**<  NSS Exception event: UDP protocol no ip option */
 	NSS_EXCEPTION_EVENT_IPV4_UDP_IP_FRAGMENT,			/**<  NSS Exception event: UDP protocol no ip fragment */
 	NSS_EXCEPTION_EVENT_IPV4_UDP_SMALL_TTL,				/**<  NSS Exception event: UDP protocol small ttl */
@@ -363,6 +433,10 @@ enum exception_events_ipv4 {
 	NSS_EXCEPTION_EVENT_IPV4_UDPLITE_IP_FRAGMENT,			/**<  NSS Exception event: UDPLite protocol no ip fragment */
 	NSS_EXCEPTION_EVENT_IPV4_UDPLITE_SMALL_TTL,			/**<  NSS Exception event: UDPLite protocol small ttl */
 	NSS_EXCEPTION_EVENT_IPV4_UDPLITE_NEEDS_FRAGMENTATION,		/**<  NSS Exception event: UDPLite protocol needs fragmentation */
+	NSS_EXCEPTION_EVENT_IPV4_MC_UDP_NO_ICME,			/**<  NSS Exception event: UDP protocol no multicast IPv4 connection match entry */
+	NSS_EXCEPTION_EVENT_IPV4_MC_MEM_ALLOC_FAILURE,			/**<  NSS Exception event: IPv4 Multicast Memory allocation failure */
+	NSS_EXCEPTION_EVENT_IPV4_MC_UPDATE_FAILURE,			/**<  NSS Exception event: IPv4 Multicast rule update failure */
+	NSS_EXCEPTION_EVENT_IPV4_MC_PBUF_ALLOC_FAILURE,			/**<  NSS Exception event: IPv4 Multicast buffer allocation failure */
 	NSS_EXCEPTION_EVENT_IPV4_MAX					/**<  IPv4 exception events max type number */
 };
 
@@ -392,6 +466,18 @@ struct nss_ipv4_node_sync {
 				/**< Number of IPv4 connection evictions */
 	uint32_t ipv4_fragmentations;
 				/**< Number of successful IPv4 fragmentations performed*/
+	uint32_t ipv4_mc_connection_create_requests;
+				/**< Number of IPv4 Multicast connection create requests */
+	uint32_t ipv4_mc_connection_update_requests;
+				/**< Number of IPv4 Multicast connection update requests */
+	uint32_t ipv4_mc_connection_create_invalid_interface;
+				/**< Number of IPv4 Multicast connection create requests that had invalid interface */
+	uint32_t ipv4_mc_connection_destroy_requests;
+				/**< Number of IPv4 Multicast connection destroy requests */
+	uint32_t ipv4_mc_connection_destroy_misses;
+				/**< Number of IPv4 Multicast connection destroy requests that missed the cache */
+	uint32_t ipv4_mc_connection_flushes;
+				/**< Number of IPv4 Multicast connection flushes */
 	uint32_t exception_events[NSS_EXCEPTION_EVENT_IPV4_MAX];
 				/**< Number of IPv4 exception events */
 };
@@ -408,6 +494,7 @@ struct nss_ipv4_msg {
 		struct nss_ipv4_conn_sync conn_stats;	/**< Message: connection stats sync */
 		struct nss_ipv4_node_sync node_stats;	/**< Message: node stats sync */
 		struct nss_ipv4_rule_conn_cfg_msg rule_conn_cfg;	/**< Message: rule connections supported */
+		struct nss_ipv4_mc_rule_create_msg mc_rule_create; /**<Message: Multicast rule create */
 	} msg;
 };
 
