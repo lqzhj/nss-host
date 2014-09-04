@@ -107,6 +107,7 @@ static int nss_bf_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
 		 */
 		if (nss_qdisc_init(sch, &cl->nq, NSS_SHAPER_NODE_TYPE_BF_GROUP, classid) < 0) {
 			nss_qdisc_error("%s: Nss init for class %u failed\n", __func__, classid);
+			kfree(cl);
 			return -EINVAL;
 		}
 
@@ -126,6 +127,8 @@ static int nss_bf_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
 		if (nss_qdisc_node_attach(&q->nq, &nim_attach,
 				NSS_SHAPER_CONFIG_TYPE_BF_ATTACH) < 0) {
 			nss_qdisc_error("%s: Nss attach for class %u failed\n", __func__, classid);
+			nss_qdisc_destroy(&cl->nq);
+			kfree(cl);
 			return -EINVAL;
 		}
 
