@@ -79,9 +79,9 @@ typedef enum pnode_c2h_metadata_types	flowctrl_t;	// for NSS driver
 
 #define	MAX_SAMPLES_PER_PBUF	((PBUF_PAYLOAD_SIZE - sizeof(struct profile_sample_ctrl_header)) / sizeof(struct profile_sample))
 
-struct n2h_meta_header {	// overlay struct with nss_tx_metadata_object.profiler_tx -- MUST match!
+struct n2h_meta_header {
 	flowctrl_t md_type;	// N2H (NSS) and receiver (HLOS) flow control (meta type)
-	uint32_t d_len;		// total data length (nss_tx_metadata_object buffer len) start from psc_header
+	uint32_t d_len;		// total data length start from psc_header
 };
 
 struct profile_session {	// use for per session start
@@ -97,14 +97,8 @@ struct profile_session {	// use for per session start
 	struct profile_counter counters[PROFILE_MAX_APP_COUNTERS];
 };
 
-struct profile_n2h_command_buf {
-	struct n2h_meta_header	mh;	// overlay struct with nss_tx_metadata_object.profiler_tx -- MUST be 1st field
-
-	struct profile_session pc;	// NSS received command
-};
-
 struct profile_n2h_sample_buf {
-	struct n2h_meta_header	mh;	// overlay struct with nss_tx_metadata_object.profiler_tx -- MUST be 1st field
+	struct n2h_meta_header	mh;
 
 	struct profile_sample_ctrl_header	psc_header;	// per sample period
 	struct profile_sample	samples[MAX_SAMPLES_PER_PBUF];	// per thread samples - for NSS send
@@ -148,7 +142,7 @@ struct profile_io {
 	int	ccl_write;
 
 	/*
-	 * data from HLOS -- used to generate simple->pid in ULTRA -- no longer needed in NSS
+	 * data from HLOS -- used to generate sample->pid in ULTRA -- no longer needed in NSS
 	 */
 	uint32_t *sw_ksp_ptr;	// pointer to array (per hardware thread) of pointers to struct thread_info
 	uint32_t task_offset;	// offset in bytes in thread_info to task_struct pointer

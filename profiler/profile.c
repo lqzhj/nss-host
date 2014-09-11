@@ -34,8 +34,8 @@
 #include <asm/page.h>
 #include <asm/thread_info.h>
 
-#define	NSS_PKT_STATS_ENABLED	0	// nss_core.h has no default DEF for NSS_PKT_STATS_ENABLED
-#include "nss_core.h"			// needs only the number of NSS CORES
+#define	NSS_PKT_STATS_ENABLED	0	/* nss_core.h has no default DEF for NSS_PKT_STATS_ENABLED */
+#include "nss_core.h"			/* needs only the number of NSS CORES */
 
 #include "profilenode.h"
 #include "profpkt.h"
@@ -72,15 +72,17 @@
  *
  */
 
-#ifndef	PROFILE_DEBUG
-#define	profileDebug(fmt, msg...)
-#define	profileInfo(fmt, msg...)
-#define	profileWarn(fmt, msg...)
+#ifdef	PROFILE_DEBUG
+#define	profileDebug(s, ...) pr_debug(KERN_DEBUG "%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define	profileInfo(s, ...) pr_debug(KERN_INFO "%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define	profileWarn(s, ...) pr_debug(KERN_WARNING "%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #else
-#define	profileDebug(fmt, msg...)	printk(KERN_DEBUG fmt, ##msg)
-#define	profileInfo(fmt, msg...)	printk(KERN_INFO fmt, ##msg)
-#define	profileWarn(fmt, msg...)	printk(KERN_WARNING fmt, ##msg)
+#define	profileDebug(s, ...)
+#define	profileInfo(s, ...)
+#define	profileWarn(s, ...)
 #endif
+
+static void profiler_handle_reply(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm);
 
 /*
  * LINUX and Ultra counters must all fit in one packet
@@ -184,12 +186,27 @@ static int profile_make_data_packet(char *buf, int blen, struct profile_io *pn)
 	ph.pph.sample_stack_words = htonl(PROFILE_STACK_WORDS);
 
 	ns = (blen - sizeof(ph)) / sizeof(struct profile_sample);
-	profileInfo("%X: ns = %d psc_hd count %d phs %d pss %d\n", pn->profile_sequence_num, ns, psc_hd->count, sizeof(ph), sizeof(struct profile_sample));
+	profileInfo("%X: blen %d ns = %d psc_hd count %d ssets %d phs %d pss %d\n", pn->profile_sequence_num, blen, ns, psc_hd->count, psc_hd->exh.sample_sets, sizeof(ph), sizeof(struct profile_sample));
 	if (ns > psc_hd->count)
 		ns = psc_hd->count;
 	if (ns == 0) {
 		printk("NS should not be 0: rlen %d hd cnt %d\n", blen, psc_hd->count);
 		return 0;
+	}
+
+	/*
+	 * if buf cannot hold all samples, then samples must be separated by set.
+	 */
+	if (ns < psc_hd->count) {
+		int samples = 0;
+		ph.exh.sets_map = psc_hd->exh.sets_map;	/* save for separating sets */
+		do {
+			samples += psc_hd->exh.sets_map & 0x0F;
+			psc_hd->exh.sets_map >>= 4;	/* remove the last set */
+			psc_hd->exh.sample_sets--;
+			ph.exh.sample_sets++;		/* save for restore later */
+		} while ((psc_hd->count - samples) > ns);
+		ns = psc_hd->count - samples;
 	}
 	ph.pph.sample_count = ns;
 	if (copy_to_user(buf, &ph.pph, sizeof(ph.pph)) != 0) {
@@ -214,6 +231,12 @@ static int profile_make_data_packet(char *buf, int blen, struct profile_io *pn)
 	psc_hd->count -= ns;
 	if (psc_hd->count < 1)
 		pn->pnc.pn2h->mh.md_type = PINGPONG_EMPTY;
+
+	/*
+	 * restore left over sample counts; 0s for no one
+	 */
+	psc_hd->exh.sample_sets = ph.exh.sample_sets;
+	psc_hd->exh.sets_map = ph.exh.sets_map;
 
 	pn->profile_sequence_num++;
 	blen += sizeof(ph);
@@ -272,7 +295,7 @@ static int profile_make_stats_packet(char *buf, int bytes, struct profile_io *pn
 	hdr->linux_sample_time = 0;
 
 	n = stat_count;
-	if (n > pn->pnc.un.num_counters)	// copy NSS counters
+	if (n > pn->pnc.un.num_counters)	/* copy NSS counters */
 		n = pn->pnc.un.num_counters;
 	n *= sizeof(pn->pnc.un.counters[0]);
 	ptr = (char*) (hdr + 1);
@@ -327,8 +350,8 @@ static int profile_open(struct inode *inode, struct file *filp)
 		nss_tx_status_t ret;
 		pn->pnc.enabled = 1;
 		pn->profile_first_packet = 1;
-		pn->pnc.un.hd_magic = UBI32_PROFILE_HD_MAGIC | PROFILER_START;
-		ret = nss_tx_profiler_if_buf(pn->ctx, (uint8_t *)&pn->pnc.un, sizeof(pn->pnc.un));
+		pn->pnc.un.hd_magic = UBI32_PROFILE_HD_MAGIC | NSS_PROFILER_START_MSG;
+		ret = nss_profiler_if_tx_buf(pn->ctx, &pn->pnc.un, sizeof(pn->pnc.un), profiler_handle_reply);
 		profileInfo("%s: %d -- %p: ccl %p sp %p\n", __func__, ret, pn, pn->ccl, pn->pnc.samples);
 		filp->private_data = pn;
 		return 0;
@@ -375,8 +398,8 @@ static int profile_read(struct file *filp, char *buf, size_t count, loff_t *f_po
 	if (pn->pnc.enabled < 0) {
 		nss_tx_status_t ret;
 		pn->pnc.enabled = 1;
-		pn->pnc.un.hd_magic = UBI32_PROFILE_HD_MAGIC | PROFILER_START;
-		ret = nss_tx_profiler_if_buf(pn->ctx, (uint8_t *)&pn->pnc.un, sizeof(pn->pnc.un));
+		pn->pnc.un.hd_magic = UBI32_PROFILE_HD_MAGIC | NSS_PROFILER_START_MSG;
+		ret = nss_profiler_if_tx_buf(pn->ctx, &pn->pnc.un, sizeof(pn->pnc.un), profiler_handle_reply);
 		profileWarn("%s: restart %d -- %p: ccl %p sp %p\n", __func__, ret, pn, pn->ccl, pn->pnc.samples);
 	}
 
@@ -397,8 +420,8 @@ static int profile_release(struct inode *inode, struct file *filp)
 	if (pn->pnc.enabled) {
 		nss_tx_status_t ret;
 		pn->pnc.enabled = 0;
-		pn->pnc.un.hd_magic = UBI32_PROFILE_HD_MAGIC | PROFILER_STOP;
-		ret = nss_tx_profiler_if_buf(pn->ctx, (uint8_t *)&pn->pnc.un, sizeof(pn->pnc.un));
+		pn->pnc.un.hd_magic = UBI32_PROFILE_HD_MAGIC | NSS_PROFILER_STOP_MSG;
+		ret = nss_profiler_if_tx_buf(pn->ctx, &pn->pnc.un, sizeof(pn->pnc.un), profiler_handle_reply);
 		profileInfo("%s: %p %d\n", __func__, pn, ret);
 		return 0;
 	}
@@ -478,6 +501,14 @@ static void debug_if_show(struct debug_box *db, int buf_len)
 }
 
 /*
+ * show debug message we requested from NSS
+ */
+static void profiler_handle_debug_reply(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm)
+{
+	debug_if_show((struct debug_box*)&ncm[1], ncm->len);
+}
+
+/*
  * a generic Krait <--> NSS debug interface
  */
 static int debug_if(struct file *filp, const char *buf, size_t count, loff_t *f_pos)
@@ -502,12 +533,12 @@ static int debug_if(struct file *filp, const char *buf, size_t count, loff_t *f_
 	}
 
 	if (!result) {
-		db->hd_magic = UBI32_PROFILE_HD_MAGIC | DEBUG_RD_REQ;
+		db->hd_magic = UBI32_PROFILE_HD_MAGIC | NSS_PROFILER_DEBUG_RD_MSG;
 	} else {
-		db->hd_magic = UBI32_PROFILE_HD_MAGIC | DEBUG_WR_REQ;
+		db->hd_magic = UBI32_PROFILE_HD_MAGIC | NSS_PROFILER_DEBUG_WR_MSG;
 		db->dlen = result;
 	}
-	result = nss_tx_profiler_if_buf(pio->ctx, (uint8_t *)&pio->pnc.un, sizeof(pio->pnc.un));
+	result = nss_profiler_if_tx_buf(pio->ctx, &pio->pnc.un, sizeof(pio->pnc.un), profiler_handle_debug_reply);
 	printk("dbg res %d dlen = %d opt %x\n", result, db->dlen, db->opts);
 	return	count;
 }
@@ -554,10 +585,13 @@ static const struct file_operations profile_rate_fops = {
 	.write		= profile_rate_write,
 };
 
+/*
+ * hex dump for debug
+ */
 static void kxdump(void *buf, int len, const char *who)
 {
 	int *ip = (int*) buf;
-	int lns = len >> 5;	// 32-B each line
+	int lns = len >> 5;	/* 32-B each line */
 	if (lns > 4)
 		lns = 4;
 	printk("%p: kxdump %s: len %d\n", buf, who, len);
@@ -567,34 +601,55 @@ static void kxdump(void *buf, int len, const char *who)
 	} while (lns--);
 }
 
-static void profile_handle_nss_data(void *arg, uint8_t *buf, uint16_t buf_len)
+/*
+ * check magic # and detect Endian.
+ * negtive return means failure.
+ * return 1 means need to ntoh swap.
+ */
+static int profiler_magic_verify(struct profile_sample_ctrl_header *psc_hd, int buf_len)
 {
-	struct profile_io *pn;
-	struct profile_n2h_sample_buf *nsb;
-	struct profile_sample_ctrl_header *psc_hd = (struct profile_sample_ctrl_header *)buf;
-	int	cmd, wr;
-	int	swap = 0;	// only for header and info data, not samples
-
-	if (buf_len < (sizeof(struct profile_session) - sizeof(struct profile_counter) * (PROFILE_MAX_APP_COUNTERS - 1))) {
-		printk("profile data packet is too small to be useful %d\n", buf_len);
-		return;
-	}
+	int swap = 0;
 	if ((psc_hd->hd_magic & UBI32_PROFILE_HD_MMASK) != UBI32_PROFILE_HD_MAGIC) {
 		if ((psc_hd->hd_magic & UBI32_PROFILE_HD_MMASK_REV) != UBI32_PROFILE_HD_MAGIC_REV) {
-			kxdump(buf, buf_len, "bad profile packet");
+			kxdump(psc_hd, buf_len, "bad profile packet");
 			printk("bad profile packet %x : %d\n", psc_hd->hd_magic, buf_len);
-			return;
+			return -1;
 		}
 		profileDebug("Profile data in different Endian type %x\n", psc_hd->hd_magic);
 		swap = 1;
 		psc_hd->hd_magic = ntohl(psc_hd->hd_magic);
 	}
-	cmd = psc_hd->hd_magic & ~UBI32_PROFILE_HD_MMASK;
+	return swap;
+}
+
+/*
+ * process profile sample data from NSS
+ */
+static void profile_handle_nss_data(void *arg, struct nss_profiler_msg *npm)
+{
+	int buf_len = npm->cm.len;
+	void *buf = &npm->payload;
+	struct profile_io *pn;
+	struct profile_n2h_sample_buf *nsb;
+	struct profile_sample_ctrl_header *psc_hd = (struct profile_sample_ctrl_header *)buf;
+	int	ret, wr;
+	int	swap = 0;	/* only for header and info data, not samples */
+
+	if (buf_len < (sizeof(struct profile_session) - sizeof(struct profile_counter) * (PROFILE_MAX_APP_COUNTERS))) {
+		printk("profile data packet is too small to be useful %d\n", buf_len);
+		return;
+	}
+
+	swap = profiler_magic_verify(psc_hd, buf_len);
+	if (swap < 0) {
+		return;
+	}
 
 	pn = (struct profile_io *)arg;
-	profileInfo("%s: dlen %d swap %d cmd %x - %d\n", __func__, buf_len, swap, cmd, (pn->ccl_read - pn->ccl_write) & (CCL_SIZE-1));
+	profileInfo("%s: dlen %d swap %d cmd %x - %d\n", __func__, buf_len, swap, npm->cm.type, (pn->ccl_read - pn->ccl_write) & (CCL_SIZE-1));
 	//kxdump(buf, buf_len, "process profile packet");
-	if (cmd == PROFILER_FIXED_INFO) {
+
+	if (npm->cm.type == NSS_PROFILER_FIXED_INFO_MSG) {
 		struct profile_session *pTx = (struct profile_session *)buf;
 		if (swap) {
 			pn->pnc.un.rate = ntohl(pTx->rate);
@@ -606,24 +661,19 @@ static void profile_handle_nss_data(void *arg, uint8_t *buf, uint16_t buf_len)
 		return;
 	}
 
-	if (cmd == DEBUG_REPLY) {
-		debug_if_show((struct debug_box*) buf, buf_len);
-		return;
-	}
-
 	wr = (pn->ccl_write + 1) & (CCL_SIZE-1);
 	nsb = pn->ccl + wr;
-	swap = (pn->ccl_read - wr) & (CCL_SIZE-1);	// PROFILER_FLOWCTRL
+	swap = (pn->ccl_read - wr) & (CCL_SIZE-1);	/* PROFILER_FLOWCTRL */
 	if (nsb->mh.md_type != PINGPONG_EMPTY || (swap && swap < 5)) {
 		if (pn->pnc.enabled > 0) {
 			pn->pnc.enabled = -1;
-			pn->pnc.un.hd_magic = UBI32_PROFILE_HD_MAGIC | PROFILER_STOP;
-			cmd = nss_tx_profiler_if_buf(pn->ctx, (uint8_t *)&pn->pnc.un, sizeof(pn->pnc.un));
-			profileWarn("temp stop sampling engine %d\n", cmd);
+			pn->pnc.un.hd_magic = UBI32_PROFILE_HD_MAGIC | NSS_PROFILER_STOP_MSG;
+			ret = nss_profiler_if_tx_buf(pn->ctx, &pn->pnc.un, sizeof(pn->pnc.un), profiler_handle_reply);
+			profileWarn("temp stop sampling engine %d\n", ret);
 		}
 		if (swap < 3) {
 			profileWarn("w%p.%d: %d no room for new profile samples r%p.%d\n", nsb, wr, swap, pn->ccl+pn->ccl_read, pn->ccl_read);
-			return;	// -EMSGSIZE
+			return;	/* -EMSGSIZE */
 		}
 	}
 	pn->ccl_write = wr;
@@ -631,11 +681,27 @@ static void profile_handle_nss_data(void *arg, uint8_t *buf, uint16_t buf_len)
 	/*
 	 * smapling data -- hdr NBO swap is done at NSS side via SWAPB.
 	 */
-	memcpy(&nsb->psc_header, buf, buf_len); // pn->pnc.pn2h->psc_header = *psc_hd; maybe faster, but take more memory
+	memcpy(&nsb->psc_header, buf, buf_len); /* pn->pnc.pn2h->psc_header = *psc_hd; maybe faster, but take more memory */
 
 	nsb->mh.md_type = PINGPONG_FULL;
 	//kxdump((void*)(nsb->samples + 23), sizeof(*nsb->samples) << 1, "1st 2 samples");
 	profileInfo("filled %p %p wr %d\n", nsb, nsb->samples, pn->ccl_write);
+}
+
+/*
+ * process N2H reply for message we sent to NSS -- currently no action
+ */
+static void profiler_handle_reply(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm)
+{
+	switch (ncm->response) {
+	default:
+		nss_warning("%p: profiler had error response %d\n", nss_ctx, ncm->response);
+		/*
+		 * fail through -- no plan to do anything yet
+		 */
+	case NSS_CMN_RESPONSE_ACK:
+		return;
+	}
 }
 
 /*
@@ -651,7 +717,7 @@ static void profile_init(struct profile_io *node)
 	node->pnc.pn2h = node->ccl;
 	node->pnc.samples = node->ccl->samples;
 
-	for (n=0; n<CCL_SIZE; n++) {
+	for (n = 0; n < CCL_SIZE; n++) {
 		node->ccl[n].mh.md_type = PINGPONG_EMPTY;
 		node->ccl[n].psc_header.count = 0;
 	}
@@ -689,7 +755,7 @@ int __init netap_profile_init_module(void)
 	/*
 	 * we need N nodes, not one node + N ctx, for N cores
 	 */
-	node[0] = kmalloc(sizeof(*node) * NSS_MAX_CORES, GFP_KERNEL);
+	node[0] = kmalloc(sizeof(*node[0]) * NSS_MAX_CORES, GFP_KERNEL);
 	if (!node[0]) {
 		printk(KERN_INFO "Profiler CTRL kmalloc failed.\n");
 		return -ENOMEM;
@@ -703,19 +769,6 @@ int __init netap_profile_init_module(void)
 		return -ENOMEM;
 	}
 
-	node[1] = node[0] + 1;
-	node[1]->ccl = node[0]->ccl + 1;
-
-	profile_init(node[0]);
-	profile_init(node[1]);
-
-	/*
-	 * attatch the device callback to N2H channel for CPU 0
-	 */
-	node[0]->ctx = nss_register_profiler_if(profile_handle_nss_data, NSS_CORE_0, node[0]);
-	node[1]->ctx = nss_register_profiler_if(profile_handle_nss_data, NSS_CORE_1, node[1]);
-
-
 	/*
 	 * connect to the file system
 	 */
@@ -728,8 +781,22 @@ int __init netap_profile_init_module(void)
 		return -ENOMEM;
 	}
 
-	profile_register_performance_counter(&node[0]->profile_sequence_num, "Profile0 driver data packets");
-	profile_register_performance_counter(&node[1]->profile_sequence_num, "Profile1 driver data packets");
+	profile_init(node[0]);
+
+	/*
+	 * attatch the device callback to N2H channel for CPU 0
+	 */
+	node[0]->ctx = nss_profiler_notify_register(NSS_CORE_0, profile_handle_nss_data, node[0]);
+#if NSS_MAX_CORES > 1
+	node[1] = node[0] + 1;
+	node[1]->ccl = node[0]->ccl + CCL_SIZE;
+
+	profile_init(node[1]);
+	node[1]->ctx = nss_profiler_notify_register(NSS_CORE_1, profile_handle_nss_data, node[1]);
+	profile_register_performance_counter(&node[1]->profile_sequence_num, "Profile1 DRV data packets");
+#endif
+
+	profile_register_performance_counter(&node[0]->profile_sequence_num, "Profile0 DRV data packets");
 	return 0;
 }
 
@@ -738,6 +805,10 @@ int __init netap_profile_init_module(void)
  */
 void __exit netap_profile_exit_module(void)
 {
+	nss_profiler_notify_unregister(NSS_CORE_0);
+#if NSS_MAX_CORES > 1
+	nss_profiler_notify_unregister(NSS_CORE_1);
+#endif
 	netap_profile_release_resource();
 }
 

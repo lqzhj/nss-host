@@ -49,6 +49,7 @@
 #include "nss_virt_if.h"
 #include "nss_pppoe.h"
 #include "nss_crypto.h"
+#include "nss_profiler.h"
 
 /*
  * Interface numbers are reserved in the
@@ -769,11 +770,6 @@ extern nss_tx_status_t nss_tx_destroy_ipv6_rule(void *nss_ctx, struct nss_ipv6_d
 typedef void (*nss_phys_if_event_callback_t)(void *if_ctx, nss_gmac_event_t ev_type, void *buf, uint32_t len);
 
 /**
- * Callback to receive GMAC packets
- */
-typedef void (*nss_phys_if_rx_callback_t)(void *if_ctx, void *os_buf, struct napi_struct *napi);
-
-/**
  * @brief Register to send/receive GMAC packets/messages
  *
  * @param if_num GMAC i/f number
@@ -947,54 +943,6 @@ extern nss_tx_status_t nss_tx_virt_if_rx_nwifibuf(void *nss_ctx, struct sk_buff 
  * @return nss_tx_status_t Tx status
  */
 extern nss_tx_status_t nss_tx_virt_if_rxbuf(void *nss_ctx, struct sk_buff *os_buf);
-
-/**
- * Methods provided by NSS driver for use by NSS Profiler
- */
-
-/**
- * Callback to receive profiler messages
- *
- * @note Memory pointed by buf is owned by caller (i.e. NSS driver)
- *	NSS driver does not interpret "buf". It is up to profiler to make sense of it.
- */
-typedef void (*nss_profiler_callback_t)(void *ctx, uint8_t *buf, uint16_t len);
-
-/**
- * @brief Register to send/receive profiler messages
- *
- * @param profiler_callback Profiler callback
- * @param core_id NSS core id
- * @param ctx Profiler context
- *
- * @return void* NSS context
- *
- * @note Caller must provide valid core_id that is being profiled. This function must be called once for each core.
- *	Context (ctx) will be provided back to caller in the registered callback function
- */
-extern void *nss_register_profiler_if(nss_profiler_callback_t profiler_callback, nss_core_id_t core_id, void *ctx);
-
-/**
- * @brief Unregister profiler interface
- *
- * @param core_id NSS core id
- *
- */
-extern void nss_unregister_profiler_if(nss_core_id_t core_id);
-
-/**
- * @brief Send profiler command to NSS
- *
- * @param nss_ctx NSS context
- * @param buf Buffer to send to NSS
- * @param len Length of buffer
- *
- * @return nss_tx_status_t Tx status
- *
- * @note Valid context must be provided (for the right core).
- *	This context was returned during registration.
- */
-extern nss_tx_status_t nss_tx_profiler_if_buf(void *nss_ctx, uint8_t *buf, uint32_t len);
 
 /**
  * @brief Send generic interface based command to NSS
