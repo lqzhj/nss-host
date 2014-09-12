@@ -127,15 +127,6 @@ void nss_crypto_pipe_init(struct nss_crypto_ctrl_eng *eng, uint32_t idx, uint32_
 nss_crypto_status_t nss_crypto_idx_init(struct nss_crypto_ctrl_eng *eng, struct nss_crypto_idx *msg);
 
 /**
- * @brief update the session with the new buffer parameters
- *
- * @param ctrl[IN] control
- * @param idx[IN] session index
- * @param buf[IN] crypto buf for configuration
- */
-void nss_crypto_session_update(struct nss_crypto_ctrl *ctrl, struct nss_crypto_buf *buf);
-
-/**
  * @brief Initiallize the generic control entities in nss_crypto_ctrl
  */
 void nss_crypto_ctrl_init(void);

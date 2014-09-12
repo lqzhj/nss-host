@@ -506,6 +506,7 @@ static int32_t crypto_bench_prep_op(void)
 {
 	struct nss_crypto_key c_key = {0};
 	struct nss_crypto_key a_key = {0};
+	struct nss_crypto_params crypto_params = {0};
 	struct crypto_op *op = NULL;
 	nss_crypto_status_t status;
 	uint32_t iv_hash_len;
@@ -584,6 +585,12 @@ static int32_t crypto_bench_prep_op(void)
 
 	crypto_bench_info("cipher algo %s\n", str);
 
+	crypto_params.cipher_skip = param.cipher_skip;
+	crypto_params.auth_skip = param.auth_skip;
+	crypto_params.req_type = (param.cipher_op ? NSS_CRYPTO_BUF_REQ_ENCRYPT : 0);
+	crypto_params.req_type |= (param.auth_op ? NSS_CRYPTO_BUF_REQ_AUTH : 0);
+
+
 	if ((c_key.algo == NSS_CRYPTO_CIPHER_NONE) && (a_key.algo == NSS_CRYPTO_AUTH_NONE)) {
 		return -1;
 	}
@@ -592,6 +599,7 @@ static int32_t crypto_bench_prep_op(void)
 		status = nss_crypto_session_alloc(crypto_hdl, &c_key, &a_key, &crypto_sid[i]);
 
 		CRYPTO_BENCH_ASSERT(status == NSS_CRYPTO_STATUS_OK);
+		nss_crypto_session_update(crypto_hdl, crypto_sid[i], &crypto_params);
 	}
 
 	crypto_bench_info("preparing crypto bench\n");
@@ -916,7 +924,7 @@ int __init crypto_bench_init(void)
 
 	droot = debugfs_create_dir("crypto_bench", NULL);
 
-	nss_crypto_register_user(crypto_bench_attach, crypto_bench_detach);
+	nss_crypto_register_user(crypto_bench_attach, crypto_bench_detach, "bench");
 
 	return 0;
 }
