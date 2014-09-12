@@ -338,6 +338,7 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 	uint8_t *data;
 	int flag;
 	int ivsize;
+	struct nss_crypto_params params;
 
 	nss_cfi_assert(crp != NULL);
 	nss_cfi_assert(crp->crp_callback != NULL);
@@ -427,6 +428,7 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 	buf->session_idx = NSS_CFI_OCF_SESSION(crp->crp_sid);
 
 	nss_cfi_ocf_get_data_len(crp->crp_flags, crp->crp_buf, crp->crp_ilen, &data, &len);
+	memset(&params, 0, sizeof(struct nss_crypto_params));
 
 	if (cip_crd) {
 		ivsize = cfi_algo[cip_crd->crd_alg].max_ivlen;
@@ -444,6 +446,7 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 		buf->cipher_skip = cip_crd->crd_skip;
 		buf->iv_offset = cip_crd->crd_inject;
 		buf->iv_len = ivsize;
+		params.cipher_skip = cip_crd->crd_skip;
 
 		nss_cfi_dbg("cipher len %d cipher skip %d iv_offset %d\n",
 				buf->cipher_len, buf->cipher_skip, buf->iv_offset);
@@ -459,6 +462,7 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 		buf->auth_skip = auth_crd->crd_skip;
 		buf->hash_offset = auth_crd->crd_inject;
 		gbl_crypto_info[buf->session_idx].hash_len = buf->hash_len;
+		params.auth_skip = auth_crd->crd_skip;
 
 		nss_cfi_dbg("auth len %d auth skip %d hash_offset %d\n",
 				buf->auth_len, buf->auth_skip, buf->hash_offset);
@@ -473,9 +477,16 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 
 	flag |= NSS_CRYPTO_BUF_REQ_HOST;
 
+	params.req_type = flag;
+
 	buf->req_type = flag;
 	buf->data_len = len;
 	buf->data = data;
+
+	/*
+	 * Update the crypto session data
+	 */
+	nss_crypto_session_update(sc->crypto, buf->session_idx, &params);
 
 	/*
 	 *  Send the buffer to CORE layer for processing
@@ -586,7 +597,7 @@ void nss_cfi_ocf_unregister_ipsec(void)
  */
 int nss_cfi_ocf_init(void)
 {
-	nss_crypto_register_user(nss_cfi_ocf_register, nss_cfi_ocf_unregister);
+	nss_crypto_register_user(nss_cfi_ocf_register, nss_cfi_ocf_unregister, "nss_cfi_ocf");
 
 	return 0;
 }
