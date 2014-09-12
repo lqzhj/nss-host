@@ -27,7 +27,7 @@
  * refer http://www.iana.org/assignments/arp-parameters/arp-parameters.xhtml
  * for the full list
  */
-#define NSS_IPSEC_ARPHRD_IPSEC 0x31	/**< iana.org ARP Hardware type for IPsec tunnel*/
+#define NSS_IPSEC_ARPHRD_IPSEC 31	/**< iana.org ARP Hardware type for IPsec tunnel*/
 #define NSS_IPSEC_MAX_SA 256 		/**< maximum SAs supported */
 
 #if (~(NSS_IPSEC_MAX_SA - 1) & (NSS_IPSEC_MAX_SA >> 1))
@@ -190,6 +190,16 @@ typedef void (*nss_ipsec_buf_callback_t)(void *app_data, void *os_buf, struct na
  * @return
  */
 extern nss_tx_status_t nss_ipsec_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_ipsec_msg *msg);
+
+/**
+ * @brief send an IPsec process request
+ *
+ * @param os_buf Data buffer
+ * @param if_num NSS interface number
+ *
+ * @return Status
+ */
+extern nss_tx_status_t nss_ipsec_tx_buf(struct sk_buff *os_buf, uint32_t if_num);
 
 /**
  * @brief register a event callback handler with HLOS driver
