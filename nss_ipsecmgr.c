@@ -220,6 +220,7 @@ static void nss_ipsecmgr_copy_decap_add(struct net_device *dev, struct nss_ipsec
 
 	data->crypto_index = decap->crypto_index;
 
+	data->nat_t_req = decap->nat_t_req;
 	data->window_size = decap->window_size;
 }
 

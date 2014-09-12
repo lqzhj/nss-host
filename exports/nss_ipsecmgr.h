@@ -99,7 +99,7 @@ struct nss_ipsecmgr_decap_add {
 	uint8_t cipher_algo;		/**< Cipher algorithm */
 	uint8_t auth_algo;		/**< Authentication algorithm */
 	uint8_t esp_icv_len;		/**< ESP trailer's ICV length */
-	uint8_t res[1];			/**< reserve for 4-byte alignment */
+	uint8_t nat_t_req;		/**< Remove NAT-T header */
 };
 
 /**
