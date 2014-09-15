@@ -22,6 +22,15 @@
 #ifndef __NSS_HLOS_IF_H
 #define __NSS_HLOS_IF_H
 
+#define MIN_NUM_CONN 			256	/**< MIN  Connection shared between IPv4 and IPv6 */
+#define MAX_TOTAL_NUM_CONN_IPV4_IPV6	8196	/**< MAX Connection shared between IPv4 and IPv6 */
+
+/*
+ * Variables used for sysctl updates.
+ */
+extern int nss_ipv4_conn_cfg;
+extern int nss_ipv6_conn_cfg;
+
 /*
  * Request/Response types
  */

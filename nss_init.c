@@ -829,30 +829,29 @@ static ctl_table nss_general_table[] = {
 		.data                   = &nss_ctl_redirect,
 		.maxlen                 = sizeof(int),
 		.mode                   = 0644,
-		.proc_handler   = proc_dointvec,
+		.proc_handler   	= proc_dointvec,
 	},
 	{
 		.procname               = "debug",
 		.data                   = &nss_ctl_debug,
 		.maxlen                 = sizeof(int),
 		.mode                   = 0644,
-		.proc_handler   = &nss_debug_handler,
+		.proc_handler   	= &nss_debug_handler,
 	},
 	{
 		.procname               = "coredump",
 		.data                   = &nss_cmd_buf.coredump,
 		.maxlen                 = sizeof(int),
 		.mode                   = 0644,
-		.proc_handler   = &nss_coredump_handler,
+		.proc_handler   	= &nss_coredump_handler,
 	},
 	{
 		.procname               = "rps",
 		.data                   = &nss_rps_cfg,
 		.maxlen                 = sizeof(int),
 		.mode                   = 0644,
-		.proc_handler   = &nss_rpscfg_handler,
+		.proc_handler   	= &nss_rpscfg_handler,
 	},
-
 	{ }
 };
 
@@ -921,6 +920,12 @@ static int __init nss_init(void)
 	nss_dev_header = register_sysctl_table(nss_root);
 
 	/*
+	 * Registering sysctl for ipv4/6 specific config.
+	 */
+	nss_ipv4_register_sysctl();
+	nss_ipv6_register_sysctl();
+
+	/*
 	 * Setup Runtime Sample values
 	 */
 	nss_runtime_samples.freq_scale[0].frequency = 	NSS_FREQ_110;
@@ -979,6 +984,12 @@ static void __exit nss_cleanup(void)
 
 	if (nss_dev_header)
 		unregister_sysctl_table(nss_dev_header);
+
+	/*
+	 * Unregister ipv4/6 specific sysctl
+	 */
+	nss_ipv4_unregister_sysctl();
+	nss_ipv6_unregister_sysctl();
 
 	platform_driver_unregister(&nss_driver);
 }
