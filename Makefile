@@ -38,8 +38,7 @@ qca-nss-drv-objs := \
 			nss_tunipip6.o \
 			nss_virt_if.o \
 			nss_shaper.o \
-			nss_pppoe.o \
-			nss_skb_recycler.o
+			nss_pppoe.o
 
 #
 # TODO: Deprecated files should be removed before merge
@@ -76,7 +75,6 @@ ccflags-y += -DNSS_CONNMGR_DEBUG_LEVEL=0 -DNSS_CONNMGR_PPPOE_SUPPORT=0
 ccflags-y += -DNSS_TUNIPIP6_DEBUG_LEVEL=0
 ccflags-y += -DNSS_PM_DEBUG_LEVEL=0
 ccflags-y += -DNSS_IPSECMGR_DEBUG_LEVEL=3
-ccflags-y += -DNSS_SKB_RECYCLER=1
 
 qca-nss-drv-objs += nss_profiler.o
 obj-y+= profiler/

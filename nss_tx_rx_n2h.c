@@ -47,7 +47,7 @@ nss_tx_status_t nss_n2h_rps_configure(void *ctx, uint32_t enable_rps) {
 		return NSS_TX_FAILURE_NOT_READY;
 	}
 
-	nbuf = nss_skb_alloc(NSS_NBUF_PAYLOAD_SIZE);
+	nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
 	if (unlikely(!nbuf)) {
 		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
 		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
@@ -70,7 +70,7 @@ nss_tx_status_t nss_n2h_rps_configure(void *ctx, uint32_t enable_rps) {
 
 	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
 	if (status != NSS_CORE_STATUS_SUCCESS) {
-		nss_skb_free(nbuf);
+		dev_kfree_skb_any(nbuf);
 		nss_info("%p: unable to enqueue 'nss frequency change' - marked as stopped\n", nss_ctx);
 		return NSS_TX_FAILURE;
 	}
