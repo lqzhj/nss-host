@@ -67,9 +67,10 @@ static void nss_prio_destroy(struct Qdisc *sch)
 		 * exist in the NSS.
 		 */
 		if (q->queues[i] != &noop_qdisc) {
+			struct nss_qdisc *nq_child = qdisc_priv(q->queues[i]);
 			nim.msg.shaper_configure.config.msg.shaper_node_config.qos_tag = q->nq.qos_tag;
 			nim.msg.shaper_configure.config.msg.shaper_node_config.snc.prio_detach.priority = i;
-			if (nss_qdisc_node_detach(&q->nq, &nim,
+			if (nss_qdisc_node_detach(&q->nq, nq_child, &nim,
 					NSS_SHAPER_CONFIG_TYPE_PRIO_DETACH) < 0) {
 				nss_qdisc_error("%s: Failed to detach child in band %d from prio %x\n",
 							__func__, i, q->nq.qos_tag);
@@ -179,14 +180,14 @@ static int nss_prio_dump(struct Qdisc *sch, struct sk_buff *skb)
 
 nla_put_failure:
 	nla_nest_cancel(skb, opts);
-	return -EMSGSIZE;	
+	return -EMSGSIZE;
 }
 
 static int nss_prio_graft(struct Qdisc *sch, unsigned long arg,
 				struct Qdisc *new, struct Qdisc **old)
 {
 	struct nss_prio_sched_data *q = qdisc_priv(sch);
-	struct nss_qdisc *nq_new = (struct nss_qdisc *)qdisc_priv(new);
+	struct nss_qdisc *nq_new = qdisc_priv(new);
 	uint32_t band = (uint32_t)(arg - 1);
 	struct nss_if_msg nim_attach;
 	struct nss_if_msg nim_detach;
@@ -207,10 +208,11 @@ static int nss_prio_graft(struct Qdisc *sch, unsigned long arg,
 
 	nss_qdisc_info("%s:Grafting old: %p with new: %p\n", __func__, *old, new);
 	if (*old != &noop_qdisc) {
+		struct nss_qdisc *nq_old = qdisc_priv(*old);
 		nss_qdisc_info("%s:Detaching old: %p\n", __func__, *old);
 		nim_detach.msg.shaper_configure.config.msg.shaper_node_config.qos_tag = q->nq.qos_tag;
 		nim_detach.msg.shaper_configure.config.msg.shaper_node_config.snc.prio_detach.priority = band;
-		if (nss_qdisc_node_detach(&q->nq, &nim_detach,
+		if (nss_qdisc_node_detach(&q->nq, nq_old, &nim_detach,
 				NSS_SHAPER_CONFIG_TYPE_PRIO_DETACH) < 0) {
 			return -EINVAL;
 		}
@@ -222,7 +224,7 @@ static int nss_prio_graft(struct Qdisc *sch, unsigned long arg,
 		nim_attach.msg.shaper_configure.config.msg.shaper_node_config.qos_tag = q->nq.qos_tag;
 		nim_attach.msg.shaper_configure.config.msg.shaper_node_config.snc.prio_attach.child_qos_tag = nq_new->qos_tag;
 		nim_attach.msg.shaper_configure.config.msg.shaper_node_config.snc.prio_attach.priority = band;
-		if (nss_qdisc_node_attach(&q->nq, &nim_attach,
+		if (nss_qdisc_node_attach(&q->nq, nq_new, &nim_attach,
 				NSS_SHAPER_CONFIG_TYPE_PRIO_ATTACH) < 0) {
 			return -EINVAL;
 		}

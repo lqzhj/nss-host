@@ -32,6 +32,12 @@ wait_queue_head_t nss_qdics_wq;			/* Wait queue used to wait on responses from t
 					/* come back from the NSS */
 
 /*
+ * Defines related to root hash maintenance
+ */
+#define NSS_QDISC_ROOT_HASH_SIZE 4
+#define NSS_QDISC_ROOT_HASH_MASK (NSS_QDISC_ROOT_HASH_SIZE - 1)
+
+/*
  * nss_qdisc_get_interface_msg()
  *	Returns the correct message that needs to be sent down to the NSS interface.
  */
@@ -933,12 +939,205 @@ void nss_qdisc_reset(struct Qdisc *sch)
 }
 
 /*
+ * nss_qdisc_gen_hash()
+ *	Generates a hash using the qos_tag value.
+ */
+static inline unsigned int nss_qdisc_gen_hash(uint32_t qos_tag)
+{
+	qos_tag ^= (qos_tag >> 8);
+	qos_tag ^= (qos_tag >> 4);
+	return qos_tag & NSS_QDISC_ROOT_HASH_MASK;
+}
+
+/*
+ * nss_qdisc_root_hash_init()
+ *	Initializes the hash table on the nss qdisc that is passed.
+ *
+ * This function should only be used on qdiscs that are 'root' and not
+ * on all. This saves memory.
+ */
+static bool nss_qdisc_root_hash_init(struct nss_qdisc *nq)
+{
+	unsigned int size = NSS_QDISC_ROOT_HASH_SIZE * sizeof(struct hlist_head);
+	struct hlist_head *h;
+	int i;
+
+	nss_qdisc_info("%s: allocating %u bytes\n", __func__, size);
+
+	h = kmalloc(size, GFP_KERNEL);
+	if (h == NULL) {
+		nss_qdisc_warning("%s: hash alloc failed for qdisc %x\n", __func__, nq->qos_tag);
+		return false;
+	}
+
+	/*
+	 * Initialize each index of the array of hlist heads
+	 */
+	for (i = 0; i < NSS_QDISC_ROOT_HASH_SIZE; i++) {
+		nss_qdisc_info("%s: initializing  hash head %p\n", __func__, &h[i]);
+		INIT_HLIST_HEAD(&h[i]);
+	}
+
+	/*
+	 * Save the memory pointer
+	 */
+	nq->hash = h;
+	return true;
+}
+
+/*
+ * nss_qdisc_root_hash_free()
+ *	Frees the allocated piece of hash table memory.
+ */
+static void nss_qdisc_root_hash_free(struct nss_qdisc *nq)
+{
+	/*
+	 * Ideally this wouldn't be NULL. But if it is, we
+	 * need to handle it right.
+	 */
+	if (!nq->hash) {
+		nss_qdisc_warning("%p: trying to free an unallocated root hash for qdisc %x\n",
+					__func__, nq->qos_tag);
+		return;
+	}
+
+	kfree(nq->hash);
+}
+
+/*
+ * nss_qdisc_root_hash_insert()
+ *	Inserts the given nss qdisc into the root hash table.
+ */
+static inline void nss_qdisc_root_hash_insert(struct nss_qdisc *nq_root, struct nss_qdisc *nq)
+{
+	unsigned int hash;
+
+	INIT_HLIST_NODE(&nq->hnode);
+	hash = nss_qdisc_gen_hash(nq->qos_tag);
+	hlist_add_head(&nq->hnode, &nq_root->hash[hash]);
+	nss_qdisc_trace("%s: added qdisc %x to root %x's hash at index %u\n",
+				__func__, nq->qos_tag, nq_root->qos_tag, hash);
+}
+
+/*
+ * nss_qdisc_root_hash_remove()
+ *	Removes nss qdisc from root hash.
+ */
+static inline void nss_qdisc_root_hash_remove(struct nss_qdisc *nq)
+{
+	nss_qdisc_trace("%s: deleting qdisc %x from root hash\n", __func__, nq->qos_tag);
+	hlist_del(&nq->hnode);
+}
+
+/*
+ * nss_qdisc_querry_hash()
+ *	Querries the hash table for a qos_tag match. Returns NULL if not found.
+ */
+static inline struct nss_qdisc *nss_qdisc_querry_hash(struct nss_qdisc *nq_root, uint32_t qos_tag)
+{
+	struct nss_qdisc *nq;
+	unsigned int hash;
+	struct hlist_node *n;
+	bool head = true;
+
+	/*
+	 * Get the hash valud for this qos_tag
+	 */
+	hash = nss_qdisc_gen_hash(qos_tag);
+
+	nss_qdisc_trace("%s: looking for qdisc %x in root %x's hash at index %u\n",
+				__func__, qos_tag, nq_root->qos_tag, hash);
+
+	/*
+	 * Parse through the list to find a match.
+	 */
+	hlist_for_each_entry(nq, n, &nq_root->hash[hash], hnode) {
+
+		/*
+		 * It is more likely that a queue tail drops packets
+		 * back to back. i.e. in a small burst. Therefore the
+		 * first list element is a likely match. Note: We move
+		 * a qdisc to front of list when there is a hit.
+		 */
+		if (unlikely(!nq->qos_tag == qos_tag)) {
+			head = false;
+			continue;
+		}
+
+		/*
+		 * Since we move the qdiscs to head of list, it is
+		 * more likely that we find our match at the head.
+		 */
+		if (likely(head)) {
+			return nq;
+		}
+
+		/*
+		 * If the match was not at the head, we detach and attach it
+		 * back at the front/head.
+		 */
+		nss_qdisc_root_hash_remove(nq);
+		nss_qdisc_root_hash_insert(nq_root, nq);
+		return nq;
+	}
+	return NULL;
+}
+
+/*
+ * nss_qdisc_propogate_drop_update()
+ *	Passes on the drop information all the way up to the root.
+ */
+static void nss_qdisc_propogate_drop_update(struct nss_qdisc *nq)
+{
+	struct gnet_stats_queue *qstats;
+	struct nss_qdisc *parent;
+
+	nss_qdisc_info("%s: drop propogate called for qdisc %x\n", __func__, nq->qos_tag);
+
+	/*
+	 * Where the stats are held differes between a class and
+	 * a normal qdisc. We take that into account while fetching
+	 * the stat pointer.
+	 */
+	if (nq->is_class) {
+		qstats = &nq->qstats;
+	} else {
+		qstats = &nq->qdisc->qstats;
+	}
+
+	/*
+	 * Stats are lock protected since they can be changed
+	 * from more than one thread context.
+	 */
+	spin_lock_bh(&nq->lock);
+	qstats->drops++;
+
+	/*
+	 * If we dont have a parent, we are done.
+	 * This is hit at the root qdisc.
+	 */
+	if (!nq->parent) {
+		spin_unlock_bh(&nq->lock);
+		return;
+	}
+
+	/*
+	 * If we are not root, we will have to
+	 * propogate the drop info up to our parent.
+	 */
+	parent = nq->parent;
+	spin_unlock_bh(&nq->lock);
+	nss_qdisc_propogate_drop_update(parent);
+}
+
+/*
  * nss_qdisc_enqueue()
  *	Generic enqueue call for enqueuing packets into NSS for shaping
  */
 int nss_qdisc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 {
 	struct nss_qdisc *nq = qdisc_priv(sch);
+	struct nss_qdisc *nq_leaf;
 	nss_tx_status_t status;
 
 	/*
@@ -1005,18 +1204,9 @@ int nss_qdisc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 			return NET_XMIT_SUCCESS;
 		}
 
-		/*
-		 * Just transmit anyway, don't want to loose the packet
-		 */
 		nss_qdisc_warning("%s: Qdisc %p (type %d): failed to bounce for bridge %d, skb: %p\n",
 					__func__, sch, nq->type, nq->nss_interface_number, skb);
-
-		/*
-		 * We were unable to transmit the packet for bridge shaping.
-		 * We therefore drop it.
-		 */
-		kfree_skb(skb);
-		return NET_XMIT_DROP;
+		goto enqueue_drop;
 	}
 
 	/*
@@ -1030,17 +1220,46 @@ int nss_qdisc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 	}
 
 	/*
-	 * Just transmit anyway, don't want to loose the packet
+	 * We failed to bounce the packet for shaping on a virtual interface
 	 */
 	nss_qdisc_warning("%s: Qdisc %p (type %d): failed to bounce for "
 		"interface: %d, skb: %p\n", __func__, sch, nq->type,
 		nq->nss_interface_number, skb);
+
+enqueue_drop:
+	/*
+	 * Find the intended child and trigger a drop update.
+	 * Priority field has the qos_tag of the child to which
+	 * the packet was intended to be enqueued.
+	 */
+	nq_leaf = nss_qdisc_querry_hash(nq, skb->priority);
+
+	/*
+	 * If we find a match we propogate the drop update from there.
+	 * Else if we have a default node, then we propogate the drop
+	 * from the default node.
+	 * If there was not qos_tag match, and if we did not have a
+	 * default node, then we update the drop stats of root and
+	 * continue.
+	 */
+	if (nq_leaf) {
+		nss_qdisc_propogate_drop_update(nq_leaf);
+	} else if (nq->default_nq) {
+		nss_qdisc_propogate_drop_update(nq->default_nq);
+	} else {
+		nss_qdisc_warning("%s: dropping at qdisc %x, no leaf match and no default found\n",
+					__func__, nq->qos_tag);
+		spin_lock_bh(&nq->lock);
+		sch->qstats.drops++;
+		spin_unlock_bh(&nq->lock);
+	}
 
 	/*
 	 * We were unable to transmit the packet for bridge shaping.
 	 * We therefore drop it.
 	 */
 	kfree_skb(skb);
+
 	return NET_XMIT_DROP;
 }
 
@@ -1093,6 +1312,17 @@ int nss_qdisc_set_default(struct nss_qdisc *nq)
 	int32_t state, rc;
 	int msg_type;
 	struct nss_if_msg nim;
+	struct nss_qdisc *nq_root;
+
+	/*
+	 * Get root nss qdisc
+	 */
+	if (nq->is_root) {
+		nq_root = nq;
+	} else {
+		struct Qdisc *root = qdisc_root(nq->qdisc);
+		nq_root = qdisc_priv(root);
+	}
 
 	nss_qdisc_info("%s: Setting qdisc %p (type %d) as default\n", __func__,
 			nq->qdisc, nq->type);
@@ -1142,6 +1372,13 @@ int nss_qdisc_set_default(struct nss_qdisc *nq)
 		return -1;
 	}
 
+	/*
+	 * Save the default nss qdisc pointer
+	 */
+	spin_lock_bh(&nq_root->lock);
+	nq_root->default_nq = nq;
+	spin_unlock_bh(&nq_root->lock);
+
 	nss_qdisc_info("%s: Qdisc %p (type %d): shaper node default complete\n",
 			__func__, nq->qdisc, nq->type);
 	return 0;
@@ -1174,7 +1411,7 @@ static void nss_qdisc_node_attach_callback(void *app_data,
  * nss_qdisc_node_attach()
  *	Configuration function that helps attach a child shaper node to a parent.
  */
-int nss_qdisc_node_attach(struct nss_qdisc *nq,
+int nss_qdisc_node_attach(struct nss_qdisc *nq, struct nss_qdisc *nq_child,
 			struct nss_if_msg *nim, int32_t attach_type)
 {
 	int32_t state, rc;
@@ -1227,6 +1464,10 @@ int nss_qdisc_node_attach(struct nss_qdisc *nq,
 		return -1;
 	}
 
+	spin_lock_bh(&nq_child->lock);
+	nq_child->parent = nq;
+	spin_unlock_bh(&nq_child->lock);
+
 	nss_qdisc_info("%s: Qdisc %p (type %d): shaper node attach complete\n",
 			__func__, nq->qdisc, nq->type);
 	return 0;
@@ -1259,7 +1500,7 @@ static void nss_qdisc_node_detach_callback(void *app_data,
  * nss_qdisc_node_detach()
  *	Configuration function that helps detach a child shaper node to a parent.
  */
-int nss_qdisc_node_detach(struct nss_qdisc *nq,
+int nss_qdisc_node_detach(struct nss_qdisc *nq, struct nss_qdisc *nq_child,
 	struct nss_if_msg *nim, int32_t detach_type)
 {
 	int32_t state, rc, msg_type;
@@ -1310,6 +1551,10 @@ int nss_qdisc_node_detach(struct nss_qdisc *nq,
 		atomic_set(&nq->state, NSS_QDISC_STATE_READY);
 		return -1;
 	}
+
+	spin_lock_bh(&nq_child->lock);
+	nq_child->parent = NULL;
+	spin_unlock_bh(&nq_child->lock);
 
 	nss_qdisc_info("%s: Qdisc %p (type %d): shaper node detach complete\n",
 			__func__, nq->qdisc, nq->type);
@@ -1439,10 +1684,22 @@ void nss_qdisc_destroy(struct nss_qdisc *nq)
 		 * Begin by freeing the root shaper node
 		 */
 		nss_qdisc_root_cleanup_free_node(nq);
+
+		/*
+		 * Free allocated hash table at root
+		 */
+		nss_qdisc_root_hash_free(nq);
 	} else {
 		/*
-		 * Begin by freeing the child shaper node
+		 * Begin by removing ourselves from the root hash.
+		 * Then go ahead and clean up the shapers.
 		 */
+		struct Qdisc *root = qdisc_root(nq->qdisc);
+		struct nss_qdisc *nq_root = qdisc_priv(root);
+		spin_lock_bh(&nq_root->lock);
+		nss_qdisc_root_hash_remove(nq);
+		spin_unlock_bh(&nq_root->lock);
+
 		nss_qdisc_child_cleanup_free_node(nq);
 	}
 
@@ -1463,7 +1720,6 @@ void nss_qdisc_destroy(struct nss_qdisc *nq)
 			__func__, nq->qdisc, nq->type);
 }
 
-
 /*
  * nss_qdisc_init()
  *	Initializes a shaper in NSS, based on the position of this qdisc (child or root)
@@ -1472,6 +1728,7 @@ void nss_qdisc_destroy(struct nss_qdisc *nq)
 int nss_qdisc_init(struct Qdisc *sch, struct nss_qdisc *nq, nss_shaper_node_type_t type, uint32_t classid)
 {
 	struct Qdisc *root;
+	struct nss_qdisc *nq_root;
 	u32 parent;
 	nss_tx_status_t rc;
 	struct net_device *dev;
@@ -1509,6 +1766,8 @@ int nss_qdisc_init(struct Qdisc *sch, struct nss_qdisc *nq, nss_shaper_node_type
 		nq->is_class = false;
 	}
 
+	parent = sch->parent;
+
 	/*
 	 * If our parent is TC_H_ROOT and we are not a class, then we are the root qdisc.
 	 * Note, classes might have its qdisc as root, however we should not set is_root to
@@ -1516,18 +1775,22 @@ int nss_qdisc_init(struct Qdisc *sch, struct nss_qdisc *nq, nss_shaper_node_type
 	 */
 	if ((sch->parent == TC_H_ROOT) && (!nq->is_class)) {
 		nss_qdisc_info("%s: Qdisc %p (type %d) is root\n", __func__, nq->qdisc, nq->type);
+		nss_qdisc_root_hash_init(nq);
 		nq->is_root = true;
+		root = sch;
 	} else {
 		nss_qdisc_info("%s: Qdisc %p (type %d) not root\n", __func__, nq->qdisc, nq->type);
 		nq->is_root = false;
+		root = qdisc_root(sch);
 	}
 
 	/*
-	 * The root must be of an nss type (unless we are of course going to be root).
-	 * This is to prevent mixing NSS qdisc with other types of qdisc.
+	 * Attach nss qdisc to the root hash
 	 */
-	parent = sch->parent;
-	root = qdisc_root(sch);
+	nss_qdisc_assert(root != NULL, "%s: root cannot be NULL qdisc %x\n", __func__, nq->qos_tag);
+	nss_qdisc_info("%s: attach qdisc %x to root %x's hash for lookup\n", __func__, nq->qos_tag, root->handle);
+	nq_root = qdisc_priv(root);
+	nss_qdisc_root_hash_insert(nq_root, nq);
 
 	/*
 	 * Get the net device as it will tell us if we are on a bridge,
@@ -1554,6 +1817,10 @@ int nss_qdisc_init(struct Qdisc *sch, struct nss_qdisc *nq, nss_shaper_node_type
 		"parent: %x rootid: %s owner: %p\n", __func__, nq->qdisc, nq->type, root,
 		nq->qos_tag, parent, root->ops->id, root->ops->owner);
 
+	/*
+	 * The root must be of an nss type (unless we are of course going to be root).
+	 * This is to prevent mixing NSS qdisc with other types of qdisc.
+	 */
 	if ((parent != TC_H_ROOT) && (root->ops->owner != THIS_MODULE)) {
 		nss_qdisc_warning("%s: NSS qdisc %p (type %d) used along with non-NSS qdiscs,"
 			" or the interface is currently down", __func__, nq->qdisc, nq->type);
@@ -1875,6 +2142,7 @@ static void nss_qdisc_basic_stats_callback(void *app_data,
 	/*
 	 * Update qdisc->bstats
 	 */
+	spin_lock_bh(&nq->lock);
 	bstats->bytes += (__u64)nq->basic_stats_latest.delta.dequeued_bytes;
 	bstats->packets += nq->basic_stats_latest.delta.dequeued_packets;
 
@@ -1892,7 +2160,12 @@ static void nss_qdisc_basic_stats_callback(void *app_data,
 	qstats->qlen = nq->basic_stats_latest.qlen_packets;
 	qstats->requeues = 0;
 	qstats->overlimits += nq->basic_stats_latest.delta.queue_overrun;
+	spin_unlock_bh(&nq->lock);
 
+	/*
+	 * All access to nq fields below do not need lock protection. They
+	 * do not get manipulated on different thread contexts.
+	 */
 	if (atomic_read(refcnt) == 0) {
 		atomic_sub(1, &nq->pending_stat_requests);
 		wake_up(&nss_qdics_wq);
@@ -2051,7 +2324,7 @@ static struct notifier_block nss_qdisc_device_notifier = {
 /*
  * TODO: Get the bridge related code out into nss_qdisc_bridge.c
  * Get the stats into nss_qdisc_stats.c
- * 
+ *
  */
 
 /* ================== Module registration ================= */
