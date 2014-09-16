@@ -70,6 +70,22 @@ uint32_t nss_core_register_handler(uint32_t interface, nss_core_rx_callback_t cb
 	return NSS_CORE_STATUS_SUCCESS;
 }
 
+uint32_t nss_core_unregister_handler(uint32_t interface)
+{
+	/*
+	 * Validate interface id
+	 */
+	if (interface > NSS_MAX_NET_INTERFACES) {
+		printk("Error - Interface %d not Supported\n", interface);
+		return NSS_CORE_STATUS_FAILURE;
+	}
+
+	nss_rx_interface_handlers[interface].cb = NULL;
+	nss_rx_interface_handlers[interface].app_data = NULL;
+
+	return NSS_CORE_STATUS_SUCCESS;
+}
+
 /*
  * nss_core_handle_nss_status_pkt()
  *	Handle the metadata/status packet.
