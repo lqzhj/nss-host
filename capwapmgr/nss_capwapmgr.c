@@ -546,7 +546,7 @@ static nss_tx_status_t nss_capwapmgr_unconfigure_ipv4_rule(struct nss_ipv4_destr
 {
 	void *ctx;
 
-	ctx = nss_get_ipv4_mgr_ctx();
+	ctx = nss_ipv4_get_mgr();
 	if (!ctx) {
 		nss_capwapmgr_warn("%s: couldn't get IPv4 ctx\n", "CAPWAP");
 		return NSS_TX_FAILURE_NOT_READY;
@@ -667,7 +667,7 @@ static nss_tx_status_t nss_capwapmgr_configure_ipv4(struct nss_ipv4_create *pcre
 	nss_tx_status_t status;
 	void *ctx;
 
-	ctx = nss_get_ipv4_mgr_ctx();
+	ctx = nss_ipv4_get_mgr();
 	if (!ctx) {
 		nss_capwapmgr_warn("%s couldn't get IPv4 ctx\n", "CAPWAP");
 		return -1;

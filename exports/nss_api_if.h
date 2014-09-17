@@ -677,103 +677,11 @@ typedef void (*nss_if_rx_msg_callback_t)(void *app_data, struct nss_cmn_msg *msg
 typedef void (*nss_ipv4_callback_t)(struct nss_ipv4_cb_params *nicb);
 
 /**
- * @brief API to get NSS context for IPv4 Connection manager
- *
- */
-extern void *nss_get_ipv4_mgr_ctx(void);
-
-/**
  * @brief Get handle to sending/receiving Frequency messages
  *
  * @return void* NSS context to be provided with every message
  */
 extern void *nss_get_frequency_mgr(void);
-
-
-/**
- * @brief Send IPv4 connection setup rule
- *
- * @param nss_ctx NSS context
- * @param unic Rule parameters
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_create_ipv4_rule(void *nss_ctx, struct nss_ipv4_create *unic);
-
-/**
- * @brief Send extended IPv4 connection setup rule
- *
- * @param nss_ctx NSS context
- * @param unic Rule parameters
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_create_ipv4_rule1(void *nss_ctx, struct nss_ipv4_create *unic);
-
-
-/**
- * @brief Send IPv4 connection destroy rule
- *
- * @param nss_ctx NSS context
- * @param unid Rule parameters
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_destroy_ipv4_rule(void *nss_ctx, struct nss_ipv4_destroy *unid);
-
-/**
- * Methods provided by NSS device driver for use by connection tracking logic for IPv6.
- */
-
-/**
- * Callback for IPv6 sync messages
- */
-typedef void (*nss_ipv6_callback_t)(struct nss_ipv6_cb_params *nicb);
-
-/**
- * @brief Register for sending/receiving IPv6 messages
- *
- * @param event_callback Callback
- *
- * @return void* NSS context to be provided with every message
- */
-extern void *nss_register_ipv6_mgr(nss_ipv6_callback_t event_callback);
-
-/**
- * @brief Unregister for sending/receiving IPv4 messages
- */
-extern void nss_unregister_ipv6_mgr(void);
-
-/**
- * @brief Send IPv6 connection setup rule
- *
- * @param nss_ctx NSS context
- * @param unic Rule parameters
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_create_ipv6_rule(void *nss_ctx, struct nss_ipv6_create *unic);
-
-/**
- * @brief Send extended IPv6 connection setup rule
- *
- * @param nss_ctx NSS context
- * @param unic Rule parameters
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_create_ipv6_rule1(void *nss_ctx, struct nss_ipv6_create *unic);
-
-
-/**
- * @brief Send IPv6 connection destroy rule
- *
- * @param nss_ctx NSS context
- * @param unid Rule parameters
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_destroy_ipv6_rule(void *nss_ctx, struct nss_ipv6_destroy *unid);
 
 /**
  * Methods provided by NSS device driver for use by GMAC driver
@@ -962,25 +870,6 @@ extern nss_tx_status_t nss_tx_virt_if_rx_nwifibuf(void *nss_ctx, struct sk_buff 
  */
 extern nss_tx_status_t nss_tx_virt_if_rxbuf(void *nss_ctx, struct sk_buff *os_buf);
 
-/**
- * @brief Send generic interface based command to NSS
- *
- * @param nss_ctx NSS context
- * @param if_num NSS interface to deliver this message
- * @param buf Buffer to send to NSS
- * @param len Length of buffer
- *
- * @return nss_tx_status_t Tx status
- *
- * @note Valid context must be provided (for the right core).
- *	This context was returned during registration.
- */
-extern nss_tx_status_t nss_tx_generic_if_buf(void *nss_ctx, uint32_t if_num, uint8_t *buf, uint32_t len);
-
-/**
- * Methods provided by NSS driver for use by 6rd tunnel
- */
-
 /*
  * @brief NSS Frequency Change
  * @ param ctx NSS context
@@ -1017,20 +906,6 @@ int nss_pm_client_unregister(nss_pm_client_t client_id);
  * @param lvl - Perf Level
  */
 extern nss_pm_interface_status_t nss_pm_set_perf_level(void *handle, nss_pm_perf_level_t lvl);
-
-/**
- * @brief Register for sending/receiving IPv4 messages
- *
- * @param event_callback Event callback
- *
- * @return void* NSS context to be provided with every message
- */
-extern void *nss_register_ipv4_mgr(nss_ipv4_callback_t event_callback);
-
-/**
- * @brief Unregister for sending/receiving IPv4 messages
- */
-extern void nss_unregister_ipv4_mgr(void);
 
 /**
  * @brief Get NSS state

@@ -89,9 +89,9 @@ extern void nss_if_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_
 		__attribute__((unused))void *app_data);
 
 /*
- * nss_n2h_rps_configure()
+ * nss_n2h_tx()
  * 	API to enable/disable Host RPS support in NSS
  */
-extern nss_tx_status_t nss_n2h_rps_configure(void *ctx, uint32_t enable_rps);
+extern nss_tx_status_t nss_n2h_tx(struct nss_ctx_instance *nss_ctx, uint32_t enable_rps);
 
 #endif /* __NSS_TX_RX_COMMON_H */

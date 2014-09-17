@@ -216,4 +216,59 @@ extern nss_tx_status_t nss_phys_if_tx_nwifi_rxbuf(int32_t if_num, struct sk_buff
  */
 extern nss_tx_status_t nss_phys_if_tx_eth_rxbuf(int32_t if_num, struct sk_buff *skb);
 
+/**
+ * @brief Open GMAC interface on NSS
+ *
+ * @param nss_ctx NSS context
+ * @param tx_desc_ring Tx descriptor ring address
+ * @param rx_desc_ring Rx descriptor ring address
+ * @param if_num GMAC i/f number
+ *
+ * @return nss_tx_status_t Tx status
+ */
+extern nss_tx_status_t nss_phys_if_tx_open(struct nss_ctx_instance *nss_ctx, uint32_t tx_desc_ring, uint32_t rx_desc_ring, uint32_t if_num);
+
+/**
+ * @brief Close GMAC interface on NSS
+ *
+ * @param nss_ctx NSS context
+ * @param if_num GMAC i/f number
+ *
+ * @return nss_tx_status_t Tx status
+ */
+extern nss_tx_status_t nss_phys_if_tx_close(struct nss_ctx_instance *nss_ctx, uint32_t if_num);
+
+/**
+ * @brief Send link state message to NSS
+ *
+ * @param nss_ctx NSS context
+ * @param link_state Link state
+ * @param if_num GMAC i/f number
+ *
+ * @return nss_tx_status_t Tx status
+ */
+extern nss_tx_status_t nss_phys_if_tx_link_state(struct nss_ctx_instance *nss_ctx, uint32_t link_state, uint32_t if_num);
+
+/**
+ * @brief Send MAC address to NSS
+ *
+ * @param nss_ctx NSS context
+ * @param addr MAC address pointer
+ * @param if_num GMAC i/f number
+ *
+ * @return nss_tx_status_t Tx status
+ */
+extern nss_tx_status_t nss_phys_if_tx_mac_addr(struct nss_ctx_instance *nss_ctx, uint8_t *addr, uint32_t if_num);
+
+/**
+ * @brief Send MTU change notification to NSS
+ *
+ * @param nss_ctx NSS context
+ * @param mtu MTU
+ * @param if_num GMAC i/f number
+ *
+ * @return nss_tx_status_t Tx status
+ */
+extern nss_tx_status_t nss_phys_if_tx_change_mtu(struct nss_ctx_instance *nss_ctx, uint32_t mtu, uint32_t if_num);
+
 #endif /* __NSS_PHYS_IF_H */

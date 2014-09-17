@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -21,14 +21,6 @@
 
 #include "nss_tx_rx_common.h"
 #include <linux/ppp_channel.h>
-
-extern void nss_tx_destroy_pppoe_connection_rule(void *ctx, uint16_t pppoe_session_id, uint8_t *pppoe_remote_mac);
-
-/*
- **********************************
- Tx APIs
- **********************************
- */
 
 /*
  * nss_pppoe_tx()
@@ -190,6 +182,45 @@ static void nss_pppoe_node_stats_sync(struct nss_ctx_instance *nss_ctx, struct n
 }
 
 /*
+ * nss_pppoe_destroy_connection_rule()
+ * Destroy PPoE connection rule associated with the session ID and remote server MAC address.
+ */
+
+/*
+ * TODO: This API should be deprecated soon and removed.
+ */
+static void nss_pppoe_destroy_connection_rule(void *ctx, uint16_t pppoe_session_id, uint8_t *pppoe_remote_mac)
+{
+	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) ctx;
+	struct nss_pppoe_msg npm;
+	struct nss_pppoe_rule_destroy_msg *nprd;
+	uint16_t *pppoe_remote_mac_uint16_t = (uint16_t *)pppoe_remote_mac;
+	int32_t status;
+
+	/*
+	 * TODO Remove this function once linux kernel directly calls nss_pppoe_tx()
+	 */
+	nss_info("%p: Destroy all PPPoE rules of session ID: %x remote MAC: %x:%x:%x:%x:%x:%x", nss_ctx, pppoe_session_id,
+			pppoe_remote_mac[0], pppoe_remote_mac[1], pppoe_remote_mac[2],
+			pppoe_remote_mac[3], pppoe_remote_mac[4], pppoe_remote_mac[5]);
+
+	nss_cmn_msg_init(&npm.cm, NSS_PPPOE_RX_INTERFACE, NSS_PPPOE_TX_CONN_RULE_DESTROY,
+			sizeof(struct nss_pppoe_rule_destroy_msg), NULL, NULL);
+
+	nprd = &npm.msg.pppoe_rule_destroy;
+
+	nprd->pppoe_session_id = pppoe_session_id;
+	nprd->pppoe_remote_mac[0] = pppoe_remote_mac_uint16_t[0];
+	nprd->pppoe_remote_mac[1] = pppoe_remote_mac_uint16_t[1];
+	nprd->pppoe_remote_mac[2] = pppoe_remote_mac_uint16_t[2];
+
+	status = nss_pppoe_tx(nss_ctx, &npm);
+	if (status != NSS_TX_SUCCESS) {
+		nss_warning("%p: Not able to send destroy pppoe rule msg to NSS %x\n", nss_ctx, status);
+	}
+}
+
+/*
  * nss_pppoe_rule_create_success()
  *	Handle the PPPoE rule create success message.
  */
@@ -208,7 +239,7 @@ static void nss_pppoe_rule_create_success(struct nss_ctx_instance *nss_ctx, stru
 	/*
 	 * TODO Remove this registration once kernel directly calls nss_pppoe_tx().
 	 */
-	if (!ppp_register_destroy_method(ppp_dev, nss_tx_destroy_pppoe_connection_rule, (void *)nss_ctx)) {
+	if (!ppp_register_destroy_method(ppp_dev, nss_pppoe_destroy_connection_rule, (void *)nss_ctx)) {
 		nss_warning("%p: Failed to register destroy method", nss_ctx);
 	}
 
@@ -278,4 +309,3 @@ void nss_pppoe_register_handler()
 {
 	nss_core_register_handler(NSS_PPPOE_RX_INTERFACE, nss_pppoe_rx_msg_handler, NULL);
 }
-
