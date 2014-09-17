@@ -151,7 +151,7 @@ static int32_t nss_send_c2c_map(struct nss_ctx_instance *nss_own, struct nss_ctx
 
 	nss_info("%p: C2C map:%x\n", nss_own, nss_other->c2c_start);
 
-	nbuf = nss_skb_alloc(NSS_NBUF_PAYLOAD_SIZE);
+	nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
 	if (unlikely(!nbuf)) {
 		struct nss_top_instance *nss_top = nss_own->nss_top;
 
@@ -174,7 +174,7 @@ static int32_t nss_send_c2c_map(struct nss_ctx_instance *nss_own, struct nss_ctx
 
 	status = nss_core_send_buffer(nss_own, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
 	if (unlikely(status != NSS_CORE_STATUS_SUCCESS)) {
-		nss_skb_free(nbuf);
+		dev_kfree_skb_any(nbuf);
 		nss_warning("%p: Unable to enqueue 'c2c tx map'\n", nss_own);
 		return NSS_CORE_STATUS_FAILURE;
 	}
@@ -471,7 +471,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 						 * fragmented packets and so we do not need to take care
 						 * of freeing a fragmented packet
 						 */
-						nss_skb_free(nbuf);
+						dev_kfree_skb_any(nbuf);
 						break;
 					}
 
@@ -486,7 +486,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 					 */
 					xmit_ret = ndev->netdev_ops->ndo_start_xmit(nbuf, ndev);
 					if (unlikely(xmit_ret == NETDEV_TX_BUSY)) {
-						nss_skb_free(nbuf);
+						dev_kfree_skb_any(nbuf);
 						nss_info("%p: Congestion at virtual interface %d, %p", nss_ctx, interface_num, ndev);
 					}
 
@@ -535,17 +535,17 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 						 */
 						nss_warning("%p: Received exception packet from bad virtual interface %d",
 								nss_ctx, interface_num);
-						nss_skb_free(nbuf);
+						dev_kfree_skb_any(nbuf);
 					}
 				} else {
-					nss_skb_free(nbuf);
+					dev_kfree_skb_any(nbuf);
 				}
 				break;
 
 			case N2H_BUFFER_STATUS:
 				NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_STATUS]);
 				nss_core_handle_nss_status_pkt(nss_ctx, nbuf);
-				nss_skb_free(nbuf);
+				dev_kfree_skb_any(nbuf);
 				break;
 
 			case N2H_BUFFER_EMPTY:
@@ -554,7 +554,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 				/*
 				 * TODO: Unmap fragments
 				 */
-				nss_skb_free(nbuf);
+				dev_kfree_skb_any(nbuf);
 				break;
 
 			default:
@@ -714,7 +714,7 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 			struct h2n_descriptor *desc = &desc_ring[hlos_index];
 			dma_addr_t buffer;
 
-			nbuf = nss_skb_alloc(max_buf_size);
+			nbuf = dev_alloc_skb(max_buf_size);
 			if (unlikely(!nbuf)) {
 				/*
 				 * ERR:
@@ -731,7 +731,7 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 				/*
 				 * ERR:
 				 */
-				nss_skb_free(nbuf);
+				dev_kfree_skb_any(nbuf);
 				nss_warning("%p: DMA mapping failed for empty buffer", nss_ctx);
 				break;
 			}
