@@ -42,6 +42,8 @@
 
 #define NSS_IPSECMGR_TUN_MTU(x) (x - NSS_IPSECMGR_TUN_MAX_HDR_LEN)
 
+#define NSS_IPSECMGR_NATT_PORT_DATA 4500
+
 /**
  * @brief Definition of an IPsec encapsulation rule for an add operation
  */
@@ -67,7 +69,8 @@ struct nss_ipsecmgr_encap_add {
 	uint8_t esp_icv_len;		/**< ESP trailer's ICV length */
 
 	uint8_t esp_seq_skip;		/**< Skip ESP sequence number in header*/
-	uint8_t res[3];			/**< reserve for 4-byte alignment */
+	uint8_t esp_tail_skip;		/**< Skip ESP trailer*/
+	uint8_t res[2];			/**< reserve for 4-byte alignment */
 };
 
 /**
@@ -100,6 +103,10 @@ struct nss_ipsecmgr_decap_add {
 	uint8_t auth_algo;		/**< Authentication algorithm */
 	uint8_t esp_icv_len;		/**< ESP trailer's ICV length */
 	uint8_t nat_t_req;		/**< Remove NAT-T header */
+
+	uint8_t esp_seq_skip;		/**< Skip ESP sequence number in header*/
+	uint8_t esp_tail_skip;		/**< Skip ESP trailer*/
+	uint8_t res[2];			/**< reserve for 4-byte alignment */
 };
 
 /**

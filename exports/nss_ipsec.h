@@ -106,11 +106,12 @@ struct nss_ipsec_rule_data {
 
 	uint8_t cipher_algo;		/**< Cipher algorithm */
 	uint8_t auth_algo;		/**< Authentication algorithm */
-	uint8_t esp_seq_skip;		/**< Skip ESP sequence number */
+	uint8_t nat_t_req;		/**< NAT-T required */
 	uint8_t esp_icv_len;		/**< ESP trailers ICV length to apply */
 
-	uint8_t nat_t_req;		/**< NAT-T required */
-	uint8_t res[3];			/**< Reserve bytes for alignment */
+	uint8_t esp_seq_skip;		/**< Skip ESP sequence number */
+	uint8_t esp_tail_skip;		/**< Skip ESP trailer */
+	uint8_t res[2];			/**< Reserve bytes for alignment */
 };
 
 /*
