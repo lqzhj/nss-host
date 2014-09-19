@@ -96,9 +96,11 @@ enum exception_events_ipv6 {
 	NSS_EXCEPTION_EVENT_IPV6_HEADER_INCOMPLETE,			/**<  NSS Exception event: Incomplete IPv6 header */
 	NSS_EXCEPTION_EVENT_IPV6_UNKNOWN_PROTOCOL,			/**<  NSS Exception event: IPv6 unknown protocol */
 	NSS_EXCEPTION_EVENT_IPV6_IVID_MISMATCH,				/**<  NSS Exception event: IPv6 ingress vlan id mismatch */
+	NSS_EXCEPTION_EVENT_IPV6_IVID_MISSING,				/**<  NSS Exception event: IPv6 ingress vlan id missing */
 	NSS_EXCEPTION_EVENT_IPV6_DSCP_MARKING_MISMATCH,			/**<  NSS Exception event: IPv6 DSCP marking mismatch */
 	NSS_EXCEPTION_EVENT_IPV6_VLAN_MARKING_MISMATCH,			/**<  NSS Exception event: IPv6 VLAN marking mismatch */
 	NSS_EXCEPTION_EVENT_IPV6_INTERFACE_MISMATCH,			/**<  NSS Exception event: IPv6 source interface mismatch */
+	NSS_EXCEPTION_EVENT_IPV6_DESTROY,				/**<  NSS Exception event: Destroy */
 	NSS_EXCEPTION_EVENT_IPV6_MAX					/**<  IPv6 exception events max type number */
 };
 
@@ -300,6 +302,7 @@ struct nss_ipv6_conn_sync {
 	uint32_t reason;		/**< Reason for the sync */
 	uint8_t flags;			/**< Bit flags associated with the rule */
 	uint32_t qos_tag;		/**< QoS Tag */
+	uint32_t cause;			/**< Flush cause associated with the rule */
 };
 
 /**

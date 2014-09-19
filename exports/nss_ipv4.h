@@ -272,6 +272,7 @@ struct nss_ipv4_conn_sync {
 
 	uint8_t flags;			/**< Bit flags associated with the rule */
 	uint32_t qos_tag;		/**< QoS Tag */
+	uint32_t cause;			/**< Flush Cause */
 };
 
 /**
@@ -321,6 +322,7 @@ enum exception_events_ipv4 {
 	NSS_EXCEPTION_EVENT_IPV4_ESP_SMALL_TTL,				/**<  NSS Exception event: IPv4 esp small ttl */
 	NSS_EXCEPTION_EVENT_IPV4_ESP_NEEDS_FRAGMENTATION,		/**<  NSS Exception event: IPv4 esp needs fragmentation */
 	NSS_EXCEPTION_EVENT_IPV4_IVID_MISMATCH,				/**<  NSS Exception event: IPv4 ivid mismatch */
+	NSS_EXCEPTION_EVENT_IPV4_IVID_MISSING,				/**<  NSS Exception event: IPv4 ivid missing */
 	NSS_EXCEPTION_EVENT_IPV4_6RD_NO_ICME,				/**<  NSS Exception event: IPv4 6RD no connection match entry */
 	NSS_EXCEPTION_EVENT_IPV4_6RD_IP_OPTION,				/**<  NSS Exception event: IPv4 6RD ip option */
 	NSS_EXCEPTION_EVENT_IPV4_6RD_IP_FRAGMENT,			/**<  NSS Exception event: IPv4 6RD ip fragment */
@@ -328,6 +330,7 @@ enum exception_events_ipv4 {
 	NSS_EXCEPTION_EVENT_IPV4_DSCP_MARKING_MISMATCH,			/**<  NSS Exception event: IPv4 dscp marking mismatch */
 	NSS_EXCEPTION_EVENT_IPV4_VLAN_MARKING_MISMATCH,			/**<  NSS Exception event: IPv4 vlan marking mismatch */
 	NSS_EXCEPTION_EVENT_IPV4_INTERFACE_MISMATCH,			/**<  NSS Exception event: IPv4 source interface mismatch */
+	NSS_EXCEPTION_EVENT_IPV4_DESTROY,				/**<  NSS Exception event: IPv4 Destroy */
 	NSS_EXCEPTION_EVENT_IPV4_MAX					/**<  IPv4 exception events max type number */
 };
 
