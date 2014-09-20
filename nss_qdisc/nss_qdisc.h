@@ -27,14 +27,6 @@
 #include <br_private.h>
 #include <nss_api_if.h>
 
-#include "nss_fifo.h"
-#include "nss_codel.h"
-#include "nss_tbl.h"
-#include "nss_prio.h"
-#include "nss_bf.h"
-#include "nss_wrr.h"
-#include "nss_wfq.h"
-
 /*
  * NSS QDisc debug macros
  */

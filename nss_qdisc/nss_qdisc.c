@@ -16,6 +16,15 @@
 
 #include "nss_qdisc.h"
 
+#include "nss_fifo.h"
+#include "nss_codel.h"
+#include "nss_tbl.h"
+#include "nss_prio.h"
+#include "nss_bf.h"
+#include "nss_wrr.h"
+#include "nss_wfq.h"
+#include "nss_htb.h"
+
 void *nss_qdisc_ctx;			/* Shaping context for nss_qdisc */
 wait_queue_head_t nss_qdics_wq;			/* Wait queue used to wait on responses from the NSS */
 
@@ -554,6 +563,9 @@ static void nss_qdisc_root_init_alloc_node_callback(void *app_data,
 		nss_qdisc_root_cleanup_shaper_unassign(nq);
 		return;
 	}
+
+	nss_qdisc_info("%s: Qdisc %p (type %d), shaper node alloc success: %u\n",
+				__func__, nq->qdisc, nq->type, nq->shaper_id);
 
 	/*
 	 * Create and send shaper configure message to the NSS interface
@@ -2095,6 +2107,11 @@ static int __init nss_qdisc_module_init(void)
 		return ret;
 	nss_qdisc_info("nsswfq registered");
 
+	ret = register_qdisc(&nss_htb_qdisc_ops);
+	if (ret != 0)
+		return ret;
+	nss_qdisc_info("nsshtb registered");
+
 	ret = register_netdevice_notifier(&nss_qdisc_device_notifier);
 	if (ret != 0)
 		return ret;
@@ -2128,6 +2145,9 @@ static void __exit nss_qdisc_module_exit(void)
 
 	unregister_qdisc(&nss_wfq_qdisc_ops);
 	nss_qdisc_info("nsswfq unregistered\n");
+
+	unregister_qdisc(&nss_htb_qdisc_ops);
+	nss_qdisc_info("nsshtb unregistered\n");
 
 	unregister_netdevice_notifier(&nss_qdisc_device_notifier);
 }
