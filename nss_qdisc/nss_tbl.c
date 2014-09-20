@@ -54,6 +54,7 @@ static void nss_tbl_reset(struct Qdisc *sch)
 static void nss_tbl_destroy(struct Qdisc *sch)
 {
 	struct nss_tbl_sched_data *q = qdisc_priv(sch);
+	struct nss_qdisc *nq_child = (struct nss_qdisc *)qdisc_priv(q->qdisc);
 	struct nss_if_msg nim;
 
 	/*
@@ -62,7 +63,7 @@ static void nss_tbl_destroy(struct Qdisc *sch)
 	 */
 	if (q->qdisc != &noop_qdisc) {
 		nim.msg.shaper_configure.config.msg.shaper_node_config.qos_tag = q->nq.qos_tag;
-		if (nss_qdisc_node_detach(&q->nq, &nim,
+		if (nss_qdisc_node_detach(&q->nq, nq_child, &nim,
 				NSS_SHAPER_CONFIG_TYPE_TBL_DETACH) < 0) {
 			nss_qdisc_error("%s: Failed to detach child %x from nss_tbl %x\n",
 					__func__, q->qdisc->handle, q->nq.qos_tag);
@@ -211,7 +212,7 @@ static int nss_tbl_dump(struct Qdisc *sch, struct sk_buff *skb)
 
 nla_put_failure:
 	nla_nest_cancel(skb, opts);
-	return -EMSGSIZE;	
+	return -EMSGSIZE;
 }
 
 static int nss_tbl_dump_class(struct Qdisc *sch, unsigned long cl,
@@ -246,9 +247,10 @@ static int nss_tbl_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new
 
 	nss_qdisc_info("%s:Grafting old: %p with new: %p\n", __func__, *old, new);
 	if (*old != &noop_qdisc) {
+		struct nss_qdisc *nq_old = (struct nss_qdisc *)qdisc_priv(*old);
 		nss_qdisc_info("%s: Detaching old: %p\n", __func__, *old);
 		nim_detach.msg.shaper_configure.config.msg.shaper_node_config.qos_tag = q->nq.qos_tag;
-		if (nss_qdisc_node_detach(&q->nq, &nim_detach,
+		if (nss_qdisc_node_detach(&q->nq, nq_old, &nim_detach,
 				NSS_SHAPER_CONFIG_TYPE_TBL_DETACH) < 0) {
 			return -EINVAL;
 		}
@@ -258,7 +260,7 @@ static int nss_tbl_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new
 		nss_qdisc_info("%s: Attaching new: %p\n", __func__, new);
 		nim_attach.msg.shaper_configure.config.msg.shaper_node_config.qos_tag = q->nq.qos_tag;
 		nim_attach.msg.shaper_configure.config.msg.shaper_node_config.snc.tbl_attach.child_qos_tag = nq_new->qos_tag;
-		if (nss_qdisc_node_attach(&q->nq, &nim_attach,
+		if (nss_qdisc_node_attach(&q->nq, nq_new, &nim_attach,
 				NSS_SHAPER_CONFIG_TYPE_TBL_ATTACH) < 0) {
 			return -EINVAL;
 		}

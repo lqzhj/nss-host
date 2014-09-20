@@ -193,7 +193,7 @@ static int nss_htb_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
 		/*
 		 * Send node_attach command down to the NSS
 		 */
-		if (nss_qdisc_node_attach(nq_parent, &nim_attach,
+		if (nss_qdisc_node_attach(nq_parent, &cl->nq, &nim_attach,
 				NSS_SHAPER_CONFIG_TYPE_SHAPER_NODE_ATTACH) < 0) {
 			nss_qdisc_error("%s: nss_attach for class %x failed\n", __func__, classid);
 			nss_qdisc_destroy(&cl->nq);
@@ -342,7 +342,7 @@ static void nss_htb_destroy_class(struct Qdisc *sch, struct nss_htb_class_data *
 		nq_child = qdisc_priv(cl->qdisc);
 		nim.msg.shaper_configure.config.msg.shaper_node_config.qos_tag = cl->nq.qos_tag;
 		nim.msg.shaper_configure.config.msg.shaper_node_config.snc.htb_group_detach.child_qos_tag = nq_child->qos_tag;
-		if (nss_qdisc_node_detach(&cl->nq, &nim,
+		if (nss_qdisc_node_detach(&cl->nq, nq_child, &nim,
 				NSS_SHAPER_CONFIG_TYPE_SHAPER_NODE_DETACH) < 0) {
 			nss_qdisc_error("%s: failed to detach child %x from class %x\n",
 					__func__, cl->qdisc->handle, q->nq.qos_tag);
@@ -402,7 +402,7 @@ static int nss_htb_delete_class(struct Qdisc *sch, unsigned long arg)
 		nss_qdisc_info("%s: detaching from parent htb class %x ", __func__, cl->parent->nq.qos_tag);
 		nim.msg.shaper_configure.config.msg.shaper_node_config.qos_tag = cl->parent->nq.qos_tag;
 		nim.msg.shaper_configure.config.msg.shaper_node_config.snc.htb_group_detach.child_qos_tag = cl->nq.qos_tag;
-		if (nss_qdisc_node_detach(&q->nq, &nim,	NSS_SHAPER_CONFIG_TYPE_SHAPER_NODE_DETACH) < 0) {
+		if (nss_qdisc_node_detach(&q->nq, &cl->nq, &nim, NSS_SHAPER_CONFIG_TYPE_SHAPER_NODE_DETACH) < 0) {
 			return -EINVAL;
 		}
 	} else {
@@ -411,7 +411,7 @@ static int nss_htb_delete_class(struct Qdisc *sch, unsigned long arg)
 		 */
 		nss_qdisc_info("%s: detaching from parent htb qdisc %x", __func__, q->nq.qos_tag);
 		nim.msg.shaper_configure.config.msg.shaper_node_config.qos_tag = q->nq.qos_tag;
-		if (nss_qdisc_node_detach(&q->nq, &nim,	NSS_SHAPER_CONFIG_TYPE_SHAPER_NODE_DETACH) < 0) {
+		if (nss_qdisc_node_detach(&q->nq, &cl->nq, &nim, NSS_SHAPER_CONFIG_TYPE_SHAPER_NODE_DETACH) < 0) {
 			return -EINVAL;
 		}
 	}
@@ -480,7 +480,7 @@ static int nss_htb_graft_class(struct Qdisc *sch, unsigned long arg, struct Qdis
 		nq_old = qdisc_priv(*old);
 		nim_detach.msg.shaper_configure.config.msg.shaper_node_config.qos_tag = cl->nq.qos_tag;
 		nim_detach.msg.shaper_configure.config.msg.shaper_node_config.snc.htb_group_detach.child_qos_tag = nq_old->qos_tag;
-		if (nss_qdisc_node_detach(&cl->nq, &nim_detach,
+		if (nss_qdisc_node_detach(&cl->nq, nq_old, &nim_detach,
 				NSS_SHAPER_CONFIG_TYPE_SHAPER_NODE_DETACH) < 0) {
 			nss_qdisc_error("%s: detach of old qdisc %x failed\n", __func__, (*old)->handle);
 			return -EINVAL;
@@ -495,7 +495,7 @@ static int nss_htb_graft_class(struct Qdisc *sch, unsigned long arg, struct Qdis
 		nss_qdisc_trace("%s: attaching new: %x\n", __func__, new->handle);
 		nim_attach.msg.shaper_configure.config.msg.shaper_node_config.qos_tag = cl->nq.qos_tag;
 		nim_attach.msg.shaper_configure.config.msg.shaper_node_config.snc.htb_group_attach.child_qos_tag = nq_new->qos_tag;
-		if (nss_qdisc_node_attach(&cl->nq, &nim_attach,
+		if (nss_qdisc_node_attach(&cl->nq, nq_new, &nim_attach,
 				NSS_SHAPER_CONFIG_TYPE_SHAPER_NODE_ATTACH) < 0) {
 			nss_qdisc_error("%s: attach of new qdisc %x failed\n", __func__, new->handle);
 			return -EINVAL;

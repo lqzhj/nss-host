@@ -81,6 +81,8 @@
 
 struct nss_qdisc {
 	struct Qdisc *qdisc;			/* Handy pointer back to containing qdisc */
+	struct nss_qdisc *parent;		/* Pointer to parent nss qdisc */
+	struct nss_qdisc *default_nq;		/* Default enqueue node */
 	void *nss_shaping_ctx;			/* NSS context for general operations */
 	int32_t nss_interface_number;		/* NSS Interface number we are shaping on */
 	nss_shaper_node_type_t type;		/* Type of shaper node */
@@ -132,6 +134,9 @@ struct nss_qdisc {
 	atomic_t pending_stat_requests;		/* Number of pending stats responses */
 	struct nss_shaper_shaper_node_basic_stats_get basic_stats_latest;
 						/* Latest stats obtained */
+	struct hlist_head *hash;		/* Pointer to hash table */
+	struct hlist_node hnode;		/* Node for participating in a hlist */
+	spinlock_t lock;			/* Lock to protect the nss qdisc structure */
 };
 
 /*
@@ -200,15 +205,15 @@ extern int nss_qdisc_set_default(struct nss_qdisc *nq);
  * nss_qdisc_node_attach()
  *	Configuration function that helps attach a child shaper node to a parent.
  */
-extern int nss_qdisc_node_attach(struct nss_qdisc *nq,
-			struct nss_if_msg *nim, int32_t attach_type);
+extern int nss_qdisc_node_attach(struct nss_qdisc *nq, struct nss_qdisc *nq_child,
+					struct nss_if_msg *nim, int32_t attach_type);
 
 /*
  * nss_qdisc_node_detach()
  *	Configuration function that helps detach a child shaper node to a parent.
  */
-extern int nss_qdisc_node_detach(struct nss_qdisc *nq,
-	struct nss_if_msg *nim, int32_t detach_type);
+extern int nss_qdisc_node_detach(struct nss_qdisc *nq, struct nss_qdisc *nq_child,
+					struct nss_if_msg *nim, int32_t detach_type);
 
 /*
  * nss_qdisc_configure()
