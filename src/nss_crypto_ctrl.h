@@ -74,6 +74,14 @@ struct nss_crypto_ctrl_eng {
 };
 
 /**
+ * @brief Per index information required for getting information
+ */
+struct nss_crypto_idx_info {
+	struct nss_crypto_key ckey;	/**< cipher key */
+	struct nss_crypto_key akey;	/**< auth key */
+};
+
+/**
  * @brief Main Crypto Control structure, holds information about number of session indexes
  * number of engines etc.,
  *
@@ -86,6 +94,8 @@ struct nss_crypto_ctrl {
 	uint32_t num_idxs;	/**< number of allocated indexes */
 	uint32_t num_eng;	/**< number of available engines */
 	spinlock_t lock;	/**< lock */
+
+	struct nss_crypto_idx_info idx_info[NSS_CRYPTO_MAX_IDXS]; /**< per index info */
 
 	struct nss_crypto_ctrl_eng eng[NSS_CRYPTO_ENGINES];		/**< per engine information */
 };

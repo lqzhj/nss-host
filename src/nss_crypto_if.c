@@ -46,6 +46,7 @@ void *nss_pm_hdl;
  */
 struct nss_crypto_stats_param {
 	uint8_t *name;
+	uint8_t data[NSS_CRYPTO_MAX_NAME];
 	uint32_t valid;
 	struct nss_crypto_stats stats;
 };
@@ -447,11 +448,12 @@ static ssize_t nss_crypto_read_stats(struct file *fp, char __user *u_buf, size_t
 		}
 
 		size_wr += scnprintf(l_buf + size_wr, size_al - size_wr,
-			"--- %s --- \n"
-			"queued: %d\n"
-			"completed: %d\n"
-			"dropped: %d\n\n",
-			l_param->name, stats->queued, stats->completed, stats->dropped);
+					"--- %s --- \n"
+					"queued: %d\n"
+					"completed: %d\n"
+					"dropped: %d\n"
+					"%s\n\n",
+					l_param->name, stats->queued, stats->completed, stats->dropped, l_param->data);
 
 	}
 
@@ -461,8 +463,6 @@ static ssize_t nss_crypto_read_stats(struct file *fp, char __user *u_buf, size_t
 
 	return bytes_read;
 }
-
-
 
 /*
  * nss_crypto_param_init()
@@ -574,6 +574,96 @@ void nss_crypto_engine_init(uint32_t eng_count)
 }
 
 /*
+ * nss_crypto_param_update_session()
+ * 	update session specific param
+ */
+void nss_crypto_param_update_session(struct nss_crypto_stats_param *session, uint32_t session_idx)
+{
+	uint8_t *data = session->data;
+
+	enum nss_crypto_cipher cipher_algo;
+	enum nss_crypto_auth auth_algo;
+	uint32_t cipher_keylen = 0;
+	uint32_t auth_keylen = 0;
+
+	size_t size_al = NSS_CRYPTO_MAX_NAME;
+	size_t size_wr = 0;
+
+	cipher_algo = nss_crypto_get_cipher(session_idx);
+	cipher_keylen = nss_crypto_get_cipher_keylen(session_idx);
+
+	auth_algo = nss_crypto_get_auth(session_idx);
+	auth_keylen = nss_crypto_get_auth_keylen(session_idx);
+
+	memset(data, 0, size_al);
+
+	/*
+	 * populate the cipher algorithm
+	 */
+	switch (cipher_algo) {
+	case NSS_CRYPTO_CIPHER_AES:
+		size_wr = snprintf(data, size_al, "%s-%d,", "AES,", NSS_CRYPTO_BYTES2BITS(cipher_keylen));
+		size_al = size_al - size_wr;
+		data = data + size_wr;
+
+		break;
+
+	case NSS_CRYPTO_CIPHER_DES:
+		size_wr = snprintf(data, size_al, "%s-%d,", "DES,", NSS_CRYPTO_BYTES2BITS(cipher_keylen));
+		size_al = size_al - size_wr;
+		data = data + size_wr;
+
+		break;
+	case NSS_CRYPTO_CIPHER_NULL:
+		size_wr = snprintf(data, size_al, "%s-%d,", "NULL,", NSS_CRYPTO_BYTES2BITS(cipher_keylen));
+		size_al = size_al - size_wr;
+		data = data + size_wr;
+
+		break;
+
+	default:
+		size_wr = snprintf(data, size_al, "%s,", "NONE,");
+		size_al = size_al - size_wr;
+		data = data + size_wr;
+
+		break;
+	}
+
+	/*
+	 * populate the authentication algorithm
+	 */
+	switch (auth_algo) {
+	case NSS_CRYPTO_AUTH_SHA1_HMAC:
+		size_wr = snprintf(data, size_al, "%s-%d", "SHA1", NSS_CRYPTO_BYTES2BITS(auth_keylen));
+		size_al = size_al - size_wr;
+		data = data + size_wr;
+
+		break;
+
+	case NSS_CRYPTO_AUTH_SHA256_HMAC:
+		size_wr = snprintf(data, size_al, "%s-%d", "SHA256", NSS_CRYPTO_BYTES2BITS(auth_keylen));
+		size_al = size_al - size_wr;
+		data = data + size_wr;
+
+		break;
+
+	case NSS_CRYPTO_AUTH_NULL:
+		size_wr = snprintf(data, size_al, "%s-%d", "NULL", NSS_CRYPTO_BYTES2BITS(auth_keylen));
+		size_al = size_al - size_wr;
+		data = data + size_wr;
+
+		break;
+
+	default:
+		size_wr = snprintf(data, size_al, "%s,", "NONE,");
+		size_al = size_al - size_wr;
+		data = data + size_wr;
+
+		break;
+	}
+}
+
+/*
  * nss_crypto_reset_session()
  * 	reset session specific state (alloc or free)
  */
@@ -602,6 +692,8 @@ void nss_crypto_reset_session(uint32_t session_idx, enum nss_crypto_session_stat
 	switch (state) {
 	case NSS_CRYPTO_SESSION_STATE_ALLOC:
 		param.session[session_idx].valid = 1;
+
+		nss_crypto_param_update_session(&param.session[session_idx], session_idx);
 
 		break;
 

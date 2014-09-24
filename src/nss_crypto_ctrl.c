@@ -623,6 +623,28 @@ static inline void nss_crypto_cblk_update(struct nss_crypto_ctrl_eng *eng, struc
 	nss_crypto_write_cblk(&cfg->auth_seg_cfg, CRYPTO_AUTH_SEG_CFG + base_addr, auth_cfg);
 }
 
+/*
+ * nss_crypto_update_cipher_info()
+ * 	update the cipher info into the index info table
+ */
+void nss_crypto_update_cipher_info(struct nss_crypto_idx_info *idx, struct nss_crypto_key *cipher)
+{
+	idx->ckey.algo = cipher ? cipher->algo : NSS_CRYPTO_CIPHER_NONE;
+	idx->ckey.key_len = cipher ? cipher->key_len : 0;
+	idx->ckey.key = NULL;
+}
+
+/*
+ * nss_crypto_update_auth_info()
+ * 	update the auth info into the index info table
+ */
+void nss_crypto_update_auth_info(struct nss_crypto_idx_info *idx, struct nss_crypto_key *auth)
+{
+	idx->akey.algo = auth ? auth->algo : NSS_CRYPTO_AUTH_NONE;
+	idx->akey.key_len = auth ? auth->key_len : 0;
+	idx->akey.key = NULL;
+}
+
 void nss_crypto_session_update(nss_crypto_handle_t crypto, uint32_t session_idx, struct nss_crypto_params *params)
 {
 	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
@@ -708,6 +730,9 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
 
 	nss_crypto_clear_idx_state(&ctrl->idx_state_bitmap, idx);
 
+	nss_crypto_update_cipher_info(&ctrl->idx_info[idx], cipher);
+	nss_crypto_update_auth_info(&ctrl->idx_info[idx], auth);
+
 	/*
 	 * program keys for all the engines for the given pipe pair (index)
 	 */
@@ -763,6 +788,9 @@ nss_crypto_status_t nss_crypto_session_free(nss_crypto_handle_t crypto, uint32_t
 	memcpy(encr_cfg.key, null_ckey, NSS_CRYPTO_CKEY_SZ);
 	memcpy(auth_cfg.key, null_akey, NSS_CRYPTO_AKEY_SZ);
 
+	nss_crypto_update_cipher_info(&ctrl->idx_info[session_idx], NULL);
+	nss_crypto_update_auth_info(&ctrl->idx_info[session_idx], NULL);
+
 	/*
 	 * program keys for all the engines for the given pipe pair (index)
 	 */
@@ -783,6 +811,70 @@ nss_crypto_status_t nss_crypto_session_free(nss_crypto_handle_t crypto, uint32_t
 	return NSS_CRYPTO_STATUS_OK;
 }
 EXPORT_SYMBOL(nss_crypto_session_free);
+
+/*
+ * nss_crypto_get_cipher()
+ * 	return the cipher algo with the associated session
+ */
+enum nss_crypto_cipher nss_crypto_get_cipher(uint32_t session_idx)
+{
+	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
+	struct nss_crypto_idx_info *idx;
+
+	idx = &ctrl->idx_info[session_idx];
+
+	return idx->ckey.algo;
+
+}
+EXPORT_SYMBOL(nss_crypto_get_cipher);
+
+/*
+ * nss_crypto_get_cipher_keylen()
+ * 	return the cipher key length with the associated session
+ */
+uint32_t nss_crypto_get_cipher_keylen(uint32_t session_idx)
+{
+	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
+	struct nss_crypto_idx_info *idx;
+
+	idx = &ctrl->idx_info[session_idx];
+
+	return idx->ckey.key_len;
+
+}
+EXPORT_SYMBOL(nss_crypto_get_cipher_keylen);
+
+/*
+ * nss_crypto_get_auth()
+ * 	return the auth algo with the associated session
+ */
+enum nss_crypto_auth nss_crypto_get_auth(uint32_t session_idx)
+{
+	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
+	struct nss_crypto_idx_info *idx;
+
+	idx = &ctrl->idx_info[session_idx];
+
+	return idx->akey.algo;
+
+}
+EXPORT_SYMBOL(nss_crypto_get_auth);
+
+/*
+ * nss_crypto_get_auth_keylen()
+ * 	return the auth key length with the associated session
+ */
+uint32_t nss_crypto_get_auth_keylen(uint32_t session_idx)
+{
+	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
+	struct nss_crypto_idx_info *idx;
+
+	idx = &ctrl->idx_info[session_idx];
+
+	return idx->akey.key_len;
+
+}
+EXPORT_SYMBOL(nss_crypto_get_auth_keylen);
 
 /*
  * nss_crypto_idx_init()
