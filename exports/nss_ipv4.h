@@ -36,6 +36,7 @@ enum nss_ipv4_message_types {
 	NSS_IPV4_RX_ESTABLISH_RULE_MSG,		/**< IPv4 establish rule message */
 	NSS_IPV4_RX_CONN_STATS_SYNC_MSG,	/**< IPv4 connection stats sync message */
 	NSS_IPV4_RX_NODE_STATS_SYNC_MSG,	/**< IPv4 generic statistics sync message */
+	NSS_IPV4_TX_CONN_CFG_RULE_MSG,		/**< IPv4 number of connections supported rule message */
 	NSS_IPV4_MAX_MSG_TYPES,			/**< IPv4 message max type number */
 };
 
@@ -185,6 +186,14 @@ struct nss_ipv4_rule_create_msg {
 struct nss_ipv4_rule_destroy_msg {
 	struct nss_ipv4_5tuple tuple;	/**< Holds values of the 5 tuple */
 };
+
+/**
+ * The IPv4 rule number of supported connections sub-message structure.
+ */
+struct nss_ipv4_rule_conn_cfg_msg {
+	uint32_t num_conn;	/**< Number of supported IPv4 connections */
+};
+
 
 /**
  * The NSS IPv4 rule establish structure.
@@ -373,6 +382,7 @@ struct nss_ipv4_msg {
 		struct nss_ipv4_rule_establish rule_establish;	/**< Message: rule establish confirmation */
 		struct nss_ipv4_conn_sync conn_stats;	/**< Message: connection stats sync */
 		struct nss_ipv4_node_sync node_stats;	/**< Message: node stats sync */
+		struct nss_ipv4_rule_conn_cfg_msg rule_conn_cfg;	/**< Message: rule connections supported */
 	} msg;
 };
 
@@ -421,5 +431,19 @@ extern struct nss_ctx_instance *nss_ipv4_get_mgr(void);
  * @return None
  */
 extern void nss_ipv4_register_handler(void);
+
+/**
+ * @brief IPv4 sysctl register
+ *
+ * @return None
+ */
+extern void nss_ipv4_register_sysctl(void);
+
+/**
+ * @brief IPv4 sysctl unregister
+ *
+ * @return None
+ */
+extern void nss_ipv4_unregister_sysctl(void);
 
 #endif /* __NSS_IPV4_H */

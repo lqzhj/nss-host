@@ -25,6 +25,8 @@ extern void nss_rx_metadata_ipv6_rule_establish(struct nss_ctx_instance *nss_ctx
 extern void nss_rx_metadata_ipv6_create_response(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_msg *nim);
 extern void nss_rx_ipv6_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_conn_sync *nirs);
 
+int nss_ipv6_conn_cfg __read_mostly = 4096;
+
 /*
  * nss_ipv6_driver_conn_sync_update()
  *	Update driver specific information from the messsage.
@@ -300,8 +302,153 @@ void nss_ipv6_register_handler()
 	}
 }
 
+/*
+ * nss_ipv6_conn_cfg_callback()
+ *	call back function for the ipv6 connection configuration handler
+ */
+static void nss_ipv6_conn_cfg_callback(void *app_data, struct nss_if_msg *nim)
+{
+	if (nim->cm.response != NSS_CMN_RESPONSE_ACK) {
+		nss_warning("IPv6 connection configuration failed with error: %d\n", nim->cm.error);
+		return;
+	}
+
+	nss_info("IPv6 connection configuration success: %d\n", nim->cm.error);
+}
+
+
+/*
+ * nss_ipv6_conn_cfg_handler()
+ *	Sets the number of connections for IPv6
+ */
+static int nss_ipv6_conn_cfg_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	struct nss_top_instance *nss_top = &nss_top_main;
+	struct nss_ctx_instance *nss_ctx = &nss_top->nss[0];
+	struct nss_ipv6_msg nim;
+	struct nss_ipv6_rule_conn_cfg_msg *nirccm;
+	nss_tx_status_t nss_tx_status;
+	int ret = 1;
+	uint32_t sum_of_conn = nss_ipv4_conn_cfg + nss_ipv6_conn_cfg;
+
+	/*
+	 * Specifications for input
+	 * 1) The input should be power of 2.
+	 * 2) Input for ipv4 and ipv6 sum togther should not exceed 8k
+	 * 3) Min. value should be at leat 256 connections. This is the
+	 * minimum connections we will support for each of them.
+	 */
+	if ((nss_ipv6_conn_cfg & (nss_ipv6_conn_cfg - 1)) ||
+		(sum_of_conn > MAX_TOTAL_NUM_CONN_IPV4_IPV6) ||
+		(nss_ipv6_conn_cfg < MIN_NUM_CONN)) {
+		nss_warning("%p: input supported connections (%d) does not adhere\
+				specifications\n1) not power of 2,\n2) is less than \
+				min val: %d, OR\n 	IPv4/6 total exceeds %d\n",
+				nss_ctx,
+				nss_ipv6_conn_cfg,
+				MIN_NUM_CONN,
+				MAX_TOTAL_NUM_CONN_IPV4_IPV6);
+		return ret;
+	}
+
+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+
+	if (ret) {
+		return ret;
+	}
+
+	if (!write) {
+		nss_warning("%p: IPv6 supported connections write failed: %d\n", nss_ctx, nss_ipv6_conn_cfg);
+		return ret;
+	}
+
+	nss_info("%p: IPv6 supported connections: %d\n", nss_ctx, nss_ipv6_conn_cfg);
+
+	nss_cmn_msg_init(&nim.cm, NSS_IPV6_RX_INTERFACE, NSS_IPV6_TX_CONN_CFG_RULE_MSG,
+		sizeof(struct nss_ipv6_rule_conn_cfg_msg), nss_ipv6_conn_cfg_callback, NULL);
+
+	nirccm = &nim.msg.rule_conn_cfg;
+	nirccm->num_conn = htonl(nss_ipv6_conn_cfg);
+	nss_tx_status = nss_ipv6_tx(nss_ctx, &nim);
+
+	if (nss_tx_status != NSS_TX_SUCCESS) {
+		nss_warning("%p: nss_tx error setting IPv6 Connections: %d\n",
+						nss_ctx,
+						nss_ipv6_conn_cfg);
+	}
+	return ret;
+}
+
+static ctl_table nss_ipv6_table[] = {
+	{
+		.procname               = "ipv6_conn",
+		.data                   = &nss_ipv6_conn_cfg,
+		.maxlen                 = sizeof(int),
+		.mode                   = 0644,
+		.proc_handler   	= &nss_ipv6_conn_cfg_handler,
+	},
+	{ }
+};
+
+static ctl_table nss_ipv6_dir[] = {
+	{
+		.procname               = "ipv6cfg",
+		.mode                   = 0555,
+		.child                  = nss_ipv6_table,
+	},
+	{ }
+};
+
+static ctl_table nss_ipv6_root_dir[] = {
+	{
+		.procname		= "nss",
+		.mode			= 0555,
+		.child			= nss_ipv6_dir,
+	},
+	{ }
+};
+
+static ctl_table nss_ipv6_root[] = {
+	{
+		.procname		= "dev",
+		.mode			= 0555,
+		.child			= nss_ipv6_root_dir,
+	},
+	{ }
+};
+
+static struct ctl_table_header *nss_ipv6_header;
+
+/*
+ * nss_ipv6_register_sysctl()
+ *	Register sysctl specific to ipv4
+ */
+void nss_ipv6_register_sysctl(void)
+{
+	/*
+	 * Register sysctl table.
+	 */
+	nss_ipv6_header = register_sysctl_table(nss_ipv6_root);
+}
+
+/*
+ * nss_ipv6_unregister_sysctl()
+ *	Unregister sysctl specific to ipv4
+ */
+void nss_ipv6_unregister_sysctl(void)
+{
+	/*
+	 * Unregister sysctl table.
+	 */
+	if (nss_ipv6_header) {
+		unregister_sysctl_table(nss_ipv6_header);
+	}
+}
+
 EXPORT_SYMBOL(nss_ipv6_tx);
 EXPORT_SYMBOL(nss_ipv6_notify_register);
 EXPORT_SYMBOL(nss_ipv6_notify_unregister);
 EXPORT_SYMBOL(nss_ipv6_get_mgr);
 EXPORT_SYMBOL(nss_ipv6_register_handler);
+EXPORT_SYMBOL(nss_ipv6_register_sysctl);
+EXPORT_SYMBOL(nss_ipv6_unregister_sysctl);

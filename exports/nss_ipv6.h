@@ -36,6 +36,7 @@ enum nss_ipv6_message_types {
 	NSS_IPV6_RX_ESTABLISH_RULE_MSG,		/**< IPv6 establish rule message */
 	NSS_IPV6_RX_CONN_STATS_SYNC_MSG,	/**< IPv6 connection stats sync message */
 	NSS_IPV6_RX_NODE_STATS_SYNC_MSG,	/**< IPv6 generic statistics sync message */
+	NSS_IPV6_TX_CONN_CFG_RULE_MSG,		/**< IPv6 connection cfg rule message */
 	NSS_IPV6_MAX_MSG_TYPES,
 };
 
@@ -225,6 +226,13 @@ struct nss_ipv6_rule_destroy_msg {
 };
 
 /**
+ * The IPv6 rule conn cfgsub-message structure.
+ */
+struct nss_ipv6_rule_conn_cfg_msg {
+	uint32_t num_conn;	/**< Holds number of supported connections in IPv6 */
+};
+
+/**
  * The NSS IPv6 rule establish structure.
  */
 struct nss_ipv6_rule_establish {
@@ -344,6 +352,7 @@ struct nss_ipv6_msg {
 		struct nss_ipv6_rule_establish rule_establish;	/**< Message: rule establish confirmation */
 		struct nss_ipv6_conn_sync conn_stats;		/**< Message: stats sync */
 		struct nss_ipv6_node_sync node_stats;		/**< Message: node stats sync */
+		struct nss_ipv6_rule_conn_cfg_msg rule_conn_cfg;/**< Message: rule conn cfg */
 	} msg;
 };
 
@@ -392,4 +401,20 @@ extern struct nss_ctx_instance *nss_ipv6_get_mgr(void);
  * @return none
  */
 extern void nss_ipv6_register_handler(void);
+
+/**
+ * @brief IPv4 sysctl register
+ *
+ * @return None
+ */
+extern void nss_ipv6_register_sysctl(void);
+
+/**
+ * @brief IPv4 sysctl unregister
+ *
+ * @return None
+ */
+extern void nss_ipv6_unregister_sysctl(void);
+
+
 #endif /* __NSS_IPV6_H */

@@ -369,7 +369,6 @@ struct nss_ipv6_create {
 #define NSS_IPV6_CREATE_FLAG_VLAN_MARKING 0x10
 					/** Rule for VLAN marking */
 
-
 /**
  * Structure to be used while sending an IPv6 flow/connection destroy rule.
  */
