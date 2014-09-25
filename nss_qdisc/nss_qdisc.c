@@ -24,6 +24,7 @@
 #include "nss_wrr.h"
 #include "nss_wfq.h"
 #include "nss_htb.h"
+#include "nss_blackhole.h"
 
 void *nss_qdisc_ctx;			/* Shaping context for nss_qdisc */
 wait_queue_head_t nss_qdics_wq;			/* Wait queue used to wait on responses from the NSS */
@@ -2407,6 +2408,11 @@ static int __init nss_qdisc_module_init(void)
 		return ret;
 	nss_qdisc_info("nsshtb registered");
 
+	ret = register_qdisc(&nss_blackhole_qdisc_ops);
+	if (ret != 0)
+		return ret;
+	nss_qdisc_info("nssblackhole registered");
+
 	ret = register_netdevice_notifier(&nss_qdisc_device_notifier);
 	if (ret != 0)
 		return ret;
@@ -2443,6 +2449,9 @@ static void __exit nss_qdisc_module_exit(void)
 
 	unregister_qdisc(&nss_htb_qdisc_ops);
 	nss_qdisc_info("nsshtb unregistered\n");
+
+	unregister_qdisc(&nss_blackhole_qdisc_ops);
+	nss_qdisc_info("nssblackhole unregistered\n");
 
 	unregister_netdevice_notifier(&nss_qdisc_device_notifier);
 }

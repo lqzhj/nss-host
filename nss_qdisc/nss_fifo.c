@@ -177,7 +177,7 @@ static int nss_fifo_dump(struct Qdisc *sch, struct sk_buff *skb)
 
 	return nla_nest_end(skb, opts);
 
-nla_put_failure:		
+nla_put_failure:
 	nla_nest_cancel(skb, opts);
 	return -EMSGSIZE;
 }
