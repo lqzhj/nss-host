@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -385,7 +385,6 @@ out:
 int32_t nss_gmac_common_init(struct nss_gmac_global_ctx *ctx)
 {
 	volatile uint32_t val;
-	uint32_t *msm_tcsr_base;
 
 	spin_lock_init(&ctx->reg_lock);
 	ctx->nss_base = (uint8_t *)ioremap_nocache(NSS_REG_BASE, NSS_REG_LEN);
@@ -404,17 +403,6 @@ int32_t nss_gmac_common_init(struct nss_gmac_global_ctx *ctx)
 	}
 	nss_gmac_early_dbg("%s: QSGMII base ioremap OK, vaddr = 0x%p", __FUNCTION__, ctx->qsgmii_base);
 
-	msm_tcsr_base = (uint32_t *)ioremap_nocache(0x1A400000, 0xFFFF);
-	if (!msm_tcsr_base) {
-		nss_gmac_early_dbg("Error mapping msm_tcsr_base registers");
-		iounmap(ctx->nss_base);
-		iounmap(ctx->qsgmii_base);
-		ctx->nss_base = NULL;
-		ctx->qsgmii_base = NULL;
-		return -EIO;
-	}
-
-
 	nss_gmac_clear_all_regs((uint32_t *)ctx->nss_base);
 
 	nss_gmac_write_reg((uint32_t *)(ctx->qsgmii_base), QSGMII_PHY_QSGMII_CTL,
@@ -426,7 +414,12 @@ int32_t nss_gmac_common_init(struct nss_gmac_global_ctx *ctx)
 					| QSGMII_PHY_TX_SLEW(0x2) | QSGMII_PHY_TX_DRV_AMP(0xC));
 
 	nss_gmac_write_reg((uint32_t *)(ctx->qsgmii_base), PCS_CAL_LCKDT_CTL, PCS_LCKDT_RST);
-	nss_gmac_write_reg((msm_tcsr_base), 0xc0, 0x0);
+	/*
+	 * TCSR cannot be accessed from HLOS drivers after XPUs are enabled.
+	 * TrustZone will initialize this register during init.
+	 *
+	 * nss_gmac_write_reg((msm_tcsr_base), 0xc0, 0x0);
+	 */
 
 	/*
 	 * Deaassert GMAC AHB reset
@@ -454,10 +447,6 @@ int32_t nss_gmac_common_init(struct nss_gmac_global_ctx *ctx)
 	val = nss_gmac_read_reg(MSM_CLK_CTL_BASE, NSS_ACC_REG);
 	nss_gmac_early_dbg("%s: MSM_CLK_CTL_BASE(0x%x) + NSS_ACC_REG(0x%x): 0x%x",
 		       __FUNCTION__, (uint32_t)MSM_CLK_CTL_BASE, (uint32_t)NSS_ACC_REG, val);
-
-	if (msm_tcsr_base) {
-		iounmap(msm_tcsr_base);
-	}
 
 	return 0;
 }
