@@ -1014,7 +1014,11 @@ static inline void nss_qdisc_root_hash_insert(struct nss_qdisc *nq_root, struct 
 
 	INIT_HLIST_NODE(&nq->hnode);
 	hash = nss_qdisc_gen_hash(nq->qos_tag);
+
+	spin_lock_bh(&nq_root->lock);
 	hlist_add_head(&nq->hnode, &nq_root->hash[hash]);
+	spin_unlock_bh(&nq_root->lock);
+
 	nss_qdisc_trace("%s: added qdisc %x to root %x's hash at index %u\n",
 				__func__, nq->qos_tag, nq_root->qos_tag, hash);
 }
@@ -1023,10 +1027,17 @@ static inline void nss_qdisc_root_hash_insert(struct nss_qdisc *nq_root, struct 
  * nss_qdisc_root_hash_remove()
  *	Removes nss qdisc from root hash.
  */
-static inline void nss_qdisc_root_hash_remove(struct nss_qdisc *nq)
+static inline void nss_qdisc_root_hash_remove(struct nss_qdisc *nq_root, struct nss_qdisc *nq)
 {
 	nss_qdisc_trace("%s: deleting qdisc %x from root hash\n", __func__, nq->qos_tag);
+
+	/*
+	 * We need to hold the root lock since that is the node
+	 * that maintains the hash list.
+	 */
+	spin_lock_bh(&nq_root->lock);
 	hlist_del(&nq->hnode);
+	spin_unlock_bh(&nq_root->lock);
 }
 
 /*
@@ -1051,6 +1062,7 @@ static inline struct nss_qdisc *nss_qdisc_querry_hash(struct nss_qdisc *nq_root,
 	/*
 	 * Parse through the list to find a match.
 	 */
+	spin_lock_bh(&nq_root->lock);
 	hlist_for_each_entry(nq, n, &nq_root->hash[hash], hnode) {
 
 		/*
@@ -1069,17 +1081,23 @@ static inline struct nss_qdisc *nss_qdisc_querry_hash(struct nss_qdisc *nq_root,
 		 * more likely that we find our match at the head.
 		 */
 		if (likely(head)) {
+			spin_unlock_bh(&nq_root->lock);
 			return nq;
 		}
 
 		/*
 		 * If the match was not at the head, we detach and attach it
-		 * back at the front/head.
+		 * back at the front/head. These helper functions need to be
+		 * called outside the lock.
 		 */
-		nss_qdisc_root_hash_remove(nq);
+		spin_unlock_bh(&nq_root->lock);
+		nss_qdisc_root_hash_remove(nq_root, nq);
 		nss_qdisc_root_hash_insert(nq_root, nq);
+
 		return nq;
 	}
+
+	spin_unlock_bh(&nq_root->lock);
 	return NULL;
 }
 
@@ -1681,14 +1699,15 @@ void nss_qdisc_destroy(struct nss_qdisc *nq)
 		}
 
 		/*
+		 * Free allocated hash table at root
+		 */
+		nss_qdisc_root_hash_free(nq);
+
+		/*
 		 * Begin by freeing the root shaper node
 		 */
 		nss_qdisc_root_cleanup_free_node(nq);
 
-		/*
-		 * Free allocated hash table at root
-		 */
-		nss_qdisc_root_hash_free(nq);
 	} else {
 		/*
 		 * Begin by removing ourselves from the root hash.
@@ -1696,10 +1715,7 @@ void nss_qdisc_destroy(struct nss_qdisc *nq)
 		 */
 		struct Qdisc *root = qdisc_root(nq->qdisc);
 		struct nss_qdisc *nq_root = qdisc_priv(root);
-		spin_lock_bh(&nq_root->lock);
-		nss_qdisc_root_hash_remove(nq);
-		spin_unlock_bh(&nq_root->lock);
-
+		nss_qdisc_root_hash_remove(nq_root, nq);
 		nss_qdisc_child_cleanup_free_node(nq);
 	}
 
@@ -1735,6 +1751,12 @@ int nss_qdisc_init(struct Qdisc *sch, struct nss_qdisc *nq, nss_shaper_node_type
 	int32_t state;
 	struct nss_if_msg nim;
 	int msg_type;
+
+	/*
+	 * Initialize locks
+	 */
+	spin_lock_init(&nq->bounce_protection_lock);
+	spin_lock_init(&nq->lock);
 
 	/*
 	 * Record our qdisc and type in the private region for handy use
