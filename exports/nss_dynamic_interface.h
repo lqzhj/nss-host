@@ -29,6 +29,7 @@ enum nss_dynamic_interface_type {
 	NSS_DYNAMIC_INTERFACE_TYPE_NONE = 0,
 	NSS_DYNAMIC_INTERFACE_TYPE_GRE_REDIR = 1,	/* GRE_REDIR Interface type */
 	NSS_DYNAMIC_INTERFACE_TYPE_CAPVAPV1 = 2,	/* CAPVAPV1 Interface type */
+	NSS_DYNAMIC_INTERFACE_TYPE_TUN6RD = 3,		/* TUN6RD Interface type */
 	NSS_DYNAMIC_INTERFACE_TYPE_MAX
 };
 
@@ -50,5 +51,14 @@ extern int nss_dynamic_interface_alloc_node(enum nss_dynamic_interface_type type
  * @return nss_tx_status_t Tx status
  */
 extern nss_tx_status_t nss_dynamic_interface_dealloc_node(int if_num, enum nss_dynamic_interface_type type);
+
+/**
+ * @brief The inferface number belong to the dynamic interface
+ *
+ * @param if_num interface number of dynamic interface
+ *
+ * @return bool true or false
+ */
+bool nss_is_dynamic_interface(int if_num);
 
 #endif /* __NSS_DYNAMIC_INTERFACE_H*/

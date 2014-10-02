@@ -69,7 +69,6 @@ extern void nss_ipsec_register_handler(void);
 extern void nss_ipv4_register_handler(void);
 extern void nss_ipv6_register_handler(void);
 extern void nss_n2h_register_handler(void);
-extern void nss_tun6rd_register_handler(void);
 extern void nss_tunipip6_register_handler(void);
 extern void nss_pppoe_register_handler(void);
 extern void nss_core_freq_register_handler(void);
