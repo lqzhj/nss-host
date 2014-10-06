@@ -357,4 +357,11 @@ extern bool nss_capwap_get_stats(uint32_t if_num, struct nss_capwap_tunnel_stats
  */
 extern void nss_capwap_init(void);
 
+/**
+ * @brief Initialize capwap msg
+ *
+ * @return None
+ */
+extern void nss_capwap_msg_init(struct nss_capwap_msg *ncm, uint16_t if_num, uint32_t type, uint32_t len,
+                                nss_capwap_msg_callback_t *cb, void *app_data);
 #endif /* __NSS_CAPWAP_H */

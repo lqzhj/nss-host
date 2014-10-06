@@ -463,4 +463,12 @@ extern void nss_ipv4_register_sysctl(void);
  */
 extern void nss_ipv4_unregister_sysctl(void);
 
+/**
+ * @brief IPv4 message init
+ *
+ * @return None
+ */
+extern void nss_ipv4_msg_init(struct nss_ipv4_msg *nim, uint16_t if_num, uint32_t type, uint32_t len,
+			nss_ipv4_msg_callback_t *cb, void *app_data);
+
 #endif /* __NSS_IPV4_H */

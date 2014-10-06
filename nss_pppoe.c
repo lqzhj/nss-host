@@ -204,7 +204,7 @@ static void nss_pppoe_destroy_connection_rule(void *ctx, uint16_t pppoe_session_
 			pppoe_remote_mac[0], pppoe_remote_mac[1], pppoe_remote_mac[2],
 			pppoe_remote_mac[3], pppoe_remote_mac[4], pppoe_remote_mac[5]);
 
-	nss_cmn_msg_init(&npm.cm, NSS_PPPOE_RX_INTERFACE, NSS_PPPOE_TX_CONN_RULE_DESTROY,
+	nss_pppoe_msg_init(&npm, NSS_PPPOE_RX_INTERFACE, NSS_PPPOE_TX_CONN_RULE_DESTROY,
 			sizeof(struct nss_pppoe_rule_destroy_msg), NULL, NULL);
 
 	nprd = &npm.msg.pppoe_rule_destroy;
@@ -309,3 +309,14 @@ void nss_pppoe_register_handler()
 {
 	nss_core_register_handler(NSS_PPPOE_RX_INTERFACE, nss_pppoe_rx_msg_handler, NULL);
 }
+
+/*
+ * nss_pppoe_msg_init()
+ *	Initialize pppoe message.
+ */
+void nss_pppoe_msg_init(struct nss_pppoe_msg *npm, uint16_t if_num, uint32_t type, uint32_t len,
+                         void *cb, void *app_data)
+{
+	nss_cmn_msg_init(&npm->cm, if_num, type, len, (void *)cb, app_data);
+}
+

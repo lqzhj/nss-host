@@ -550,3 +550,14 @@ void nss_capwap_init()
 {
 	memset(&nss_capwap_hdl, 0, sizeof(nss_capwap_hdl));
 }
+
+/*
+ * nss_capwap_msg_init()
+ *	Initialize capwap message.
+ */
+void nss_capwap_msg_init(struct nss_capwap_msg *ncm, uint16_t if_num, uint32_t type, uint32_t len,
+				nss_capwap_msg_callback_t *cb, void *app_data)
+{
+	nss_cmn_msg_init(&ncm->cm, if_num, type, len, (void*)cb, app_data);
+}
+EXPORT_SYMBOL(nss_capwap_msg_init);

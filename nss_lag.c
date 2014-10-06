@@ -166,3 +166,13 @@ void nss_lag_register_handler(void)
 	nss_core_register_handler(NSS_LAG1_INTERFACE_NUM, nss_lag_handler, NULL);
 }
 
+/**
+ * nss_lag_msg_init()
+ *	Initialize lag message
+ */
+void nss_lag_msg_init(struct nss_lag_msg *nlm, uint16_t lag_num, uint32_t type, uint32_t len,
+			nss_lag_callback_t *cb, void *app_data)
+{
+	nss_cmn_msg_init(&nlm->cm, lag_num, type, len, (void *)cb, app_data);
+}
+EXPORT_SYMBOL(nss_lag_msg_init);

@@ -183,6 +183,16 @@ void nss_tunipip6_register_handler()
 	nss_core_register_handler(NSS_TUNIPIP6_INTERFACE, nss_tunipip6_handler, NULL);
 }
 
+/*
+ * nss_tunipip6_msg_init()
+ *      Initialize nss_tunipip6 msg.
+ */
+void nss_tunipip6_msg_init(struct nss_tunipip6_msg *ntm, uint16_t if_num, uint32_t type,  uint32_t len, void *cb, void *app_data)
+{
+	nss_cmn_msg_init(&ntm->cm, if_num, type, len, cb, app_data);
+}
+
 EXPORT_SYMBOL(nss_tunipip6_tx);
 EXPORT_SYMBOL(nss_register_tunipip6_if);
 EXPORT_SYMBOL(nss_unregister_tunipip6_if);
+EXPORT_SYMBOL(nss_tunipip6_msg_init);

@@ -274,7 +274,7 @@ static int nss_tun6rd_dev_up(struct net_device *netdev)
 	/*
 	 * Send 6rd Tunnel UP command to NSS
 	 */
-	nss_cmn_msg_init(&tun6rdmsg.cm, if_number, NSS_TUN6RD_ATTACH_PNODE,
+	nss_tun6rd_msg_init(&tun6rdmsg, if_number, NSS_TUN6RD_ATTACH_PNODE,
 			sizeof(struct nss_tun6rd_attach_tunnel_msg), NULL, NULL);
 
 	status = nss_tun6rd_tx(nss_ctx, &tun6rdmsg);

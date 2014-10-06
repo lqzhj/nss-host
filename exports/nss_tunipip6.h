@@ -127,4 +127,17 @@ extern struct nss_ctx_instance *nss_register_tunipip6_if(uint32_t if_num, nss_tu
  */
 extern void nss_unregister_tunipip6_if(uint32_t if_num);
 
+/**
+ * @brief Initialize tunipip6 msg
+ * @param nss_tunipip6_msg
+ * @param if_num Interface number
+ * @param type Message type
+ * @param len Message length
+ * @param cb message callback
+ * @param app_data
+ *
+ * @return None
+ */
+extern void nss_tunipip6_msg_init(struct nss_tunipip6_msg *ntm, uint16_t if_num, uint32_t type,  uint32_t len, void *cb, void *app_data);
+
 #endif /* __NSS_TUN6RD_H */

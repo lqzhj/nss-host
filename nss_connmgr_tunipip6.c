@@ -186,7 +186,7 @@ void nss_tunipip6_dev_up( struct net_device * netdev)
 	/*
 	 * Send IPIP6 Tunnel UP command to NSS
 	 */
-	nss_cmn_msg_init(&tnlmsg.cm, NSS_TUNIPIP6_INTERFACE, NSS_TUNIPIP6_TX_IF_CREATE,
+	nss_tunipip6_msg_init(&tnlmsg, NSS_TUNIPIP6_INTERFACE, NSS_TUNIPIP6_TX_IF_CREATE,
 			sizeof(struct nss_tunipip6_create_msg), NULL, NULL);
 
 	status = nss_tunipip6_tx(g_tunipip6.nss_ctx, &tnlmsg);
@@ -235,7 +235,7 @@ void nss_tunipip6_dev_down( struct net_device * netdev)
 	/*
 	 * Send IPIP6 Tunnel DOWN command to NSS
 	 */
-	nss_cmn_msg_init(&tnlmsg.cm, NSS_TUNIPIP6_INTERFACE, NSS_TUNIPIP6_TX_IF_DESTROY,
+	nss_tunipip6_msg_init(&tnlmsg, NSS_TUNIPIP6_INTERFACE, NSS_TUNIPIP6_TX_IF_DESTROY,
 			sizeof(struct nss_tunipip6_destroy_msg), NULL, NULL);
 
 	status = nss_tunipip6_tx(g_tunipip6.nss_ctx, &tnlmsg);

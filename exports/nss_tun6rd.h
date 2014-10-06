@@ -137,4 +137,17 @@ extern struct nss_ctx_instance *nss_register_tun6rd_if(uint32_t if_num, nss_tun6
  */
 extern void nss_unregister_tun6rd_if(uint32_t if_num);
 
+/**
+ * @brief Initialize tun6rd msg
+ * @param nss_tun6rd_msg
+ * @param if_num Interface number
+ * @param type Message type
+ * @param len Message length
+ * @param cb message callback
+ * @param app_data
+ *
+ * @return None
+ */
+extern void nss_tun6rd_msg_init(struct nss_tun6rd_msg *ncm, uint16_t if_num, uint32_t type,  uint32_t len, void *cb, void *app_data);
+
 #endif /* __NSS_TUN6RD_H */

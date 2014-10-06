@@ -294,7 +294,7 @@ void nss_ipv6_register_handler()
  * nss_ipv6_conn_cfg_callback()
  *	call back function for the ipv6 connection configuration handler
  */
-static void nss_ipv6_conn_cfg_callback(void *app_data, struct nss_if_msg *nim)
+static void nss_ipv6_conn_cfg_callback(void *app_data, struct nss_ipv6_msg *nim)
 {
 	if (nim->cm.response != NSS_CMN_RESPONSE_ACK) {
 		/*
@@ -376,8 +376,8 @@ static int nss_ipv6_conn_cfg_handler(ctl_table *ctl, int write, void __user *buf
 
 	nss_info("%p: IPv6 supported connections: %d\n", nss_ctx, nss_ipv6_conn_cfg);
 
-	nss_cmn_msg_init(&nim.cm, NSS_IPV6_RX_INTERFACE, NSS_IPV6_TX_CONN_CFG_RULE_MSG,
-		sizeof(struct nss_ipv6_rule_conn_cfg_msg), nss_ipv6_conn_cfg_callback, NULL);
+	nss_ipv6_msg_init(&nim, NSS_IPV6_RX_INTERFACE, NSS_IPV6_TX_CONN_CFG_RULE_MSG,
+		sizeof(struct nss_ipv6_rule_conn_cfg_msg), (nss_ipv6_msg_callback_t *)nss_ipv6_conn_cfg_callback, NULL);
 
 	nirccm = &nim.msg.rule_conn_cfg;
 	nirccm->num_conn = htonl(nss_ipv6_conn_cfg);
@@ -498,6 +498,16 @@ void nss_ipv6_unregister_sysctl(void)
 	}
 }
 
+/*
+ * nss_ipv6_msg_init()
+ *      Initialize IPv6 message.
+ */
+void nss_ipv6_msg_init(struct nss_ipv6_msg *nim, uint16_t if_num, uint32_t type, uint32_t len,
+			nss_ipv6_msg_callback_t *cb, void *app_data)
+{
+	nss_cmn_msg_init(&nim->cm, if_num, type, len, (void *)cb, app_data);
+}
+
 EXPORT_SYMBOL(nss_ipv6_tx);
 EXPORT_SYMBOL(nss_ipv6_notify_register);
 EXPORT_SYMBOL(nss_ipv6_notify_unregister);
@@ -505,3 +515,4 @@ EXPORT_SYMBOL(nss_ipv6_get_mgr);
 EXPORT_SYMBOL(nss_ipv6_register_handler);
 EXPORT_SYMBOL(nss_ipv6_register_sysctl);
 EXPORT_SYMBOL(nss_ipv6_unregister_sysctl);
+EXPORT_SYMBOL(nss_ipv6_msg_init);

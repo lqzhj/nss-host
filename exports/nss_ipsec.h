@@ -251,4 +251,13 @@ extern void nss_ipsec_data_unregister(struct nss_ctx_instance *ctx, uint32_t if_
  * @return nss_ctx_instance
  */
 extern struct nss_ctx_instance *nss_ipsec_get_context(void);
+
+/**
+ * @brief Initialize ipsec message
+ *
+ * @return void
+ */
+extern void nss_ipsec_msg_init(struct nss_ipsec_msg *nim, uint16_t if_num, uint32_t type, uint32_t len,
+				nss_ipsec_msg_callback_t *cb, void *app_data);
+
 #endif /* __NSS_IPSEC_H */
