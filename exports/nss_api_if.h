@@ -615,8 +615,7 @@ typedef void (*nss_ipv4_callback_t)(struct nss_ipv4_cb_params *nicb);
  *
  * @return void* NSS context to be provided with every message
  */
-extern void *nss_get_frequency_mgr(void);
-
+extern void *nss_freq_get_mgr(void);
 /**
  * Methods provided by NSS driver for use by virtual interfaces (VAPs)
  */
@@ -703,8 +702,7 @@ extern nss_tx_status_t nss_tx_virt_if_rxbuf(void *nss_ctx, struct sk_buff *os_bu
  *
  * @return nss_tx_status_t Tx Status
  */
-nss_tx_status_t nss_freq_change(void *ctx, uint32_t eng, uint32_t stats_enable, uint32_t start_or_end);
-
+nss_tx_status_t nss_freq_change(struct nss_ctx_instance *nss_ctx, uint32_t eng, uint32_t stats_enable, uint32_t start_or_end);
 /**
  * @brief Register PM Driver Client
  *
