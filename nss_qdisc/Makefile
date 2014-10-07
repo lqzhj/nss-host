@@ -23,4 +23,5 @@ qca-nss-qdisc-objs := 	nss_qdisc.o \
 			nss_bf.o \
 			nss_wrr.o \
 			nss_htb.o \
-			nss_blackhole.o
+			nss_blackhole.o \
+			nss_wred.o
