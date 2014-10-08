@@ -29,7 +29,7 @@
 #define NSS_CRYPTO_MAX_CACHED_IDXS	4	/**< Max supported sessions */
 #define NSS_CRYPTO_ENGINES		4	/**< Max engines available */
 #define NSS_CRYPTO_BAM_PP		4 	/**< BAM Pipe Pairs */
-
+#define NSS_CRYPTO_MAX_NAME		64	/**< Max supported name size */
 /**
  * @brief Crypto status for all nss_crypto_XXX api's
  */
@@ -313,6 +313,42 @@ void nss_crypto_session_update(nss_crypto_handle_t crypto, uint32_t session_idx,
  *       then allocate a newer session with the new parameters
  */
 nss_crypto_status_t nss_crypto_session_free(nss_crypto_handle_t crypto, uint32_t session_idx);
+
+/**
+ * @brief retrieve the cipher algorithm associated with the session index
+ *
+ * @param session_idx[IN] session index
+ *
+ * @return cipher algorithm; for unallocated session the algorithm will be NONE
+ */
+enum nss_crypto_cipher nss_crypto_get_cipher(uint32_t session_idx);
+
+/**
+ * @brief retrieve the cipher key length associated with the session index
+ *
+ * @param session_idx[IN] session index
+ *
+ * @return key length; for unallocated sessions the key length will be '0'
+ */
+uint32_t nss_crypto_get_cipher_keylen(uint32_t session_idx);
+
+/**
+ * @brief retrieve the auth algorithm associated with the session index
+ *
+ * @param session_idx[IN] session index
+ *
+ * @return auth algorithm; for unallocated session the algorithm will be NONE
+ */
+enum nss_crypto_auth nss_crypto_get_auth(uint32_t session_idx);
+
+/**
+ * @brief retreive the auth key length associated with the session index
+ *
+ * @param session_idx[IN] session index
+ *
+ * @return key length; for unallocated sessions the key length will be '0'
+ */
+uint32_t nss_crypto_get_auth_keylen(uint32_t session_idx);
 
 /**
  * @brief Apply cipher (as in encrypt or decrypt) and or authenticate the given
