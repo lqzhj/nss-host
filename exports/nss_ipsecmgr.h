@@ -70,7 +70,8 @@ struct nss_ipsecmgr_encap_add {
 
 	uint8_t esp_seq_skip;		/**< Skip ESP sequence number in header*/
 	uint8_t esp_tail_skip;		/**< Skip ESP trailer*/
-	uint8_t res[2];			/**< reserve for 4-byte alignment */
+	uint8_t use_pattern;		/**< Use random pattern in hash calculation */
+	uint8_t res;			/**< reserve for 4-byte alignment */
 };
 
 /**
