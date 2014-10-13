@@ -320,20 +320,29 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 				unsigned int payload_len = desc->payload_len;
 				dma_addr_t buffer = desc->buffer;
 
-				/*
-				 * Set relevant fields within nbuf (len, head, tail)
-				 */
-				nbuf->data = nbuf->head + payload_offs;
-				nbuf->len = payload_len;
-				nbuf->tail = nbuf->data + nbuf->len;
+				if (buffer_type == N2H_BUFFER_EMPTY) {
+					/*
+					 * No need to invalidate for Tx Completions, so set dma direction = DMA_TO_DEVICE;
+					 * Similarly prefetch is not needed for an empty buffer.
+					 */
+					dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_TO_DEVICE);
+				} else {
 
-				/*
-				 * TODO: Check if there is any issue wrt map and unmap,
-				 * NSS should playaround with data area and should not
-				 * touch HEADROOM area
-				 */
-				dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_FROM_DEVICE);
-				prefetch((void *)(nbuf->data));
+					/*
+					 * Set relevant fields within nbuf (len, head, tail)
+					 */
+					nbuf->data = nbuf->head + payload_offs;
+					nbuf->len = payload_len;
+					nbuf->tail = nbuf->data + nbuf->len;
+
+					/*
+					 * TODO: Check if there is any issue wrt map and unmap,
+					 * NSS should playaround with data area and should not
+					 * touch HEADROOM area
+					 */
+					dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_FROM_DEVICE);
+					prefetch((void *)(nbuf->data));
+				}
 			}
 
 			/*
