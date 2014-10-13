@@ -257,6 +257,8 @@ void nss_gmac_linkup(nss_gmac_dev *gmacdev)
 {
 	struct net_device *netdev = gmacdev->netdev;
 	uint32_t gmac_tx_desc = 0, gmac_rx_desc = 0;
+	uint32_t rx_forward_if = NSS_ETH_RX_INTERFACE;
+	uint32_t alignment_mode = NSS_IF_DATA_ALIGN_2BYTE;
 
 	nss_gmac_spare_ctl(gmacdev);
 
@@ -298,7 +300,7 @@ void nss_gmac_linkup(nss_gmac_dev *gmacdev)
 		 * does not expect descriptors from host.
 		 */
 		if (nss_tx_phys_if_open(gmacdev->nss_gmac_ctx,
-				     gmac_tx_desc, gmac_rx_desc,
+				     gmac_tx_desc, gmac_rx_desc, rx_forward_if, alignment_mode,
 				     gmacdev->macid) != NSS_TX_SUCCESS) {
 			nss_gmac_info(gmacdev,
 				      "%s: NSS open command un-successful",
