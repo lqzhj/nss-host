@@ -28,7 +28,6 @@
 #include <nss_ipsec.h>
 #include "nss_ipsecmgr.h"
 
-
 #if defined(CONFIG_DYNAMIC_DEBUG)
 /*
  * Compile messages for dynamic enable/disable
@@ -67,9 +66,9 @@
 
 /* NSS IPsec entry state */
 enum nss_ipsecmgr_entry_state {
-	NSS_IPSECMGR_ENTRY_STATE_INIT = 0,	/* init state of the entry */
-	NSS_IPSECMGR_ENTRY_STATE_VALID = 1,	/* entry is valid */
-	NSS_IPSECMGR_ENTRY_STATE_INVALID = 2,	/* entry is invalid */
+	NSS_IPSECMGR_ENTRY_STATE_INIT = 0,		/* init state of the entry */
+	NSS_IPSECMGR_ENTRY_STATE_VALID = 1,		/* entry is valid */
+	NSS_IPSECMGR_ENTRY_STATE_INVALID = 2,		/* entry is invalid */
 	NSS_IPSECMGR_ENTRY_STATE_MAX
 };
 
@@ -720,11 +719,87 @@ static int nss_ipsecmgr_tunnel_stop(struct net_device *dev)
  */
 static netdev_tx_t nss_ipsecmgr_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
 {
-	nss_ipsecmgr_warn("tunnel transmit not implemented, freeing the skb\n");
+	uint32_t if_num;
+	struct iphdr *inner_ip;
+	struct nss_ipsecmgr_priv *priv;
+	struct nss_ipsecmgr_tbl *encap;
 
-	dev_kfree_skb_any(skb);
+	if_num = NSS_IPSEC_ENCAP_IF_NUMBER;
+	priv = netdev_priv(dev);
+	encap = &priv->encap;
+
+	if (skb_is_nonlinear(skb)) {
+		nss_ipsecmgr_error("%p: NSS IPSEC does not support fragments %p\n", priv->nss_ctx, skb);
+		goto fail;
+	}
+
+	/*
+	 * Check if skb is shared
+	 */
+	if (unlikely(skb_shared(skb))) {
+		nss_ipsecmgr_error("%p: Shared skb is not supported: %p\n", priv->nss_ctx, skb);
+		goto fail;
+	}
+
+	/*
+	 * Check the packet head room & tail room
+	 */
+	if (unlikely(skb_headroom(skb) < dev->needed_headroom)) {
+		nss_ipsecmgr_error("%p: Insufficient head room :%d in skb: %p\n", priv->nss_ctx, skb_headroom(skb), skb);
+		goto fail;
+	}
+
+	if (unlikely(skb_tailroom(skb) < dev->needed_tailroom)) {
+		nss_ipsecmgr_error("%p: Insufficient tail room:%d in skb: %p\n", priv->nss_ctx, skb_tailroom(skb), skb);
+		goto fail;
+	}
+
+	/*
+	 * Check if packet is given starting from network header
+	 */
+	if (skb->data != skb_network_header(skb)) {
+		nss_ipsecmgr_error("%p: 'Skb data is not starting from IP header", priv->nss_ctx);
+		goto fail;
+	}
+
+	inner_ip = (struct iphdr *)ip_hdr(skb);
+
+	/*
+	 * Validate if packet has ip options
+	 */
+	if ((inner_ip->version != IPVERSION) || (inner_ip->ihl != 5)) {
+		nss_ipsecmgr_error("%p: Unsupported IP header ipver: 0x%x iphdr_len: 0x%x\n", priv->nss_ctx,
+						inner_ip->version, inner_ip->ihl);
+		goto fail;
+	}
+
+	/*
+	 * Check the TTL value
+	 */
+	if ((inner_ip->ttl == 0)) {
+		nss_ipsecmgr_error("%p: IP TTL is zero, unabled to transmit\n", priv->nss_ctx);
+		goto fail;
+	}
+
+	/*
+	 * Send the packet down
+	 */
+	if (nss_ipsec_tx_buf(skb, if_num) != 0) {
+		/*
+		 * TODO: NEED TO STOP THE QUEUE
+		 */
+		goto fail;
+	}
+
+	/*
+	 * Increment the tx count
+	 */
+	encap->total_tx++;
 
 	return NETDEV_TX_OK;
+
+fail:
+	return NETDEV_TX_BUSY;
 }
 
 /*
@@ -1008,7 +1083,6 @@ bool nss_ipsecmgr_sa_del(struct net_device *dev, union nss_ipsecmgr_rule *rule, 
 		nss_ipsecmgr_error("Unknown rule type(%d) for Del operation\n", type);
 		return false;
 	}
-
 	return nss_ipsecmgr_op_send(dev, &nim, if_num, NSS_IPSEC_MSG_TYPE_DEL_RULE);
 }
 EXPORT_SYMBOL(nss_ipsecmgr_sa_del);
