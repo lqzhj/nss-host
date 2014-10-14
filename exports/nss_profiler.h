@@ -154,4 +154,12 @@ extern nss_tx_status_t nss_profiler_if_tx_buf(void *nss_ctx, void *buf, uint32_t
  * @param arg application data
  * @param npm NSS profiler message
  */
-void profile_handle_constant_info(void *arg, struct nss_profiler_msg *npm);
+extern void profile_handle_constant_info(void *arg, struct nss_profiler_msg *npm);
+
+/**
+ * @brief register a Linux counter for any variableS
+ *
+ * @param counter	a variable address (pointer)
+ * @param name		variable name (meaningful for read, and 23 bytes or less)
+ */
+extern int profile_register_performance_counter(volatile unsigned int *counter, char *name);

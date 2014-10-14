@@ -73,9 +73,9 @@
  */
 
 #ifdef	PROFILE_DEBUG
-#define	profileDebug(s, ...) pr_debug(KERN_DEBUG "%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
-#define	profileInfo(s, ...) pr_debug(KERN_INFO "%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
-#define	profileWarn(s, ...) pr_debug(KERN_WARNING "%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define	profileDebug(s, ...) pr_debug("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define	profileInfo(s, ...) pr_info("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define	profileWarn(s, ...) pr_warn("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #else
 #define	profileDebug(s, ...)
 #define	profileInfo(s, ...)
@@ -120,7 +120,7 @@ static int __profile_find_entry(char *name)
  * No need of de-registration API, since a loadable module's new insmod, will replace the
  * @counter's * new address at the same profile_counter[] slot.
  */
-static int profile_register_performance_counter(volatile unsigned int *counter, char *name)
+int profile_register_performance_counter(volatile unsigned int *counter, char *name)
 {
 	int i;
 
@@ -145,6 +145,7 @@ static int profile_register_performance_counter(volatile unsigned int *counter, 
  */
 static int profile_make_data_packet(char *buf, int blen, struct profile_io *pn)
 {
+	int sp_samples = 0;	/* separated samples if any */
 	int ns;		/* number of samples requested */
 	struct profile_header ph;
 	struct profile_sample_ctrl_header *psc_hd = &pn->pnc.pn2h->psc_header;
@@ -198,15 +199,14 @@ static int profile_make_data_packet(char *buf, int blen, struct profile_io *pn)
 	 * if buf cannot hold all samples, then samples must be separated by set.
 	 */
 	if (ns < psc_hd->count) {
-		int samples = 0;
 		ph.exh.sets_map = psc_hd->exh.sets_map;	/* save for separating sets */
 		do {
-			samples += psc_hd->exh.sets_map & 0x0F;
+			sp_samples += psc_hd->exh.sets_map & 0x0F;
 			psc_hd->exh.sets_map >>= 4;	/* remove the last set */
 			psc_hd->exh.sample_sets--;
 			ph.exh.sample_sets++;		/* save for restore later */
-		} while ((psc_hd->count - samples) > ns);
-		ns = psc_hd->count - samples;
+		} while ((psc_hd->count - sp_samples) > ns);
+		ns = psc_hd->count - sp_samples;
 	}
 	ph.pph.sample_count = ns;
 	if (copy_to_user(buf, &ph.pph, sizeof(ph.pph)) != 0) {
@@ -235,8 +235,11 @@ static int profile_make_data_packet(char *buf, int blen, struct profile_io *pn)
 	/*
 	 * restore left over sample counts; 0s for no one
 	 */
-	psc_hd->exh.sample_sets = ph.exh.sample_sets;
-	psc_hd->exh.sets_map = ph.exh.sets_map;
+	if (sp_samples) {
+		profileDebug("%d sps %d %d: sets %d : %d map %x <> %x\n", psc_hd->count, ns, sp_samples, psc_hd->exh.sample_sets, ph.exh.sample_sets, psc_hd->exh.sets_map, ph.exh.sets_map);
+		psc_hd->exh.sample_sets = ph.exh.sample_sets;
+		psc_hd->exh.sets_map = ph.exh.sets_map;
+	}
 
 	pn->profile_sequence_num++;
 	blen += sizeof(ph);
@@ -267,47 +270,40 @@ static int profile_make_stats_packet(char *buf, int bytes, struct profile_io *pn
 	static char prof_pkt[PROFILE_MAX_PACKET_SIZE];
 
 	char *ptr;
-	int stat_count;
 	int n;
-	struct profile_counter counter;
+	struct profile_counter *counter_ptr;
 	struct profile_header_counters *hdr = (struct profile_header_counters *)prof_pkt;
 	struct profile_sample_ctrl_header *psc_hd = &pn->pnc.pn2h->psc_header;
 
 	if (bytes > PROFILE_MAX_PACKET_SIZE) {
 		bytes = PROFILE_MAX_PACKET_SIZE;
 	}
-	hdr->linux_count = sizeof(profile_builtin_stats) / sizeof(counter);
-	stat_count = (bytes - sizeof(hdr)) / sizeof (counter);
-	stat_count -= hdr->linux_count;
+	n = sizeof(profile_builtin_stats) + (pn->pnc.un.num_counters + profile_num_counters) * sizeof(*counter_ptr);
 
-	if (stat_count <= 0) {
+	if ((bytes - sizeof(hdr)) < n) {
+		profileWarn("room too small %d for cnts %d\n", bytes, n);
 		return 0;
 	}
 
-	if (stat_count > pn->pnc.un.num_counters + profile_num_counters) {
-		stat_count = pn->pnc.un.num_counters + profile_num_counters;
-	}
-
 	hdr->magic = htons(PROF_MAGIC_COUNTERS);
-	hdr->ultra_count = htons(stat_count);
-	hdr->linux_count = htonl(hdr->linux_count);
+	hdr->ultra_count = htons(pn->pnc.un.num_counters);
+	hdr->linux_count = htonl(profile_num_counters + sizeof(profile_builtin_stats) / sizeof(*counter_ptr));
 	hdr->ultra_sample_time = psc_hd->exh.clocks;
-	hdr->linux_sample_time = 0;
+	hdr->linux_sample_time = psc_hd->exh.clocks; /* QSDK has no time func */
 
-	n = stat_count;
-	if (n > pn->pnc.un.num_counters)	/* copy NSS counters */
-		n = pn->pnc.un.num_counters;
+	n = pn->pnc.un.num_counters;	/* copy NSS counters */
 	n *= sizeof(pn->pnc.un.counters[0]);
 	ptr = (char*) (hdr + 1);
 	memcpy(ptr, (void *)(pn->pnc.un.counters), n);
 	ptr += n;
 
-	for (n = 0; n < profile_num_counters && n + pn->pnc.un.num_counters < stat_count; ++n) {
-		counter.value = *(profile_counter[n]);
-		strcpy(counter.name, profile_name[n]);
-		memcpy(ptr, (void *)(&counter), sizeof(counter));
-		ptr += sizeof(counter);
+	counter_ptr = (struct profile_counter *)ptr;
+	for (n = 0; n < profile_num_counters; ++n) {
+		counter_ptr->value = htonl(*profile_counter[n]);
+		strcpy(counter_ptr->name, profile_name[n]);
+		counter_ptr++;
 	}
+	ptr = (char*)counter_ptr;
 
 	/*
 	 * built in statistics
@@ -368,6 +364,7 @@ static int profile_open(struct inode *inode, struct file *filp)
 static int profile_read(struct file *filp, char *buf, size_t count, loff_t *f_pos)
 {
 	int result = 0;
+	int slen = 0;
 	struct profile_io *pn = (struct profile_io *)filp->private_data;
 	if (!pn) {
 		return -ENOENT;
@@ -384,17 +381,29 @@ static int profile_read(struct file *filp, char *buf, size_t count, loff_t *f_po
 		result = profile_make_stats_packet(buf, count, pn);
 		pn->profile_first_packet = 0;
 		profileInfo("%d profile_make_stats_packet %d\n", result, count);
+
+#ifdef	PROFILE_SEP_STAT
+		/*
+		 * currectly, stat and sample data are combined in one pkt for efficient;
+		 * but this is harder to debug and required remote tool to handle
+		 * packet in all-in-one method instead of individual handler.
+		 */
+		return result;
+#endif
 	}
 
+	if (result > 0) {
+		buf += result;
+		count -= result;
+		slen = result;
+	}
+	result = profile_make_data_packet(buf, count, pn);
 	if (result == 0) {
-		result = profile_make_data_packet(buf, count, pn);
-		if (result == 0) {
-			pn->profile_first_packet = 1;
-		}
-		profileInfo("%d: profile_make_data_packet %d\n", result, count);
+		pn->profile_first_packet = 1;
 	}
+	profileInfo("%d: profile_make_data_packet %d %d\n", result, count, slen);
 
-	profileInfo("%d: read %d\n", pn->pnc.enabled, result);
+	profileInfo("%d: read\n", pn->pnc.enabled);
 	if (pn->pnc.enabled < 0) {
 		nss_tx_status_t ret;
 		pn->pnc.enabled = 1;
@@ -403,8 +412,7 @@ static int profile_read(struct file *filp, char *buf, size_t count, loff_t *f_po
 		profileWarn("%s: restart %d -- %p: ccl %p sp %p\n", __func__, ret, pn, pn->ccl, pn->pnc.samples);
 	}
 
-	return result;
-
+	return result + slen;
 }
 
 /*
@@ -669,7 +677,7 @@ static void profile_handle_nss_data(void *arg, struct nss_profiler_msg *npm)
 			pn->pnc.enabled = -1;
 			pn->pnc.un.hd_magic = UBI32_PROFILE_HD_MAGIC | NSS_PROFILER_STOP_MSG;
 			ret = nss_profiler_if_tx_buf(pn->ctx, &pn->pnc.un, sizeof(pn->pnc.un), profiler_handle_reply);
-			profileWarn("temp stop sampling engine %d\n", ret);
+			profileWarn("%d temp stop sampling engine %d\n", swap, ret);
 		}
 		if (swap < 3) {
 			profileWarn("w%p.%d: %d no room for new profile samples r%p.%d\n", nsb, wr, swap, pn->ccl+pn->ccl_read, pn->ccl_read);
@@ -682,6 +690,7 @@ static void profile_handle_nss_data(void *arg, struct nss_profiler_msg *npm)
 	 * smapling data -- hdr NBO swap is done at NSS side via SWAPB.
 	 */
 	memcpy(&nsb->psc_header, buf, buf_len); /* pn->pnc.pn2h->psc_header = *psc_hd; maybe faster, but take more memory */
+	pn->profile_first_packet = 1;
 
 	nsb->mh.md_type = PINGPONG_FULL;
 	//kxdump((void*)(nsb->samples + 23), sizeof(*nsb->samples) << 1, "1st 2 samples");
