@@ -80,14 +80,12 @@ enum nss_crypto_max_hashlen {
 };
 
 /**
- * @brief crypto buffer request type
+ * @brief crypto request type
  */
-enum nss_crypto_buf_req_type {
-	NSS_CRYPTO_BUF_REQ_DECRYPT = 0x0001,		/**< decryption request*/
-	NSS_CRYPTO_BUF_REQ_ENCRYPT = 0x0002,		/**< encryption request*/
-	NSS_CRYPTO_BUF_REQ_AUTH = 0x0004,		/**< authentication request */
-	NSS_CRYPTO_BUF_REQ_HOST = 0x0100,		/**< request originated from host */
-	NSS_CRYPTO_BUF_REQ_NSS = 0x0200			/**< request originates from nss fast path */
+enum nss_crypto_req_type {
+	NSS_CRYPTO_REQ_TYPE_AUTH = 0x0001,		/**< authentication request */
+	NSS_CRYPTO_REQ_TYPE_ENCRYPT = 0x0002,		/**< encryption request*/
+	NSS_CRYPTO_REQ_TYPE_DECRYPT = 0x0004,		/**< decryption request*/
 };
 
 /**
@@ -153,7 +151,9 @@ struct nss_crypto_buf {
 	struct nss_crypto_buf *next;	/**< next buffer */
 	uint32_t ctx_0;			/**< private context(0) per buf */
 	uint32_t ctx_1;			/**< private context(1) per buf */
-	uint32_t state;			/**< buffer operation specific state */
+
+	uint16_t state;			/**< buffer operation specific state */
+	uint16_t origin;		/**< crypto_req originator */
 
 	/* public fields*/
 	uint32_t cb_ctx;		/**< completion callback context */
@@ -164,62 +164,19 @@ struct nss_crypto_buf {
 	uint8_t *data;			/**< Data address (virtual) */
 	uint32_t data_paddr;		/**< Data address (physical) */
 
-	uint16_t hash_offset;		/**< location inside data where HASH is generated */
 	uint16_t iv_offset;		/**< location inside data where IV is available */
-
-	uint16_t data_len;		/**< Data length */
-	uint16_t hash_len;		/**< hash length */
 	uint16_t iv_len;		/**< IV length */
 
-
 	uint16_t cipher_len;		/**< Length of data to encrypt */
-	uint16_t cipher_skip;		/**< start encrypt/decrypt from here */
-
 	uint16_t auth_len;		/**< bytes to authenticate inside data */
-	uint16_t auth_skip;		/**< skip bytes from data to start authenticating */
 
-	uint16_t req_type;		/**< nss_crypto_req_type */
+	uint16_t hash_offset;		/**< location inside data where HASH is generated */
+	uint16_t data_len;		/**< Data length */
 
 	uint16_t magic;			/**< crypto magic number for validation checks */
 
-	uint8_t pad[6];			/**< 32-byte cacheline alignment */
+	uint8_t pad[12];		/**< 32-byte cacheline alignment */
 };
-
-/**
- * @brief Set crypto buffer request type.
- *
- * @param buf[IN] crypto buffer
- * @param req_type[IN] request type
- */
-static inline void nss_crypto_buf_set_req_type(struct nss_crypto_buf *buf, uint16_t req_type)
-{
-	buf->req_type = req_type;
-}
-
-/**
- * @brief Get crypto buffer request type.
- *
- * @param buf[IN] crypto buffer
- *
- * @return req_type
- */
-static inline uint16_t nss_crypto_buf_get_req_type(struct nss_crypto_buf *buf)
-{
-	return buf->req_type;
-}
-
-/**
- * @brief Find out crypto buffer request type is set or not.
- *
- * @param buf[IN] crypto buffer
- * @param req_type[IN] request type
- *
- * @return 1 or 0 depending on whether req type is set or not.
- */
-static inline bool nss_crypto_buf_check_req_type(struct nss_crypto_buf *buf, uint16_t req_type)
-{
-	return ((buf->req_type & req_type) == req_type);
-}
 
 typedef void *nss_crypto_user_ctx_t;	/**< crypto driver user's context */
 typedef void *nss_crypto_handle_t;	/**< crypto driver handle for its users */
@@ -296,8 +253,12 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
  * @param crypto[IN] crypto device handle
  * @param session_idx[IN] session index for the crypto transform
  * @param params[IN] session specific configuration information
+ *
+ * @return status of the call
+ *
+ * ENOSUPP implies unsupported configuration
  */
-void nss_crypto_session_update(nss_crypto_handle_t crypto, uint32_t session_idx, struct nss_crypto_params *params);
+nss_crypto_status_t nss_crypto_session_update(nss_crypto_handle_t crypto, uint32_t session_idx, struct nss_crypto_params *params);
 
 /**
  * @brief Free an existing session, this flushes all state related to the session
@@ -331,6 +292,15 @@ enum nss_crypto_cipher nss_crypto_get_cipher(uint32_t session_idx);
  * @return key length; for unallocated sessions the key length will be '0'
  */
 uint32_t nss_crypto_get_cipher_keylen(uint32_t session_idx);
+
+/**
+ * @brief retrieve the transform type associated with the session index
+ *
+ * @param session_idx[IN] session index
+ *
+ * @return transform type
+ */
+uint32_t nss_crypto_get_reqtype(uint32_t session_idx);
 
 /**
  * @brief retrieve the auth algorithm associated with the session index

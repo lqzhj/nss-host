@@ -157,6 +157,15 @@ LIST_HEAD(user_head);
 static uint32_t pool_seed = 1024;
 
 /*
+ * nss_crypto_buf_init
+ * Initialize the allocated crypto buffer
+ */
+static inline void nss_crypto_buf_init(struct nss_crypto_buf *buf)
+{
+	buf->origin = NSS_CRYPTO_BUF_ORIGIN_HOST;
+}
+
+/*
  * nss_crypto_register_user()
  * 	register a new user of the crypto driver
  */
@@ -191,6 +200,7 @@ void nss_crypto_register_user(nss_crypto_attach_t attach, nss_crypto_detach_t de
 	for (i = 0; i < pool_seed; i++) {
 		entry = kmem_cache_alloc(user->zone, GFP_KERNEL);
 		llist_add(&entry->node, &user->pool_head);
+		nss_crypto_buf_init(&entry->buf);
 	}
 
 	list_add_tail(&user->node, &user_head);
@@ -271,8 +281,16 @@ struct nss_crypto_buf *nss_crypto_buf_alloc(nss_crypto_handle_t hdl)
 	 * for dynamic allocation in future requests
 	 */
 	entry = kmem_cache_alloc(user->zone, GFP_KERNEL);
+	if (entry == NULL) {
+		goto fail;
+	}
 
+	nss_crypto_buf_init(&entry->buf);
 	return &entry->buf;
+
+fail:
+	nss_crypto_err("Unable to allocate crypto buffer from cache \n");
+	return NULL;
 }
 EXPORT_SYMBOL(nss_crypto_buf_alloc);
 
@@ -307,7 +325,7 @@ void nss_crypto_transform_done(void *app_data __attribute((unused)), void *buffe
 	struct nss_crypto_buf *buf = (struct nss_crypto_buf *)buffer;
 
 	dma_unmap_single(NULL, paddr, sizeof(struct nss_crypto_buf), DMA_FROM_DEVICE);
-	dma_unmap_single(NULL, buf->data_paddr, buf->data_len + buf->hash_len, DMA_FROM_DEVICE);
+	dma_unmap_single(NULL, buf->data_paddr, buf->data_len, DMA_FROM_DEVICE);
 
 	buf->cb_fn(buf);
 }
@@ -496,19 +514,6 @@ void nss_crypto_init(void)
 {
 	nss_pm_interface_status_t status;
 
-	nss_crypto_info("Register with NSS \n");
-
-	nss_drv_hdl = nss_crypto_notify_register(nss_crypto_process_event, &user_head);
-	nss_drv_hdl = nss_crypto_data_register(nss_crypto_transform_done, &user_head);
-
-	/*
-	 * XXX:move this to worker
-	 */
-	if (nss_get_state(nss_drv_hdl) != NSS_STATE_INITIALIZED) {
-		nss_crypto_info(".");
-	}
-	nss_crypto_info(" done!\n");
-
 	nss_crypto_ctrl_init();
 
 	nss_pm_hdl = nss_pm_client_register(NSS_PM_CLIENT_CRYPTO);
@@ -519,6 +524,10 @@ void nss_crypto_init(void)
 	}
 
 	nss_crypto_param_init();
+
+	nss_drv_hdl = nss_crypto_notify_register(nss_crypto_process_event, &user_head);
+	nss_drv_hdl = nss_crypto_data_register(nss_crypto_transform_done, &user_head);
+
 }
 
 /*
@@ -567,10 +576,12 @@ void nss_crypto_engine_init(uint32_t eng_count)
 	/*
 	 * send open config message to NSS crypto
 	 */
-	nss_crypto_tx_msg(nss_drv_hdl, &nim);
+	if (nss_crypto_tx_msg(nss_drv_hdl, &nim) != NSS_TX_SUCCESS) {
+		nss_crypto_err("Failed to send the message to NSS\n");
+		return;
+	}
 
 	param.eng[eng_count].valid = 1;
-
 }
 
 /*

@@ -49,7 +49,11 @@
 #define CRYPTO_RESET_ENG_2	REG(0x3E08)
 #define CRYPTO_RESET_ENG_3	REG(0x3E0C)
 
+/* Poll time in ms */
+#define CRYPTO_DELAYED_INIT_TIME	100
+
 extern struct nss_crypto_ctrl gbl_crypto_ctrl;
+extern struct nss_ctx_instance *nss_drv_hdl;
 
 static int eng_count = 0;
 static int res_idx = 0;
@@ -173,13 +177,45 @@ static void __exit nss_crypto_module_exit(void)
 	platform_driver_unregister(&nss_crypto_drv);
 }
 
+void nss_crypto_delayed_init(struct work_struct *work)
+{
+	struct nss_crypto_ctrl *ctrl;
+	uint32_t status = 0;
+
+	ctrl = container_of(to_delayed_work(work), struct nss_crypto_ctrl, crypto_work);
+
+	nss_crypto_info("Register with NSS driver-\n");
+
+	/*
+	 * check if NSS FW is initialized
+	 */
+	if (nss_get_state(nss_drv_hdl) != NSS_STATE_INITIALIZED) {
+		schedule_delayed_work(&ctrl->crypto_work, msecs_to_jiffies(CRYPTO_DELAYED_INIT_TIME));
+		return;
+	}
+
+	nss_crypto_info("Done\n");
+
+	/*
+	 * reserve the index if certain pipe pairs are locked out for
+	 * trust zone use
+	 */
+	ctrl->idx_bitmap = res_idx ? ((0x1 << res_idx) - 1) : 0;
+
+	status = platform_driver_register(&nss_crypto_drv);
+	if (status != 0) {
+		nss_crypto_err("unable to register the driver : %d\n", status);
+		return;
+	}
+
+}
+
 /*
  * nss_crypto_module_init()
  * 	module init for crypto driver
  */
 static int __init nss_crypto_module_init(void)
 {
-	uint32_t status = 0;
 
 	nss_crypto_info("module loaded (platform - IPQ806x, build - %s:%s)\n", __DATE__, __TIME__);
 
@@ -197,14 +233,9 @@ static int __init nss_crypto_module_init(void)
 
 	nss_crypto_init();
 
-	/*
-	 * reserve the index if certain pipe pairs are locked out for
-	 * trust zone use
-	 */
-	gbl_crypto_ctrl.idx_bitmap = res_idx ? ((0x1 << res_idx) - 1) : 0;
+	INIT_DELAYED_WORK(&gbl_crypto_ctrl.crypto_work, nss_crypto_delayed_init);
 
-	status = platform_driver_register(&nss_crypto_drv);
-	nss_crypto_assert(status == 0);
+	schedule_delayed_work(&gbl_crypto_ctrl.crypto_work, msecs_to_jiffies(CRYPTO_DELAYED_INIT_TIME));
 
 	return 0;
 }

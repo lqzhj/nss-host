@@ -79,6 +79,9 @@ struct nss_crypto_ctrl_eng {
 struct nss_crypto_idx_info {
 	struct nss_crypto_key ckey;	/**< cipher key */
 	struct nss_crypto_key akey;	/**< auth key */
+
+	uint16_t req_type;		/**< transform is for encryption or decryption */
+	uint16_t res;			/**< reserved for padding */
 };
 
 /**
@@ -88,12 +91,16 @@ struct nss_crypto_idx_info {
  * @note currently we support 4 indexes, in future it will allocate more
  */
 struct nss_crypto_ctrl {
-	uint32_t idx_bitmap;		/**< session allocation bitmap, upto NSS_CRYPTO_MAX_IDXS can be used */
-	uint32_t idx_state_bitmap;	/**< session state bitmap, upto NSS_CRYPTO_MAX_IDXS can be used */
+	uint32_t idx_bitmap;			/**< session allocation bitmap,
+						 upto NSS_CRYPTO_MAX_IDXS can be used */
+	uint32_t idx_state_bitmap;		/**< session state bitmap,
+						 upto NSS_CRYPTO_MAX_IDXS can be used */
 
-	uint32_t num_idxs;	/**< number of allocated indexes */
-	uint32_t num_eng;	/**< number of available engines */
-	spinlock_t lock;	/**< lock */
+	uint32_t num_idxs;			/**< number of allocated indexes */
+	uint32_t num_eng;			/**< number of available engines */
+	spinlock_t lock;			/**< lock */
+
+	struct delayed_work crypto_work;	/**<crypto_work structure */
 
 	struct nss_crypto_idx_info idx_info[NSS_CRYPTO_MAX_IDXS]; /**< per index info */
 
