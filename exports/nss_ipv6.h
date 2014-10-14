@@ -186,12 +186,16 @@ struct nss_ipv6_qos_rule {
  * Error types for ipv6 messages
  */
 enum nss_ipv6_error_response_types {
-	NSS_IPV6_CR_INVALID_PNODE_ERROR = 1,		/**< NSS Error: Invalid interface number */
-	NSS_IPV6_CR_MISSING_CONNECTION_RULE_ERROR,	/**< NSS Error: Missing connection rule */
-	NSS_IPV6_CR_BUFFER_ALLOC_FAIL_ERROR,		/**< NSS Error: Buffer allocation failure */
-	NSS_IPV6_CR_PPPOE_SESSION_CREATION_ERROR,	/**< NSS Error: Unable to create PPPoE session */
-	NSS_IPV6_DR_NO_CONNECTION_ENTRY_ERROR,		/**< NSS Error: No connection found to delete */
-	NSS_IPV6_UNKNOWN_MSG_TYPE,			/**< NSS Error: Unknown error */
+	NSS_IPV6_CR_INVALID_PNODE_ERROR = 1,			/**< NSS Error: Invalid interface number */
+	NSS_IPV6_CR_MISSING_CONNECTION_RULE_ERROR,		/**< NSS Error: Missing connection rule */
+	NSS_IPV6_CR_BUFFER_ALLOC_FAIL_ERROR,			/**< NSS Error: Buffer allocation failure */
+	NSS_IPV6_CR_PPPOE_SESSION_CREATION_ERROR,		/**< NSS Error: Unable to create PPPoE session */
+	NSS_IPV6_DR_NO_CONNECTION_ENTRY_ERROR,			/**< NSS Error: No connection found to delete */
+	NSS_IPV6_CR_CONN_CFG_ALREADY_CONFIGURED_ERROR,		/**< NSS Error: Conn cfg already done once */
+	NSS_IPV6_CR_CONN_CFG_NOT_MULTIPLE_OF_QUANTA_ERROR,	/**< NSS Error: Conn cfg input is not multiple of quanta */
+	NSS_IPV6_CR_CONN_CFG_EXCEEDS_LIMIT_ERROR,		/**< NSS Error: Conn cfg input exceeds max supported connections*/
+	NSS_IPV6_CR_CONN_CFG_MEM_ALLOC_FAIL_ERROR,		/**< NSS Error: Conn cfg mem alloc fail at NSS FW */
+	NSS_IPV6_UNKNOWN_MSG_TYPE,				/**< NSS Error: Unknown error */
 };
 
 /**
