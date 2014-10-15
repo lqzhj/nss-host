@@ -51,6 +51,7 @@
 #include "nss_profiler.h"
 #include "nss_dynamic_interface.h"
 #include "nss_gre_redir.h"
+#include "nss_sjack.h"
 
 /*
  * Interface numbers are reserved in the
@@ -110,6 +111,7 @@
 #define NSS_COREFREQ_INTERFACE (NSS_SPECIAL_IF_START + 19) /* Virtual Interface Number for Corefreq */
 #define NSS_DYNAMIC_INTERFACE (NSS_SPECIAL_IF_START + 20) /* Special Interface Number for Dynamic Interfaces */
 #define NSS_GRE_REDIR_INTERFACE (NSS_SPECIAL_IF_START + 21) /* Interface Number for GRE REDIR base interface */
+#define NSS_SJACK_INTERFACE (NSS_SPECIAL_IF_START + 23) /* Interface Number for GRE REDIR base interface */
 
 /**
  * This macro converts format for IPv6 address (from Linux to NSS)
