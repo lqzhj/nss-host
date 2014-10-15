@@ -823,11 +823,13 @@ extern nss_tx_status_t nss_tx_phys_if_buf(void *nss_ctx, struct sk_buff *os_buf,
  * @param nss_ctx NSS context
  * @param tx_desc_ring Tx descriptor ring address
  * @param rx_desc_ring Rx descriptor ring address
+ * @param rx_forward_if forward received packkets to this if_num
+ * @param alignment_mode Header alignment mode
  * @param if_num GMAC i/f number
  *
  * @return nss_tx_status_t Tx status
  */
-extern nss_tx_status_t nss_tx_phys_if_open(void *nss_ctx, uint32_t tx_desc_ring, uint32_t rx_desc_ring, uint32_t if_num);
+extern nss_tx_status_t nss_tx_phys_if_open(void *nss_ctx, uint32_t tx_desc_ring, uint32_t rx_desc_ring, uint32_t rx_forward_if, uint32_t alignment_mode, uint32_t if_num);
 
 /**
  * @brief Close GMAC interface on NSS

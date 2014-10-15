@@ -135,7 +135,7 @@ nss_tx_status_t nss_tx_phys_if_buf(void *ctx, struct sk_buff *os_buf, uint32_t i
  * nss_tx_phys_if_open()
  *	Send open command to physical interface
  */
-nss_tx_status_t nss_tx_phys_if_open(void *ctx, uint32_t tx_desc_ring, uint32_t rx_desc_ring, uint32_t if_num)
+nss_tx_status_t nss_tx_phys_if_open(void *ctx, uint32_t tx_desc_ring, uint32_t rx_desc_ring, uint32_t rx_forward_if, uint32_t alignment_mode, uint32_t if_num)
 {
 	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) ctx;
 	struct nss_phys_if_msg nim;
@@ -150,6 +150,8 @@ nss_tx_status_t nss_tx_phys_if_open(void *ctx, uint32_t tx_desc_ring, uint32_t r
 	nio = &nim.msg.if_msg.open;
 	nio->tx_desc_ring = tx_desc_ring;
 	nio->rx_desc_ring = rx_desc_ring;
+	nio->rx_forward_if = rx_forward_if;
+	nio->alignment_mode = alignment_mode;
 	return nss_phys_if_tx_msg(nss_ctx, &nim);
 }
 
