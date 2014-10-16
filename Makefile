@@ -83,6 +83,10 @@ qca-nss-drv-objs += nss_profiler.o
 obj-y+= profiler/
 obj-y+= nss_qdisc/
 
+#
+# If you want to compile CAPWAP manager, then uncomment following line
+#obj-y+= capwapmgr/
+
 obj ?= .
 
 ifeq "$(CONFIG_ARCH_IPQ806X)" "y"
