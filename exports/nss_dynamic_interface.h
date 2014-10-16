@@ -30,6 +30,7 @@ enum nss_dynamic_interface_type {
 	NSS_DYNAMIC_INTERFACE_TYPE_GRE_REDIR = 1,	/* GRE_REDIR Interface type */
 	NSS_DYNAMIC_INTERFACE_TYPE_CAPVAPV1 = 2,	/* CAPVAPV1 Interface type */
 	NSS_DYNAMIC_INTERFACE_TYPE_TUN6RD = 3,		/* TUN6RD Interface type */
+	NSS_DYNAMIC_INTERFACE_TYPE_802_3_REDIR = 4,	/* 802.3 redirect Interface type */
 	NSS_DYNAMIC_INTERFACE_TYPE_MAX
 };
 

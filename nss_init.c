@@ -347,6 +347,8 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 		for (i = 0; i < NSS_MAX_VIRTUAL_INTERFACES; i++) {
 			nss_top->virt_if_handler_id[i] = nss_dev->id;
 		}
+
+		nss_top->dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_802_3_REDIR] = nss_dev->id;
 	}
 
 	if (npd->ipv6_enabled == NSS_FEATURE_ENABLED) {

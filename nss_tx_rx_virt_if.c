@@ -219,7 +219,7 @@ void *nss_create_virt_if(struct net_device *if_ctx)
 	nvic->flags = 0;
 	memcpy(nvic->mac_addr, if_ctx->dev_addr, ETH_ALEN);
 
-	(void)nss_virt_if_tx_msg(&nvim);
+	(void)nss_virt_if_tx_msg(nss_ctx, &nvim);
 
 	/*
 	 * Hold a reference to the net_device
@@ -271,7 +271,7 @@ nss_tx_status_t nss_destroy_virt_if(void *ctx)
 	nss_cmn_msg_init(&nvim.cm, if_num, NSS_VIRT_IF_TX_DESTROY_MSG,
 			sizeof(struct nss_virt_if_destroy), NULL, NULL);
 
-	return nss_virt_if_tx_msg(&nvim);
+	return nss_virt_if_tx_msg(nss_ctx, &nvim);
 }
 
 EXPORT_SYMBOL(nss_tx_virt_if_rxbuf);

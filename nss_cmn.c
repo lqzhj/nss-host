@@ -139,7 +139,7 @@ nss_state_t nss_cmn_get_state(struct nss_ctx_instance *ctx)
  */
 bool nss_cmn_interface_is_virtual(void *nss_ctx, int32_t interface_num)
 {
-	return (NSS_IS_IF_TYPE(VIRTUAL, interface_num));
+	return (NSS_IS_IF_TYPE(DYNAMIC, interface_num) || NSS_IS_IF_TYPE(VIRTUAL, interface_num));
 }
 
 /*
