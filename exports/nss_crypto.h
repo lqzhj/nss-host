@@ -81,6 +81,14 @@ enum nss_crypto_msg_error {
 	NSS_CRYPTO_MSG_ERROR_MAX
 };
 
+/**
+ * @brief crypto origin
+ */
+enum nss_crypto_buf_origin {
+	NSS_CRYPTO_BUF_ORIGIN_HOST = 0x001,		/**< request originated from host */
+	NSS_CRYPTO_BUF_ORIGIN_NSS = 0x0002,		/**< request originates from nss fast path */
+};
+
 /*
  * @brief crypto session index type
  */
