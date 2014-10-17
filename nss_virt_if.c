@@ -267,6 +267,17 @@ void nss_virt_if_unregister(uint32_t if_num)
 }
 
 /*
+ * nss_virt_if_get_interface_num()
+ *	Get interface number for a virtual interface
+ */
+int32_t nss_virt_if_get_interface_num(void *if_ctx)
+{
+	int32_t if_num = (int32_t)if_ctx;
+	nss_assert(NSS_IS_IF_TYPE(DYNAMIC, if_num) || NSS_IS_IF_TYPE(VIRTUAL, if_num));
+	return if_num;
+}
+
+/*
  * nss_virt_if_register_handler()
  * 	register handler for statically allocated virtual interface on NSS with NSS core.
  */
@@ -286,5 +297,6 @@ void nss_virt_if_register_handler(void)
 
 EXPORT_SYMBOL(nss_virt_if_tx_msg);
 EXPORT_SYMBOL(nss_virt_if_tx_rxbuf);
+EXPORT_SYMBOL(nss_virt_if_get_interface_num);
 EXPORT_SYMBOL(nss_virt_if_register);
 EXPORT_SYMBOL(nss_virt_if_unregister);
