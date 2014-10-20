@@ -111,7 +111,8 @@ struct nss_ipsec_rule_data {
 
 	uint8_t esp_seq_skip;		/**< Skip ESP sequence number */
 	uint8_t esp_tail_skip;		/**< Skip ESP trailer */
-	uint8_t res[2];			/**< Reserve bytes for alignment */
+	uint8_t use_pattern;		/**< Use random pattern in hash calculation */
+	uint8_t res;			/**< Reserve bytes for alignment */
 };
 
 /*
