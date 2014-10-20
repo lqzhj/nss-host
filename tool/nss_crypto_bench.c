@@ -409,6 +409,13 @@ static inline uint32_t crypto_bench_align(uint32_t val, uint32_t align)
 	}	\
 } while(0)
 
+#define chk_n_update(expr, field, def_val)	do {	\
+	if ((expr)) {	\
+		field |= def_val;	\
+	}	\
+} while(0)
+
+
 static void crypto_bench_init_param(enum crypto_bench_type type)
 {
 	chk_n_set((param.auth_op == 0), param.auth_len, 0);
@@ -587,8 +594,9 @@ static int32_t crypto_bench_prep_op(void)
 
 	crypto_params.cipher_skip = param.cipher_skip;
 	crypto_params.auth_skip = param.auth_skip;
-	crypto_params.req_type = (param.cipher_op ? NSS_CRYPTO_BUF_REQ_ENCRYPT : 0);
-	crypto_params.req_type |= (param.auth_op ? NSS_CRYPTO_BUF_REQ_AUTH : 0);
+	chk_n_set(param.cipher_op, crypto_params.req_type, NSS_CRYPTO_REQ_TYPE_ENCRYPT);
+	chk_n_set((param.cipher_op > 1), crypto_params.req_type, NSS_CRYPTO_REQ_TYPE_DECRYPT);
+	chk_n_update(param.auth_op, crypto_params.req_type, NSS_CRYPTO_REQ_TYPE_AUTH);
 
 
 	if ((c_key.algo == NSS_CRYPTO_CIPHER_NONE) && (a_key.algo == NSS_CRYPTO_AUTH_NONE)) {
@@ -658,12 +666,6 @@ static void crypto_bench_prep_buf(struct crypto_op *op)
 	buf->cb_ctx = (uint32_t)op;
 	buf->cb_fn = crypto_bench_done;
 
-	buf->req_type = (param.cipher_op ? NSS_CRYPTO_BUF_REQ_ENCRYPT : 0);
-
-	chk_n_set((param.cipher_op > 1), buf->req_type, NSS_CRYPTO_BUF_REQ_DECRYPT);
-
-	buf->req_type |= (param.auth_op ? NSS_CRYPTO_BUF_REQ_AUTH : 0);
-
 	buf->session_idx = crypto_sid[param.sid];
 
 	buf->iv_offset = op->iv_offset;
@@ -671,16 +673,13 @@ static void crypto_bench_prep_buf(struct crypto_op *op)
 	buf->iv_len = (param.ciph_algo == 2) ? NSS_CRYPTO_MAX_IVLEN_DES : NSS_CRYPTO_MAX_IVLEN_AES;
 
 	buf->hash_offset = op->hash_offset;
-	buf->hash_len = param.hash_len;
 
 	buf->data = op->data_vaddr;
-	buf->data_len = op->data_len + buf->hash_len;
+	buf->data_len = op->data_len + param.hash_len;
 
 	buf->cipher_len = op->cipher_len;
-	buf->cipher_skip = op->cipher_skip;
 
 	buf->auth_len = op->auth_len;
-	buf->auth_skip = op->auth_skip;
 
 	op->buf = buf;
 }

@@ -581,13 +581,13 @@ static void nss_crypto_key_update(struct nss_crypto_ctrl_eng *eng, uint32_t idx,
  * nss_crypto_cblk_update()
  * 	update the configuration command block using buffer informantion
  */
-static inline void nss_crypto_cblk_update(struct nss_crypto_ctrl_eng *eng, struct nss_crypto_cmd_block *cblk,
+static inline nss_crypto_status_t nss_crypto_cblk_update(struct nss_crypto_ctrl_eng *eng, struct nss_crypto_cmd_block *cblk,
 						struct nss_crypto_params *params)
 {
 	struct nss_crypto_cmd_config *cfg;
 	uint32_t base_addr = eng->cmd_base;
 	uint32_t encr_cfg = 0, auth_cfg = 0;
-	const uint16_t req_mask = (NSS_CRYPTO_BUF_REQ_DECRYPT | NSS_CRYPTO_BUF_REQ_ENCRYPT);
+	const uint16_t req_mask = (NSS_CRYPTO_REQ_TYPE_DECRYPT | NSS_CRYPTO_REQ_TYPE_ENCRYPT);
 
 	cfg = &cblk->cfg;
 
@@ -604,23 +604,25 @@ static inline void nss_crypto_cblk_update(struct nss_crypto_ctrl_eng *eng, struc
 	auth_cfg = nss_crypto_read_cblk(&cfg->auth_seg_cfg);
 
         switch (params->req_type & req_mask) {
-        case NSS_CRYPTO_BUF_REQ_ENCRYPT:
+        case NSS_CRYPTO_REQ_TYPE_ENCRYPT:
                 encr_cfg |= CRYPTO_ENCR_SEG_CFG_ENC;
                 auth_cfg |= CRYPTO_AUTH_SEG_CFG_POS_AFTER;
                 break;
 
-        case NSS_CRYPTO_BUF_REQ_DECRYPT:
+        case NSS_CRYPTO_REQ_TYPE_DECRYPT:
                 encr_cfg &= ~CRYPTO_ENCR_SEG_CFG_ENC;
                 auth_cfg |= CRYPTO_AUTH_SEG_CFG_POS_BEFORE;
                 break;
 
         default:
 		nss_crypto_err("unknown request type\n");
-                return;
+                return NSS_CRYPTO_STATUS_EINVAL;
         }
 
 	nss_crypto_write_cblk(&cfg->encr_seg_cfg, CRYPTO_ENCR_SEG_CFG + base_addr, encr_cfg);
 	nss_crypto_write_cblk(&cfg->auth_seg_cfg, CRYPTO_AUTH_SEG_CFG + base_addr, auth_cfg);
+
+	return NSS_CRYPTO_STATUS_OK;
 }
 
 /*
@@ -635,6 +637,27 @@ void nss_crypto_update_cipher_info(struct nss_crypto_idx_info *idx, struct nss_c
 }
 
 /*
+ * nss_crypto_set_idx_reqtype()
+ *	update the session crypto request type (encryption/decryption)
+ */
+static nss_crypto_status_t nss_crypto_set_idx_reqtype(struct nss_crypto_idx_info *idx, uint16_t req_type)
+{
+	const uint16_t req_mask = (NSS_CRYPTO_REQ_TYPE_DECRYPT | NSS_CRYPTO_REQ_TYPE_ENCRYPT);
+
+	switch (req_type & req_mask) {
+        case NSS_CRYPTO_REQ_TYPE_ENCRYPT:
+        case NSS_CRYPTO_REQ_TYPE_DECRYPT:
+		idx->req_type = req_type;
+		break;
+
+	default:
+		nss_crypto_err("unknown request type 0x%x\n", req_type);
+                return NSS_CRYPTO_STATUS_EINVAL;
+	}
+	return NSS_CRYPTO_STATUS_OK;
+}
+
+/*
  * nss_crypto_update_auth_info()
  * 	update the auth info into the index info table
  */
@@ -645,23 +668,51 @@ void nss_crypto_update_auth_info(struct nss_crypto_idx_info *idx, struct nss_cry
 	idx->akey.key = NULL;
 }
 
-void nss_crypto_session_update(nss_crypto_handle_t crypto, uint32_t session_idx, struct nss_crypto_params *params)
+/*
+ * nss_crypto_session_alloc()
+ * 	update allocated crypto session parameters
+ */
+nss_crypto_status_t nss_crypto_session_update(nss_crypto_handle_t crypto, uint32_t session_idx,
+						struct nss_crypto_params *params)
 {
 	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
 	struct nss_crypto_ctrl_eng *e_ctrl = &ctrl->eng[0];
 	struct nss_crypto_ctrl_idx *ctrl_idx;
+	nss_crypto_status_t status = NSS_CRYPTO_STATUS_OK;
+	uint32_t idx_mask;
 	int i = 0;
+
+	idx_mask = (0x1 << session_idx);
+
+	/*
+	 * check if session is a valid active session
+	 */
+	if ((ctrl->idx_bitmap & idx_mask) != idx_mask) {
+		nss_crypto_err("invalid session index\n");
+		return NSS_CRYPTO_STATUS_FAIL;
+	}
 
 	/*
 	 * Check if the common command block parameters are already set for
 	 * this session
 	 */
 	if (nss_crypto_check_idx_state(ctrl->idx_state_bitmap, session_idx)) {
-		return;
+		nss_crypto_err("Duplicate session update request\n");
+		return NSS_CRYPTO_STATUS_EBUSY ;
 	}
 
 	rmb();
 	nss_crypto_set_idx_state(&ctrl->idx_state_bitmap, session_idx);
+
+	/*
+	 * Update whether this SA index is used for encryption or decryption
+	 * TODO: Need to evaluate this for the case of pure authentication
+	 */
+	status = nss_crypto_set_idx_reqtype(&ctrl->idx_info[session_idx], params->req_type);
+	if (status != NSS_CRYPTO_STATUS_OK) {
+		nss_crypto_err("invalid parameters\n");
+		return NSS_CRYPTO_STATUS_EINVAL;
+	}
 
 	for (i = 0; i < NSS_CRYPTO_ENGINES; i++, e_ctrl++) {
 		ctrl_idx = &e_ctrl->idx_tbl[session_idx];
@@ -669,8 +720,13 @@ void nss_crypto_session_update(nss_crypto_handle_t crypto, uint32_t session_idx,
 		/*
 		 * Update session specific config data
 		 */
-		nss_crypto_cblk_update(e_ctrl, ctrl_idx->cblk, params);
+		status = nss_crypto_cblk_update(e_ctrl, ctrl_idx->cblk, params);
+		if (status != NSS_CRYPTO_STATUS_OK) {
+			nss_crypto_err("invalid parameters\n");
+			return NSS_CRYPTO_STATUS_EINVAL;
+		}
 	}
+	return NSS_CRYPTO_STATUS_OK;
 }
 EXPORT_SYMBOL(nss_crypto_session_update);
 
@@ -790,6 +846,7 @@ nss_crypto_status_t nss_crypto_session_free(nss_crypto_handle_t crypto, uint32_t
 
 	nss_crypto_update_cipher_info(&ctrl->idx_info[session_idx], NULL);
 	nss_crypto_update_auth_info(&ctrl->idx_info[session_idx], NULL);
+	nss_crypto_set_idx_reqtype(&ctrl->idx_info[session_idx], 0);
 
 	/*
 	 * program keys for all the engines for the given pipe pair (index)
@@ -843,6 +900,21 @@ uint32_t nss_crypto_get_cipher_keylen(uint32_t session_idx)
 
 }
 EXPORT_SYMBOL(nss_crypto_get_cipher_keylen);
+
+/*
+ * nss_crypto_get_reqtype()
+ * 	return the transform type of the associated session
+ */
+uint32_t nss_crypto_get_reqtype(uint32_t session_idx)
+{
+	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
+	struct nss_crypto_idx_info *idx;
+
+	idx = &ctrl->idx_info[session_idx];
+
+	return idx->req_type;
+}
+EXPORT_SYMBOL(nss_crypto_get_reqtype);
 
 /*
  * nss_crypto_get_auth()
