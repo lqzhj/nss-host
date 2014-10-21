@@ -36,6 +36,7 @@ enum nss_shaper_node_types {
 	NSS_SHAPER_NODE_TYPE_WRR_GROUP = 10,
 	NSS_SHAPER_NODE_TYPE_HTB = 11,
 	NSS_SHAPER_NODE_TYPE_HTB_GROUP = 12,
+	NSS_SHAPER_NODE_TYPE_WRED = 13,
 };
 typedef enum nss_shaper_node_types nss_shaper_node_type_t;
 
@@ -68,7 +69,7 @@ enum nss_shaper_config_types {
 	NSS_SHAPER_CONFIG_TYPE_WRR_GROUP_ATTACH,	/* Configure wrr group to attach a node as child */
 	NSS_SHAPER_CONFIG_TYPE_WRR_GROUP_DETACH,	/* Configure wrr group to detach its child */
 	NSS_SHAPER_CONFIG_TYPE_WRR_GROUP_CHANGE_PARAM,	/* Configure wrr group to tune its parameters */
-
+	NSS_SHAPER_CONFIG_TYPE_WRED_CHANGE_PARAM,	/* Configure wred */
 	/*
 	 * Generic shaper node commands
 	 *
@@ -117,7 +118,7 @@ enum nss_shaper_response_types {
 	NSS_SHAPER_RESPONSE_TYPE_CHILD_NOT_WRR_GROUP,			/* Wrr cannot have non-wrr_group as a
 									 * child node */
 	NSS_SHAPER_RESPONSE_TYPE_WRR_INVALID_OPERATION_MODE,		/* Wrr requires a valid mode */
-
+	NSS_SHAPER_RESPONSE_TYPE_WRED_WEIGHT_MODE_INVALID,		/* Invalid wred weight mode */
 	NSS_SHAPER_RESPONSE_TYPE_HTB_GROUP_BURST_LESS_THAN_MTU,		/* Burst and rate are mandatory */
 	NSS_SHAPER_RESPONSE_TYPE_HTB_GROUP_PRIORITY_OUT_OF_RANGE,	/* Assigned priority larger than max priority */
 	NSS_SHAPER_RESPONSE_TYPE_CHILDREN_BELONG_TO_MIXED_TYPES,	/* The class cannot have a mix of class and qdisc as child nodes */
@@ -156,7 +157,7 @@ enum nss_shaper_response_types {
 	NSS_SHAPER_RESPONSE_TYPE_WRR_GROUP_ATTACH_SUCCESS,	/* Wrr group attach success */
 	NSS_SHAPER_RESPONSE_TYPE_WRR_GROUP_DETACH_SUCCESS,	/* Wrr group detach success */
 	NSS_SHAPER_RESPONSE_TYPE_WRR_GROUP_CHANGE_PARAM_SUCCESS,/* Wrr group parameter configuration success */
-
+	NSS_SHAPER_RESPONSE_TYPE_WRED_PARAM_SUCCESS,		/* Wred parameters configuration success */
 	/*
 	 * Generic success response.
 	 *
@@ -320,6 +321,42 @@ struct nss_shaper_config_fifo_param {
 };
 
 /*
+ * enum nss_shaper_config_wred_weight_modes
+ *	Weight modes supported
+ */
+enum nss_shaper_config_wred_weight_modes {
+	NSS_SHAPER_WRED_WEIGHT_MODE_DSCP = 0,	/* Weight mode is DSCP */
+	NSS_SHAPER_WRED_WEIGHT_MODES,
+};
+typedef enum nss_shaper_config_wred_weight_modes nss_shaper_config_wred_weight_mode_t;
+
+/*
+ * nss_shaper_red_alg_param
+ *	RED algorithm parameters
+ */
+struct nss_shaper_red_alg_param {
+	uint32_t min;			/* qlen_avg min */
+	uint32_t max;			/* qlen_avg max */
+	uint32_t probability;		/* Drop probability at qlen_avg = max */
+	uint32_t exp_weight_factor;	/* exp_weight_factor to calculate qlen_avg */
+};
+
+/*
+ * struct nss_shaper_config_wred_param
+ *      Configures wred with the limit and drop mentioned in this structure
+ */
+struct nss_shaper_config_wred_param {
+	uint32_t limit;						/* Queue limit */
+	nss_shaper_config_wred_weight_mode_t weight_mode;	/* Weight mode */
+	uint32_t traffic_classes;				/* How many traffic classes: DPs */
+	uint32_t def_traffic_class;				/* Default traffic if no match: def_DP */
+	uint32_t traffic_id;					/* Traffic ID to configure: DP */
+	uint32_t weight_mode_value;				/* Weight mode value */
+	struct nss_shaper_red_alg_param rap;			/* RED alg paramter */
+	uint8_t ecn;						/* Mark ECN bit or drop packet */
+};
+
+/*
  * struct nss_shaper_config_wrr_attach
  *	Attaches shaper node with qos_tag to wrr shaper node.
  */
@@ -436,6 +473,7 @@ struct nss_shaper_node_config {
 		struct nss_shaper_config_htb_group_attach htb_group_attach;
 		struct nss_shaper_config_htb_group_detach htb_group_detach;
 		struct nss_shaper_config_htb_group_param htb_group_param;
+		struct nss_shaper_config_wred_param wred_param;
 	} snc;
 };
 
