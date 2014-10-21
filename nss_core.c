@@ -981,7 +981,7 @@ int32_t nss_core_send_crypto(struct nss_ctx_instance *nss_ctx, void *buf, uint32
 	desc->buffer_len = len;
 	desc->payload_len = len;
 	desc->payload_offs = 0;
-	desc->bit_flags = 0;
+	desc->bit_flags = H2N_BIT_FLAG_FIRST_SEGMENT | H2N_BIT_FLAG_LAST_SEGMENT;
 
 	/*
 	 * Update our host index so the NSS sees we've written a new descriptor.
