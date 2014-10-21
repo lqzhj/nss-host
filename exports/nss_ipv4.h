@@ -339,6 +339,12 @@ enum exception_events_ipv4 {
 	NSS_EXCEPTION_EVENT_IPV4_DSCP_MARKING_MISMATCH,			/**<  NSS Exception event: IPv4 dscp marking mismatch */
 	NSS_EXCEPTION_EVENT_IPV4_VLAN_MARKING_MISMATCH,			/**<  NSS Exception event: IPv4 vlan marking mismatch */
 	NSS_EXCEPTION_EVENT_IPV4_INTERFACE_MISMATCH,			/**<  NSS Exception event: IPv4 source interface mismatch */
+	NSS_EXCEPTION_EVENT_GRE_HEADER_INCOMPLETE,			/**<  NSS Exception event: IPv4 GRE header is incomplete */
+	NSS_EXCEPTION_EVENT_GRE_NO_ICME,				/**<  NSS Exception event: IPV4 GRE no connection match entry */
+	NSS_EXCEPTION_EVENT_GRE_IP_OPTION,				/**<  NSS Exception event: IPV4 GRE ip option */
+	NSS_EXCEPTION_EVENT_GRE_IP_FRAGMENT,				/**<  NSS Exception event: IPV4 GRE ip fragment */
+	NSS_EXCEPTION_EVENT_GRE_SMALL_TTL,				/**<  NSS Exception event: IPV4 GRE small ttl */
+	NSS_EXCEPTION_EVENT_GRE_NEEDS_FRAGMENTATION,			/**<  NSS Exception event: IPV4 GRE needs fragmentation */
 	NSS_EXCEPTION_EVENT_IPV4_DESTROY,				/**<  NSS Exception event: IPv4 Destroy */
 	NSS_EXCEPTION_EVENT_IPV4_MAX					/**<  IPv4 exception events max type number */
 };
