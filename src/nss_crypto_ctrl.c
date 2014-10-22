@@ -697,8 +697,8 @@ nss_crypto_status_t nss_crypto_session_update(nss_crypto_handle_t crypto, uint32
 	 * this session
 	 */
 	if (nss_crypto_check_idx_state(ctrl->idx_state_bitmap, session_idx)) {
-		nss_crypto_err("Duplicate session update request\n");
-		return NSS_CRYPTO_STATUS_EBUSY ;
+		nss_crypto_dbg("Duplicate session update request\n");
+		return NSS_CRYPTO_STATUS_OK;
 	}
 
 	rmb();
