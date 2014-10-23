@@ -138,7 +138,7 @@ static int nss_wred_change(struct Qdisc *sch, struct nlattr *opt)
 		 * This is a wred setup command, do checks again because parameters might not come from tc utility
 		 */
 		if (qopt->traffic_classes > NSS_WRED_SUPPORT_TRAFFIC_CLASS) {
-			nss_qdisc_error("%s: nsswred %x traffic classes should not exceeds %d\n", __func__, sch-handle, NSS_WRED_SUPPORT_TRAFFIC_CLASS);
+			nss_qdisc_error("%s: nsswred %x traffic classes should not exceeds %d\n", __func__, sch->handle, NSS_WRED_SUPPORT_TRAFFIC_CLASS);
 			return -EINVAL;
 		}
 		if (qopt->def_traffic_class < 1 || qopt->def_traffic_class > qopt->traffic_classes) {
@@ -171,7 +171,7 @@ static int nss_wred_change(struct Qdisc *sch, struct nlattr *opt)
 			/*
 			 * This is a red setup command
 			 */
-			if (!qopt->limit || !qopt->rap.min || !qopt->rap.max || qopt->rap.exp_weight_factor) {
+			if (!qopt->limit || !qopt->rap.exp_weight_factor) {
 				nss_qdisc_error("%s: nsswred %x Requires RED algorithm parameters\n", __func__, sch->handle);
 				return -EINVAL;
 			}
