@@ -236,7 +236,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 	int16_t count, count_temp;
 	uint16_t size, mask, qid;
 	uint32_t nss_index, hlos_index;
-	struct sk_buff *nbuf;
+	struct sk_buff *nbuf, *head, *tail;
 	struct net_device *ndev;
 	struct hlos_n2h_desc_ring *n2h_desc_ring;
 	struct n2h_desc_if_instance *desc_if;
@@ -277,14 +277,16 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 		count = weight;
 	}
 
+	head = tail = NULL;
 	count_temp = count;
 	while (count_temp) {
 		unsigned int buffer_type;
 		uint32_t opaque;
+		uint16_t bit_flags;
 		desc = &desc_ring[hlos_index];
 		buffer_type = desc->buffer_type;
 		opaque = desc->opaque;
-
+		bit_flags = desc->bit_flags;
 		if (unlikely((buffer_type == N2H_BUFFER_CRYPTO_RESP))) {
 			NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_CRYPTO_RESP]);
 
@@ -315,6 +317,13 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 			 * Get the number of fragments
 			 */
 			nr_frags = skb_shinfo(nbuf)->nr_frags;
+
+			/*
+			 * The Assumption here is that the SKB with frags[] will be
+			 * given back by NSS POP buffer only to free them.
+			 * Hence it is assumed that there is no need to unmap the
+			 * scattered segments and the first segment of SKB.
+			 */
 			if (likely(nr_frags == 0)) {
 				unsigned int payload_offs = desc->payload_offs;
 				unsigned int payload_len = desc->payload_len;
@@ -327,7 +336,6 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 					 */
 					dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_TO_DEVICE);
 				} else {
-
 					/*
 					 * Set relevant fields within nbuf (len, head, tail)
 					 */
@@ -335,22 +343,110 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 					nbuf->len = payload_len;
 					nbuf->tail = nbuf->data + nbuf->len;
 
-					/*
-					 * TODO: Check if there is any issue wrt map and unmap,
-					 * NSS should playaround with data area and should not
-					 * touch HEADROOM area
-					 */
-					dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_FROM_DEVICE);
-					prefetch((void *)(nbuf->data));
+					if (likely(bit_flags & N2H_BIT_FLAG_FIRST_SEGMENT) && likely(bit_flags & N2H_BIT_FLAG_LAST_SEGMENT)) {
+						/*
+						 * TODO: Check if there is any issue wrt map and unmap,
+						 * NSS should playaround with data area and should not
+						 * touch HEADROOM area
+						 */
+						dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_FROM_DEVICE);
+						prefetch((void *)(nbuf->data));
+					} else {
+						/*
+						 * NSS sent us an SG chain.
+						 * Build a frag list out of segments.
+						 */
+						if (unlikely((bit_flags & N2H_BIT_FLAG_FIRST_SEGMENT))) {
+							/*
+							 * Found head.
+							 */
+							if (unlikely(skb_has_frag_list(nbuf))) {
+								/*
+								 * We don't support chain in a chain.
+								 */
+								nss_warning("%p: skb already has a fraglist", nbuf);
+								dev_kfree_skb_any(nbuf);
+								goto out;
+							}
+
+							/*
+							 * We've received another head before we saw the last segment.
+							 * Free the old head as the frag list is corrupt.
+							 */
+							if (unlikely(head != NULL)) {
+								nss_warning("%p: received the second head before a last", head);
+								dev_kfree_skb_any(head);
+							}
+							head = nbuf;
+
+							skb_frag_list_init(nbuf);
+							head->data_len = 0;
+							head->truesize = payload_len;
+							dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_FROM_DEVICE);
+							prefetch((void *)(nbuf->data));
+
+							/*
+							 * Skip sending until last is received.
+							 */
+							goto out;
+						} else {
+							/*
+							 * We've received a middle segment.
+							 * Check that we have received a head first to avoid null deferencing.
+							 */
+							if (unlikely(head == NULL)) {
+								/*
+								 * Middle before first! Free the middle.
+								 */
+								nss_warning("%p: saw a middle skb before head", nbuf);
+								dev_kfree_skb_any(nbuf);
+								goto out;
+							}
+
+							if (!skb_has_frag_list(head)) {
+								/*
+								 * 2nd skb in the chain. head's frag_list should point to him.
+								 */
+								skb_frag_add_head(head, nbuf);
+							} else {
+								/*
+								 * 3rd, 4th... skb in the chain. The chain's previous tail's
+								 * next should point to him.
+								 */
+								tail->next = nbuf;
+								nbuf->next = NULL;
+							}
+							tail = nbuf;
+
+							/*
+							 * Now we've added a new nbuf to the chain.
+							 * Update the chain length.
+							 */
+							head->data_len += desc->payload_len;
+							head->len += desc->payload_len;
+							head->truesize += desc->payload_len;
+
+							dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_FROM_DEVICE);
+							prefetch((void *)(nbuf->data));
+
+							if (!(bit_flags & N2H_BIT_FLAG_LAST_SEGMENT)) {
+								/*
+								 * Skip sending until last is received.
+								 */
+								goto out;
+							}
+
+							/*
+							 * Last is received. Send the frag_list.
+							 */
+							nbuf = head;
+							head = NULL;
+							tail = NULL;
+						}
+
+					}
 				}
 			}
-
-			/*
-			 * The Assumption here is that the scattered SKB will be
-			 * given back by NSS POP buffer only to free them.
-			 * Hence it is assumed that there is no need to unmap the
-			 * scattered segments and the first segment of SKB
-			 */
 
 			switch (buffer_type) {
 			case N2H_BUFFER_SHAPER_BOUNCED_INTERFACE:
@@ -574,6 +670,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 			}
 		}
 
+out:
 		hlos_index = (hlos_index + 1) & (mask);
 		count_temp--;
 	}
