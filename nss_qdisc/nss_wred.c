@@ -207,7 +207,7 @@ static int nss_wred_change(struct Qdisc *sch, struct nlattr *opt)
 	nim.msg.shaper_configure.config.msg.shaper_node_config.snc.wred_param.def_traffic_class = qopt->def_traffic_class;
 	nim.msg.shaper_configure.config.msg.shaper_node_config.snc.wred_param.traffic_id = qopt->traffic_id;
 
-	if (nss_qdisc_configure(&q->nq, &nim, NSS_SHAPER_CONFIG_TYPE_WRED_CHANGE_PARAM) < 0) {
+	if (nss_qdisc_configure(&q->nq, &nim, NSS_SHAPER_CONFIG_TYPE_SHAPER_NODE_CHANGE_PARAM) < 0) {
 		nss_qdisc_error("%s: nsswred %x configuration failed\n", __func__, sch->handle);
 		return -EINVAL;
 	}

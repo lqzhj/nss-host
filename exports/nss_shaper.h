@@ -69,7 +69,6 @@ enum nss_shaper_config_types {
 	NSS_SHAPER_CONFIG_TYPE_WRR_GROUP_ATTACH,	/* Configure wrr group to attach a node as child */
 	NSS_SHAPER_CONFIG_TYPE_WRR_GROUP_DETACH,	/* Configure wrr group to detach its child */
 	NSS_SHAPER_CONFIG_TYPE_WRR_GROUP_CHANGE_PARAM,	/* Configure wrr group to tune its parameters */
-	NSS_SHAPER_CONFIG_TYPE_WRED_CHANGE_PARAM,	/* Configure wred */
 	/*
 	 * Generic shaper node commands
 	 *
@@ -157,7 +156,6 @@ enum nss_shaper_response_types {
 	NSS_SHAPER_RESPONSE_TYPE_WRR_GROUP_ATTACH_SUCCESS,	/* Wrr group attach success */
 	NSS_SHAPER_RESPONSE_TYPE_WRR_GROUP_DETACH_SUCCESS,	/* Wrr group detach success */
 	NSS_SHAPER_RESPONSE_TYPE_WRR_GROUP_CHANGE_PARAM_SUCCESS,/* Wrr group parameter configuration success */
-	NSS_SHAPER_RESPONSE_TYPE_WRED_PARAM_SUCCESS,		/* Wred parameters configuration success */
 	/*
 	 * Generic success response.
 	 *
