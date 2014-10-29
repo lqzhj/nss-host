@@ -417,6 +417,8 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 
 	nss_core_freq_register_handler();
 
+	nss_lso_rx_register_handler();
+
 	nss_top->frequency_handler_id = nss_dev->id;
 
 	spin_unlock_bh(&(nss_top->lock));

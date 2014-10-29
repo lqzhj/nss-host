@@ -388,6 +388,20 @@ enum nss_stats_n2h {
 };
 
 /*
+ * LSO_RX driver statistics
+ *
+ * WARNING: There is a 1:1 mapping between values below and corresponding
+ *	stats string array in nss_stats.c
+ */
+enum nss_stats_lso_rx {
+	NSS_STATS_LSO_RX_TX_DROPPED,		/* Number of packets dropped cause transmit queue is full */
+	NSS_STATS_LSO_RX_DROPPED,		/* Number of packets dropped because of node internal errors */
+	NSS_STATS_LSO_RX_PBUF_ALLOC_FAIL,	/* Number of pbuf alloc failures */
+	NSS_STATS_LSO_RX_PBUF_REFERENCE_FAIL,	/* Number of pbuf reference failures */
+	NSS_STATS_LSO_RX_MAX,
+};
+
+/*
  * NSS core state
  */
 enum nss_core_state {
@@ -512,6 +526,7 @@ struct nss_top_instance {
 	struct dentry *ipv6_dentry;	/* IPv6 stats dentry */
 	struct dentry *eth_rx_dentry;	/* ETH_RX stats dentry */
 	struct dentry *n2h_dentry;	/* N2H stats dentry */
+	struct dentry *lso_rx_dentry;	/* LSO_RX stats dentry */
 	struct dentry *drv_dentry;	/* HLOS driver stats dentry */
 	struct dentry *pppoe_dentry;	/* PPPOE stats dentry */
 	struct dentry *gmac_dentry;	/* GMAC ethnode stats dentry */
@@ -601,6 +616,8 @@ struct nss_top_instance {
 					/* IPv4 reasm statistics */
 	uint64_t stats_ipv6[NSS_STATS_IPV6_MAX];
 					/* IPv6 statistics */
+	uint64_t stats_lso_rx[NSS_STATS_LSO_RX_MAX];
+					/* LSO_RX statistics */
 	uint64_t stats_drv[NSS_STATS_DRV_MAX];
 					/* Hlos driver statistics */
 	uint64_t stats_pppoe[NSS_STATS_PPPOE_MAX];

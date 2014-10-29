@@ -34,6 +34,7 @@ qca-nss-drv-objs := \
 			nss_ipv4_reasm.o \
 			nss_ipv6.o \
 			nss_lag.o \
+			nss_lso_rx.o \
 			nss_phys_if.o \
 			nss_pm.o \
 			nss_sjack.o \

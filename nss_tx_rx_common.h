@@ -77,6 +77,7 @@ extern void nss_eth_rx_register_handler(void);
 extern void nss_lag_register_handler(void);
 extern void nss_dynamic_interface_register_handler(void);
 extern void nss_gre_redir_register_handler(void);
+extern void nss_lso_rx_register_handler(void);
 extern void nss_sjack_register_handler(void);
 
 /*
