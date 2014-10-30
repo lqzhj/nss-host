@@ -22,14 +22,33 @@
 #ifndef __NSS_HLOS_IF_H
 #define __NSS_HLOS_IF_H
 
-#define MIN_NUM_CONN 			256	/**< MIN  Connection shared between IPv4 and IPv6 */
-#define MAX_TOTAL_NUM_CONN_IPV4_IPV6	8196	/**< MAX Connection shared between IPv4 and IPv6 */
+#define NSS_MIN_NUM_CONN 			256		/**< MIN  Connection shared between IPv4 and IPv6 */
+#define NSS_DEFAULT_NUM_CONN			1024		/**< Default number of connections for each IPV4 and IPV6 */
+#define NSS_NUM_CONN_QUANTA_MASK		(1024 - 1)	/**< Quanta of number of connections  1024 */
+#define NSS_MAX_TOTAL_NUM_CONN_IPV4_IPV6	8196		/**< MAX Connection shared between IPv4 and IPv6 */
+#define NSS_CONN_CFG_TIMEOUT			6000		/**< 6 sec timeout for connection cfg message */
 
 /*
  * Variables used for sysctl updates.
  */
 extern int nss_ipv4_conn_cfg;
 extern int nss_ipv6_conn_cfg;
+
+enum {
+	SUCCESS = 0,
+	FAILURE = 1,
+};
+
+/*
+ * Private data structure for configuring ipv4/6 connections
+ */
+struct nss_conn_cfg_pvt {
+	struct semaphore sem;			/* Semaphore structure */
+	struct completion complete;		/* completion structure */
+	int current_value;			/* valid entry */
+	int response;				/* Response from FW */
+};
+
 
 /*
  * Request/Response types

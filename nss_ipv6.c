@@ -25,7 +25,8 @@ extern void nss_rx_metadata_ipv6_rule_establish(struct nss_ctx_instance *nss_ctx
 extern void nss_rx_metadata_ipv6_create_response(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_msg *nim);
 extern void nss_rx_ipv6_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_conn_sync *nirs);
 
-int nss_ipv6_conn_cfg __read_mostly = 4096;
+int nss_ipv6_conn_cfg __read_mostly = NSS_DEFAULT_NUM_CONN;
+static struct  nss_conn_cfg_pvt i6cfgp;
 
 /*
  * nss_ipv6_driver_conn_sync_update()
@@ -309,11 +310,22 @@ void nss_ipv6_register_handler()
 static void nss_ipv6_conn_cfg_callback(void *app_data, struct nss_if_msg *nim)
 {
 	if (nim->cm.response != NSS_CMN_RESPONSE_ACK) {
-		nss_warning("IPv6 connection configuration failed with error: %d\n", nim->cm.error);
+		/*
+		 * Error, hence we are not updating the nss_ipv4_conn_cfg
+		 * Restore the current_value to its previous state
+		 */
+		i6cfgp.response = FAILURE;
+		complete(&i6cfgp.complete);
 		return;
 	}
 
+	/*
+	 * Sucess at NSS FW, hence updating nss_ipv4_conn_cfg, with the valid value
+	 * saved at the sysctl handler.
+	 */
 	nss_info("IPv6 connection configuration success: %d\n", nim->cm.error);
+	i6cfgp.response = SUCCESS;
+	complete(&i6cfgp.complete);
 }
 
 
@@ -328,8 +340,24 @@ static int nss_ipv6_conn_cfg_handler(ctl_table *ctl, int write, void __user *buf
 	struct nss_ipv6_msg nim;
 	struct nss_ipv6_rule_conn_cfg_msg *nirccm;
 	nss_tx_status_t nss_tx_status;
-	int ret = 1;
-	uint32_t sum_of_conn = nss_ipv4_conn_cfg + nss_ipv6_conn_cfg;
+	int ret = FAILURE;
+	uint32_t sum_of_conn;
+
+	/*
+	 * Acquiring semaphore
+	 */
+	down(&i6cfgp.sem);
+
+	/*
+	 *  Take a snapshot of the current value
+	 */
+	i6cfgp.current_value = nss_ipv6_conn_cfg;
+
+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+	if (ret || (!write)) {
+		up(&i6cfgp.sem);
+		return ret;
+	}
 
 	/*
 	 * Specifications for input
@@ -338,29 +366,26 @@ static int nss_ipv6_conn_cfg_handler(ctl_table *ctl, int write, void __user *buf
 	 * 3) Min. value should be at leat 256 connections. This is the
 	 * minimum connections we will support for each of them.
 	 */
-	if ((nss_ipv6_conn_cfg & (nss_ipv6_conn_cfg - 1)) ||
-		(sum_of_conn > MAX_TOTAL_NUM_CONN_IPV4_IPV6) ||
-		(nss_ipv6_conn_cfg < MIN_NUM_CONN)) {
+	sum_of_conn = nss_ipv4_conn_cfg + nss_ipv6_conn_cfg;
+	if ((nss_ipv6_conn_cfg & NSS_NUM_CONN_QUANTA_MASK) ||
+		(sum_of_conn > NSS_MAX_TOTAL_NUM_CONN_IPV4_IPV6) ||
+		(nss_ipv6_conn_cfg < NSS_MIN_NUM_CONN)) {
 		nss_warning("%p: input supported connections (%d) does not adhere\
 				specifications\n1) not power of 2,\n2) is less than \
 				min val: %d, OR\n 	IPv4/6 total exceeds %d\n",
 				nss_ctx,
 				nss_ipv6_conn_cfg,
-				MIN_NUM_CONN,
-				MAX_TOTAL_NUM_CONN_IPV4_IPV6);
-		return ret;
+				NSS_MIN_NUM_CONN,
+				NSS_MAX_TOTAL_NUM_CONN_IPV4_IPV6);
+
+		/*
+		 * Restore the current_value to its previous state
+		 */
+		nss_ipv6_conn_cfg = i6cfgp.current_value;
+		up(&i6cfgp.sem);
+		return FAILURE;
 	}
 
-	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
-
-	if (ret) {
-		return ret;
-	}
-
-	if (!write) {
-		nss_warning("%p: IPv6 supported connections write failed: %d\n", nss_ctx, nss_ipv6_conn_cfg);
-		return ret;
-	}
 
 	nss_info("%p: IPv6 supported connections: %d\n", nss_ctx, nss_ipv6_conn_cfg);
 
@@ -375,16 +400,54 @@ static int nss_ipv6_conn_cfg_handler(ctl_table *ctl, int write, void __user *buf
 		nss_warning("%p: nss_tx error setting IPv6 Connections: %d\n",
 						nss_ctx,
 						nss_ipv6_conn_cfg);
+
+		/*
+		 * Restore the current_value to its previous state
+		 */
+		nss_ipv6_conn_cfg = i6cfgp.current_value;
+		up(&i6cfgp.sem);
+		return FAILURE;
 	}
-	return ret;
+
+	/*
+	 * Blocking call, wait till we get ACK for this msg.
+	 */
+	ret = wait_for_completion_timeout(&i6cfgp.complete, msecs_to_jiffies(NSS_CONN_CFG_TIMEOUT));
+	if (ret == 0) {
+		nss_warning("%p: Waiting for ack timed out\n", nss_ctx);
+
+		/*
+		 * Restore the current_value to its previous state
+		 */
+		nss_ipv6_conn_cfg = i6cfgp.current_value;
+		up(&i6cfgp.sem);
+		return FAILURE;
+	}
+
+	/*
+	 * ACK/NACK received from NSS FW
+	 * If ACK: Callback function will update nss_ipv4_conn_cfg with
+	 * i6cfgp.num_conn_valid, which holds the user input
+	 */
+	if (FAILURE == i6cfgp.response) {
+		/*
+		 * Restore the current_value to its previous state
+		 */
+		nss_ipv6_conn_cfg = i6cfgp.current_value;
+		up(&i6cfgp.sem);
+		return FAILURE;
+	}
+
+	up(&i6cfgp.sem);
+	return SUCCESS;
 }
 
 static ctl_table nss_ipv6_table[] = {
 	{
-		.procname               = "ipv6_conn",
-		.data                   = &nss_ipv6_conn_cfg,
-		.maxlen                 = sizeof(int),
-		.mode                   = 0644,
+		.procname		= "ipv6_conn",
+		.data			= &nss_ipv6_conn_cfg,
+		.maxlen			= sizeof(int),
+		.mode			= 0644,
 		.proc_handler   	= &nss_ipv6_conn_cfg_handler,
 	},
 	{ }
@@ -392,9 +455,9 @@ static ctl_table nss_ipv6_table[] = {
 
 static ctl_table nss_ipv6_dir[] = {
 	{
-		.procname               = "ipv6cfg",
-		.mode                   = 0555,
-		.child                  = nss_ipv6_table,
+		.procname		= "ipv6cfg",
+		.mode			= 0555,
+		.child			= nss_ipv6_table,
 	},
 	{ }
 };
@@ -429,6 +492,9 @@ void nss_ipv6_register_sysctl(void)
 	 * Register sysctl table.
 	 */
 	nss_ipv6_header = register_sysctl_table(nss_ipv6_root);
+	sema_init(&i6cfgp.sem, 1);
+	init_completion(&i6cfgp.complete);
+	i6cfgp.current_value = nss_ipv6_conn_cfg;
 }
 
 /*
