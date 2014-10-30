@@ -37,6 +37,13 @@ extern struct nss_top_instance nss_top_main;
 uint64_t stats_shadow_pppoe_except[NSS_PPPOE_NUM_SESSION_PER_INTERFACE][NSS_PPPOE_EXCEPTION_EVENT_MAX];
 
 /*
+ * Private data for every file descriptor
+ */
+struct nss_stats_data {
+	uint32_t if_num;	/**< Interface number for CAPWAP stats */
+};
+
+/*
  * Statistics structures
  */
 
@@ -839,11 +846,236 @@ static ssize_t nss_stats_gmac_read(struct file *fp, char __user *ubuf, size_t sz
 	return bytes_read;
 }
 
+/*
+ * Make a row for CAPWAP encap stats.
+ */
+static ssize_t nss_stats_capwap_encap(char *line, int len, int i, struct nss_capwap_tunnel_stats *s)
+{
+	char *header[] = { "TX Packets", "TX Bytes", "TX Drops", "Fragments", "QFull", "MemFail", "Unknown" };
+	uint64_t tcnt = 0;
+
+	switch (i) {
+	case 0:
+		tcnt = s->pnode_stats.tx_packets;
+		break;
+	case 1:
+		tcnt = s->pnode_stats.tx_bytes;
+		break;
+	case 2:
+		tcnt = s->tx_dropped;
+		break;
+	case 3:
+		tcnt = s->tx_segments;
+		break;
+	case 4:
+		tcnt = s->tx_queue_full_drops;
+		break;
+	case 5:
+		tcnt = s->tx_mem_failure_drops;
+		break;
+	default:
+		i = 6;
+		break;
+	}
+
+	return (snprintf(line, len, "%14s %llu\n", header[i], tcnt));
+}
+
+/*
+ * Make a row for CAPWAP decap stats.
+ */
+static ssize_t nss_stats_capwap_decap(char *line, int len, int i, struct nss_capwap_tunnel_stats *s)
+{
+	char *header[] = { "RX Packets", "RX Bytes", "RX Dropped", "DTLS pkts", "Fragments", "OSzDrop", "FTimeout", "FDup", "QFull", "MemFail", "Unknown" };
+	uint64_t tcnt = 0;
+
+	switch(i) {
+	case 0:
+		tcnt = s->pnode_stats.rx_packets;
+		break;
+	case 1:
+		tcnt = s->pnode_stats.rx_bytes;
+		break;
+	case 2:
+		tcnt = s->pnode_stats.rx_dropped;
+		break;
+	case 3:
+		tcnt = s->dtls_pkts;
+		break;
+	case 4:
+		tcnt = s->rx_segments;
+		break;
+	case 5:
+		tcnt = s->oversize_drops;
+		break;
+	case 6:
+		tcnt = s->frag_timeout_drops;
+		break;
+	case 7:
+		tcnt = s->rx_dup_frag;
+		break;
+	case 8:
+		tcnt = s->rx_queue_full_drops;
+		return (snprintf(line, len, "%14s: %llu (n2h: %llu)\n", header[i], tcnt, s->rx_n2h_queue_full_drops));
+	case 9:
+		tcnt = s->rx_mem_failure_drops;
+		break;
+	default:
+		i = 10;
+		break;
+	}
+
+	return (snprintf(line, len, "%14s: %llu\n", header[i], tcnt));
+}
+
+/*
+ * nss_stats_capwap_read()
+ *	Read CAPWAP stats
+ */
+static ssize_t nss_stats_capwap_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos, uint16_t type)
+{
+	struct nss_stats_data *data = fp->private_data;
+	ssize_t bytes_read = 0;
+	struct nss_capwap_tunnel_stats stats;
+	size_t bytes;
+	char line[80];
+	int start, end;
+	uint32_t if_num = NSS_DYNAMIC_IF_START;
+	uint32_t max_if_num = NSS_DYNAMIC_IF_START + NSS_MAX_DYNAMIC_INTERFACES;
+
+	if (data) {
+		if_num = data->if_num;
+	}
+
+	/*
+	 * If we are done accomodating all the CAPWAP tunnels.
+	 */
+	if (if_num > max_if_num) {
+		return 0;
+	}
+
+	for (; if_num <= max_if_num; if_num++) {
+		bool isthere;
+
+		if (nss_is_dynamic_interface(if_num) == false) {
+			continue;
+		}
+
+		if (nss_dynamic_interface_get_type(if_num) != NSS_DYNAMIC_INTERFACE_TYPE_CAPWAP) {
+			continue;
+		}
+
+		/*
+		 * If CAPWAP tunnel does not exists, then isthere will be false.
+		 */
+		isthere = nss_capwap_get_stats(if_num, &stats);
+		if (!isthere) {
+			continue;
+		}
+
+		bytes = snprintf(line, sizeof(line), "(%2d) %9s %s\n", if_num, "Stats", "Total");
+		if ((bytes_read + bytes) > sz) {
+			break;
+		}
+
+		if (copy_to_user(ubuf + bytes_read, line, bytes) != 0) {
+			bytes_read = -EFAULT;
+			goto fail;
+		}
+		bytes_read += bytes;
+		start = 0;
+		if (type == 1) {
+			end = 5;	/* encap */
+		} else {
+			end = 9;	/* decap */
+		}
+		while (bytes_read < sz && start < end) {
+			if (type == 1) {
+				bytes = nss_stats_capwap_encap(line, sizeof(line), start, &stats);
+			} else {
+				bytes = nss_stats_capwap_decap(line, sizeof(line), start, &stats);
+			}
+
+			if ((bytes_read + bytes) > sz)
+				break;
+
+			if (copy_to_user(ubuf + bytes_read, line, bytes) != 0) {
+				bytes_read = -EFAULT;
+				goto fail;
+			}
+
+			bytes_read += bytes;
+			start++;
+		}
+	}
+
+	if (bytes_read > 0) {
+		*ppos = bytes_read;
+	}
+
+	if (data) {
+		data->if_num = if_num;
+	}
+fail:
+	return bytes_read;
+}
+
+/*
+ * nss_stats_capwap_decap_read()
+ *	Read CAPWAP decap stats
+ */
+static ssize_t nss_stats_capwap_decap_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
+{
+	return (nss_stats_capwap_read(fp, ubuf, sz, ppos, 0));
+}
+
+/*
+ * nss_stats_capwap_encap_read()
+ *	Read CAPWAP encap stats
+ */
+static ssize_t nss_stats_capwap_encap_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
+{
+	return (nss_stats_capwap_read(fp, ubuf, sz, ppos, 1));
+}
+
+/*
+ * nss_stats_open()
+ */
+static int nss_stats_open(struct inode *inode, struct file *filp)
+{
+	struct nss_stats_data *data = NULL;
+
+	data = kzalloc(sizeof(struct nss_stats_data), GFP_KERNEL);
+	if (!data) {
+		return -ENOMEM;
+	}
+	memset(data, 0, sizeof (struct nss_stats_data));
+	data->if_num = NSS_DYNAMIC_IF_START;
+	filp->private_data = data;
+
+	return 0;
+}
+
+/*
+ * nss_stats_release()
+ */
+static int nss_stats_release(struct inode *inode, struct file *filp)
+{
+	struct nss_stats_data *data = filp->private_data;
+
+	if (data) {
+		kfree(data);
+	}
+
+	return 0;
+}
+
 #define NSS_STATS_DECLARE_FILE_OPERATIONS(name) \
 static const struct file_operations nss_stats_##name##_ops = { \
-	.open = simple_open, \
+	.open = nss_stats_open, \
 	.read = nss_stats_##name##_read, \
 	.llseek = generic_file_llseek, \
+	.release = nss_stats_release, \
 };
 
 /*
@@ -874,6 +1106,12 @@ NSS_STATS_DECLARE_FILE_OPERATIONS(pppoe)
  * gmac_stats_ops
  */
 NSS_STATS_DECLARE_FILE_OPERATIONS(gmac)
+
+/*
+ * capwap_stats_ops
+ */
+NSS_STATS_DECLARE_FILE_OPERATIONS(capwap_encap)
+NSS_STATS_DECLARE_FILE_OPERATIONS(capwap_decap)
 
 /*
  * eth_rx_stats_ops
@@ -982,6 +1220,23 @@ void nss_stats_init(void)
 						nss_top_main.stats_dentry, &nss_top_main, &nss_stats_gmac_ops);
 	if (unlikely(nss_top_main.gmac_dentry == NULL)) {
 		nss_warning("Failed to create qca-nss-drv/stats/gmac file in debugfs");
+		return;
+	}
+
+	/*
+	 * CAPWAP stats.
+	 */
+	nss_top_main.capwap_encap_dentry = debugfs_create_file("capwap_encap", 0400,
+	nss_top_main.stats_dentry, &nss_top_main, &nss_stats_capwap_encap_ops);
+	if (unlikely(nss_top_main.capwap_encap_dentry == NULL)) {
+		nss_warning("Failed to create qca-nss-drv/stats/capwap_encap file in debugfs");
+		return;
+	}
+
+	nss_top_main.capwap_decap_dentry = debugfs_create_file("capwap_decap", 0400,
+	nss_top_main.stats_dentry, &nss_top_main, &nss_stats_capwap_decap_ops);
+	if (unlikely(nss_top_main.capwap_decap_dentry == NULL)) {
+		nss_warning("Failed to create qca-nss-drv/stats/capwap_decap file in debugfs");
 		return;
 	}
 }

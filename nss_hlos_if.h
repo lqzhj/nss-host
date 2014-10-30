@@ -293,12 +293,22 @@ struct nss_dynamic_interface_alloc_node_msg {
 };
 
 /*
+ * This structure is there to keep information
+ * pertaining to each if_num allocated through
+ * dynamic interface API
+ */
+struct nss_dynamic_interface_assigned {
+	enum nss_dynamic_interface_type type;
+};
+
+/*
  * Private data structure of dynamic interface
  */
 struct nss_dynamic_interface_pvt {
 	struct semaphore sem;			/* Semaphore structure */
 	struct completion complete;		/* completion structure */
 	int current_if_num;			/* Current interface number */
+	struct nss_dynamic_interface_assigned if_num[NSS_MAX_DYNAMIC_INTERFACES];
 };
 
 /*

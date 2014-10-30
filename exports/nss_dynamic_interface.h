@@ -28,7 +28,7 @@
 enum nss_dynamic_interface_type {
 	NSS_DYNAMIC_INTERFACE_TYPE_NONE = 0,
 	NSS_DYNAMIC_INTERFACE_TYPE_GRE_REDIR = 1,	/* GRE_REDIR Interface type */
-	NSS_DYNAMIC_INTERFACE_TYPE_CAPVAPV1 = 2,	/* CAPVAPV1 Interface type */
+	NSS_DYNAMIC_INTERFACE_TYPE_CAPWAP = 2,		/* CAPWAP Interface type */
 	NSS_DYNAMIC_INTERFACE_TYPE_TUN6RD = 3,		/* TUN6RD Interface type */
 	NSS_DYNAMIC_INTERFACE_TYPE_802_3_REDIR = 4,	/* 802.3 redirect Interface type */
 	NSS_DYNAMIC_INTERFACE_TYPE_MAX
@@ -60,6 +60,15 @@ extern nss_tx_status_t nss_dynamic_interface_dealloc_node(int if_num, enum nss_d
  *
  * @return bool true or false
  */
-bool nss_is_dynamic_interface(int if_num);
+extern bool nss_is_dynamic_interface(int if_num);
+
+/**
+ * @brief Returns the type of dynamic interface
+ *
+ * @param if_num interface number of dynamic interface
+ *
+ * @return type nss dynamic interface type
+ */
+extern enum nss_dynamic_interface_type nss_dynamic_interface_get_type(int if_num);
 
 #endif /* __NSS_DYNAMIC_INTERFACE_H*/

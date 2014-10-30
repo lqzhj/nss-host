@@ -495,6 +495,9 @@ struct nss_top_instance {
 	struct dentry *drv_dentry;	/* HLOS driver stats dentry */
 	struct dentry *pppoe_dentry;	/* PPPOE stats dentry */
 	struct dentry *gmac_dentry;	/* GMAC ethnode stats dentry */
+	struct dentry *capwap_decap_dentry;     /* CAPWAP decap ethnode stats dentry */
+	struct dentry *capwap_encap_dentry;     /* CAPWAP encap ethnode stats dentry */
+
 	struct nss_ctx_instance nss[NSS_MAX_CORES];
 					/* NSS contexts */
 	/*
@@ -513,6 +516,8 @@ struct nss_top_instance {
 	uint8_t tunipip6_handler_id;
 	uint8_t frequency_handler_id;
 	uint8_t sjack_handler_id;
+	uint8_t capwap_handler_id;
+
 	/*
 	 * Data/Message callbacks for various interfaces
 	 */

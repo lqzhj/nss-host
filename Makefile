@@ -41,7 +41,8 @@ qca-nss-drv-objs := \
 			nss_tunipip6.o \
 			nss_virt_if.o \
 			nss_shaper.o \
-			nss_pppoe.o
+			nss_pppoe.o \
+			nss_capwap.o
 
 #
 # TODO: Deprecated files should be removed before merge

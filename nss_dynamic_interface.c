@@ -241,6 +241,9 @@ int nss_dynamic_interface_alloc_node(enum nss_dynamic_interface_type type)
 	}
 
 	if_num = di.current_if_num;
+	if (if_num > 0) {
+		di.if_num[if_num - NSS_DYNAMIC_IF_START].type = type;
+	}
 
 	/*
 	 * Release Semaphore
@@ -314,6 +317,10 @@ nss_tx_status_t nss_dynamic_interface_dealloc_node(int if_num, enum nss_dynamic_
 		return NSS_TX_FAILURE;
 	}
 
+	if (if_num > 0) {
+		di.if_num[if_num - NSS_DYNAMIC_IF_START].type = NSS_DYNAMIC_INTERFACE_TYPE_NONE;
+	}
+
 	/*
 	 * Release Semaphore
 	 */
@@ -345,6 +352,20 @@ bool nss_is_dynamic_interface(int if_num)
 	return (if_num >= NSS_DYNAMIC_IF_START && if_num < NSS_SPECIAL_IF_START);
 }
 
+/*
+ * nss_dynamic_interface_get_type()
+ *	Gets the type of dynamic interface
+ */
+enum nss_dynamic_interface_type nss_dynamic_interface_get_type(int if_num)
+{
+	if (nss_is_dynamic_interface(if_num) == false) {
+		return NSS_DYNAMIC_INTERFACE_TYPE_NONE;
+	}
+
+	return di.if_num[if_num - NSS_DYNAMIC_IF_START].type;
+}
+
 EXPORT_SYMBOL(nss_dynamic_interface_alloc_node);
 EXPORT_SYMBOL(nss_dynamic_interface_dealloc_node);
 EXPORT_SYMBOL(nss_is_dynamic_interface);
+EXPORT_SYMBOL(nss_dynamic_interface_get_type);

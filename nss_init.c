@@ -37,6 +37,8 @@
 #include <linux/clk.h>
 #include <linux/firmware.h>
 
+#include "nss_capwap.h"
+
 /*
  * Macros
  */
@@ -343,6 +345,8 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 		nss_virt_if_register_handler();
 		nss_lag_register_handler();
 		nss_dynamic_interface_register_handler();
+		nss_top->capwap_handler_id = nss_dev->id;
+		nss_capwap_init();
 
 		for (i = 0; i < NSS_MAX_VIRTUAL_INTERFACES; i++) {
 			nss_top->virt_if_handler_id[i] = nss_dev->id;

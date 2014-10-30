@@ -52,6 +52,7 @@
 #include "nss_dynamic_interface.h"
 #include "nss_gre_redir.h"
 #include "nss_sjack.h"
+#include "nss_capwap.h"
 
 /*
  * Interface numbers are reserved in the
@@ -76,7 +77,7 @@
 #define NSS_MAX_VIRTUAL_INTERFACES 16
 #define NSS_MAX_TUNNEL_INTERFACES 4
 #define NSS_MAX_SPECIAL_INTERFACES 24
-#define NSS_MAX_DYNAMIC_INTERFACES 8
+#define NSS_MAX_DYNAMIC_INTERFACES 32
 
 /**
  * Start of individual interface groups
