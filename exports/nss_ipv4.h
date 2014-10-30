@@ -55,6 +55,9 @@ enum nss_ipv4_message_types {
 					/**< Rule has for a VLAN marking configured*/
 #define NSS_IPV4_RULE_UPDATE_FLAG_CHANGE_MTU 0x20
 					/**< Update MTU of connection interfaces */
+#define NSS_IPV4_RULE_CREATE_FLAG_ICMP_NO_CME_FLUSH 0x40
+					/**< Rule for not flushing CME on ICMP pkt */
+
 
 /**
  * IPv4 rule creation validity flags.

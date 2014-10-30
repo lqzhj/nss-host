@@ -53,6 +53,8 @@ enum nss_ipv6_message_types {
 					/**< Rule has for a DSCP marking configured */
 #define NSS_IPV6_RULE_CREATE_FLAG_VLAN_MARKING 0x10
 					/**< Rule has for a VLAN marking configured */
+#define NSS_IPV6_RULE_CREATE_FLAG_ICMP_NO_CME_FLUSH 0x20
+					/**< Rule for not flushing CME on ICMP pkt */
 
 /**
  * IPv6 rule creation validity flags.
