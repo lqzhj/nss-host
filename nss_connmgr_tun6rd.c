@@ -179,7 +179,7 @@ static int nss_tun6rd_dev_up(struct net_device *netdev)
 	 * Validate netdev for ipv6-in-ipv4  Tunnel
 	 */
 	if (netdev->type != ARPHRD_SIT) {
-		return NOTIFY_BAD;
+		return NOTIFY_DONE;
 	}
 
 	tunnel = (struct ip_tunnel *)netdev_priv(netdev);
@@ -308,7 +308,7 @@ static int nss_tun6rd_dev_down(struct net_device *netdev)
 	 * Validate netdev for ipv6-in-ipv4  Tunnel
 	 */
 	if (netdev->type != ARPHRD_SIT) {
-		return NOTIFY_BAD;
+		return NOTIFY_DONE;
 	}
 
 	/*
