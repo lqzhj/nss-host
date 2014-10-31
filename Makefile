@@ -83,10 +83,7 @@ ccflags-y += -DNSS_IPSECMGR_DEBUG_LEVEL=3
 qca-nss-drv-objs += nss_profiler.o
 obj-y+= profiler/
 obj-y+= nss_qdisc/
-
-#
-# If you want to compile CAPWAP manager, then uncomment following line
-#obj-y+= capwapmgr/
+obj-y+= capwapmgr/
 
 obj ?= .
 
