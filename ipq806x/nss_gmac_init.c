@@ -921,8 +921,7 @@ static void nss_gmac_link_status_set(uint32_t gmac_id, uint32_t link_state)
 	if(gmac_dev == NULL)
 		return;
 
-	if (gmac_dev->nss_state != NSS_STATE_INITIALIZED
-		|| !test_bit(__NSS_GMAC_UP, &gmac_dev->flags)) {
+	if (!test_bit(__NSS_GMAC_UP, &gmac_dev->flags)) {
 		return;
 	}
 

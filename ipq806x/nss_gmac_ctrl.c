@@ -26,7 +26,6 @@
 #include <nss_gmac_dev.h>
 #include <nss_gmac_network_interface.h>
 
-#include <nss_api_if.h>
 
 #define NSS_GMAC_PHY_FIXUP_UID		0x004D0000
 #define NSS_GMAC_PHY_FIXUP_MASK		0xFFFF0000
@@ -801,7 +800,6 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	netdev->base_addr = pdev->resource[0].start;
 	netdev->irq = pdev->resource[1].start;
 
-	gmacdev->nss_state = NSS_STATE_UNINITIALIZED;
 	gmacdev->emulation = gmaccfg->emulation;
 	gmacdev->phy_mii_type = gmaccfg->phy_mii_type;
 	gmacdev->phy_base = gmaccfg->phy_mdio_addr;
@@ -856,23 +854,6 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 
 	/* Init for individual GMACs */
 	nss_gmac_dev_init(gmacdev);
-
-	/* Register the interface to the NSS driver */
-	gmacdev->nss_gmac_ctx = nss_register_phys_if(pdev->id, nss_gmac_receive,
-						     nss_gmac_event_receive,
-						     netdev);
-
-	if (gmacdev->nss_gmac_ctx == NULL) {
-		nss_gmac_info(gmacdev,
-			      "GMAC%d Register to NSS failed, ctx returned = 0x%x",
-			      pdev->id, (uint32_t)gmacdev->nss_gmac_ctx);
-		ret = -EFAULT;
-		goto nss_drv_reg_fail;
-	}
-
-	nss_gmac_info(gmacdev,
-		      "GMAC%d Register to NSS DONE, ctx returned = 0x%x",
-		      pdev->id, (uint32_t)gmacdev->nss_gmac_ctx);
 
 	if (nss_gmac_attach(gmacdev, netdev->base_addr,
 			    pdev->resource[0].end - pdev->resource[0].start +
@@ -932,8 +913,8 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	netdev->netdev_ops = &nss_gmac_netdev_ops;
 	nss_gmac_ethtool_register(netdev);
 
-	/* Initialize work for workqueue */
-	INIT_DELAYED_WORK(&gmacdev->gmacwork, nss_gmac_work);
+	/* Initialize workqueue */
+	INIT_DELAYED_WORK(&gmacdev->gmacwork, nss_gmac_open_work);
 
 	switch (gmacdev->phy_mii_type) {
 	case GMAC_INTF_RGMII:
@@ -1053,9 +1034,6 @@ mdiobus_init_fail:
 	nss_gmac_detach(gmacdev);
 
 nss_gmac_attach_fail:
-	nss_unregister_phys_if(gmacdev->macid);
-
-nss_drv_reg_fail:
 	free_netdev(netdev);
 
 	return ret;
@@ -1079,8 +1057,6 @@ static int nss_gmac_remove(struct platform_device *pdev)
 	}
 
 	netdev = gmacdev->netdev;
-
-	nss_unregister_phys_if(gmacdev->macid);
 
 	if (!IS_ERR_OR_NULL(gmacdev->phydev)) {
 		phy_disconnect(gmacdev->phydev);

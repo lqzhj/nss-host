@@ -28,7 +28,7 @@ qca-nss-gmac-objs +=	nss_gmac_dev.o \
 			nss_gmac_tx_rx_offload.o \
 			nss_gmac_mdiobus.o
 
-GMAC_INCLUDE = -I$(obj)/include
+GMAC_INCLUDE = -I$(obj)/include -I$(obj)/exports
 
 # NSS_GMAC_DEBUG_LEVEL - 0: none, 1: warning, 2: info, 3: trace
 
