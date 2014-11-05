@@ -94,6 +94,7 @@ static void nss_ipv4_driver_node_sync_update(struct nss_ctx_instance *nss_ctx, s
 	nss_top->stats_ipv4[NSS_STATS_IPV4_CONNECTION_HASH_REORDERS] += nins->ipv4_connection_hash_reorders;
 	nss_top->stats_ipv4[NSS_STATS_IPV4_CONNECTION_FLUSHES] += nins->ipv4_connection_flushes;
 	nss_top->stats_ipv4[NSS_STATS_IPV4_CONNECTION_EVICTIONS] += nins->ipv4_connection_evictions;
+	nss_top->stats_ipv4[NSS_STATS_IPV4_FRAGMENTATIONS] += nins->ipv4_fragmentations;
 
 	for (i = 0; i < NSS_EXCEPTION_EVENT_IPV4_MAX; i++) {
 		 nss_top->stats_if_exception_ipv4[i] += nins->exception_events[i];

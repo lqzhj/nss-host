@@ -213,6 +213,8 @@ enum nss_stats_ipv4 {
 					/* Number of IPv4 connection flushes */
 	NSS_STATS_IPV4_CONNECTION_EVICTIONS,
 					/* Number of IPv4 connection evictions */
+	NSS_STATS_IPV4_FRAGMENTATIONS,
+					/* Number of successful IPv4 fragmentations performed */
 	NSS_STATS_IPV4_MAX,
 };
 

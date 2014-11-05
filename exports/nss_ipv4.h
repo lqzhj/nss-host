@@ -353,6 +353,8 @@ enum exception_events_ipv4 {
 	NSS_EXCEPTION_EVENT_GRE_SMALL_TTL,				/**<  NSS Exception event: IPV4 GRE small ttl */
 	NSS_EXCEPTION_EVENT_GRE_NEEDS_FRAGMENTATION,			/**<  NSS Exception event: IPV4 GRE needs fragmentation */
 	NSS_EXCEPTION_EVENT_IPV4_DESTROY,				/**<  NSS Exception event: IPv4 Destroy */
+	NSS_EXCEPTION_EVENT_IPV4_FRAG_DF_SET,				/**<  NSS Exception event: IPv4 fragmentation needed, but DF set */
+	NSS_EXCEPTION_EVENT_IPV4_FRAG_FAIL,				/**<  NSS Exception event: IPv4 fragmentation failure */
 	NSS_EXCEPTION_EVENT_IPV4_MAX					/**<  IPv4 exception events max type number */
 };
 
@@ -380,6 +382,8 @@ struct nss_ipv4_node_sync {
 				/**< Number of IPv4 connection flushes */
 	uint32_t ipv4_connection_evictions;
 				/**< Number of IPv4 connection evictions */
+	uint32_t ipv4_fragmentations;
+				/**< Number of successful IPv4 fragmentations performed*/
 	uint32_t exception_events[NSS_EXCEPTION_EVENT_IPV4_MAX];
 				/**< Number of IPv4 exception events */
 };

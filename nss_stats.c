@@ -64,7 +64,8 @@ static int8_t *nss_stats_str_ipv4[NSS_STATS_IPV4_MAX] = {
 	"hash_hits",
 	"hash_reorders",
 	"flushes",
-	"evictions"
+	"evictions",
+	"fragmentations"
 };
 
 /*
@@ -248,6 +249,8 @@ static int8_t *nss_stats_str_if_exception_ipv4[NSS_EXCEPTION_EVENT_IPV4_MAX] = {
 	"IPV4_GRE_IP_FRAGMENT",
 	"IPV4_GRE_SMALL_TTL",
 	"IPV4_GRE_NEEDS_FRAGMENTATION",
+	"IPV4_FRAG_DF_SET",
+	"IPV4_FRAG_FAIL",
 	"IPV4_DESTROY"
 };
 
