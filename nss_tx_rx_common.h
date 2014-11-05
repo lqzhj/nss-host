@@ -67,6 +67,7 @@ extern void nss_virt_if_register_handler(void);
 extern void nss_crypto_register_handler(void);
 extern void nss_ipsec_register_handler(void);
 extern void nss_ipv4_register_handler(void);
+extern void nss_ipv4_reasm_register_handler(void);
 extern void nss_ipv6_register_handler(void);
 extern void nss_n2h_register_handler(void);
 extern void nss_tunipip6_register_handler(void);

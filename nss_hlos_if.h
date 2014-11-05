@@ -193,6 +193,34 @@ struct nss_n2h_msg {
 };
 
 /*
+ * IPv4 reasm node stats
+ */
+struct nss_ipv4_reasm_stats_sync {
+	struct nss_cmn_node_stats node_stats;
+					/* Common node stats for N2H */
+	uint32_t ipv4_reasm_evictions;
+	uint32_t ipv4_reasm_alloc_fails;
+	uint32_t ipv4_reasm_timeouts;
+};
+
+/*
+ * IPv4 reasm message types
+ */
+enum nss_ipv4_reasm_message_types {
+	NSS_IPV4_REASM_STATS_SYNC_MSG,
+};
+
+/*
+ * IPv4 reassembly message structure
+ */
+struct nss_ipv4_reasm_msg {
+	struct nss_cmn_msg cm;
+	union {
+		struct nss_ipv4_reasm_stats_sync stats_sync;
+	} msg;
+};
+
+/*
  * Generic interface messages
  */
 enum nss_generic_metadata_types {

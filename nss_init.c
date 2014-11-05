@@ -355,6 +355,11 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 		nss_top->dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_802_3_REDIR] = nss_dev->id;
 	}
 
+	if (npd->ipv4_reasm_enabled == NSS_FEATURE_ENABLED) {
+		nss_top->ipv4_reasm_handler_id = nss_dev->id;
+		nss_ipv4_reasm_register_handler();
+	}
+
 	if (npd->ipv6_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->ipv6_handler_id = nss_dev->id;
 		nss_ipv6_register_handler();
