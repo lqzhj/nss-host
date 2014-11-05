@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -214,6 +214,22 @@ enum nss_stats_ipv4 {
 	NSS_STATS_IPV4_CONNECTION_EVICTIONS,
 					/* Number of IPv4 connection evictions */
 	NSS_STATS_IPV4_MAX,
+};
+
+/*
+ * IPV4 reasm node statistics
+ *
+ * WARNING: There is a 1:1 mapping between values below and corresponding
+ *	stats string array in nss_stats.c
+ */
+enum nss_stats_ipv4_reasm {
+	NSS_STATS_IPV4_REASM_EVICTIONS = 0,
+					/* Number of evicted fragment queues due to set memory threshold */
+	NSS_STATS_IPV4_REASM_ALLOC_FAILS,
+					/* Number of fragment queue allocation failures */
+	NSS_STATS_IPV4_REASM_TIMEOUTS,
+					/* Number of expired fragment queues */
+	NSS_STATS_IPV4_REASM_MAX,
 };
 
 /*
@@ -489,6 +505,8 @@ struct nss_top_instance {
 	struct dentry *top_dentry;	/* Top dentry for nss */
 	struct dentry *stats_dentry;	/* Top dentry for nss stats */
 	struct dentry *ipv4_dentry;	/* IPv4 stats dentry */
+	struct dentry *ipv4_reasm_dentry;
+					/* IPv4 stats dentry */
 	struct dentry *ipv6_dentry;	/* IPv6 stats dentry */
 	struct dentry *eth_rx_dentry;	/* ETH_RX stats dentry */
 	struct dentry *n2h_dentry;	/* N2H stats dentry */
@@ -508,6 +526,7 @@ struct nss_top_instance {
 	uint8_t gre_redir_handler_id;
 	uint8_t shaping_handler_id;
 	uint8_t ipv4_handler_id;
+	uint8_t ipv4_reasm_handler_id;
 	uint8_t ipv6_handler_id;
 	uint8_t crypto_handler_id;
 	uint8_t ipsec_handler_id;
@@ -576,6 +595,8 @@ struct nss_top_instance {
 	 */
 	uint64_t stats_ipv4[NSS_STATS_IPV4_MAX];
 					/* IPv4 statistics */
+	uint64_t stats_ipv4_reasm[NSS_STATS_IPV4_REASM_MAX];
+					/* IPv4 reasm statistics */
 	uint64_t stats_ipv6[NSS_STATS_IPV6_MAX];
 					/* IPv6 statistics */
 	uint64_t stats_drv[NSS_STATS_DRV_MAX];
