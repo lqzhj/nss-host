@@ -187,4 +187,15 @@ extern nss_capwapmgr_status_t nss_capwapmgr_tunnel_destroy(struct net_device *de
  * @note CAPWAP tunnel must be distroyed first.
  */
 extern nss_capwapmgr_status_t nss_capwapmgr_netdev_destroy(struct net_device *netdev);
+
+#if defined(NSS_CAPWAPMGR_ONE_NETDEV)
+/**
+ * @brief Returns netdevice used by NSS CAPWAP manager
+ *
+ * @param void
+ *
+ * @return Pointer to struct net_device
+ */
+extern struct net_device *nss_capwapmgr_get_netdev(void);
+#endif /* NSS_CAPWAPMGR_ONE_NETDEV */
 #endif /* __NSS_CAPWAPMGR_H */

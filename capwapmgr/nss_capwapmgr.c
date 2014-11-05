@@ -1233,6 +1233,18 @@ static void nss_capwapmgr_receive_pkt(void *arg, void *buf, struct napi_struct *
 	dev_put(dev);
 }
 
+#if defined(NSS_CAPWAPMGR_ONE_NETDEV)
+/*
+ * nss_capwapmgr_get_netdev()
+ *	Returns net device used.
+ */
+struct net_device *nss_capwapmgr_get_netdev(void)
+{
+	return nss_capwapmgr_ndev;
+}
+EXPORT_SYMBOL(nss_capwapmgr_get_netdev);
+#endif
+
 /*
  * nss_capwapmgr_init_module()
  *	Tunnel CAPWAP module init function
