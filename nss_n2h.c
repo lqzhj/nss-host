@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -15,30 +15,27 @@
  */
 
 /*
- * nss_tx_rx_n2h.c
+ * nss_n2h.c
  *	NSS N2H node APIs
  */
 
 #include "nss_tx_rx_common.h"
 
-/*
- **********************************
- Tx APIs
- **********************************
- */
+#define NSS_N2H_TIMEOUT 5*HZ
+
+wait_queue_head_t nss_n2h_wq;
 
 /*
- * nss_n2h_rps_configure()
+ * nss_n2h_tx()
  *	Send Message to NSS to enable RPS.
  *
  * This API could be used for any additional RPS related
  * configuration in future.
  */
-nss_tx_status_t nss_n2h_rps_configure(void *ctx, uint32_t enable_rps) {
-
-	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) ctx;
+nss_tx_status_t nss_n2h_tx(struct nss_ctx_instance *nss_ctx, uint32_t enable_rps)
+{
 	struct sk_buff *nbuf;
-	int32_t status;
+	nss_tx_status_t status;
 	struct nss_n2h_msg *nnhm;
 	struct nss_n2h_rps *rps_cfg;
 
@@ -81,16 +78,10 @@ nss_tx_status_t nss_n2h_rps_configure(void *ctx, uint32_t enable_rps) {
 }
 
 /*
- **********************************
- Rx APIs
- **********************************
- */
-
-/*
- * nss_rx_metadata_n2h_stats_sync()
+ * nss_n2h_stats_sync()
  *	Handle the syncing of NSS statistics.
  */
-static void nss_rx_metadata_n2h_stats_sync(struct nss_ctx_instance *nss_ctx, struct nss_n2h_stats_sync *nnss)
+static void nss_n2h_stats_sync(struct nss_ctx_instance *nss_ctx, struct nss_n2h_stats_sync *nnss)
 {
 	struct nss_top_instance *nss_top = nss_ctx->nss_top;
 
@@ -133,12 +124,14 @@ static void nss_rx_metadata_n2h_stats_sync(struct nss_ctx_instance *nss_ctx, str
 }
 
 /*
- * nss_rx_n2h_interface_handler()
+ * nss_n2h_interface_handler()
  *	Handle NSS -> HLOS messages for N2H node
  */
-static void nss_rx_n2h_interface_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm, __attribute__((unused))void *app_data)
+static void nss_n2h_interface_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm, __attribute__((unused))void *app_data)
 {
 	struct nss_n2h_msg *nnm = (struct nss_n2h_msg *)ncm;
+
+	BUG_ON(ncm->interface != NSS_N2H_INTERFACE);
 
 	/*
 	 * Is this a valid request/response packet?
@@ -152,10 +145,12 @@ static void nss_rx_n2h_interface_handler(struct nss_ctx_instance *nss_ctx, struc
 	case NSS_TX_METADATA_TYPE_N2H_RPS_CFG:
 		nss_ctx->n2h_rps_en = nnm->msg.rps_cfg.enable;
 		nss_info("NSS N2H rps_en %d \n",nnm->msg.rps_cfg.enable);
+		wake_up(&nss_n2h_wq);
 		break;
 
 	case NSS_RX_METADATA_TYPE_N2H_STATS_SYNC:
-		nss_rx_metadata_n2h_stats_sync(nss_ctx, &nnm->msg.stats_sync);
+		nss_n2h_stats_sync(nss_ctx, &nnm->msg.stats_sync);
+		wake_up(&nss_n2h_wq);
 		break;
 
 	default:
@@ -174,5 +169,10 @@ static void nss_rx_n2h_interface_handler(struct nss_ctx_instance *nss_ctx, struc
  */
 void nss_n2h_register_handler()
 {
-	nss_core_register_handler(NSS_N2H_INTERFACE, nss_rx_n2h_interface_handler, NULL);
+	nss_core_register_handler(NSS_N2H_INTERFACE, nss_n2h_interface_handler, NULL);
+
+	/*
+	 * Initialize wait queue
+	 */
+	init_waitqueue_head(&nss_n2h_wq);
 }

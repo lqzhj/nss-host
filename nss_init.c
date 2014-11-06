@@ -761,7 +761,7 @@ static int nss_rpscfg_handler(ctl_table *ctl, int write, void __user *buffer, si
 	if (!ret) {
 		if ((write) && (nss_rps_cfg == 1)) {
 			printk("Enabling NSS RPS\n");
-			nss_n2h_rps_configure(nss_ctx, 1);
+			nss_n2h_tx(nss_ctx, 1);
 			return ret;
 		}
 

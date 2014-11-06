@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -21,11 +21,6 @@
 #include <linux/sysctl.h>
 #include <linux/ppp_channel.h>
 #include "nss_tx_rx_common.h"
-
-
-extern void nss_rx_metadata_ipv4_rule_establish(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_rule_establish *nire);
-extern void nss_rx_metadata_ipv4_create_response(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_msg *nim);
-extern void nss_rx_ipv4_sync(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_conn_sync *nirs);
 
 int nss_ipv4_conn_cfg __read_mostly = NSS_DEFAULT_NUM_CONN;
 static struct  nss_conn_cfg_pvt i4cfgp;
@@ -135,14 +130,7 @@ static void nss_ipv4_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 	 */
 	nss_core_log_msg_failures(nss_ctx, ncm);
 
-	/*
-	 * Handle deprecated messages.  Eventually these messages should be removed.
-	 */
 	switch (nim->cm.type) {
-	case NSS_IPV4_RX_ESTABLISH_RULE_MSG:
-		return nss_rx_metadata_ipv4_rule_establish(nss_ctx, &nim->msg.rule_establish);
-		break;
-
 	case NSS_IPV4_RX_NODE_STATS_SYNC_MSG:
 		/*
 		* Update driver statistics on node sync.
@@ -155,11 +143,6 @@ static void nss_ipv4_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 		 * Update driver statistics on connection sync.
 		 */
 		nss_ipv4_driver_conn_sync_update(nss_ctx, &nim->msg.conn_stats);
-		nss_rx_ipv4_sync(nss_ctx, &nim->msg.conn_stats);
-		break;
-
-	case NSS_IPV4_TX_CREATE_RULE_MSG:
-		nss_rx_metadata_ipv4_create_response(nss_ctx, nim);
 		break;
 	}
 
