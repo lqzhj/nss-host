@@ -22,6 +22,7 @@
 #include "nss_core.h"
 #include "nss_pm.h"
 #include "nss_tx_rx_common.h"
+#include "nss_data_plane.h"
 
 #include <nss_hal.h>
 #include <nss_clocks.h>
@@ -136,7 +137,7 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 
 	nss_info("%p: NSS_DEV_ID %s \n", nss_ctx, dev_name(&nss_dev->dev));
 
-        /*
+	/*
 	 * F/W load from NSS Driver
 	 */
 	if (nss_dev->id == 0) {
@@ -395,24 +396,13 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 		nss_sjack_register_handler();
 	}
 
-	if (npd->gmac_enabled[0] == NSS_FEATURE_ENABLED) {
-		nss_top->phys_if_handler_id[0] = nss_dev->id;
-		nss_phys_if_register_handler(0);
-	}
-
-	if (npd->gmac_enabled[1] == NSS_FEATURE_ENABLED) {
-		nss_top->phys_if_handler_id[1] = nss_dev->id;
-		nss_phys_if_register_handler(1);
-	}
-
-	if (npd->gmac_enabled[2] == NSS_FEATURE_ENABLED) {
-		nss_top->phys_if_handler_id[2] = nss_dev->id;
-		nss_phys_if_register_handler(2);
-	}
-
-	if (npd->gmac_enabled[3] == NSS_FEATURE_ENABLED) {
-		nss_top->phys_if_handler_id[3] = nss_dev->id;
-		nss_phys_if_register_handler(3);
+	/*
+	 * Mark data plane enabled so when nss core init done we call register to nss-gmac
+	 */
+	for (i = 0 ; i < NSS_MAX_PHYSICAL_INTERFACES ; i ++) {
+		if (npd->gmac_enabled[i] == NSS_FEATURE_ENABLED) {
+			nss_data_plane_set_enabled(i);
+		}
 	}
 
 	nss_core_freq_register_handler();
@@ -481,6 +471,7 @@ static int __devexit nss_remove(struct platform_device *nss_dev)
 {
 	struct nss_top_instance *nss_top = &nss_top_main;
 	struct nss_ctx_instance *nss_ctx = &nss_top->nss[nss_dev->id];
+	int i;
 
 	/*
 	 * Clean-up debugfs
@@ -508,6 +499,15 @@ static int __devexit nss_remove(struct platform_device *nss_dev)
 		free_irq(nss_ctx->int_ctx[1].irq, &nss_ctx->int_ctx[1]);
 		unregister_netdev(nss_ctx->int_ctx[1].ndev);
 		free_netdev(nss_ctx->int_ctx[1].ndev);
+	}
+
+	/*
+	 * nss-drv is exiting, remove from nss-gmac
+	 */
+	for (i = 0 ; i < NSS_MAX_PHYSICAL_INTERFACES ; i ++) {
+		if (nss_top->if_ctx[i]) {
+			nss_data_plane_unregister_from_nss_gmac(i);
+		}
 	}
 
 	nss_info("%p: All resources freed for nss core%d", nss_ctx, nss_dev->id);

@@ -99,11 +99,11 @@ extern nss_tx_status_t nss_tunipip6_tx(struct nss_ctx_instance *nss_ctx, struct 
  * @brief Callback to receive DS-Lite data
  *
  * @param app_data Application context of the message
- * @param os_buf  Pointer to data buffer
+ * @param skb  Pointer to data buffer
  *
  * @return void
  */
-typedef void (*nss_tunipip6_callback_t)(void *app_data, void *os_buf, struct napi_struct *napi);
+typedef void (*nss_tunipip6_callback_t)(struct net_device *netdev, struct sk_buff *skb, struct napi_struct *napi);
 
 /*
  * @brief Register to send/receive DS-Lite messages to NSS

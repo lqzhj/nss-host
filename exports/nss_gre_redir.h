@@ -148,7 +148,7 @@ struct nss_gre_redir_decap_per_pkt_metadata {
  *
  * @return void
  */
-typedef void (*nss_gre_redir_data_callback_t)(void *app_data, void *os_buf, struct napi_struct *napi);
+typedef void (*nss_gre_redir_data_callback_t)(struct net_device *netdev, struct sk_buff *skb, struct napi_struct *napi);
 
 /**
  * @brief Callback to receive gre tunnel messages

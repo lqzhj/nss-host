@@ -44,7 +44,6 @@
 #include "nss_ipv6.h"
 #include "nss_shaper.h"
 #include "nss_if.h"
-#include "nss_phys_if.h"
 #include "nss_virt_if.h"
 #include "nss_pppoe.h"
 #include "nss_crypto.h"
@@ -147,10 +146,6 @@
  * This macro can be used to print IPv6 address (16 * 8 bits)
  */
 #define IPV6_ADDR_TO_OCTAL(ipv6) ((uint16_t *)ipv6)[0], ((uint16_t *)ipv6)[1], ((uint16_t *)ipv6)[2], ((uint16_t *)ipv6)[3], ((uint16_t *)ipv6)[4], ((uint16_t *)ipv6)[5], ((uint16_t *)ipv6)[6], ((uint16_t *)ipv6)[7]
-
-#define NSS_ETH_NORMAL_FRAME_MTU 1500
-#define NSS_ETH_MINI_JUMBO_FRAME_MTU 1978
-#define NSS_ETH_FULL_JUMBO_FRAME_MTU 9600
 
 /*
  * VLAN C-TAG TPID
@@ -589,60 +584,6 @@ struct nss_ipv6_cb_params {
 	} params;
 };
 
-/*
- * struct nss_gmac_sync
- * The NA per-GMAC statistics sync structure.
- */
-struct nss_gmac_sync {
-	int32_t interface;		/**< Interface number */
-	uint32_t rx_bytes;		/**< Number of RX bytes */
-	uint32_t rx_packets;		/**< Number of RX packets */
-	uint32_t rx_errors;		/**< Number of RX errors */
-	uint32_t rx_receive_errors;	/**< Number of RX receive errors */
-	uint32_t rx_overflow_errors;	/**< Number of RX overflow errors */
-	uint32_t rx_descriptor_errors;	/**< Number of RX descriptor errors */
-	uint32_t rx_watchdog_timeout_errors;
-					/**< Number of RX watchdog timeout errors */
-	uint32_t rx_crc_errors;		/**< Number of RX CRC errors */
-	uint32_t rx_late_collision_errors;
-					/**< Number of RX late collision errors */
-	uint32_t rx_dribble_bit_errors;	/**< Number of RX dribble bit errors */
-	uint32_t rx_length_errors;	/**< Number of RX length errors */
-	uint32_t rx_ip_header_errors;	/**< Number of RX IP header errors */
-	uint32_t rx_ip_payload_errors;	/**< Number of RX IP payload errors */
-	uint32_t rx_no_buffer_errors;	/**< Number of RX no-buffer errors */
-	uint32_t rx_transport_csum_bypassed;
-					/**< Number of RX packets where the transport checksum was bypassed */
-	uint32_t tx_bytes;		/**< Number of TX bytes */
-	uint32_t tx_packets;		/**< Number of TX packets */
-	uint32_t tx_collisions;		/**< Number of TX collisions */
-	uint32_t tx_errors;		/**< Number of TX errors */
-	uint32_t tx_jabber_timeout_errors;
-					/**< Number of TX jabber timeout errors */
-	uint32_t tx_frame_flushed_errors;
-					/**< Number of TX frame flushed errors */
-	uint32_t tx_loss_of_carrier_errors;
-					/**< Number of TX loss of carrier errors */
-	uint32_t tx_no_carrier_errors;	/**< Number of TX no carrier errors */
-	uint32_t tx_late_collision_errors;
-					/**< Number of TX late collision errors */
-	uint32_t tx_excessive_collision_errors;
-					/**< Number of TX excessive collision errors */
-	uint32_t tx_excessive_deferral_errors;
-					/**< Number of TX excessive deferral errors */
-	uint32_t tx_underflow_errors;	/**< Number of TX underflow errors */
-	uint32_t tx_ip_header_errors;	/**< Number of TX IP header errors */
-	uint32_t tx_ip_payload_errors;	/**< Number of TX IP payload errors */
-	uint32_t tx_dropped;		/**< Number of TX dropped packets */
-	uint32_t hw_errs[10];		/**< GMAC DMA error counters */
-	uint32_t rx_missed;		/**< Number of RX packets missed by the DMA */
-	uint32_t fifo_overflows;	/**< Number of RX FIFO overflows signalled by the DMA */
-	uint32_t rx_scatter_errors;	/**< Number of scattered frames received by the DMA */
-	uint32_t gmac_total_ticks;	/**< Total clock ticks spend inside the GMAC */
-	uint32_t gmac_worst_case_ticks;	/**< Worst case iteration of the GMAC in ticks */
-	uint32_t gmac_iterations;	/**< Number of iterations around the GMAC */
-};
-
 /**
  * PM Client interface status
  */
@@ -650,15 +591,6 @@ typedef enum {
 	NSS_PM_API_SUCCESS = 0,
 	NSS_PM_API_FAILED,
 } nss_pm_interface_status_t;
-
-/**
- * NSS GMAC event type
- */
-typedef enum {
-	NSS_GMAC_EVENT_STATS,
-	NSS_GMAC_EVENT_OTHER,
-	NSS_GMAC_EVENT_MAX
-} nss_gmac_event_t;
 
 /**
  * General utilities
@@ -686,123 +618,13 @@ typedef void (*nss_ipv4_callback_t)(struct nss_ipv4_cb_params *nicb);
 extern void *nss_get_frequency_mgr(void);
 
 /**
- * Methods provided by NSS device driver for use by GMAC driver
- */
-
-/**
- * Callback to receive GMAC events
- * TODO: This callback is deprecated in the new APIs.
- */
-typedef void (*nss_phys_if_event_callback_t)(void *if_ctx, nss_gmac_event_t ev_type, void *buf, uint32_t len);
-
-/**
- * @brief Register to send/receive GMAC packets/messages
- *
- * @param if_num GMAC i/f number
- * @param rx_callback Receive callback for packets
- * @param event_callback Receive callback for events
- * @param if_ctx Interface context provided in callback
- *		(must be OS network device context pointer e.g.
- *		struct net_device * in Linux)
- *
- * @return void* NSS context
- */
-extern void *nss_register_phys_if(uint32_t if_num, nss_phys_if_rx_callback_t rx_callback,
-					nss_phys_if_event_callback_t event_callback, struct net_device *if_ctx);
-
-/**
- * @brief Unregister GMAC handlers with NSS driver
- *
- * @param if_num GMAC Interface number
- */
-extern void nss_unregister_phys_if(uint32_t if_num);
-
-/**
- * @brief Send GMAC packet
- *
- * @param nss_ctx NSS context
- * @param os_buf OS buffer (e.g. skbuff)
- * @param if_num GMAC i/f number
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_phys_if_buf(void *nss_ctx, struct sk_buff *os_buf, uint32_t if_num);
-
-/**
- * @brief Open GMAC interface on NSS
- *
- * @param nss_ctx NSS context
- * @param tx_desc_ring Tx descriptor ring address
- * @param rx_desc_ring Rx descriptor ring address
- * @param rx_forward_if forward received packkets to this if_num
- * @param alignment_mode Header alignment mode
- * @param if_num GMAC i/f number
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_phys_if_open(void *nss_ctx, uint32_t tx_desc_ring, uint32_t rx_desc_ring, uint32_t rx_forward_if, uint32_t alignment_mode, uint32_t if_num);
-
-/**
- * @brief Close GMAC interface on NSS
- *
- * @param nss_ctx NSS context
- * @param if_num GMAC i/f number
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_phys_if_close(void *nss_ctx, uint32_t if_num);
-
-/**
- * @brief Send link state message to NSS
- *
- * @param nss_ctx NSS context
- * @param link_state Link state
- * @param if_num GMAC i/f number
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_phys_if_link_state(void *nss_ctx, uint32_t link_state, uint32_t if_num);
-
-/**
- * @brief Send MAC address to NSS
- *
- * @param nss_ctx NSS context
- * @param addr MAC address pointer
- * @param if_num GMAC i/f number
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_phys_if_mac_addr(void *nss_ctx, uint8_t *addr, uint32_t if_num);
-
-/**
- * @brief Send MTU change notification to NSS
- *
- * @param nss_ctx NSS context
- * @param mtu MTU
- * @param if_num GMAC i/f number
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_phys_if_change_mtu(void *nss_ctx, uint32_t mtu, uint32_t if_num);
-
-/**
- * @brief Get NAPI context
- *
- * @param nss_ctx NSS context
- * @param napi_ctx Pointer to address to return NAPI context
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_tx_phys_if_get_napi_ctx(void *nss_ctx, struct napi_struct **napi_ctx);
-
-/**
  * Methods provided by NSS driver for use by virtual interfaces (VAPs)
  */
 
 /**
  * Callback to receive virtual packets
  */
-typedef void (*nss_virt_if_rx_callback_t)(void *if_ctx, void *os_buf, struct napi_struct *napi);
+typedef void (*nss_virt_if_rx_callback_t)(struct net_device *netdev, struct sk_buff *skb, struct napi_struct *napi);
 
 /**
  * @brief Register to send/receive virtual packets/messages

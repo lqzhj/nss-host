@@ -137,17 +137,7 @@ typedef void (*nss_phys_if_msg_callback_t)(void *app_data, struct nss_phys_if_ms
  *
  * @return void
  */
-typedef void (*nss_phys_if_rx_callback_t)(void *app_data, void *os_buf, struct napi_struct *napi);
-
-/**
- * @brief Get NAPI context
- *
- * @param nss_ctx NSS context
- * @param napi_ctx Pointer to address to return NAPI context
- *
- * @return nss_tx_status_t Tx status
- */
-extern nss_tx_status_t nss_phys_if_get_napi_ctx(struct nss_ctx_instance *nss_ctx, struct napi_struct **napi_ctx);
+typedef void (*nss_phys_if_rx_callback_t)(struct net_device *netdev, struct sk_buff *skb, struct napi_struct *napi);
 
 /**
  * @brief Register to send/receive GMAC packets/messages
@@ -161,7 +151,7 @@ extern nss_tx_status_t nss_phys_if_get_napi_ctx(struct nss_ctx_instance *nss_ctx
  *
  * @return void* NSS context
  */
-extern struct nss_ctx_instance *nss_phys_if_register(uint32_t if_num,
+struct nss_ctx_instance *nss_phys_if_register(uint32_t if_num,
 					nss_phys_if_rx_callback_t rx_callback,
 					nss_phys_if_msg_callback_t msg_callback,
 					struct net_device *if_ctx);
@@ -175,16 +165,7 @@ extern struct nss_ctx_instance *nss_phys_if_register(uint32_t if_num,
  *
  * @return nss_tx_status_t Tx status
  */
-extern nss_tx_status_t nss_phys_if_tx_buf(struct nss_ctx_instance *nss_ctx, struct sk_buff *os_buf, uint32_t if_num);
-
-/**
- * @brief Assign dynamic interface number to a physical interface
- *
- * @param if_ctx Interface context
- *
- * @return int32_t Interface number
- */
-extern int32_t nss_phys_if_assign_if_num(struct net_device *if_ctx);
+nss_tx_status_t nss_phys_if_buf(struct nss_ctx_instance *nss_ctx, struct sk_buff *os_buf, uint32_t if_num);
 
 /**
  * @brief Send message to physical interface
@@ -193,28 +174,16 @@ extern int32_t nss_phys_if_assign_if_num(struct net_device *if_ctx);
  *
  * @return command Tx status
  */
-nss_tx_status_t nss_phys_if_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_phys_if_msg *nim);
+nss_tx_status_t nss_phys_if_msg(struct nss_ctx_instance *nss_ctx, struct nss_phys_if_msg *nim);
 
 /**
- * @brief Forward Native wifi packet from physical interface
- *	-Expects packet with qca-nwifi format
- * @param if_num Interface number (provided during
- *	 registeration)
- * @param skb HLOS data buffer (sk_buff in Linux)
- * @return command Tx status
- */
-extern nss_tx_status_t nss_phys_if_tx_nwifi_rxbuf(int32_t if_num, struct sk_buff *skb);
-
-/**
- * @brief Forward physical interface packets
+ * @brief Send a message to physical interface & wait for the response.
  *
- * @param if_num Interface number (provided during
- *	 registeration)
- * @param skb HLOS data buffer (sk_buff in Linux)
+ * @param nim Physical interface message
  *
  * @return command Tx status
  */
-extern nss_tx_status_t nss_phys_if_tx_eth_rxbuf(int32_t if_num, struct sk_buff *skb);
+nss_tx_status_t nss_phys_if_msg_sync(struct nss_ctx_instance *nss_ctx, struct nss_phys_if_msg *nim);
 
 /**
  * @brief Open GMAC interface on NSS
@@ -226,7 +195,7 @@ extern nss_tx_status_t nss_phys_if_tx_eth_rxbuf(int32_t if_num, struct sk_buff *
  *
  * @return nss_tx_status_t Tx status
  */
-extern nss_tx_status_t nss_phys_if_tx_open(struct nss_ctx_instance *nss_ctx, uint32_t tx_desc_ring, uint32_t rx_desc_ring, uint32_t if_num);
+nss_tx_status_t nss_phys_if_open(struct nss_ctx_instance *nss_ctx, uint32_t tx_desc_ring, uint32_t rx_desc_ring, uint32_t mode, uint32_t if_num);
 
 /**
  * @brief Close GMAC interface on NSS
@@ -236,7 +205,7 @@ extern nss_tx_status_t nss_phys_if_tx_open(struct nss_ctx_instance *nss_ctx, uin
  *
  * @return nss_tx_status_t Tx status
  */
-extern nss_tx_status_t nss_phys_if_tx_close(struct nss_ctx_instance *nss_ctx, uint32_t if_num);
+nss_tx_status_t nss_phys_if_close(struct nss_ctx_instance *nss_ctx, uint32_t if_num);
 
 /**
  * @brief Send link state message to NSS
@@ -247,7 +216,7 @@ extern nss_tx_status_t nss_phys_if_tx_close(struct nss_ctx_instance *nss_ctx, ui
  *
  * @return nss_tx_status_t Tx status
  */
-extern nss_tx_status_t nss_phys_if_tx_link_state(struct nss_ctx_instance *nss_ctx, uint32_t link_state, uint32_t if_num);
+nss_tx_status_t nss_phys_if_link_state(struct nss_ctx_instance *nss_ctx, uint32_t link_state, uint32_t if_num);
 
 /**
  * @brief Send MAC address to NSS
@@ -258,7 +227,7 @@ extern nss_tx_status_t nss_phys_if_tx_link_state(struct nss_ctx_instance *nss_ct
  *
  * @return nss_tx_status_t Tx status
  */
-extern nss_tx_status_t nss_phys_if_tx_mac_addr(struct nss_ctx_instance *nss_ctx, uint8_t *addr, uint32_t if_num);
+nss_tx_status_t nss_phys_if_mac_addr(struct nss_ctx_instance *nss_ctx, uint8_t *addr, uint32_t if_num);
 
 /**
  * @brief Send MTU change notification to NSS
@@ -269,6 +238,6 @@ extern nss_tx_status_t nss_phys_if_tx_mac_addr(struct nss_ctx_instance *nss_ctx,
  *
  * @return nss_tx_status_t Tx status
  */
-extern nss_tx_status_t nss_phys_if_tx_change_mtu(struct nss_ctx_instance *nss_ctx, uint32_t mtu, uint32_t if_num);
+nss_tx_status_t nss_phys_if_change_mtu(struct nss_ctx_instance *nss_ctx, uint32_t mtu, uint32_t if_num);
 
 #endif /* __NSS_PHYS_IF_H */

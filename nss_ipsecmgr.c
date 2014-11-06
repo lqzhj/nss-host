@@ -576,10 +576,8 @@ static bool nss_ipsecmgr_op_send(struct net_device *dev, struct nss_ipsec_msg *n
  * nss_ipsecmgr_buf_receive()
  *	receive NSS exception packets
  */
-static void nss_ipsecmgr_buf_receive(void *app_data, void *os_buf, __attribute((unused)) struct napi_struct *napi)
+static void nss_ipsecmgr_buf_receive(struct net_device *dev, struct sk_buff *skb, __attribute((unused)) struct napi_struct *napi)
 {
-	struct net_device *dev = (struct net_device *)app_data;
-	struct sk_buff *skb = (struct sk_buff *)os_buf;
 	struct nss_ipsecmgr_priv *priv;
 	nss_ipsecmgr_callback_t cb_fn;
 	void *cb_ctx;
@@ -634,9 +632,8 @@ done:
  * nss_ipsecmgr_buf_drop()
  * 	invalid buffer received;drop it and account it
  */
-static void nss_ipsecmgr_buf_drop(void *app_data, void *os_buf, __attribute((unused)) struct napi_struct *napi)
+static void nss_ipsecmgr_buf_drop(struct net_device *dev, struct sk_buff *skb, __attribute((unused)) struct napi_struct *napi)
 {
-	struct sk_buff *skb = (struct sk_buff *)os_buf;
 	struct iphdr *ip;
 
 	BUG_ON(skb == NULL);

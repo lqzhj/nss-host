@@ -123,10 +123,8 @@ static void nss_tun6rd_event_receive(void *if_ctx, struct nss_tun6rd_msg *tnlmsg
  * nss_tun6rd_exception()
  *	Exception handler registered to NSS driver
  */
-static void nss_tun6rd_exception(void *ctx, void *buf, __attribute__((unused)) struct napi_struct *napi)
+static void nss_tun6rd_exception(struct net_device *dev, struct sk_buff *skb, __attribute__((unused)) struct napi_struct *napi)
 {
-	struct net_device *dev = (struct net_device *)ctx;
-	struct sk_buff *skb = (struct sk_buff *)buf;
 	const struct iphdr *iph;
 
 	skb->dev = dev;

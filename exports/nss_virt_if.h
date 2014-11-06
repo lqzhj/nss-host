@@ -76,7 +76,7 @@ struct nss_virt_if_msg {
 	} msg;
 };
 
-typedef void (*nss_virt_if_data_callback_t)(void *app_data, void *os_buf, struct napi_struct *napi);
+typedef void (*nss_virt_if_data_callback_t)(struct net_device *netdev, struct sk_buff *skb, struct napi_struct *napi);
 typedef void (*nss_virt_if_msg_callback_t)(void *app_data, struct nss_cmn_msg *msg);
 
 /**

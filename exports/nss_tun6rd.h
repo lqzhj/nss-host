@@ -109,11 +109,11 @@ extern struct nss_ctx_instance *nss_tun6rd_get_context(void);
  * @brief Callback to receive 6rd tunnel data
  *
  * @param app_data Application context of the message
- * @param os_buf Pointer to data buffer
+ * @param skb Pointer to data buffer
  *
  * @return void
  */
-typedef void (*nss_tun6rd_callback_t)(void *app_data, void *os_buf, struct napi_struct *napi);
+typedef void (*nss_tun6rd_callback_t)(struct net_device *netdev, struct sk_buff *skb, struct napi_struct *napi);
 
 /**
  * @brief Register to send/receive 6rd tunnel messages to NSS
