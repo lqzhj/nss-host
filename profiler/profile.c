@@ -41,12 +41,12 @@
 #include "profpkt.h"
 
 /*
- * This is the driver for the NetAP Core profiler.  The system interface to the driver is
- *      profile_register_performance_counter(), defined in <asm/profile.>
- *      a set of proc files (proc/profile/<*>), used by the profiler daemon
+ * This is the driver for the NetAP Core profiler. The system interface to the driver is
+ *	profile_register_performance_counter(), defined in <asm/profile.>
+ *	a set of proc files (proc/profile/<*>), used by the profiler daemon
  *
- * communication between the profiler components is described in a set of header files.  There are
- * multiple versions of these files that must be kept synchronized:
+ * communication between the profiler components is described in a set of header files.
+ * There are multiple versions of these files that must be kept synchronized:
  *	in nss/source/pkg/profile
  *	in tools/profiler
  *	in qsdk/qca/src/qca-nss-drv/profiler
@@ -662,10 +662,14 @@ static void profile_handle_nss_data(void *arg, struct nss_profiler_msg *npm)
 		if (swap) {
 			pn->pnc.un.rate = ntohl(pTx->rate);
 			pn->pnc.un.cpu_id = ntohl(pTx->cpu_id);
+			pn->pnc.un.cpu_freq = ntohl(pTx->cpu_freq);
+			pn->pnc.un.ddr_freq = ntohl(pTx->ddr_freq);
 			pn->pnc.un.num_counters = ntohl(pTx->num_counters);
 		} else {
 			pn->pnc.un = *pTx;
 		}
+		memcpy(pn->pnc.un.counters, pTx->counters, pn->pnc.un.num_counters * sizeof(pn->pnc.un.counters[0]));
+		pn->profile_first_packet = 1;
 		return;
 	}
 
@@ -687,13 +691,25 @@ static void profile_handle_nss_data(void *arg, struct nss_profiler_msg *npm)
 	pn->ccl_write = wr;
 
 	/*
-	 * smapling data -- hdr NBO swap is done at NSS side via SWAPB.
+	 * sampling data -- hdr NBO swap is done at NSS side via SWAPB.
 	 */
 	memcpy(&nsb->psc_header, buf, buf_len); /* pn->pnc.pn2h->psc_header = *psc_hd; maybe faster, but take more memory */
-	pn->profile_first_packet = 1;
 
 	nsb->mh.md_type = PINGPONG_FULL;
 	//kxdump((void*)(nsb->samples + 23), sizeof(*nsb->samples) << 1, "1st 2 samples");
+	if (!wr) {
+		/*
+		 * should be UBI32_PROFILE_HD_MAGIC | NSS_PROFILER_COUNTERS_MSG
+		 * but FW is hard to change due to packge warehouse, so using
+		 * STOP/START instead till PROFILER_COUNTERS_MSG done in FW
+		 */
+		pn->pnc.un.hd_magic = UBI32_PROFILE_HD_MAGIC | NSS_PROFILER_STOP_MSG;
+		ret = nss_profiler_if_tx_buf(pn->ctx, &pn->pnc.un, sizeof(pn->pnc.un), profiler_handle_reply);
+		if (ret == NSS_TX_FAILURE)
+			printk("STOP Cmd failed %d %d\n", ret, wr);
+		pn->pnc.un.hd_magic = UBI32_PROFILE_HD_MAGIC | NSS_PROFILER_START_MSG;
+		ret = nss_profiler_if_tx_buf(pn->ctx, &pn->pnc.un, sizeof(pn->pnc.un), profiler_handle_reply);
+	}
 	profileInfo("filled %p %p wr %d\n", nsb, nsb->samples, pn->ccl_write);
 }
 
