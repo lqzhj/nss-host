@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -223,6 +223,20 @@ static inline void nss_dump_desc(struct nss_ctx_instance *nss_ctx, struct n2h_de
 	printk("\tpayload_len = %d\n", desc->payload_len);
 	printk("\tpayload_offs = %d\n", desc->payload_offs);
 	printk("\tpayload_len = %d\n", desc->payload_len);
+}
+
+/*
+ * nss_core_skb_needs_linearize()
+ *	Looks at if this skb needs to be linearized of not.
+ */
+static inline int nss_core_skb_needs_linearize(struct sk_buff *skb)
+{
+	netdev_features_t features = netif_skb_features(skb);
+	return skb_is_nonlinear(skb) &&
+			((skb_has_frag_list(skb) &&
+				!(features & NETIF_F_FRAGLIST)) ||
+			(skb_shinfo(skb)->nr_frags &&
+				!(features & NETIF_F_SG)));
 }
 
 /*
@@ -583,6 +597,18 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 					dev_hold(ndev);		// GGG FIXME THIS IS BROKEN AS NDEV COULD BE DESTROYED BEFORE THE HOLD IS TAKEN!  NDEV SHOULD BE HELD WHEN THE VIRTUAL IS REGISTERED
 								// AND THE HOLD HERE TAKEN INSIDE OF SOME KIND OF MUTEX LOCK WITH VIRTUAL UNREGISTRATION
 					nbuf->dev = ndev;
+
+					/*
+					 * Linearize the skb if needed
+					 */
+					if (nss_core_skb_needs_linearize(nbuf) && __skb_linearize(nbuf)) {
+						/*
+						 * We needed to linearize, but __skb_linearize() failed. Therefore
+						 * we free the nbuf.
+						 */
+						dev_kfree_skb_any(nbuf);
+						break;
+					}
 
 					/*
 					 * Send the packet to virtual interface
