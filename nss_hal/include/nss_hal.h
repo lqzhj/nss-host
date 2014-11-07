@@ -22,8 +22,11 @@
 #ifndef __NSS_HAL_H
 #define __NSS_HAL_H
 
+#include <linux/platform_device.h>
+
 #include <nss_hal_pvt.h>
 
+#if (NSS_DT_SUPPORT != 1)
 /*
  * nss_hal_common_reset()
  */
@@ -31,14 +34,22 @@ static inline void nss_hal_common_reset(uint32_t *clk_src)
 {
 	__nss_hal_common_reset(clk_src);
 }
+#endif
 
 /*
  * nss_hal_core_reset()
  */
+#if (NSS_DT_SUPPORT != 1)
 static inline void nss_hal_core_reset(uint32_t core_id, uint32_t map, uint32_t addr, uint32_t clk_src)
 {
 	__nss_hal_core_reset(core_id, map, addr, clk_src);
 }
+#else
+static inline void nss_hal_core_reset(uint32_t map_base, uint32_t reset_addr)
+{
+	__nss_hal_core_reset(map_base, reset_addr);
+}
+#endif
 
 /*
  * nss_hal_read_interrupt_cause()

@@ -24,7 +24,14 @@
 #include <linux/module.h>
 #include <linux/skbuff.h>
 #include <net/ipv6.h>
+#include <linux/version.h>
+
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3,9,0))
 #include <net/ipip.h>
+#else
+#include <net/ip_tunnels.h>
+#endif
+
 #include <linux/if_arp.h>
 #include <linux/etherdevice.h>
 #include <nss_api_if.h>

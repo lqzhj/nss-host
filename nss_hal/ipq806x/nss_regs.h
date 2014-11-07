@@ -86,7 +86,7 @@ enum nss_regs_clk_src_select {
  */
 static inline uint32_t nss_read_32(uint32_t addr, uint32_t offs)
 {
-	return readl((addr + offs));
+	return readl((void *)(addr + offs));
 }
 
 /*
@@ -95,7 +95,7 @@ static inline uint32_t nss_read_32(uint32_t addr, uint32_t offs)
  */
 static inline void nss_write_32(uint32_t addr, uint32_t offs, uint32_t val)
 {
-	writel(val, (addr + offs));
+	writel(val, (void *)(addr + offs));
 }
 
 #endif /* __NSS_REGS_H */

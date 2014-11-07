@@ -222,6 +222,7 @@ static void nss_pppoe_destroy_connection_rule(void *ctx, uint16_t pppoe_session_
  */
 static void nss_pppoe_rule_create_success(struct nss_ctx_instance *nss_ctx, struct nss_pppoe_rule_create_success_msg *pcs)
 {
+#if (NSS_PPP_SUPPORT == 1)
 	struct net_device *ppp_dev = ppp_session_to_netdev(pcs->pppoe_session_id, pcs->pppoe_remote_mac);
 
 	if (!ppp_dev) {
@@ -240,6 +241,7 @@ static void nss_pppoe_rule_create_success(struct nss_ctx_instance *nss_ctx, stru
 	}
 
 	dev_put(ppp_dev);
+#endif
 }
 
 /*

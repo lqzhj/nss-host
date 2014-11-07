@@ -23,7 +23,9 @@
 #include <linux/module.h>
 #include <linux/netdevice.h>
 #include "nss_clocks.h"
+#include <nss_api_if.h>
 
+#if (NSS_PM_SUPPORT == 1)
 #include "nss_pm.h"
 
 /*
@@ -188,6 +190,7 @@ static int nss_pm_dbg_autoscale_set(void *data, u64 val)
 DEFINE_SIMPLE_ATTRIBUTE(perf_level_fops, nss_pm_dbg_perf_level_get, nss_pm_dbg_perf_level_set, "%llu\n");
 
 DEFINE_SIMPLE_ATTRIBUTE(autoscale_fops, nss_pm_dbg_autoscale_get, nss_pm_dbg_autoscale_set, "%llu\n");
+#endif /** (NSS_PM_SUPPORT == 1) */
 
 /*
  * nss_pm_client_register
@@ -200,6 +203,7 @@ DEFINE_SIMPLE_ATTRIBUTE(autoscale_fops, nss_pm_dbg_autoscale_get, nss_pm_dbg_aut
  */
 void *nss_pm_client_register(nss_pm_client_t client_id)
 {
+#if (NSS_PM_SUPPORT == 1)
 	int ret;
 	struct dentry *pm_dentry;
 	nss_pm_client_data_t *pm_client;
@@ -265,6 +269,7 @@ void *nss_pm_client_register(nss_pm_client_t client_id)
 out:
 	return (void *)pm_client;
 error:
+#endif
 	return NULL;
 }
 EXPORT_SYMBOL(nss_pm_client_register);
@@ -275,6 +280,7 @@ EXPORT_SYMBOL(nss_pm_client_register);
  */
 int nss_pm_client_unregister(nss_pm_client_t client_id)
 {
+#if (NSS_PM_SUPPORT == 1)
 	nss_pm_client_data_t *pm_client;
 
 	if (unlikely(client_id >= NSS_PM_MAX_CLIENTS))  {
@@ -302,6 +308,7 @@ int nss_pm_client_unregister(nss_pm_client_t client_id)
 	return NSS_PM_API_SUCCESS;
 
 error:
+#endif
 	return NSS_PM_API_FAILED;
 }
 
@@ -311,6 +318,7 @@ error:
  */
 nss_pm_interface_status_t nss_pm_set_perf_level(void *handle, nss_pm_perf_level_t lvl)
 {
+#if (NSS_PM_SUPPORT == 1)
 	int ret = 0;
 	nss_pm_client_data_t *pm_client;
 
@@ -377,11 +385,12 @@ nss_pm_interface_status_t nss_pm_set_perf_level(void *handle, nss_pm_perf_level_
 
 	nss_pm_info("perf level request, current: %d new: %d \n", pm_client->current_perf_lvl, lvl);
 	pm_client->current_perf_lvl = lvl;
-
+#endif
 	return NSS_PM_API_SUCCESS;
 }
 EXPORT_SYMBOL(nss_pm_set_perf_level);
 
+#if (NSS_PM_SUPPORT == 1)
 /*
  * nss_pm_set_turbo()
  *   Sets the turbo support flag globally for all clients
@@ -409,3 +418,4 @@ void nss_pm_init(void) {
 		nss_pm_warning("Failed to create qca-nss-drv directory in debugfs");
 	}
 }
+#endif
