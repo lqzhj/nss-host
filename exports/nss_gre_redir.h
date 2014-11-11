@@ -22,6 +22,7 @@
 #ifndef __NSS_GRE_REDIR_H
 #define __NSS_GRE_REDIR_H
 
+#define NSS_GRE_REDIR_MAX_INTERFACES 3
 #define NSS_GRE_REDIR_IP_DF_OVERRIDE_FLAG 0x80
 #define NSS_GRE_REDIR_PER_PACKET_METADATA_OFFSET 4
 #define NSS_GRE_REDIR_IP_HDR_TYPE_IPV4 1
@@ -83,9 +84,19 @@ struct nss_gre_redir_interface_unmap_msg {
 };
 
 /**
- * #brief: GRE tunnel statistics sync message structure.
+ * @brief: GRE tunnel statistics sync message structure.
  */
 struct nss_gre_redir_stats_sync_msg {
+	struct nss_cmn_node_stats node_stats;	/**< Tunnel stats sync */
+	uint32_t tx_dropped;			/**< Tunnel Tx drops */
+};
+
+/**
+ * @brief: GRE tunnel statistics as seen by HLOS.
+ */
+struct nss_gre_redir_tunnel_stats {
+	int if_num;				/**< Tunnel Interface num */
+	bool valid;				/**< Tunnel validity flag */
 	struct nss_cmn_node_stats node_stats;	/**< Tunnel stats sync */
 	uint32_t tx_dropped;			/**< Tunnel Tx drops */
 };
@@ -192,5 +203,15 @@ extern nss_tx_status_t nss_gre_redir_tx_msg(struct nss_ctx_instance *nss_ctx, st
  */
 extern nss_tx_status_t nss_gre_redir_tx_buf(struct nss_ctx_instance *nss_ctx, struct sk_buff *os_buf,
 						uint32_t if_num);
+
+/**
+ * @brief Get gre_redir tunnel statistics
+ *
+ * @param index index in tunnel stats array.
+ * @param stats tunnel stats structure.
+ *
+ * @return true or false.
+ */
+extern bool nss_gre_redir_get_stats(int index, struct nss_gre_redir_tunnel_stats *stats);
 
 #endif /* __NSS_GRE_REDIR_H */

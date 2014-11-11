@@ -17,11 +17,48 @@
 #include "nss_tx_rx_common.h"
 
 /*
+ * Spinlock to update tunnel stats
+ */
+DEFINE_SPINLOCK(nss_gre_redir_stats_lock);
+
+/*
+ * Array to hold tunnel stats along with if_num
+ */
+static struct nss_gre_redir_tunnel_stats tun_stats[NSS_GRE_REDIR_MAX_INTERFACES];
+
+/*
+ * nss_gre_redir_tunnel_update_stats()
+ * 	Update gre_redir tunnel stats.
+ */
+static void nss_gre_redir_tunnel_update_stats(struct nss_ctx_instance *nss_ctx, int if_num, struct nss_gre_redir_stats_sync_msg *ngss)
+{
+	int i;
+
+	spin_lock_bh(&nss_gre_redir_stats_lock);
+	for (i = 0; i < NSS_GRE_REDIR_MAX_INTERFACES; i++) {
+		if ((tun_stats[i].if_num == if_num) && (tun_stats[i].valid)) {
+
+			tun_stats[i].node_stats.rx_packets += ngss->node_stats.rx_packets;
+			tun_stats[i].node_stats.rx_bytes += ngss->node_stats.rx_bytes;
+			tun_stats[i].node_stats.tx_packets += ngss->node_stats.tx_packets;
+			tun_stats[i].node_stats.tx_bytes += ngss->node_stats.tx_bytes;
+			tun_stats[i].node_stats.rx_dropped += ngss->node_stats.rx_dropped;
+			tun_stats[i].tx_dropped += ngss->tx_dropped;
+
+			break;
+		}
+	}
+	spin_unlock_bh(&nss_gre_redir_stats_lock);
+}
+
+
+/*
  * nss_gre_redir_handler()
  * 	Handle NSS -> HLOS messages for gre tunnel
  */
 static void nss_gre_redir_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm, __attribute__((unused))void *app_data)
 {
+	struct nss_gre_redir_msg *ngrm = (struct nss_gre_redir_msg *)ncm;
 	void *ctx;
 	nss_gre_redir_msg_callback_t cb;
 
@@ -58,6 +95,20 @@ static void nss_gre_redir_msg_handler(struct nss_ctx_instance *nss_ctx, struct n
 	 */
 	nss_core_log_msg_failures(nss_ctx, ncm);
 
+	switch (ncm->type) {
+	case NSS_GRE_REDIR_RX_STATS_SYNC_MSG:
+		/*
+		 * Update Tunnel statistics.
+		 */
+		if (!(nss_is_dynamic_interface(ncm->interface))) {
+			nss_warning("%p: stats received for wrong interface %d\n", nss_ctx, ncm->interface);
+			break;
+		}
+
+		nss_gre_redir_tunnel_update_stats(nss_ctx, ncm->interface, &ngrm->msg.stats_sync);
+		break;
+	}
+
 	/*
 	 * Do we have a call back
 	 */
@@ -74,14 +125,31 @@ static void nss_gre_redir_msg_handler(struct nss_ctx_instance *nss_ctx, struct n
 	/*
 	 * call gre tunnel callback
 	 */
-	if (!ctx) {
-		nss_warning("%p: Event received for gre tunnel interface %d before registration", nss_ctx, ncm->interface);
-		return;
-	}
-
 	cb(ctx, ncm);
 }
 
+/*
+ * nss_gre_redir_get_stats()
+ * 	get gre_redir tunnel stats.
+ */
+bool nss_gre_redir_get_stats(int index, struct nss_gre_redir_tunnel_stats *stats)
+{
+	spin_lock_bh(&nss_gre_redir_stats_lock);
+	if (!tun_stats[index].valid) {
+		spin_unlock_bh(&nss_gre_redir_stats_lock);
+		return false;
+	}
+
+	if (nss_is_dynamic_interface(tun_stats[index].if_num) == false) {
+		spin_unlock_bh(&nss_gre_redir_stats_lock);
+		return false;
+	}
+
+	memcpy(stats, &tun_stats[index], sizeof(struct nss_gre_redir_tunnel_stats));
+	spin_unlock_bh(&nss_gre_redir_stats_lock);
+
+	return true;
+}
 
 /*
  * nss_gre_redir_tx_msg()
@@ -202,6 +270,7 @@ struct nss_ctx_instance *nss_gre_redir_register_if(uint32_t if_num, struct net_d
 							nss_gre_redir_msg_callback_t cb_func_msg)
 {
 	uint32_t status;
+	int i;
 
 	nss_assert((if_num >= NSS_DYNAMIC_IF_START) && (if_num < (NSS_DYNAMIC_IF_START + NSS_MAX_DYNAMIC_INTERFACES)));
 
@@ -218,6 +287,16 @@ struct nss_ctx_instance *nss_gre_redir_register_if(uint32_t if_num, struct net_d
         nss_top_main.if_rx_callback[if_num] = cb_func_data;
         nss_top_main.if_rx_msg_callback[if_num] = cb_func_msg;
 
+	spin_lock_bh(&nss_gre_redir_stats_lock);
+	for (i = 0; i < NSS_GRE_REDIR_MAX_INTERFACES; i++) {
+		if (!(tun_stats[i].valid)) {
+			tun_stats[i].valid = true;
+			tun_stats[i].if_num = if_num;
+			break;
+		}
+	}
+	spin_unlock_bh(&nss_gre_redir_stats_lock);
+
         return (struct nss_ctx_instance *)&nss_top_main.nss[nss_top_main.gre_redir_handler_id];
 }
 
@@ -227,6 +306,7 @@ struct nss_ctx_instance *nss_gre_redir_register_if(uint32_t if_num, struct net_d
 void nss_gre_redir_unregister_if(uint32_t if_num)
 {
 	uint32_t status;
+	int i;
 
 	nss_assert((if_num >= NSS_DYNAMIC_IF_START) && (if_num < (NSS_DYNAMIC_IF_START + NSS_MAX_DYNAMIC_INTERFACES)));
 
@@ -236,9 +316,19 @@ void nss_gre_redir_unregister_if(uint32_t if_num)
 		return;
 	}
 
-        nss_top_main.if_rx_callback[if_num] = NULL;
-        nss_top_main.if_ctx[if_num] = NULL;
-        nss_top_main.if_rx_msg_callback[if_num] = NULL;
+	nss_top_main.if_rx_callback[if_num] = NULL;
+	nss_top_main.if_ctx[if_num] = NULL;
+	nss_top_main.if_rx_msg_callback[if_num] = NULL;
+
+	spin_lock_bh(&nss_gre_redir_stats_lock);
+	for (i = 0; i < NSS_GRE_REDIR_MAX_INTERFACES; i++) {
+		if ((tun_stats[i].if_num == if_num) && (tun_stats[i].valid)) {
+			tun_stats[i].valid = false;
+			tun_stats[i].if_num = -1;
+			break;
+		}
+	}
+	spin_unlock_bh(&nss_gre_redir_stats_lock);
 }
 
 /*
@@ -258,3 +348,4 @@ EXPORT_SYMBOL(nss_gre_redir_tx_msg);
 EXPORT_SYMBOL(nss_gre_redir_tx_buf);
 EXPORT_SYMBOL(nss_gre_redir_register_if);
 EXPORT_SYMBOL(nss_gre_redir_unregister_if);
+EXPORT_SYMBOL(nss_gre_redir_get_stats);

@@ -532,6 +532,7 @@ struct nss_top_instance {
 	struct dentry *gmac_dentry;	/* GMAC ethnode stats dentry */
 	struct dentry *capwap_decap_dentry;     /* CAPWAP decap ethnode stats dentry */
 	struct dentry *capwap_encap_dentry;     /* CAPWAP encap ethnode stats dentry */
+	struct dentry *gre_redir_dentry;	/* gre_redir ethnode stats dentry */
 
 	struct nss_ctx_instance nss[NSS_MAX_CORES];
 					/* NSS contexts */

@@ -41,6 +41,7 @@ uint64_t stats_shadow_pppoe_except[NSS_PPPOE_NUM_SESSION_PER_INTERFACE][NSS_PPPO
  */
 struct nss_stats_data {
 	uint32_t if_num;	/**< Interface number for CAPWAP stats */
+	uint32_t index;		/**< Index for GRE_REDIR stats */
 };
 
 /*
@@ -1205,6 +1206,118 @@ static ssize_t nss_stats_capwap_encap_read(struct file *fp, char __user *ubuf, s
 }
 
 /*
+ * nss_stats_gre_redir()
+ * 	Make a row for GRE_REDIR stats.
+ */
+static ssize_t nss_stats_gre_redir(char *line, int len, int i, struct nss_gre_redir_tunnel_stats *s)
+{
+	char *header[] = { "TX Packets", "TX Bytes", "TX Drops", "RX Packets", "RX Bytes", "Rx Drops" };
+	uint64_t tcnt = 0;
+
+	switch (i) {
+	case 0:
+		tcnt = s->node_stats.tx_packets;
+		break;
+	case 1:
+		tcnt = s->node_stats.tx_bytes;
+		break;
+	case 2:
+		tcnt = s->tx_dropped;
+		break;
+	case 3:
+		tcnt = s->node_stats.rx_packets;
+		break;
+	case 4:
+		tcnt = s->node_stats.rx_bytes;
+		break;
+	case 5:
+		tcnt = s->node_stats.rx_dropped;
+		break;
+	default:
+		i = 6;
+		break;
+	}
+
+	return (snprintf(line, len, "%s = %llu\n", header[i], tcnt));
+}
+
+/*
+ * nss_stats_gre_redir_read()
+ * 	READ gre_redir tunnel stats.
+ */
+static ssize_t nss_stats_gre_redir_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
+{
+	struct nss_stats_data *data = fp->private_data;
+	ssize_t bytes_read = 0;
+	struct nss_gre_redir_tunnel_stats stats;
+	size_t bytes;
+	char line[80];
+	int start, end;
+	int index = 0;
+
+	if (data) {
+		index = data->index;
+	}
+
+	/*
+	 * If we are done accomodating all the GRE_REDIR tunnels.
+	 */
+	if (index >= NSS_GRE_REDIR_MAX_INTERFACES) {
+		return 0;
+	}
+
+	for (; index < NSS_GRE_REDIR_MAX_INTERFACES; index++) {
+		bool isthere;
+
+		/*
+		 * If gre_redir tunnel does not exists, then isthere will be false.
+		 */
+		isthere = nss_gre_redir_get_stats(index, &stats);
+		if (!isthere) {
+			continue;
+		}
+
+		bytes = snprintf(line, sizeof(line), "\nTunnel if_num: %2d\n", stats.if_num);
+		if ((bytes_read + bytes) > sz) {
+			break;
+		}
+
+		if (copy_to_user(ubuf + bytes_read, line, bytes) != 0) {
+			bytes_read = -EFAULT;
+			goto fail;
+		}
+		bytes_read += bytes;
+		start = 0;
+		end = 6;
+		while (bytes_read < sz && start < end) {
+			bytes = nss_stats_gre_redir(line, sizeof(line), start, &stats);
+
+			if ((bytes_read + bytes) > sz)
+				break;
+
+			if (copy_to_user(ubuf + bytes_read, line, bytes) != 0) {
+				bytes_read = -EFAULT;
+				goto fail;
+			}
+
+			bytes_read += bytes;
+			start++;
+		}
+	}
+
+	if (bytes_read > 0) {
+		*ppos = bytes_read;
+	}
+
+	if (data) {
+		data->index = index;
+	}
+
+fail:
+	return bytes_read;
+}
+
+/*
  * nss_stats_open()
  */
 static int nss_stats_open(struct inode *inode, struct file *filp)
@@ -1217,6 +1330,7 @@ static int nss_stats_open(struct inode *inode, struct file *filp)
 	}
 	memset(data, 0, sizeof (struct nss_stats_data));
 	data->if_num = NSS_DYNAMIC_IF_START;
+	data->index = 0;
 	filp->private_data = data;
 
 	return 0;
@@ -1294,6 +1408,11 @@ NSS_STATS_DECLARE_FILE_OPERATIONS(capwap_decap)
  * eth_rx_stats_ops
  */
 NSS_STATS_DECLARE_FILE_OPERATIONS(eth_rx)
+
+/*
+ * gre_redir_ops
+ */
+NSS_STATS_DECLARE_FILE_OPERATIONS(gre_redir)
 
 /*
  * nss_stats_init()
@@ -1434,6 +1553,16 @@ void nss_stats_init(void)
 	nss_top_main.stats_dentry, &nss_top_main, &nss_stats_capwap_decap_ops);
 	if (unlikely(nss_top_main.capwap_decap_dentry == NULL)) {
 		nss_warning("Failed to create qca-nss-drv/stats/capwap_decap file in debugfs");
+		return;
+	}
+
+	/*
+	 * GRE_REDIR stats
+	 */
+	nss_top_main.gre_redir_dentry = debugfs_create_file("gre_redir", 0400,
+	nss_top_main.stats_dentry, &nss_top_main, &nss_stats_gre_redir_ops);
+	if (unlikely(nss_top_main.gre_redir_dentry == NULL)) {
+		nss_warning("Failed to create qca-nss-drv/stats/gre_redir file in debugfs");
 		return;
 	}
 }
