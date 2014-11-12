@@ -237,8 +237,8 @@ static int nss_htb_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
 		return -EINVAL;
 	}
 
-	if (qopt->crate && !qopt->cburst) {
-		nss_qdisc_error("%s: ceil burst needed if ceil rate is non zero - class %x\n",
+	if (!qopt->crate || !qopt->cburst) {
+		nss_qdisc_error("%s: crate and cburst need to be non zero - class %x\n",
 					__func__, classid);
 		return -EINVAL;
 	}
