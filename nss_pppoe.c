@@ -95,10 +95,10 @@ nss_tx_status_t nss_pppoe_tx(struct nss_ctx_instance *nss_ctx, struct nss_pppoe_
  */
 
 /*
- * nss_pppoe_reset_stats()
+ * nss_pppoe_reset_session_stats()
  * 	Reset PPPoE stats when session is destroyed.
  */
-static void nss_pppoe_reset_stats(struct nss_ctx_instance *nss_ctx)
+static void nss_pppoe_reset_session_stats(struct nss_ctx_instance *nss_ctx)
 {
 	uint32_t i, j, k;
 
@@ -117,11 +117,6 @@ static void nss_pppoe_reset_stats(struct nss_ctx_instance *nss_ctx)
 			}
 		}
 	}
-
-	nss_ctx->nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_CREATE_REQUESTS] = 0;
-	nss_ctx->nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_CREATE_FAILURES] = 0;
-	nss_ctx->nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_DESTROY_REQUESTS] = 0;
-	nss_ctx->nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_DESTROY_MISSES] = 0;
 
 	/*
 	 * TODO: Do we need to unregister the destroy method? The ppp_dev has already gone.
@@ -143,6 +138,7 @@ static void nss_pppoe_exception_stats_sync(struct nss_ctx_instance *nss_ctx, str
 	spin_lock_bh(&nss_top->stats_lock);
 
 	if (interface_num >= NSS_MAX_PHYSICAL_INTERFACES) {
+		spin_unlock_bh(&nss_top->stats_lock);
 		nss_warning("%p: Incorrect interface number %d for PPPoE exception stats", nss_ctx, interface_num);
 		return;
 	}
@@ -292,7 +288,7 @@ static void nss_pppoe_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct ns
 
 	case NSS_PPPOE_TX_CONN_RULE_DESTROY:
 		if (ncm->response == NSS_CMN_RESPONSE_ACK) {
-			nss_pppoe_reset_stats(nss_ctx);
+			nss_pppoe_reset_session_stats(nss_ctx);
 		}
 		break;
 
