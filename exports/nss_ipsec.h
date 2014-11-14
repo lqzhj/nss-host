@@ -28,9 +28,10 @@
  * for the full list
  */
 #define NSS_IPSEC_ARPHRD_IPSEC 31	/**< iana.org ARP Hardware type for IPsec tunnel*/
-#define NSS_IPSEC_MAX_SA 256 		/**< maximum SAs supported */
+#define NSS_IPSEC_MAX_RULES 256 	/**< maximum rules supported */
+#define NSS_IPSEC_MAX_SA NSS_CRYPTO_MAX_IDXS /**< maximum SAs supported */
 
-#if (~(NSS_IPSEC_MAX_SA - 1) & (NSS_IPSEC_MAX_SA >> 1))
+#if (~(NSS_IPSEC_MAX_RULES - 1) & (NSS_IPSEC_MAX_RULES >> 1))
 #error "NSS Max SA should be a power of 2"
 #endif
 
@@ -124,42 +125,38 @@ struct nss_ipsec_rule {
 	struct nss_ipsec_rule_oip oip;		/**< per rule outer IP info */
 	struct nss_ipsec_rule_data data;	/**< per rule data */
 
-	uint32_t index;				/**< rule index provided by NSS */
+	uint32_t rule_idx;			/**< rule index provided by NSS */
+	uint32_t sa_idx;			/**< index into SA table */
+};
+
+/**
+ * @brief Packet stats for individual SA
+ */
+struct nss_ipsec_pkt_stats {
+	uint32_t processed;			/**< packets processed */
+	uint32_t dropped;			/**< packets dropped */
+	uint32_t failed;			/**< processing failed */
 };
 
 /**
  * @brief NSS IPsec per SA statistics
  */
 struct nss_ipsec_sa_stats {
-	uint32_t index;				/**< table index for the stats */
-
-	uint32_t tx_pkts;			/**< number of packets transmitted */
-	uint32_t rx_pkts;			/**< number of packets received */
-	uint32_t dropped;			/**< number packets dropped */
-};
-
-/**
- * @brief NSS IPsec per tunnel statistics
- */
-struct nss_ipsec_stats {
-	uint32_t total_tx;			/**< total TX packets */
-	uint32_t total_rx;			/**< total RX packets */
-	uint32_t total_dropped;			/**< total dropped packets */
-
-	uint32_t num_entries;			/**< number of valid entries */
-	struct nss_ipsec_sa_stats sa[];		/**< stats is part of the payload */
+	uint32_t seqnum;			/**< SA sequence number */
+	uint32_t sa_idx;			/**< index into SA table */
+	struct nss_ipsec_pkt_stats pkts;	/**< packet statistics */
 };
 
 /*
  * @brief Message structure to send/receive ipsec messages
  */
 struct nss_ipsec_msg {
-	struct nss_cmn_msg cm;			/**< Message Header */
+	struct nss_cmn_msg cm;				/**< Message Header */
 
-	uint32_t tunnel_id;			/**< tunnel index associated with the message */
+	uint32_t tunnel_id;				/**< tunnel index associated with the message */
 	union {
-		struct nss_ipsec_rule push;	/**< Message: IPsec rule */
-		struct nss_ipsec_stats stats;	/**< Message: Retreive stats for tunnel */
+		struct nss_ipsec_rule push;		/**< Message: IPsec rule */
+		struct nss_ipsec_sa_stats stats;	/**< Message: Retreive stats for tunnel */
 	} msg;
 };
 

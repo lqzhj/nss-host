@@ -75,7 +75,7 @@ enum nss_ipsecmgr_entry_state {
 /* IPsec table entry */
 struct nss_ipsecmgr_tbl_entry {
 	struct nss_ipsec_rule_sel sel;		/* rule selector */
-	struct nss_ipsec_sa_stats stats;	/* per entry stats */
+	uint32_t sa_idx;			/* index into SA table for this rule */
 	enum nss_ipsecmgr_entry_state state;	/* state */
 };
 
@@ -84,19 +84,32 @@ struct nss_ipsecmgr_tbl {
 	uint32_t total_tx;					/* total packets tx'ed from ENCAP/DECAP */
 	uint32_t total_rx;					/* total packets rx'ed at ENCAP/DECAP */
 	uint32_t total_dropped;					/* total dropped packets at ENCAP/DECAP */
-	struct nss_ipsecmgr_tbl_entry entry[NSS_IPSEC_MAX_SA];	/* table entry */
+	struct nss_ipsecmgr_tbl_entry entry[NSS_IPSEC_MAX_RULES];	/* table entry */
 	uint32_t count;						/* number of entries */
 	spinlock_t lock;
 };
 
+/* NSS IPsec SA */
+struct nss_ipsec_sa {
+	atomic_t user;						/* reference count */
+	uint32_t esp_spi;					/* ESP SPI */
+
+	enum nss_ipsecmgr_rule_type type;			/* IPsec rule type (ENCAP/DECAP) */
+
+	struct nss_ipsec_rule_data data;			/* IPsec rule data */
+	struct nss_ipsec_sa_stats stats;			/* SA statistics */
+};
+
 /* NSS IPsec manager private structure */
 struct nss_ipsecmgr_priv {
-	struct nss_ipsecmgr_tbl encap;		/* encap table */
-	struct nss_ipsecmgr_tbl decap;		/* decap table */
+	struct nss_ipsecmgr_tbl encap;				/* encap table */
+	struct nss_ipsecmgr_tbl decap;				/* decap table */
+	struct nss_ipsec_sa sa_tbl[NSS_IPSEC_MAX_SA];		/* global SA table */
 
-	void *cb_ctx;				/* callback context */
-	nss_ipsecmgr_callback_t cb_fn;		/* callback function */
-	struct nss_ctx_instance *nss_ctx;	/* NSS context */
+	void *cb_ctx;						/* callback context */
+	nss_ipsecmgr_data_cb_t data_cb;				/* data callback function */
+	nss_ipsecmgr_event_cb_t event_cb;			/* event callback function */
+	struct nss_ctx_instance *nss_ctx;			/* NSS context */
 };
 
 typedef bool (*nss_ipsecmgr_op_t)(struct net_device *dev, struct nss_ipsecmgr_tbl *tbl, struct nss_ipsec_msg *nim);
@@ -125,6 +138,65 @@ static struct nss_ipsecmgr_drv gbl_drv_ctx;	/* global driver context */
  * Helper Functions
  **********************
  */
+
+/*
+ * nss_ipsecmgr_sa_init()
+ * 	Initialize SA
+ */
+static void nss_ipsecmgr_sa_init(struct nss_ipsec_sa *sa)
+{
+	memset(sa, 0, sizeof(struct nss_ipsec_sa));
+	atomic_set(&sa->user, 0);
+}
+
+/*
+ * nss_ipsecmgr_sa_get()
+ * 	Get reference to SA at given index
+ */
+static struct nss_ipsec_sa *nss_ipsecmgr_sa_get(struct nss_ipsec_sa sa_tbl[], uint32_t sa_idx)
+{
+	struct nss_ipsec_sa *sa = &sa_tbl[sa_idx];
+
+	atomic_inc(&sa->user);
+
+	return sa;
+}
+
+/*
+ * nss_ipsecmgr_sa_put()
+ * 	Release reference to SA at given index
+ */
+static void nss_ipsecmgr_sa_put(struct nss_ipsec_sa sa_tbl[], uint32_t sa_idx)
+{
+	struct nss_ipsec_sa *sa = &sa_tbl[sa_idx];
+
+	if (atomic_read(&sa->user) == 0) {
+		nss_ipsecmgr_error("SA already freed for (%d)\n", sa_idx);
+		return;
+	}
+
+	if (atomic_dec_and_test(&sa->user)) {
+		nss_ipsecmgr_sa_init(sa);
+	}
+}
+
+/*
+ * nss_ipsecmgr_get_type()
+ * 	Get IPsec manager rule type (encap/decap)
+ */
+static enum nss_ipsecmgr_rule_type nss_ipsecmgr_get_type(uint16_t if_num)
+{
+	switch(if_num) {
+	case NSS_IPSEC_ENCAP_IF_NUMBER:
+		return NSS_IPSECMGR_RULE_TYPE_ENCAP;
+
+	case NSS_IPSEC_DECAP_IF_NUMBER:
+		return NSS_IPSECMGR_RULE_TYPE_DECAP;
+
+	default:
+		return NSS_IPSECMGR_RULE_TYPE_NONE;
+	}
+}
 
 /*
  * nss_ipsecmgr_get_tbl()
@@ -286,8 +358,8 @@ static bool nss_ipsecmgr_verify_add(struct net_device *dev, struct nss_ipsecmgr_
 	struct nss_ipsecmgr_tbl_entry *entry;
 	uint32_t tbl_idx;
 
-	tbl_idx = rule->index;
-	if (tbl_idx >= NSS_IPSEC_MAX_SA) {
+	tbl_idx = rule->rule_idx;
+	if (tbl_idx >= NSS_IPSEC_MAX_RULES) {
 		nss_ipsecmgr_error("table index out of range\n");
 		return false;
 	}
@@ -305,7 +377,7 @@ static bool nss_ipsecmgr_verify_add(struct net_device *dev, struct nss_ipsecmgr_
 	/*
 	 * Table full, XXX:must increment stats
 	 */
-	if ((tbl->count + 1) >= NSS_IPSEC_MAX_SA) {
+	if ((tbl->count + 1) >= NSS_IPSEC_MAX_RULES) {
 		return false;
 	}
 
@@ -320,18 +392,51 @@ static bool nss_ipsecmgr_commit_add(struct net_device *dev, struct nss_ipsecmgr_
 {
 	struct nss_ipsec_rule *rule = &nim->msg.push;
 	struct nss_ipsecmgr_tbl_entry *entry;
+	struct nss_ipsecmgr_priv *priv;
+	struct nss_ipsec_sa *sa;
 	uint32_t tbl_idx;
+	uint32_t sa_idx;
+
+	priv = netdev_priv(dev);
 
 	/* Reduce the number of availabe SA(s) as we have successfully added one */
 	atomic_dec(&gbl_drv_ctx.sa_count);
 
-	tbl_idx = rule->index;
+	tbl_idx = rule->rule_idx;
 	entry = &tbl->entry[tbl_idx];
 
 	tbl->count++;
 
 	memcpy(&entry->sel, &rule->sel, sizeof(struct nss_ipsec_rule_sel));
 	entry->state = NSS_IPSECMGR_ENTRY_STATE_VALID;
+
+	/* increment SA use count */
+	sa_idx = rule->sa_idx;
+	sa = nss_ipsecmgr_sa_get(priv->sa_tbl, sa_idx);
+
+	/* copy rule data to SA */
+	memcpy(&sa->data, &rule->data, sizeof(struct nss_ipsec_rule_data));
+
+	/* save rule type (encap/decap) */
+	sa->type = nss_ipsecmgr_get_type(nim->cm.interface);
+
+	/* save ESP SPI in SA */
+	switch (nim->cm.interface) {
+	case NSS_IPSEC_ENCAP_IF_NUMBER:
+		sa->esp_spi = rule->oip.esp_spi;
+		break;
+
+	case NSS_IPSEC_DECAP_IF_NUMBER:
+		sa->esp_spi = rule->sel.esp_spi;
+		break;
+
+	default:
+		nss_ipsecmgr_error("invalid interface num = %d\n", nim->cm.interface);
+		return false;
+	}
+
+	/* save SA table index for this rule entry */
+	entry->sa_idx = sa_idx;
 
 	return true;
 }
@@ -346,8 +451,8 @@ static bool nss_ipsecmgr_verify_del(struct net_device *dev, struct nss_ipsecmgr_
 	struct nss_ipsecmgr_tbl_entry *entry;
 	uint32_t tbl_idx;
 
-	tbl_idx = rule->index;
-	if (tbl_idx >= NSS_IPSEC_MAX_SA) {
+	tbl_idx = rule->rule_idx;
+	if (tbl_idx >= NSS_IPSEC_MAX_RULES) {
 		nss_ipsecmgr_error("table index out of range\n");
 		return false;
 	}
@@ -386,18 +491,26 @@ static bool nss_ipsecmgr_commit_del(struct net_device *dev, struct nss_ipsecmgr_
 {
 	struct nss_ipsec_rule *rule = &nim->msg.push;
 	struct nss_ipsecmgr_tbl_entry *entry;
+	struct nss_ipsecmgr_priv *priv;
 	uint32_t tbl_idx;
+	uint32_t sa_idx;
+
+	priv = netdev_priv(dev);
 
 	/* Increase the number of available SA(s) as we have successfully freed one */
 	atomic_inc(&gbl_drv_ctx.sa_count);
 
-	tbl_idx = rule->index;
+	tbl_idx = rule->rule_idx;
 	entry = &tbl->entry[tbl_idx];
 
 	tbl->count--;
 
 	memset(&entry->sel, 0, sizeof(struct nss_ipsec_rule_sel));
 	entry->state = NSS_IPSECMGR_ENTRY_STATE_INVALID;
+
+	/* decrement SA use count */
+	sa_idx = rule->sa_idx;
+	nss_ipsecmgr_sa_put(priv->sa_tbl, sa_idx);
 
 	return true;
 }
@@ -408,7 +521,7 @@ static bool nss_ipsecmgr_commit_del(struct net_device *dev, struct nss_ipsecmgr_
  */
 static bool nss_ipsecmgr_verify_stats(struct net_device *dev, struct nss_ipsecmgr_tbl *tbl, struct nss_ipsec_msg *nim)
 {
-	struct nss_ipsec_stats *stats = &nim->msg.stats;
+	struct nss_ipsec_sa_stats *msg_sa_stats = &nim->msg.stats;
 
 	/*
 	 * Table empty, nothing to update
@@ -417,10 +530,7 @@ static bool nss_ipsecmgr_verify_stats(struct net_device *dev, struct nss_ipsecmg
 		return false;
 	}
 
-	/*
-	 * nothing to update
-	 */
-	if (stats->num_entries == 0) {
+	if (msg_sa_stats->sa_idx > NSS_CRYPTO_MAX_IDXS) {
 		return false;
 	}
 
@@ -433,24 +543,46 @@ static bool nss_ipsecmgr_verify_stats(struct net_device *dev, struct nss_ipsecmg
  */
 static bool nss_ipsecmgr_commit_stats(struct net_device *dev, struct nss_ipsecmgr_tbl *tbl, struct nss_ipsec_msg *nim)
 {
-	struct nss_ipsec_stats *stats = &nim->msg.stats;
+	struct nss_ipsec_sa_stats *msg_stats = &nim->msg.stats;
 	struct nss_ipsec_sa_stats *sa_stats;
-	struct nss_ipsecmgr_tbl_entry *entry;
-	uint32_t tbl_idx;
-	int i;
+	struct nss_ipsec_sa *sa;
+	struct nss_ipsecmgr_priv *priv;
+	struct nss_ipsecmgr_event event = {.type = NSS_IPSECMGR_EVENT_SA_STATS};
+	struct nss_ipsecmgr_sa_stats *event_stats = &event.data.stats;
+	nss_ipsecmgr_event_cb_t event_cb;
+	void *cb_ctx;
+	uint32_t sa_idx;
 
-	tbl->total_tx = stats->total_tx;
-	tbl->total_rx = stats->total_rx;
-	tbl->total_dropped = stats->total_dropped;
+	priv = netdev_priv(dev);
 
-	for (i = 0; i < stats->num_entries; i++) {
-		sa_stats = &stats->sa[i];
-		tbl_idx = sa_stats->index;
+	/* get reference to SA stats */
+	sa_idx = msg_stats->sa_idx;
+	sa = nss_ipsecmgr_sa_get(priv->sa_tbl, sa_idx);
 
-		entry = &tbl->entry[tbl_idx];
+	sa_stats = &sa->stats;
 
-		memcpy(&entry->stats, sa_stats, sizeof(struct nss_ipsec_sa_stats));
+	/* copy SA statistics */
+	sa_stats->seqnum = msg_stats->seqnum;
+	memcpy(&sa_stats->pkts, &msg_stats->pkts, sizeof(struct nss_ipsec_pkt_stats));
+
+	/* execute event callback to send SA stats event */
+	event_cb = priv->event_cb;
+	cb_ctx = priv->cb_ctx;
+	if (event_cb && cb_ctx) {
+		event_stats->esp_spi = sa->esp_spi;
+		event_stats->seqnum = sa_stats->seqnum;
+		event_stats->crypto_index = sa->data.crypto_index;
+		event_stats->type = sa->type;
+
+		event_stats->pkts_processed = sa_stats->pkts.processed;
+		event_stats->pkts_dropped = sa_stats->pkts.dropped;
+		event_stats->pkts_failed = sa_stats->pkts.failed;
+
+		event_cb(cb_ctx, &event);
 	}
+
+	/* decrement SA use count */
+	nss_ipsecmgr_sa_put(priv->sa_tbl, sa_idx);
 
 	return true;
 }
@@ -470,7 +602,17 @@ static bool nss_ipsecmgr_verify_flush(struct net_device *dev, struct nss_ipsecmg
  */
 static bool nss_ipsecmgr_commit_flush(struct net_device *dev, struct nss_ipsecmgr_tbl *tbl, struct nss_ipsec_msg *nim)
 {
+	struct nss_ipsecmgr_priv *priv;
+	struct nss_ipsec_sa *sa;
+	int32_t count;
+
+	priv = netdev_priv(dev);
+
 	tbl->count = 0;
+
+	for (count = 0, sa = &priv->sa_tbl[0]; count < NSS_IPSEC_MAX_SA; count++, sa++) {
+		nss_ipsecmgr_sa_init(sa);
+	}
 
 	return true;
 }
@@ -579,7 +721,7 @@ static bool nss_ipsecmgr_op_send(struct net_device *dev, struct nss_ipsec_msg *n
 static void nss_ipsecmgr_buf_receive(struct net_device *dev, struct sk_buff *skb, __attribute((unused)) struct napi_struct *napi)
 {
 	struct nss_ipsecmgr_priv *priv;
-	nss_ipsecmgr_callback_t cb_fn;
+	nss_ipsecmgr_data_cb_t cb_fn;
 	void *cb_ctx;
 	struct iphdr *ip;
 
@@ -596,7 +738,7 @@ static void nss_ipsecmgr_buf_receive(struct net_device *dev, struct sk_buff *skb
 
 	skb->dev = dev;
 
-	cb_fn = priv->cb_fn;
+	cb_fn = priv->data_cb;
 	cb_ctx = priv->cb_ctx;
 
 	/*
@@ -789,17 +931,34 @@ static struct net_device_stats *nss_ipsecmgr_tunnel_stats(struct net_device *dev
 {
 	struct net_device_stats *stats = &dev->stats;
 	struct nss_ipsecmgr_priv *priv;
-	struct nss_ipsecmgr_tbl *encap;
-	struct nss_ipsecmgr_tbl *decap;
+	struct nss_ipsec_sa *sa;
+	uint32_t i;
+
+	memset(stats, 0, sizeof(struct net_device_stats));
 
 	priv = netdev_priv(dev);
 
-	encap = &priv->encap;
-	decap = &priv->decap;
+	for (i = 0, sa = &priv->sa_tbl[0]; i < NSS_IPSEC_MAX_SA; i++, sa++) {
+		if (atomic_read(&sa->user) == 0) {
+			continue;
+		}
 
-	stats->rx_packets = encap->total_rx + decap->total_rx;
-	stats->tx_packets = encap->total_tx + decap->total_tx;
-	stats->tx_dropped = encap->total_dropped + decap->total_dropped;
+		switch (sa->type) {
+		case NSS_IPSECMGR_RULE_TYPE_ENCAP:
+			stats->tx_packets += sa->stats.pkts.processed;
+			stats->tx_dropped += sa->stats.pkts.dropped;
+			break;
+
+		case NSS_IPSECMGR_RULE_TYPE_DECAP:
+			stats->rx_packets += sa->stats.pkts.processed;
+			stats->rx_dropped += sa->stats.pkts.dropped;
+			break;
+
+		default:
+			nss_ipsecmgr_error("unknown ipsec rule type\n");
+			break;
+		}
+	}
 
 	return stats;
 }
@@ -872,11 +1031,13 @@ static void nss_ipsecmgr_tunnel_setup(struct net_device *dev)
  * nss_ipsecmgr_tunnel_add()
  * 	add a IPsec pseudo tunnel device
  */
-struct net_device *nss_ipsecmgr_tunnel_add(void *cb_ctx, nss_ipsecmgr_callback_t cb)
+struct net_device *nss_ipsecmgr_tunnel_add(void *cb_ctx, nss_ipsecmgr_data_cb_t data_cb, nss_ipsecmgr_event_cb_t event_cb)
 {
 	struct net_device *dev;
 	struct nss_ipsecmgr_priv *priv;
+	struct nss_ipsec_sa *sa;
 	int status;
+	int count;
 	int32_t if_number;
 
 	/* Features denote the skb types supported */
@@ -891,7 +1052,13 @@ struct net_device *nss_ipsecmgr_tunnel_add(void *cb_ctx, nss_ipsecmgr_callback_t
 	priv = netdev_priv(dev);
 
 	priv->cb_ctx = cb_ctx;
-	priv->cb_fn = cb;
+	priv->data_cb = data_cb;
+	priv->event_cb = event_cb;
+
+	/* initialize SA stats table for this tunnel */
+	for (count = 0, sa = &priv->sa_tbl[0]; count < NSS_IPSEC_MAX_SA; count++, sa++) {
+		nss_ipsecmgr_sa_init(sa);
+	}
 
 	spin_lock_init(&priv->encap.lock);
 	spin_lock_init(&priv->decap.lock);
@@ -951,7 +1118,8 @@ bool nss_ipsecmgr_tunnel_del(struct net_device *dev)
 	nss_ipsec_data_unregister(priv->nss_ctx, NSS_IPSEC_DECAP_IF_NUMBER);
 	nss_ipsec_data_unregister(priv->nss_ctx, NSS_IPSEC_ENCAP_IF_NUMBER);
 
-	priv->cb_fn = NULL;
+	priv->data_cb = NULL;
+	priv->event_cb = NULL;
 	priv->cb_ctx = NULL;
 
 	/*
@@ -1045,7 +1213,7 @@ bool nss_ipsecmgr_sa_del(struct net_device *dev, union nss_ipsecmgr_rule *rule, 
 	priv = netdev_priv(dev);
 
 	/* check if all SA(s) are already freed */
-	if (atomic_read(&gbl_drv_ctx.sa_count) == NSS_IPSEC_MAX_SA) {
+	if (atomic_read(&gbl_drv_ctx.sa_count) == NSS_IPSEC_MAX_RULES) {
 		return false;
 	}
 
@@ -1078,7 +1246,7 @@ static int __init nss_ipsecmgr_init(void)
 
 	memset(&gbl_drv_ctx, 0, sizeof(struct nss_ipsecmgr_drv));
 
-	atomic_set(&gbl_drv_ctx.sa_count, NSS_IPSEC_MAX_SA);
+	atomic_set(&gbl_drv_ctx.sa_count, NSS_IPSEC_MAX_RULES);
 
 	return 0;
 }

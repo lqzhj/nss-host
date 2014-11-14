@@ -141,6 +141,38 @@ union nss_ipsecmgr_rule {
 };
 
 /**
+ * @brief SA stats exported by NSS IPsec manager
+ */
+struct nss_ipsecmgr_sa_stats {
+	enum nss_ipsecmgr_rule_type type;		/**< Encap/Decap */
+	uint32_t esp_spi;				/**< ESP SPI */
+	uint32_t seqnum;				/**< SA sequence number */
+	uint32_t crypto_index;				/**< crypto session index */
+	uint32_t pkts_processed;			/**< packets processed */
+	uint32_t pkts_dropped;				/**< packets dropped */
+	uint32_t pkts_failed;				/**< packets failed to be processed */
+};
+
+/**
+ * @brief NSS IPsec manager event type
+ */
+enum nss_ipsecmgr_event_type {
+	NSS_IPSECMGR_EVENT_NONE = 0,			/**< invalid event type */
+	NSS_IPSECMGR_EVENT_SA_STATS,			/**< statistics sync */
+	NSS_IPSECMGR_EVENT_MAX
+};
+
+/**
+ * @brief NSS IPsec manager event
+ */
+struct nss_ipsecmgr_event {
+	enum nss_ipsecmgr_event_type type;		/**< Event type */
+	union {
+		struct nss_ipsecmgr_sa_stats stats;	/**< Event: SA statistics */
+	}data;
+};
+
+/**
  * @brief Callback function registered by the IPsec tunnel users
  *
  * @param ctx[IN] callback context associated with the tunnel
@@ -148,13 +180,25 @@ union nss_ipsecmgr_rule {
  *
  * @return
  */
-typedef void (*nss_ipsecmgr_callback_t) (void *ctx, struct sk_buff *skb);
+typedef void (*nss_ipsecmgr_data_cb_t) (void *ctx, struct sk_buff *skb);
+
+/**
+ * @brief Callback function registered by the IPsec tunnel users
+ * 	  to receive NSS IPsec manager events
+ *
+ * @param ctx[IN] callback context associated with the tunnel
+ * @param ev[IN] IPsec event
+ *
+ * @return
+ */
+typedef void (*nss_ipsecmgr_event_cb_t) (void *ctx, struct nss_ipsecmgr_event *ev);
 
 /**
  * @brief Create a new IPsec tunnel interface
  *
  * @param ctx[IN] context that the caller wants to be stored per tunnel
  * @param cb[IN] the callback function for receiving data
+ * @param event_cb[IN] the callback function for receiving events
  *
  * @return Netdevice for the IPsec tunnel interface
  *
@@ -165,7 +209,7 @@ typedef void (*nss_ipsecmgr_callback_t) (void *ctx, struct sk_buff *skb);
  * 	 packets to get IPsec encapsulated. This will help bind SA(s) to
  * 	 tunnels so when the tunnel goes away all associated SA(s)
  */
-struct net_device *nss_ipsecmgr_tunnel_add(void *ctx, nss_ipsecmgr_callback_t cb);
+struct net_device *nss_ipsecmgr_tunnel_add(void *ctx, nss_ipsecmgr_data_cb_t data_cb, nss_ipsecmgr_event_cb_t event_cb);
 
 /**
  * @brief Delete the IPsec tunnel
