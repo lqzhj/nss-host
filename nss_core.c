@@ -211,6 +211,10 @@ static inline uint16_t nss_core_cause_to_queue(uint16_t cause)
 	return 0;
 }
 
+/*
+ * nss_dump_desc()
+ *	Prints descriptor data
+ */
 static inline void nss_dump_desc(struct nss_ctx_instance *nss_ctx, struct n2h_descriptor *desc)
 {
 	printk("bad descriptor dump for nss core = %d\n", nss_ctx->id);
@@ -241,25 +245,268 @@ static inline int nss_core_skb_needs_linearize(struct sk_buff *skb)
 }
 
 /*
+ * nss_core_rx_pbuf()
+ *	Receive a pbuf from the NSS into Linux.
+ */
+static inline void nss_core_rx_pbuf(struct nss_ctx_instance *nss_ctx, struct n2h_descriptor *desc, struct napi_struct *napi, uint8_t buffer_type, struct sk_buff *nbuf)
+{
+	unsigned int interface_num = desc->interface_num;
+	struct nss_top_instance *nss_top = nss_ctx->nss_top;
+	struct net_device *ndev;
+	nss_phys_if_rx_callback_t cb;
+	void *ctx;
+
+	switch (buffer_type) {
+	case N2H_BUFFER_SHAPER_BOUNCED_INTERFACE:
+		{
+			/*
+			 * Bounced packet is returned from an interface bounce operation
+			 * Obtain the registrant to which to return the skb
+			 */
+			nss_shaper_bounced_callback_t bounced_callback;
+			void *app_data;
+			struct module *owner;
+			struct nss_shaper_bounce_registrant *reg = &nss_top->bounce_interface_registrants[interface_num];
+
+			spin_lock_bh(&nss_top->lock);
+
+			/*
+			 * Do we have a registrant?
+			 */
+			if (!reg->registered) {
+				spin_unlock_bh(&nss_top->lock);
+				break;
+			}
+
+			/*
+			 * Get handle to the owning registrant
+			 */
+			bounced_callback = reg->bounced_callback;
+			app_data = reg->app_data;
+			owner = reg->owner;
+			if (!try_module_get(owner)) {
+				spin_unlock_bh(&nss_top->lock);
+				break;
+			}
+
+			/*
+			 * Callback is active, unregistration is not permitted while this is in progress
+			 */
+			reg->callback_active = true;
+			spin_unlock_bh(&nss_top->lock);
+
+			/*
+			 * Pass bounced packet back to registrant
+			 */
+			bounced_callback(app_data, nbuf);
+			spin_lock_bh(&nss_top->lock);
+			reg->callback_active = false;
+			spin_unlock_bh(&nss_top->lock);
+			module_put(owner);
+		}
+		break;
+	case N2H_BUFFER_SHAPER_BOUNCED_BRIDGE:
+		/*
+		 * Bounced packet is returned from a bridge bounce operation
+		 */
+		{
+			/*
+			 * Bounced packet is returned from a bridge bounce operation
+			 * Obtain the registrant to which to return the skb
+			 */
+			nss_shaper_bounced_callback_t bounced_callback;
+			void *app_data;
+			struct module *owner;
+			struct nss_shaper_bounce_registrant *reg = &nss_top->bounce_bridge_registrants[interface_num];
+
+			spin_lock_bh(&nss_top->lock);
+
+			/*
+			 * Do we have a registrant?
+			 */
+			if (!reg->registered) {
+				spin_unlock_bh(&nss_top->lock);
+				break;
+			}
+
+			/*
+			 * Get handle to the owning registrant
+			 */
+			bounced_callback = reg->bounced_callback;
+			app_data = reg->app_data;
+			owner = reg->owner;
+			if (!try_module_get(owner)) {
+				spin_unlock_bh(&nss_top->lock);
+				break;
+			}
+
+			/*
+			 * Callback is active, unregistration is not permitted while this is in progress
+			 */
+			reg->callback_active = true;
+			spin_unlock_bh(&nss_top->lock);
+
+			/*
+			 * Pass bounced packet back to registrant
+			 */
+			bounced_callback(app_data, nbuf);
+			spin_lock_bh(&nss_top->lock);
+			reg->callback_active = false;
+			spin_unlock_bh(&nss_top->lock);
+			module_put(owner);
+		}
+		break;
+	case N2H_BUFFER_PACKET_VIRTUAL:
+		{
+			/*
+			 * Packet is destined to virtual interface
+			 */
+			uint32_t xmit_ret;
+
+			NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_VIRTUAL]);
+
+			/*
+			 * Checksum is already done by NSS for packets forwarded to virtual interfaces
+			 */
+			nbuf->ip_summed = CHECKSUM_NONE;
+
+			/*
+			 * Obtain net_device pointer
+			 */
+			ndev = (struct net_device *)nss_top->if_ctx[interface_num];
+			if (unlikely(ndev == NULL)) {
+				nss_warning("%p: Received packet for unregistered virtual interface %d",
+					nss_ctx, interface_num);
+
+				/*
+				 * NOTE: The assumption is that gather support is not
+				 * implemented in fast path and hence we can not receive
+				 * fragmented packets and so we do not need to take care
+				 * of freeing a fragmented packet
+				 */
+				dev_kfree_skb_any(nbuf);
+				break;
+			}
+
+			/*
+			 * TODO: Need to ensure the ndev is not removed before we take dev_hold().
+			 */
+			dev_hold(ndev);
+			nbuf->dev = ndev;
+
+			/*
+			 * Linearize the skb if needed
+			 */
+			 if (nss_core_skb_needs_linearize(nbuf) && __skb_linearize(nbuf)) {
+				/*
+				 * We needed to linearize, but __skb_linearize() failed. Therefore
+				 * we free the nbuf.
+				 */
+				 dev_kfree_skb_any(nbuf);
+				 break;
+			}
+
+			/*
+			 * Send the packet to virtual interface
+			 * NOTE: Invoking this will BYPASS any assigned QDisc - this is OKAY
+			 * as TX packets out of the NSS will have been shaped inside the NSS.
+			 */
+			xmit_ret = ndev->netdev_ops->ndo_start_xmit(nbuf, ndev);
+			if (unlikely(xmit_ret == NETDEV_TX_BUSY)) {
+				dev_kfree_skb_any(nbuf);
+				nss_info("%p: Congestion at virtual interface %d, %p", nss_ctx, interface_num, ndev);
+			}
+			dev_put(ndev);
+		}
+		break;
+
+	case N2H_BUFFER_PACKET: {
+		NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_PACKET]);
+
+		/*
+		 * Check if NSS was able to obtain checksum
+		 */
+		nbuf->ip_summed = CHECKSUM_UNNECESSARY;
+		if (unlikely(!(desc->bit_flags & N2H_BIT_FLAG_IP_TRANSPORT_CHECKSUM_VALID))) {
+			nbuf->ip_summed = CHECKSUM_NONE;
+		}
+
+		ctx = nss_top->if_ctx[interface_num];
+		cb = nss_top->if_rx_callback[interface_num];
+		if (likely(cb) && likely(ctx)) {
+			/*
+			 * Packet was received on Physical interface
+			 */
+			cb(ctx, (void *)nbuf, napi);
+		} else if (NSS_IS_IF_TYPE(DYNAMIC, interface_num) || NSS_IS_IF_TYPE(VIRTUAL, interface_num)) {
+			/*
+			 * Packet was received on Virtual interface
+			 */
+
+			/*
+			 * Give the packet to stack
+			 *
+			 * TODO: Change to gro receive later
+			 */
+			ctx = nss_top->if_ctx[interface_num];
+			if (ctx) {
+				dev_hold(ctx);
+				nbuf->dev = (struct net_device*) ctx;
+				nbuf->protocol = eth_type_trans(nbuf, ctx);
+				netif_receive_skb(nbuf);
+				dev_put(ctx);
+			} else {
+				/*
+				 * Interface has gone down
+				 */
+				nss_warning("%p: Received exception packet from bad virtual interface %d",
+						nss_ctx, interface_num);
+				dev_kfree_skb_any(nbuf);
+			}
+		} else {
+			dev_kfree_skb_any(nbuf);
+		}
+	}
+	break;
+
+	case N2H_BUFFER_STATUS:
+		NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_STATUS]);
+		nss_core_handle_nss_status_pkt(nss_ctx, nbuf);
+		dev_kfree_skb_any(nbuf);
+		break;
+
+	case N2H_BUFFER_EMPTY:
+		NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_EMPTY]);
+
+		/*
+		 * TODO: Unmap fragments.
+		 */
+		dev_kfree_skb_any(nbuf);
+		break;
+
+	default:
+		/*
+		 * ERROR:
+		 */
+		nss_warning("%p: Invalid buffer type %d received from NSS", nss_ctx, buffer_type);
+	}
+}
+
+/*
  * nss_core_handle_cause_queue()
  *	Handle interrupt cause related to N2H/H2N queues
  */
 static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uint16_t cause, int16_t weight)
 {
-	void *ctx;
-	nss_phys_if_rx_callback_t cb;
 	int16_t count, count_temp;
 	uint16_t size, mask, qid;
 	uint32_t nss_index, hlos_index;
 	struct sk_buff *nbuf, *head, *tail;
-	struct net_device *ndev;
 	struct hlos_n2h_desc_ring *n2h_desc_ring;
 	struct n2h_desc_if_instance *desc_if;
 	struct n2h_descriptor *desc_ring;
 	struct n2h_descriptor *desc;
-	uint32_t nr_frags;
 	struct nss_ctx_instance *nss_ctx = int_ctx->nss_ctx;
-	struct nss_top_instance *nss_top = nss_ctx->nss_top;
 	struct nss_if_mem_map *if_map = (struct nss_if_mem_map *)nss_ctx->vmap;
 
 	qid = nss_core_cause_to_queue(cause);
@@ -298,6 +545,10 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 		unsigned int buffer_type;
 		uint32_t opaque;
 		uint16_t bit_flags;
+		unsigned int payload_offs;
+		unsigned int payload_len;
+		dma_addr_t buffer;
+
 		desc = &desc_ring[hlos_index];
 		buffer_type = desc->buffer_type;
 		opaque = desc->opaque;
@@ -314,390 +565,174 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 			 *	are not applicable to crypto buffers
 			 */
 			nss_crypto_buf_handler(nss_ctx, (void *)opaque, desc->buffer, desc->payload_len);
-		} else {
-			unsigned int interface_num = desc->interface_num;
-
-			/*
-			* Obtain nbuf
-			*/
-			nbuf = (struct sk_buff *)opaque;
-			if (unlikely(nbuf < (struct sk_buff *)PAGE_OFFSET)) {
-				/*
-				 * Invalid opaque pointer
-				 */
-				nss_dump_desc(nss_ctx, desc);
-			}
-
-			/*
-			 * Get the number of fragments
-			 */
-			nr_frags = skb_shinfo(nbuf)->nr_frags;
-
-			/*
-			 * The Assumption here is that the SKB with frags[] will be
-			 * given back by NSS POP buffer only to free them.
-			 * Hence it is assumed that there is no need to unmap the
-			 * scattered segments and the first segment of SKB.
-			 */
-			if (likely(nr_frags == 0)) {
-				unsigned int payload_offs = desc->payload_offs;
-				unsigned int payload_len = desc->payload_len;
-				dma_addr_t buffer = desc->buffer;
-
-				if (buffer_type == N2H_BUFFER_EMPTY) {
-					/*
-					 * No need to invalidate for Tx Completions, so set dma direction = DMA_TO_DEVICE;
-					 * Similarly prefetch is not needed for an empty buffer.
-					 */
-					dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_TO_DEVICE);
-				} else {
-					/*
-					 * Set relevant fields within nbuf (len, head, tail)
-					 */
-					nbuf->data = nbuf->head + payload_offs;
-					nbuf->len = payload_len;
-					nbuf->tail = nbuf->data + nbuf->len;
-
-					if (likely(bit_flags & N2H_BIT_FLAG_FIRST_SEGMENT) && likely(bit_flags & N2H_BIT_FLAG_LAST_SEGMENT)) {
-						/*
-						 * TODO: Check if there is any issue wrt map and unmap,
-						 * NSS should playaround with data area and should not
-						 * touch HEADROOM area
-						 */
-						dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_FROM_DEVICE);
-						prefetch((void *)(nbuf->data));
-					} else {
-						/*
-						 * NSS sent us an SG chain.
-						 * Build a frag list out of segments.
-						 */
-						if (unlikely((bit_flags & N2H_BIT_FLAG_FIRST_SEGMENT))) {
-							/*
-							 * Found head.
-							 */
-							if (unlikely(skb_has_frag_list(nbuf))) {
-								/*
-								 * We don't support chain in a chain.
-								 */
-								nss_warning("%p: skb already has a fraglist", nbuf);
-								dev_kfree_skb_any(nbuf);
-								goto out;
-							}
-
-							/*
-							 * We've received another head before we saw the last segment.
-							 * Free the old head as the frag list is corrupt.
-							 */
-							if (unlikely(head != NULL)) {
-								nss_warning("%p: received the second head before a last", head);
-								dev_kfree_skb_any(head);
-							}
-							head = nbuf;
-
-							skb_frag_list_init(nbuf);
-							head->data_len = 0;
-							head->truesize = payload_len;
-							dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_FROM_DEVICE);
-							prefetch((void *)(nbuf->data));
-
-							/*
-							 * Skip sending until last is received.
-							 */
-							goto out;
-						} else {
-							/*
-							 * We've received a middle segment.
-							 * Check that we have received a head first to avoid null deferencing.
-							 */
-							if (unlikely(head == NULL)) {
-								/*
-								 * Middle before first! Free the middle.
-								 */
-								nss_warning("%p: saw a middle skb before head", nbuf);
-								dev_kfree_skb_any(nbuf);
-								goto out;
-							}
-
-							if (!skb_has_frag_list(head)) {
-								/*
-								 * 2nd skb in the chain. head's frag_list should point to him.
-								 */
-								skb_frag_add_head(head, nbuf);
-							} else {
-								/*
-								 * 3rd, 4th... skb in the chain. The chain's previous tail's
-								 * next should point to him.
-								 */
-								tail->next = nbuf;
-								nbuf->next = NULL;
-							}
-							tail = nbuf;
-
-							/*
-							 * Now we've added a new nbuf to the chain.
-							 * Update the chain length.
-							 */
-							head->data_len += desc->payload_len;
-							head->len += desc->payload_len;
-							head->truesize += desc->payload_len;
-
-							dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_FROM_DEVICE);
-							prefetch((void *)(nbuf->data));
-
-							if (!(bit_flags & N2H_BIT_FLAG_LAST_SEGMENT)) {
-								/*
-								 * Skip sending until last is received.
-								 */
-								goto out;
-							}
-
-							/*
-							 * Last is received. Send the frag_list.
-							 */
-							nbuf = head;
-							head = NULL;
-							tail = NULL;
-						}
-
-					}
-				}
-			}
-
-			switch (buffer_type) {
-			case N2H_BUFFER_SHAPER_BOUNCED_INTERFACE:
-				{
-					/*
-					 * Bounced packet is returned from an interface bounce operation
-					 * Obtain the registrant to which to return the skb
-					 */
-					nss_shaper_bounced_callback_t bounced_callback;
-					void *app_data;
-					struct module *owner;
-					struct nss_shaper_bounce_registrant *reg = &nss_top->bounce_interface_registrants[interface_num];
-
-					spin_lock_bh(&nss_top->lock);
-
-					/*
-					 * Do we have a registrant?
-					 */
-					if (!reg->registered) {
-						spin_unlock_bh(&nss_top->lock);
-						break;
-					}
-
-					/*
-					 * Get handle to the owning registrant
-					 */
-					bounced_callback = reg->bounced_callback;
-					app_data = reg->app_data;
-					owner = reg->owner;
-					if (!try_module_get(owner)) {
-						spin_unlock_bh(&nss_top->lock);
-						break;
-					}
-
-					/*
-					 * Callback is active, unregistration is not permitted while this is in progress
-					 */
-					reg->callback_active = true;
-					spin_unlock_bh(&nss_top->lock);
-
-					/*
-					 * Pass bounced packet back to registrant
-					 */
-					bounced_callback(app_data, nbuf);
-					spin_lock_bh(&nss_top->lock);
-					reg->callback_active = false;
-					spin_unlock_bh(&nss_top->lock);
-					module_put(owner);
-				}
-				break;
-			case N2H_BUFFER_SHAPER_BOUNCED_BRIDGE:
-				/*
-				 * Bounced packet is returned from a bridge bounce operation
-				 */
-				{
-					/*
-					 * Bounced packet is returned from a bridge bounce operation
-					 * Obtain the registrant to which to return the skb
-					 */
-					nss_shaper_bounced_callback_t bounced_callback;
-					void *app_data;
-					struct module *owner;
-					struct nss_shaper_bounce_registrant *reg = &nss_top->bounce_bridge_registrants[interface_num];
-
-					spin_lock_bh(&nss_top->lock);
-
-					/*
-					 * Do we have a registrant?
-					 */
-					if (!reg->registered) {
-						spin_unlock_bh(&nss_top->lock);
-						break;
-					}
-
-					/*
-					 * Get handle to the owning registrant
-					 */
-					bounced_callback = reg->bounced_callback;
-					app_data = reg->app_data;
-					owner = reg->owner;
-					if (!try_module_get(owner)) {
-						spin_unlock_bh(&nss_top->lock);
-						break;
-					}
-
-					/*
-					 * Callback is active, unregistration is not permitted while this is in progress
-					 */
-					reg->callback_active = true;
-					spin_unlock_bh(&nss_top->lock);
-
-					/*
-					 * Pass bounced packet back to registrant
-					 */
-					bounced_callback(app_data, nbuf);
-					spin_lock_bh(&nss_top->lock);
-					reg->callback_active = false;
-					spin_unlock_bh(&nss_top->lock);
-					module_put(owner);
-				}
-				break;
-			case N2H_BUFFER_PACKET_VIRTUAL:
-				{
-					/*
-					 * Packet is destined to virtual interface
-					 */
-					uint32_t xmit_ret;
-
-					NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_VIRTUAL]);
-
-					/*
-					 * Checksum is already done by NSS for packets forwarded to virtual interfaces
-					 */
-					nbuf->ip_summed = CHECKSUM_NONE;
-
-					/*
-					 * Obtain net_device pointer
-					 */
-					ndev = (struct net_device *)nss_top->if_ctx[interface_num];
-					if (unlikely(ndev == NULL)) {
-						nss_warning("%p: Received packet for unregistered virtual interface %d",
-							nss_ctx, interface_num);
-
-						/*
-						 * NOTE: The assumption is that gather support is not
-						 * implemented in fast path and hence we can not receive
-						 * fragmented packets and so we do not need to take care
-						 * of freeing a fragmented packet
-						 */
-						dev_kfree_skb_any(nbuf);
-						break;
-					}
-
-					dev_hold(ndev);		// GGG FIXME THIS IS BROKEN AS NDEV COULD BE DESTROYED BEFORE THE HOLD IS TAKEN!  NDEV SHOULD BE HELD WHEN THE VIRTUAL IS REGISTERED
-								// AND THE HOLD HERE TAKEN INSIDE OF SOME KIND OF MUTEX LOCK WITH VIRTUAL UNREGISTRATION
-					nbuf->dev = ndev;
-
-					/*
-					 * Linearize the skb if needed
-					 */
-					if (nss_core_skb_needs_linearize(nbuf) && __skb_linearize(nbuf)) {
-						/*
-						 * We needed to linearize, but __skb_linearize() failed. Therefore
-						 * we free the nbuf.
-						 */
-						dev_kfree_skb_any(nbuf);
-						break;
-					}
-
-					/*
-					 * Send the packet to virtual interface
-					 * NOTE: Invoking this will BYPASS any assigned QDisc - this is OKAY
-					 * as TX packets out of the NSS will have been shaped inside the NSS.
-					 */
-					xmit_ret = ndev->netdev_ops->ndo_start_xmit(nbuf, ndev);
-					if (unlikely(xmit_ret == NETDEV_TX_BUSY)) {
-						dev_kfree_skb_any(nbuf);
-						nss_info("%p: Congestion at virtual interface %d, %p", nss_ctx, interface_num, ndev);
-					}
-
-					dev_put(ndev);
-				}
-				break;
-
-			case N2H_BUFFER_PACKET:
-				NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_PACKET]);
-
-				/*
-				 * Check if NSS was able to obtain checksum
-				 */
-				nbuf->ip_summed = CHECKSUM_UNNECESSARY;
-				if (unlikely(!(desc->bit_flags & N2H_BIT_FLAG_IP_TRANSPORT_CHECKSUM_VALID))) {
-					nbuf->ip_summed = CHECKSUM_NONE;
-				}
-
-				ctx = nss_top->if_ctx[interface_num];
-				cb = nss_top->if_rx_callback[interface_num];
-				if (likely(cb) && likely(ctx)) {
-					/*
-					 * Packet was received on Physical interface
-					 */
-					cb(ctx, (void *)nbuf, &(int_ctx->napi));
-				} else if (NSS_IS_IF_TYPE(DYNAMIC, interface_num) || NSS_IS_IF_TYPE(VIRTUAL, interface_num)) {
-					/*
-					 * Packet was received on Virtual interface
-					 */
-
-					/*
-					 * Give the packet to stack
-					 *
-					 * TODO: Change to gro receive later
-					 */
-					ctx = nss_top->if_ctx[interface_num];
-					if (ctx) {
-						dev_hold(ctx);
-						nbuf->dev = (struct net_device*) ctx;
-						nbuf->protocol = eth_type_trans(nbuf, ctx);
-						netif_receive_skb(nbuf);
-						dev_put(ctx);
-					} else {
-						/*
-						 * Interface has gone down
-						 */
-						nss_warning("%p: Received exception packet from bad virtual interface %d",
-								nss_ctx, interface_num);
-						dev_kfree_skb_any(nbuf);
-					}
-				} else {
-					dev_kfree_skb_any(nbuf);
-				}
-				break;
-
-			case N2H_BUFFER_STATUS:
-				NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_STATUS]);
-				nss_core_handle_nss_status_pkt(nss_ctx, nbuf);
-				dev_kfree_skb_any(nbuf);
-				break;
-
-			case N2H_BUFFER_EMPTY:
-				NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_EMPTY]);
-
-				/*
-				 * TODO: Unmap fragments
-				 */
-				dev_kfree_skb_any(nbuf);
-				break;
-
-			default:
-				/*
-				 * ERROR:
-				 */
-				nss_warning("%p: Invalid buffer type %d received from NSS", nss_ctx, buffer_type);
-			}
+			goto next;
 		}
 
-out:
+		/*
+		 * Obtain nbuf
+		 */
+		nbuf = (struct sk_buff *)opaque;
+		if (unlikely(nbuf < (struct sk_buff *)PAGE_OFFSET)) {
+			/*
+			 * Invalid opaque pointer
+			 */
+			nss_dump_desc(nss_ctx, desc);
+			goto next;
+		}
+
+		/*
+		 * Get the payload and buffer data from the descriptor.
+		 */
+		payload_offs = desc->payload_offs;
+		payload_len = desc->payload_len;
+		buffer = desc->buffer;
+
+		/*
+		 * Handle Empty Buffer Returns.
+		 */
+		if (unlikely(buffer_type == N2H_BUFFER_EMPTY)) {
+			/*
+			 * The firmware send's empty buffers as singleton buffers.
+			 * Make sure we treat frag_list buffers as singelton.
+			 */
+			skb_frag_list_init(nbuf);
+
+			/*
+			 * Since we only return the primary skb, we have no way to unmap
+			 * properly. Simple skb's are properly mapped but page data skbs
+			 * have the payload mapped (and not the skb->data slab payload).
+			 *
+			 * TODO: This only unmaps the first segment either slab payload or
+			 * skb page data.  Eventually, we need to unmap all of a frag_list
+			 * or all of page_data.
+			 */
+			dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_TO_DEVICE);
+			goto consume;
+		}
+
+		/*
+		 * Shaping uses the singelton approach as well. No need to unmap all the segments since only
+		 * one of them has actually looked at.
+		 */
+		if ((unlikely(buffer_type == N2H_BUFFER_SHAPER_BOUNCED_INTERFACE)) || (unlikely(buffer_type == N2H_BUFFER_SHAPER_BOUNCED_BRIDGE))) {
+			dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_TO_DEVICE);
+			goto consume;
+		}
+
+		/*
+		 * From here we are re-creating a valid SKB.
+		 */
+		nbuf->data = nbuf->head + payload_offs;
+		nbuf->len = payload_len;
+		nbuf->tail = nbuf->data + nbuf->len;
+		if (likely(bit_flags & N2H_BIT_FLAG_FIRST_SEGMENT) && likely(bit_flags & N2H_BIT_FLAG_LAST_SEGMENT)) {
+			/*
+			 * TODO: Check if there is any issue wrt map and unmap,
+			 * NSS should playaround with data area and should not
+			 * touch HEADROOM area
+			 */
+			dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_FROM_DEVICE);
+			prefetch((void *)(nbuf->data));
+			goto consume;
+		}
+
+		/*
+		 * NSS sent us an SG chain.
+		 * Build a frag list out of segments.
+		 * TODO: We will need to re-work this code to add page data support.
+		 */
+		if (unlikely((bit_flags & N2H_BIT_FLAG_FIRST_SEGMENT))) {
+			/*
+			 * Found head.
+			 */
+			if (unlikely(skb_has_frag_list(nbuf))) {
+				/*
+				 * We don't support chain in a chain.
+				 */
+				nss_warning("%p: skb already has a fraglist", nbuf);
+				dev_kfree_skb_any(nbuf);
+				goto next;
+			}
+
+			/*
+			 * We've received another head before we saw the last segment.
+			 * Free the old head as the frag list is corrupt.
+			 */
+			if (unlikely(head != NULL)) {
+				nss_warning("%p: received the second head before a last", head);
+				dev_kfree_skb_any(head);
+			}
+			head = nbuf;
+
+			skb_frag_list_init(nbuf);
+			head->data_len = 0;
+			head->truesize = payload_len;
+			dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_FROM_DEVICE);
+			prefetch((void *)(nbuf->data));
+
+			/*
+			 * Skip sending until last is received.
+			 */
+			goto next;
+		}
+
+		/*
+		 * We've received a middle segment.
+		 * Check that we have received a head first to avoid null deferencing.
+		 */
+		if (unlikely(head == NULL)) {
+			/*
+			 * Middle before first! Free the middle.
+			 */
+			nss_warning("%p: saw a middle skb before head", nbuf);
+			dev_kfree_skb_any(nbuf);
+			goto next;
+		}
+
+		if (!skb_has_frag_list(head)) {
+			/*
+			 * 2nd skb in the chain. head's frag_list should point to him.
+			 */
+			skb_frag_add_head(head, nbuf);
+		} else {
+			/*
+			 * 3rd, 4th... skb in the chain. The chain's previous tail's
+			 * next should point to him.
+			 */
+			tail->next = nbuf;
+			nbuf->next = NULL;
+		}
+
+		tail = nbuf;
+
+		/*
+		 * Now we've added a new nbuf to the chain.
+		 * Update the chain length.
+		 */
+		head->data_len += desc->payload_len;
+		head->len += desc->payload_len;
+		head->truesize += desc->payload_len;
+
+		dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_FROM_DEVICE);
+		prefetch((void *)(nbuf->data));
+
+		if (!(bit_flags & N2H_BIT_FLAG_LAST_SEGMENT)) {
+			/*
+			 * Skip sending until last is received.
+			 */
+			goto next;
+		}
+
+		/*
+		 * Last is received. Send the frag_list.
+		 */
+		nbuf = head;
+		head = NULL;
+		tail = NULL;
+consume:
+		nss_core_rx_pbuf(nss_ctx, desc, &(int_ctx->napi), buffer_type, nbuf);
+
+next:
 		hlos_index = (hlos_index + 1) & (mask);
 		count_temp--;
 	}
@@ -1130,6 +1165,241 @@ int32_t nss_core_send_crypto(struct nss_ctx_instance *nss_ctx, void *buf, uint32
 }
 
 /*
+ * nss_core_write_one_descriptor()
+ *	Fills-up a descriptor with required fields.
+ */
+static inline void nss_core_write_one_descriptor(struct h2n_descriptor *desc,
+	uint16_t buffer_type, uint32_t buffer, uint32_t if_num,
+	uint32_t opaque, uint16_t payload_off, uint16_t payload_len, uint16_t buffer_len,
+	uint32_t qos_tag, uint16_t mss, uint16_t bit_flags)
+{
+	desc->buffer_type = buffer_type;
+	desc->buffer = buffer;
+	desc->interface_num = (int8_t)if_num;
+	desc->opaque = opaque;
+	desc->payload_offs = payload_off;
+	desc->payload_len = payload_len;
+	desc->buffer_len = buffer_len;
+	desc->qos_tag = qos_tag;
+	desc->mss = mss;
+	desc->bit_flags = bit_flags;
+}
+
+/*
+ * nss_core_send_buffer_simple_skb()
+ *	Sends one skb to NSS FW
+ */
+static inline int32_t nss_core_send_buffer_simple_skb(struct nss_ctx_instance *nss_ctx,
+	struct h2n_desc_if_instance *desc_if, uint32_t if_num, uint32_t frag0phyaddr,
+	struct sk_buff *nbuf, uint16_t hlos_index, uint16_t flags, uint8_t buffer_type, uint16_t mss)
+{
+	struct h2n_descriptor *desc_ring = desc_if->desc;
+	struct h2n_descriptor *desc;
+	uint16_t bit_flags;
+	uint16_t mask;
+
+	bit_flags = flags | H2N_BIT_FLAG_FIRST_SEGMENT | H2N_BIT_FLAG_LAST_SEGMENT;
+
+	if (likely(nbuf->ip_summed == CHECKSUM_PARTIAL)) {
+		bit_flags |= H2N_BIT_FLAG_GEN_IP_TRANSPORT_CHECKSUM;
+	} else if (nbuf->ip_summed == CHECKSUM_UNNECESSARY) {
+		bit_flags |= H2N_BIT_FLAG_GEN_IP_TRANSPORT_CHECKSUM_NONE;
+	}
+
+	mask = desc_if->size - 1;
+	desc = &desc_ring[hlos_index];
+
+	nss_core_write_one_descriptor(desc, buffer_type, frag0phyaddr, if_num,
+		(uint32_t)nbuf, (uint16_t)(nbuf->data - nbuf->head), nbuf->len,
+		(uint16_t)(nbuf->end - nbuf->head), (uint32_t)nbuf->priority, mss, bit_flags);
+
+	if (unlikely(!NSS_IS_IF_TYPE(VIRTUAL, if_num))) {
+		if (likely(nbuf->destructor == NULL)) {
+			if (likely(skb_recycle_check(nbuf, nss_ctx->max_buf_size))) {
+				bit_flags |= H2N_BIT_BUFFER_REUSE;
+				desc->buffer_len = nss_ctx->max_buf_size + NET_SKB_PAD;
+				desc->bit_flags = bit_flags;
+			}
+		}
+	}
+
+	return 1;
+}
+
+/*
+ * nss_core_send_buffer_nr_frags()
+ *	Sends frags array (NETIF_F_SG) to NSS FW
+ */
+static inline int32_t nss_core_send_buffer_nr_frags(struct nss_ctx_instance *nss_ctx,
+	struct h2n_desc_if_instance *desc_if, uint32_t if_num, uint32_t frag0phyaddr,
+	struct sk_buff *nbuf, uint16_t hlos_index, uint16_t flags, uint8_t buffer_type, uint16_t mss)
+{
+	struct h2n_descriptor *desc_ring = desc_if->desc;
+	struct h2n_descriptor *desc;
+	const skb_frag_t *frag;
+	dma_addr_t buffer;
+	uint32_t nr_frags;
+	uint16_t bit_flags;
+	int16_t i;
+	uint16_t mask;
+
+	/*
+	 * Set the appropriate flags.
+	 */
+	bit_flags = (flags | H2N_BIT_FLAG_DISCARD);
+	if (likely(nbuf->ip_summed == CHECKSUM_PARTIAL)) {
+		bit_flags |= H2N_BIT_FLAG_GEN_IP_TRANSPORT_CHECKSUM;
+	}
+
+	mask = desc_if->size - 1;
+	desc = &desc_ring[hlos_index];
+
+	/*
+	 * First fragment/descriptor is special
+	 */
+	nss_core_write_one_descriptor(desc, buffer_type, frag0phyaddr, if_num,
+		(uint32_t)NULL, nbuf->data - nbuf->head, nbuf->len - nbuf->data_len,
+		nbuf->end - nbuf->head, (uint32_t)nbuf->priority, mss, bit_flags | H2N_BIT_FLAG_FIRST_SEGMENT);
+
+	/*
+	 * Now handle rest of the fragments.
+	 */
+	nr_frags = skb_shinfo(nbuf)->nr_frags;
+	BUG_ON(nr_frags > MAX_SKB_FRAGS);
+	for (i = 0; i < nr_frags; i++) {
+		frag = &skb_shinfo(nbuf)->frags[i];
+
+		buffer = skb_frag_dma_map(NULL, frag, 0, skb_frag_size(frag), DMA_TO_DEVICE);
+		if (unlikely(dma_mapping_error(NULL, buffer))) {
+			nss_warning("%p: DMA mapping failed for fragment", nss_ctx);
+			return -(i + 1);
+		}
+
+		hlos_index = (hlos_index + 1) & (mask);
+		desc = &(desc_if->desc[hlos_index]);
+
+		nss_core_write_one_descriptor(desc, buffer_type, buffer, if_num,
+			(uint32_t)NULL, 0, skb_frag_size(frag), skb_frag_size(frag),
+			nbuf->priority, mss, bit_flags);
+	}
+
+	/*
+	 * Update bit flag for last descriptor.
+	 * The discard flag shall be set for all fragments except the
+	 * the last one.The NSS returns the last fragment to HLOS
+	 * after the packet processing is done.We do need to send the
+	 * packet buffer address (skb) in the descriptor of last segment
+	 * when the decriptor returns from NSS the HLOS uses the
+	 * opaque field to free the memory allocated.
+	 */
+	desc->bit_flags |= H2N_BIT_FLAG_LAST_SEGMENT;
+	desc->bit_flags &= ~(H2N_BIT_FLAG_DISCARD);
+	desc->opaque = (uint32_t)nbuf;
+
+	return i+1;
+}
+
+/*
+ * nss_core_send_buffer_fraglist()
+ *	Sends fraglist (NETIF_F_FRAGLIST) to NSS FW
+ */
+static inline int32_t nss_core_send_buffer_fraglist(struct nss_ctx_instance *nss_ctx,
+	struct h2n_desc_if_instance *desc_if, uint32_t if_num, uint32_t frag0phyaddr,
+	struct sk_buff *nbuf, uint16_t hlos_index, uint16_t flags, uint8_t buffer_type, uint16_t mss)
+{
+	struct h2n_descriptor *desc_ring = desc_if->desc;
+	struct h2n_descriptor *desc;
+	dma_addr_t buffer;
+	uint16_t mask;
+	struct sk_buff *iter;
+	uint16_t bit_flags;
+	int16_t i;
+
+	/*
+	 * Set the appropriate flags.
+	 */
+	bit_flags = (flags | H2N_BIT_FLAG_DISCARD);
+	if (likely(nbuf->ip_summed == CHECKSUM_PARTIAL)) {
+		bit_flags |= H2N_BIT_FLAG_GEN_IP_TRANSPORT_CHECKSUM;
+	}
+
+	mask = desc_if->size - 1;
+	desc = &desc_ring[hlos_index];
+
+	/*
+	 * First fragment/descriptor is special
+	 */
+	nss_core_write_one_descriptor(desc, buffer_type, frag0phyaddr, if_num,
+		(uint32_t)NULL, nbuf->data - nbuf->head, nbuf->len - nbuf->data_len,
+		nbuf->end - nbuf->head, (uint32_t)nbuf->priority, mss, bit_flags | H2N_BIT_FLAG_FIRST_SEGMENT);
+
+	/*
+	 * Walk the frag_list in nbuf
+	 */
+	i = 0;
+	skb_walk_frags(nbuf, iter) {
+		uint32_t nr_frags;
+
+		buffer = (uint32_t)dma_map_single(NULL, iter->head, (iter->tail - iter->head), DMA_TO_DEVICE);
+		if (unlikely(dma_mapping_error(NULL, buffer))) {
+			nss_warning("%p: DMA mapping failed for virtual address = %x", nss_ctx, (uint32_t)iter->head);
+			return -(i+1);
+		}
+
+		/*
+		 * We currently don't support frags[] array inside a
+		 * fraglist.
+		 */
+		nr_frags = skb_shinfo(iter)->nr_frags;
+		if (unlikely(nr_frags > 0)) {
+			nss_warning("%p: fraglist with page data are not supported: %p\n", nss_ctx, iter);
+			return -(i+1);
+		}
+
+		/*
+		 * Update index.
+		 */
+		hlos_index = (hlos_index + 1) & (mask);
+		desc = &(desc_if->desc[hlos_index]);
+
+		nss_core_write_one_descriptor(desc, buffer_type, buffer, if_num,
+			(uint32_t)NULL, iter->data - iter->head, iter->len - iter->data_len,
+			iter->end - iter->head, iter->priority, mss, bit_flags);
+
+		i++;
+	}
+
+	/*
+	 * Update bit flag for last descriptor. The discard flag shall
+	 * be set for all fragments except the the last one.
+	 */
+	desc->bit_flags |= H2N_BIT_FLAG_LAST_SEGMENT;
+	desc->bit_flags &= ~(H2N_BIT_FLAG_DISCARD);
+	desc->opaque = (uint32_t)nbuf;
+
+	return i+1;
+}
+
+/*
+ * nss_core_send_unwind_dma()
+ *	It unwinds (or unmap) DMA from descriptors
+ */
+static inline void nss_core_send_unwind_dma(struct h2n_desc_if_instance *desc_if,
+	uint16_t hlos_index, int16_t count)
+{
+	struct h2n_descriptor *desc_ring = desc_if->desc;
+	struct h2n_descriptor *desc;
+	int16_t i, mask;
+
+	mask = desc_if->size - 1;
+	for (i = 0; i < count; i++) {
+		desc = &desc_ring[hlos_index];
+		dma_unmap_single(NULL, desc->buffer, desc->buffer_len, DMA_TO_DEVICE);
+		hlos_index = (hlos_index + 1) & mask;
+	}
+}
+
+/*
  * nss_core_send_buffer()
  *	Send network buffer to NSS
  */
@@ -1148,9 +1418,6 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	uint32_t frag0phyaddr = 0;
 	bool is_bounce = ((buffer_type == H2N_BUFFER_SHAPER_BOUNCE_INTERFACE) || (buffer_type == H2N_BUFFER_SHAPER_BOUNCE_BRIDGE));
 
-	nr_frags = skb_shinfo(nbuf)->nr_frags;
-
-	BUG_ON(nr_frags > MAX_SKB_FRAGS);
 
 	desc_ring = desc_if->desc;
 	size = desc_if->size;
@@ -1160,6 +1427,26 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	if (unlikely(dma_mapping_error(NULL, frag0phyaddr))) {
 		nss_warning("%p: DMA mapping failed for virtual address = %x", nss_ctx,(uint32_t)nbuf->head);
 		return NSS_CORE_STATUS_FAILURE;
+	}
+
+	/*
+	 * If nbuf does not have fraglist, then update nr_frags
+	 * from frags[] array. Otherwise walk the frag_list.
+	 */
+	if (!skb_has_frag_list(nbuf)) {
+		nr_frags = skb_shinfo(nbuf)->nr_frags;
+		BUG_ON(nr_frags > MAX_SKB_FRAGS);
+	} else {
+		struct sk_buff *iter;
+
+		nr_frags = 0;
+		skb_walk_frags(nbuf, iter) {
+			uint32_t nr_frags_list;
+
+			nr_frags_list = skb_shinfo(iter)->nr_frags;
+			BUG_ON(nr_frags_list > MAX_SKB_FRAGS);
+			nr_frags += (nr_frags_list + 1);
+		}
 	}
 
 	/*
@@ -1254,122 +1541,35 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	 * to do since the skb will eventually be returned to the HLOS for freeing or further
 	 * processing (post shaping). These packets WILL NOT get transmitted/re-used in the NSS.
 	 */
+	count = 0;
 	if (likely((nr_frags == 0) || is_bounce)) {
-		uint16_t bit_flags;
-
-		bit_flags = flags | H2N_BIT_FLAG_FIRST_SEGMENT | H2N_BIT_FLAG_LAST_SEGMENT;
-
-		if (likely(nbuf->ip_summed == CHECKSUM_PARTIAL)) {
-			bit_flags |= H2N_BIT_FLAG_GEN_IP_TRANSPORT_CHECKSUM;
-		} else if (nbuf->ip_summed == CHECKSUM_UNNECESSARY) {
-			bit_flags |= H2N_BIT_FLAG_GEN_IP_TRANSPORT_CHECKSUM_NONE;
-		}
-
-		desc->buffer_type = buffer_type;
-		desc->buffer = frag0phyaddr;
-		desc->interface_num = (int8_t)if_num;
-		desc->opaque = (uint32_t)nbuf;
-		desc->payload_offs = (uint16_t)(nbuf->data - nbuf->head);
-		desc->payload_len = nbuf->len;
-		desc->buffer_len = (uint16_t)(nbuf->end - nbuf->head);
-		desc->mss = mss;
-		desc->qos_tag = (uint32_t)nbuf->priority;
-
-		if (unlikely(!NSS_IS_IF_TYPE(VIRTUAL, if_num))) {
-			if (likely(nbuf->destructor == NULL)) {
-				if (likely(skb_recycle_check(nbuf, nss_ctx->max_buf_size))) {
-					bit_flags |= H2N_BIT_BUFFER_REUSE;
-					desc->buffer_len = nss_ctx->max_buf_size + NET_SKB_PAD;
-				}
-			}
-		}
-
-		desc->bit_flags = bit_flags;
+		count = nss_core_send_buffer_simple_skb(nss_ctx, desc_if, if_num, frag0phyaddr,
+			nbuf, hlos_index, flags, buffer_type, mss);
+	} else if (skb_has_frag_list(nbuf)) {
+		count = nss_core_send_buffer_fraglist(nss_ctx, desc_if, if_num, frag0phyaddr,
+			nbuf, hlos_index, flags, buffer_type, mss);
 	} else {
+		count = nss_core_send_buffer_nr_frags(nss_ctx, desc_if, if_num, frag0phyaddr,
+			nbuf, hlos_index, flags, buffer_type, mss);
+	}
+
+	if (unlikely(count < 0)) {
 		/*
-		 * TODO: convert to BUGON/ASSERT
+		 * We failed and hence we need to unmap dma regions
 		 */
-		uint32_t i = 0;
-		const skb_frag_t *frag;
-		dma_addr_t buffer;
-		uint16_t bit_flags;
-
-		/*
-		 * Handle all fragments
-		 */
-
-		/*
-		 * First fragment/descriptor is special
-		 */
-		bit_flags = (flags | H2N_BIT_FLAG_FIRST_SEGMENT | H2N_BIT_FLAG_DISCARD);
-		if (likely(nbuf->ip_summed == CHECKSUM_PARTIAL)) {
-			bit_flags |= H2N_BIT_FLAG_GEN_IP_TRANSPORT_CHECKSUM;
-		}
-
-		desc->buffer_type = buffer_type;
-		desc->interface_num = (int8_t)if_num;
-		desc->opaque = (uint32_t)NULL;
-		desc->payload_offs = nbuf->data - nbuf->head;
-		desc->payload_len = nbuf->len - nbuf->data_len;
-		desc->buffer_len = nbuf->end - nbuf->head;
-		desc->buffer = frag0phyaddr;
-		desc->mss = mss;
-		desc->bit_flags = bit_flags;
-		desc->qos_tag = (uint32_t)nbuf->priority;
-
-		/*
-		 * Now handle rest of the fragments.
-		 */
-		while (likely(i < (nr_frags))) {
-			frag = &skb_shinfo(nbuf)->frags[i++];
-			hlos_index = (hlos_index + 1) & (mask);
-			desc = &(desc_if->desc[hlos_index]);
-			bit_flags = (flags | H2N_BIT_FLAG_DISCARD);
-			if (likely(nbuf->ip_summed == CHECKSUM_PARTIAL)) {
-				bit_flags |= H2N_BIT_FLAG_GEN_IP_TRANSPORT_CHECKSUM;
-			}
-
-			buffer = skb_frag_dma_map(NULL, frag, 0, skb_frag_size(frag), DMA_TO_DEVICE);
-			if (unlikely(dma_mapping_error(NULL, buffer))) {
-				spin_unlock_bh(&nss_ctx->h2n_desc_rings[qid].lock);
-				nss_warning("%p: DMA mapping failed for fragment", nss_ctx);
-				return NSS_CORE_STATUS_FAILURE;
-			}
-
-			desc->buffer_type = buffer_type;
-			desc->buffer = buffer;
-			desc->interface_num = (int8_t)if_num;
-			desc->opaque = (uint32_t)NULL;
-			desc->payload_offs = 0;
-			desc->payload_len = skb_frag_size(frag);
-			desc->buffer_len = skb_frag_size(frag);
-			desc->qos_tag = (uint32_t)nbuf->priority;
-			desc->mss = mss;
-			desc->bit_flags = bit_flags;
-		}
-
-		/*
-		 * Update bit flag for last descriptor.
-		 * The discard flag shall be set for all fragments except the
-		 * the last one.The NSS returns the last fragment to HLOS
-		 * after the packet processing is done.We do need to send the
-		 * packet buffer address (skb) in the descriptor of last segment
-		 * when the decriptor returns from NSS the HLOS uses the
-		 * opaque field to free the memory allocated.
-		 */
-		desc->bit_flags |= H2N_BIT_FLAG_LAST_SEGMENT;
-		desc->bit_flags &= ~(H2N_BIT_FLAG_DISCARD);
-		desc->opaque = (uint32_t)nbuf;
+		nss_warning("%p: failed to map DMA regions:%d", nss_ctx, -count);
+		nss_core_send_unwind_dma(desc_if, hlos_index, -count);
+		spin_unlock_bh(&nss_ctx->h2n_desc_rings[qid].lock);
+		return NSS_CORE_STATUS_FAILURE;
 	}
 
 	/*
 	 * Update our host index so the NSS sees we've written a new descriptor.
 	 */
-	hlos_index = (hlos_index + 1) & mask;
+	hlos_index = (hlos_index + count) & mask;
 	h2n_desc_ring->hlos_index = hlos_index;
 	if_map->h2n_hlos_index[qid] = hlos_index;
 
 	spin_unlock_bh(&h2n_desc_ring->lock);
-
 	return NSS_CORE_STATUS_SUCCESS;
 }
