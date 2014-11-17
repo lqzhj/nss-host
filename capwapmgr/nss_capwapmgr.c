@@ -655,6 +655,12 @@ static nss_tx_status_t nss_capwapmgr_create_ipv4_rule(void *ctx, struct nss_ipv4
 		nircm->rule_flags |= NSS_IPV4_RULE_CREATE_FLAG_ROUTED;
 	}
 
+	/*
+	 * Set the flag NSS_IPV4_RULE_CREATE_FLAG_ICMP_NO_CME_FLUSH so that
+	 * rule is not flushed when NSS FW receives ICMP errors/packets.
+	 */
+	nircm->rule_flags |= NSS_IPV4_RULE_CREATE_FLAG_ICMP_NO_CME_FLUSH;
+
 	return nss_ipv4_tx(nss_ctx, &nim);
 }
 
