@@ -177,11 +177,11 @@ typedef void (*nss_ipsec_msg_callback_t)(void *app_data, struct nss_ipsec_msg *m
  * @brief data callback
  *
  * @param app_data[IN] context of the callback user
- * @param os_buf[IN] data buffer
+ * @param skb[IN] data buffer
  *
  * @return
  */
-typedef void (*nss_ipsec_buf_callback_t)(void *app_data, void *os_buf, struct napi_struct *napi);
+typedef void (*nss_ipsec_buf_callback_t)(struct net_device *netdev, struct sk_buff *skb, struct napi_struct *napi);
 
 /**
  * @brief send an IPsec message

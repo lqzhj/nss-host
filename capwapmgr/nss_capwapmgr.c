@@ -94,7 +94,7 @@
  */
 static struct nss_capwap_tunnel_stats tunneld;
 
-static void nss_capwapmgr_receive_pkt(void *arg, void *buf, struct napi_struct *napi);
+static void nss_capwapmgr_receive_pkt(struct net_device *dev, struct sk_buff *skb, struct napi_struct *napi);
 
 #if defined(NSS_CAPWAPMGR_ONE_NETDEV)
 /*
@@ -783,7 +783,7 @@ static nss_capwapmgr_status_t nss_capwapmgr_create_capwap_rule(struct net_device
 	}
 
 	if (msg->encap.path_mtu == 0) {
-		msg->encap.path_mtu = htonl(NSS_ETH_NORMAL_FRAME_MTU);
+		msg->encap.path_mtu = htonl(NSS_GMAC_NORMAL_FRAME_MTU);
 	}
 
 	/*
@@ -1196,11 +1196,9 @@ EXPORT_SYMBOL(nss_capwapmgr_tunnel_destroy);
  * nss_capwapmgr_receive_pkt()
  *	Receives a pkt from NSS
  */
-static void nss_capwapmgr_receive_pkt(void *arg, void *buf, struct napi_struct *napi)
+static void nss_capwapmgr_receive_pkt(struct net_device *dev, struct sk_buff *skb, struct napi_struct *napi)
 {
-	struct net_device *dev = arg;
 	struct nss_capwapmgr_priv *priv;
-	struct sk_buff *skb = (struct sk_buff *)buf;
 	struct nss_capwap_metaheader *pre = (struct nss_capwap_metaheader *)skb->data;
 	int32_t if_num;
 

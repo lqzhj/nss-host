@@ -181,11 +181,11 @@ typedef void (*nss_if_msg_callback_t)(void *app_data, struct nss_if_msg *msg);
  *	  list layer and netdev/sk as known.
  *
  * @param app_data Application context for this message
- * @param os_buf Data buffer
+ * @param skb Data buffer
  *
  * @return void
  */
-typedef void (*nss_if_rx_callback_t)(void *app_data, void *os_buf);
+typedef void (*nss_if_rx_callback_t)(struct net_device *netdev, struct sk_buff *skb);
 
 /**
  * @brief Register to send/receive GMAC packets/messages

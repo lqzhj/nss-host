@@ -25,6 +25,7 @@
 #include <net/dst.h>
 #include <linux/etherdevice.h>
 #include "nss_tx_rx_common.h"
+#include "nss_data_plane.h"
 
 /*
  * local structure declarations
@@ -752,6 +753,17 @@ static void nss_core_init_nss(struct nss_ctx_instance *nss_ctx, struct nss_if_me
 	spin_lock_bh(&nss_top->lock);
 	nss_ctx->state = NSS_CORE_STATE_INITIALIZED;
 	spin_unlock_bh(&nss_top->lock);
+
+	/*
+	 * If nss core0 is up, then we are ready to hook to nss-gmac
+	 */
+	if (nss_ctx->id == 0) {
+		for (i = 0; i < NSS_MAX_PHYSICAL_INTERFACES; i++) {
+			if (nss_data_plane_register_to_nss_gmac(nss_ctx, i)) {
+				nss_info("Register data plan to gmac%d success\n", i);
+			}
+		}
+	}
 }
 
 /*
