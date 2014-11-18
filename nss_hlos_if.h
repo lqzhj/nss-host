@@ -267,7 +267,7 @@ enum nss_tx_metadata_types {
 /*
  * The NSS freq start or stop strcture
  */
-struct nss_freq_change {
+struct nss_freq_msg {
 	/* Request */
 	uint32_t frequency;
 	uint32_t start_or_end;
@@ -291,7 +291,7 @@ struct nss_core_stats {
 struct nss_corefreq_msg {
 	struct nss_cmn_msg cm;			/* Message Header */
 	union {
-		struct nss_freq_change nfc;	/* Message: freq stats */
+		struct nss_freq_msg nfc;	/* Message: freq stats */
 		struct nss_core_stats ncs;	/* Message: NSS stats sync */
 	} msg;
 };

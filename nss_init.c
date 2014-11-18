@@ -405,7 +405,7 @@ static int __devinit nss_probe(struct platform_device *nss_dev)
 		}
 	}
 
-	nss_core_freq_register_handler();
+	nss_freq_register_handler();
 
 	nss_lso_rx_register_handler();
 
@@ -910,7 +910,8 @@ static int __init nss_init(void)
 {
 	nss_info("Init NSS driver");
 
-	nss_freq_change_context = nss_get_frequency_mgr();
+	nss_freq_change_context = nss_freq_get_mgr();
+
 	/*
 	 * Perform clock init common to all NSS cores
 	 */

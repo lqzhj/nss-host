@@ -72,7 +72,7 @@ extern void nss_ipv6_register_handler(void);
 extern void nss_n2h_register_handler(void);
 extern void nss_tunipip6_register_handler(void);
 extern void nss_pppoe_register_handler(void);
-extern void nss_core_freq_register_handler(void);
+extern void nss_freq_register_handler(void);
 extern void nss_eth_rx_register_handler(void);
 extern void nss_lag_register_handler(void);
 extern void nss_dynamic_interface_register_handler(void);

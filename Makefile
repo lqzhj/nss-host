@@ -47,13 +47,13 @@ qca-nss-drv-objs := \
 			nss_capwap.o \
 			nss_eth_rx.o \
 			nss_n2h.o \
-			nss_data_plane.o
+			nss_data_plane.o \
+			nss_freq.o
 
 #
 # TODO: Deprecated files should be removed before merge
 #
 qca-nss-drv-objs += \
-			nss_tx_rx_freq.o \
 			nss_tx_rx_virt_if.o
 
 obj-m += qca-nss-tunipip6.o
