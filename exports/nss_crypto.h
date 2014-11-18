@@ -229,4 +229,13 @@ extern void nss_crypto_notify_unregister(struct nss_ctx_instance *ctx);
  */
 extern void nss_crypto_data_unregister(struct nss_ctx_instance *ctx);
 
+/**
+ * @brief crypto specific message init
+ *	Initialize crypto specific message
+ *
+ * @return
+ */
+extern void nss_crypto_msg_init(struct nss_crypto_msg *ncm, uint16_t if_num, uint32_t type, uint32_t len,
+				nss_crypto_msg_callback_t *cb, void *app_data);
+
 #endif /* __NSS_CRYPTO_H */

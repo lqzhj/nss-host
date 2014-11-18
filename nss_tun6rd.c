@@ -188,7 +188,17 @@ void nss_unregister_tun6rd_if(uint32_t if_num)
 	nss_core_unregister_handler(if_num);
 }
 
+/*
+ * nss_tun6rd_msg_init()
+ *      Initialize nss_tun6rd msg.
+ */
+void nss_tun6rd_msg_init(struct nss_tun6rd_msg *ncm, uint16_t if_num, uint32_t type,  uint32_t len, void *cb, void *app_data)
+{
+        nss_cmn_msg_init(&ncm->cm, if_num, type, len, cb, app_data);
+}
+
 EXPORT_SYMBOL(nss_tun6rd_get_context);
 EXPORT_SYMBOL(nss_tun6rd_tx);
 EXPORT_SYMBOL(nss_register_tun6rd_if);
 EXPORT_SYMBOL(nss_unregister_tun6rd_if);
+EXPORT_SYMBOL(nss_tun6rd_msg_init);

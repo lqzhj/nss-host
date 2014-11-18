@@ -115,3 +115,11 @@ extern void *nss_register_lag_if(uint32_t if_num,
  * @return void
  */
 extern void nss_unregister_lag_if(uint32_t if_num);
+
+/**
+ * @brief Initialize lag message
+ *
+ * return void
+ */
+extern void nss_lag_msg_init(struct nss_lag_msg *nlm, uint16_t lag_num, uint32_t type, uint32_t len,
+				nss_lag_callback_t *cb, void *app_data);

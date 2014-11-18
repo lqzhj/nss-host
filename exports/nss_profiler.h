@@ -163,3 +163,13 @@ extern void profile_handle_constant_info(void *arg, struct nss_profiler_msg *npm
  * @param name		variable name (meaningful for read, and 23 bytes or less)
  */
 extern int profile_register_performance_counter(volatile unsigned int *counter, char *name);
+
+
+/*
+ * @brief Initialize the profiler specific message
+ *
+ * @return void
+ */
+extern void nss_profiler_msg_init(struct nss_profiler_msg *npm, uint16_t if_num, uint32_t type, uint32_t len,
+					nss_profiler_callback_t *cb, void *app_data);
+

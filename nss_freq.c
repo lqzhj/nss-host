@@ -32,6 +32,16 @@ extern nss_work_t *nss_work;
 extern void *nss_freq_change_context;
 
 /*
+ * nss_freq_msg_init()
+ *      Initialize the freq message
+ */
+static void nss_freq_msg_init(struct nss_corefreq_msg *ncm, uint16_t if_num, uint32_t type, uint32_t len,
+			void *cb, void *app_data)
+{
+	nss_cmn_msg_init(&ncm->cm, if_num, type, len, cb, app_data);
+}
+
+/*
  * nss_freq_handle_ack()
  *	Handle the nss ack of frequency change.
  */
@@ -86,7 +96,7 @@ nss_tx_status_t nss_freq_change(struct nss_ctx_instance *nss_ctx, uint32_t eng, 
 
 	ncm = (struct nss_corefreq_msg *)skb_put(nbuf, sizeof(struct nss_corefreq_msg));
 
-	nss_cmn_msg_init(&ncm->cm, NSS_COREFREQ_INTERFACE, NSS_TX_METADATA_TYPE_NSS_FREQ_CHANGE,
+	nss_freq_msg_init(ncm, NSS_COREFREQ_INTERFACE, NSS_TX_METADATA_TYPE_NSS_FREQ_CHANGE,
 				nbuf->len, NULL, NULL);
 	nfc = &ncm->msg.nfc;
 	nfc->frequency = eng;

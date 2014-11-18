@@ -21,6 +21,16 @@
 static struct nss_dynamic_interface_pvt di;
 
 /*
+ * nss_dynamic_interface_msg_init()
+ *	Initialize dynamic interface message.
+ */
+static void nss_dynamic_interface_msg_init(struct nss_dynamic_interface_msg *ndm, uint16_t if_num, uint32_t type, uint32_t len,
+						void *cb, void *app_data)
+{
+	nss_cmn_msg_init(&ndm->cm, if_num, type, len, cb, app_data);
+}
+
+/*
  * nss_dynamic_interface_handler()
  * 	handle NSS -> HLOS messages for dynamic interfaces
  */
@@ -204,7 +214,7 @@ int nss_dynamic_interface_alloc_node(enum nss_dynamic_interface_type type)
 	core_id = nss_top_main.dynamic_interface_table[type];
 	nss_ctx = (struct nss_ctx_instance *)&nss_top_main.nss[core_id];
 
-	nss_cmn_msg_init(&ndim->cm, NSS_DYNAMIC_INTERFACE, NSS_DYNAMIC_INTERFACE_ALLOC_NODE,
+	nss_dynamic_interface_msg_init(ndim, NSS_DYNAMIC_INTERFACE, NSS_DYNAMIC_INTERFACE_ALLOC_NODE,
 				sizeof(struct nss_dynamic_interface_alloc_node_msg), NULL, NULL);
 
 	ndia = &ndim->msg.alloc_node;
@@ -285,7 +295,7 @@ nss_tx_status_t nss_dynamic_interface_dealloc_node(int if_num, enum nss_dynamic_
 	core_id = nss_top_main.dynamic_interface_table[type];
 	nss_ctx = (struct nss_ctx_instance *)&nss_top_main.nss[core_id];
 
-	nss_cmn_msg_init(&ndim->cm, NSS_DYNAMIC_INTERFACE, NSS_DYNAMIC_INTERFACE_DEALLOC_NODE,
+	nss_dynamic_interface_msg_init(ndim, NSS_DYNAMIC_INTERFACE, NSS_DYNAMIC_INTERFACE_DEALLOC_NODE,
 				sizeof(struct nss_dynamic_interface_dealloc_node_msg), NULL, NULL);
 
 	ndid = &ndim->msg.dealloc_node;

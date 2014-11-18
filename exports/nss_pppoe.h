@@ -121,4 +121,13 @@ struct nss_pppoe_msg {
  */
 extern nss_tx_status_t nss_pppoe_tx(struct nss_ctx_instance *nss_ctx, struct nss_pppoe_msg *msg);
 
+/**
+ * @brief PPPoE specific message init
+ *	Initialize PPPoE specific message
+ *
+ * @return
+ */
+extern void nss_pppoe_msg_init(struct nss_pppoe_msg *npm, uint16_t if_num, uint32_t type, uint32_t len,
+				void *cb, void *app_data);
+
 #endif /* __NSS_PPPOE_H */
