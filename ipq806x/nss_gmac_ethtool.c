@@ -30,7 +30,6 @@
 #include <nss_gmac_dev.h>
 #include <nss_gmac_network_interface.h>
 
-#include <nss_api_if.h>
 
 struct nss_gmac_ethtool_stats {
 	uint8_t stat_string[ETH_GSTRING_LEN];
@@ -38,7 +37,7 @@ struct nss_gmac_ethtool_stats {
 };
 
 #define DRVINFO_LEN		32
-#define NSS_GMAC_STAT(m)	offsetof(struct nss_gmac_sync, m)
+#define NSS_GMAC_STAT(m)	offsetof(struct nss_gmac_stats, m)
 #define HW_ERR_SIZE		sizeof(uint32_t)
 
 /**

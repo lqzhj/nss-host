@@ -15,7 +15,6 @@
 #include <linux/ethtool.h>
 
 #include <nss_gmac_dev.h>
-#include <nss_api_if.h>
 
 #define NET_IF_TIMEOUT (10*HZ)
 #define NSS_GMAC_LINK_CHECK_TIME (HZ)
@@ -33,10 +32,10 @@ int32_t nss_gmac_linux_change_mtu(struct net_device *netdev, int32_t newmtu);
 void nss_gmac_linux_tx_timeout(struct net_device *netdev);
 
 /* NSS driver interface APIs */
-void nss_gmac_receive(void *if_ctx, void *os_buf, struct napi_struct *napi);
+void nss_gmac_receive(struct net_device *netdev, struct sk_buff *skb, struct napi_struct *napi);
 void nss_gmac_event_receive(void *if_ctx, nss_gmac_event_t ev_type,
 			    void *os_buf, uint32_t len);
-void nss_gmac_work(struct work_struct *work);
+void nss_gmac_open_work(struct work_struct *work);
 void nss_gmac_ethtool_register(struct net_device *netdev);
 void __exit nss_gmac_deregister_driver(void);
 int32_t __init nss_gmac_register_driver(void);

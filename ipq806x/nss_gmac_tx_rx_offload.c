@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -29,6 +29,7 @@
 #include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/module.h>
 #include <linux/workqueue.h>
 #include <linux/bitops.h>
 #include <linux/phy.h>
@@ -36,7 +37,44 @@
 #include <nss_gmac_dev.h>
 #include <nss_gmac_network_interface.h>
 
-#include <nss_api_if.h>
+
+static nss_gmac_status_t nss_gmac_slowpath_if_open(void *app_data, uint32_t tx_desc_ring, uint32_t rx_desc_ring, uint32_t mode)
+{
+	return NSS_GMAC_SUCCESS;
+}
+
+static nss_gmac_status_t nss_gmac_slowpath_if_close(void *app_data)
+{
+	return NSS_GMAC_SUCCESS;
+}
+
+static nss_gmac_status_t nss_gmac_slowpath_if_link_state(void *app_data, uint32_t link_state)
+{
+	return NSS_GMAC_SUCCESS;
+}
+
+static nss_gmac_status_t nss_gmac_slowpath_if_mac_addr(void *app_data, uint8_t *addr)
+{
+	return NSS_GMAC_SUCCESS;
+}
+static nss_gmac_status_t nss_gmac_slowpath_if_change_mtu(void *app_data, uint32_t mtu)
+{
+	return NSS_GMAC_SUCCESS;
+}
+
+static nss_gmac_status_t nss_gmac_slowpath_if_xmit(void *app_data, struct sk_buff *os_buf)
+{
+	return NSS_GMAC_FAILURE;
+}
+
+struct nss_gmac_data_plane_ops nss_gmac_slowpath_ops = {
+	.open		= nss_gmac_slowpath_if_open,
+	.close		= nss_gmac_slowpath_if_close,
+	.link_state	= nss_gmac_slowpath_if_link_state,
+	.mac_addr	= nss_gmac_slowpath_if_mac_addr,
+	.change_mtu	= nss_gmac_slowpath_if_change_mtu,
+	.xmit		= nss_gmac_slowpath_if_xmit,
+};
 
 /**
  * @brief Save GMAC statistics
@@ -45,12 +83,8 @@
  * @return Returns void.
  */
 static void nss_gmac_copy_stats(nss_gmac_dev *gmacdev,
-				struct nss_gmac_sync *gstat)
+				struct nss_gmac_stats *gstat)
 {
-	struct nss_gmac_sync *pstat = NULL;
-
-	pstat = &(gmacdev->nss_stats);
-
 	BUG_ON(!spin_is_locked(&gmacdev->stats_lock));
 
 	gmacdev->nss_stats.rx_bytes += gstat->rx_bytes;
@@ -92,16 +126,16 @@ static void nss_gmac_copy_stats(nss_gmac_dev *gmacdev,
 	gmacdev->nss_stats.tx_ip_header_errors += gstat->tx_ip_header_errors;
 	gmacdev->nss_stats.tx_ip_payload_errors += gstat->tx_ip_payload_errors;
 	gmacdev->nss_stats.tx_dropped += gstat->tx_dropped;
-	pstat->hw_errs[0] += gstat->hw_errs[0];
-	pstat->hw_errs[1] += gstat->hw_errs[1];
-	pstat->hw_errs[2] += gstat->hw_errs[2];
-	pstat->hw_errs[3] += gstat->hw_errs[3];
-	pstat->hw_errs[4] += gstat->hw_errs[4];
-	pstat->hw_errs[5] += gstat->hw_errs[5];
-	pstat->hw_errs[6] += gstat->hw_errs[6];
-	pstat->hw_errs[7] += gstat->hw_errs[7];
-	pstat->hw_errs[8] += gstat->hw_errs[8];
-	pstat->hw_errs[9] += gstat->hw_errs[9];
+	gmacdev->nss_stats.hw_errs[0] += gstat->hw_errs[0];
+	gmacdev->nss_stats.hw_errs[1] += gstat->hw_errs[1];
+	gmacdev->nss_stats.hw_errs[2] += gstat->hw_errs[2];
+	gmacdev->nss_stats.hw_errs[3] += gstat->hw_errs[3];
+	gmacdev->nss_stats.hw_errs[4] += gstat->hw_errs[4];
+	gmacdev->nss_stats.hw_errs[5] += gstat->hw_errs[5];
+	gmacdev->nss_stats.hw_errs[6] += gstat->hw_errs[6];
+	gmacdev->nss_stats.hw_errs[7] += gstat->hw_errs[7];
+	gmacdev->nss_stats.hw_errs[8] += gstat->hw_errs[8];
+	gmacdev->nss_stats.hw_errs[9] += gstat->hw_errs[9];
 	gmacdev->nss_stats.rx_missed += gstat->rx_missed;
 	gmacdev->nss_stats.fifo_overflows += gstat->fifo_overflows;
 	gmacdev->nss_stats.rx_scatter_errors += gstat->rx_scatter_errors;
@@ -118,7 +152,7 @@ static void nss_gmac_copy_stats(nss_gmac_dev *gmacdev,
  * @return Returns void.
  */
 static void nss_gmac_stats_receive(nss_gmac_dev *gmacdev,
-				   struct nss_gmac_sync *gstat)
+				   struct nss_gmac_stats *gstat)
 {
 	struct net_device *netdev = NULL;
 
@@ -167,23 +201,19 @@ static void nss_gmac_stats_receive(nss_gmac_dev *gmacdev,
  * @param[in] pointer to skb
  * @return Returns void
  */
-void nss_gmac_receive(void *if_ctx, void *os_buf, struct napi_struct *napi)
+void nss_gmac_receive(struct net_device *netdev, struct sk_buff *skb, struct napi_struct *napi)
 {
-	struct net_device *netdev;
-	struct sk_buff *skb;
 	nss_gmac_dev *gmacdev;
 
-	BUG_ON(if_ctx == NULL);
+	BUG_ON(netdev == NULL);
 
-	netdev = (struct net_device *)if_ctx;
 	gmacdev = netdev_priv(netdev);
 
 	BUG_ON(gmacdev->netdev != netdev);
 
-	skb = (struct sk_buff *)os_buf;
 	skb->dev = netdev;
 	skb->protocol = eth_type_trans(skb, netdev);
-	nss_gmac_info(gmacdev,
+	nss_gmac_trace(gmacdev,
 		      "%s: Rx on gmac%d, packet len %d, CSUM %d",
 		      __FUNCTION__, gmacdev->macid, skb->len, skb->ip_summed);
 
@@ -211,7 +241,7 @@ void nss_gmac_event_receive(void *if_ctx, nss_gmac_event_t ev_type,
 
 	switch (ev_type) {
 	case NSS_GMAC_EVENT_STATS:
-		nss_gmac_stats_receive(gmacdev, (struct nss_gmac_sync *)os_buf);
+		nss_gmac_stats_receive(gmacdev, (struct nss_gmac_stats *)os_buf);
 		break;
 
 	default:
@@ -231,7 +261,7 @@ static void nss_notify_linkup(nss_gmac_dev *gmacdev)
 {
 	uint32_t link = 0;
 
-	if (!test_bit(__NSS_GMAC_UP, &gmacdev->flags) || !gmacdev->notify_open) {
+	if (!test_bit(__NSS_GMAC_UP, &gmacdev->flags)) {
 		return;
 	}
 
@@ -242,8 +272,7 @@ static void nss_notify_linkup(nss_gmac_dev *gmacdev)
 		link |= 0x2;
 	}
 
-	nss_tx_phys_if_link_state(gmacdev->nss_gmac_ctx,
-			       link, gmacdev->macid);
+	gmacdev->data_plane_ops->link_state(gmacdev->data_plane_ctx, link);
 }
 
 /**
@@ -257,8 +286,7 @@ void nss_gmac_linkup(nss_gmac_dev *gmacdev)
 {
 	struct net_device *netdev = gmacdev->netdev;
 	uint32_t gmac_tx_desc = 0, gmac_rx_desc = 0;
-	uint32_t rx_forward_if = NSS_ETH_RX_INTERFACE;
-	uint32_t alignment_mode = NSS_IF_DATA_ALIGN_2BYTE;
+	uint32_t mode = NSS_GMAC_MODE0;
 
 	nss_gmac_spare_ctl(gmacdev);
 
@@ -294,26 +322,13 @@ void nss_gmac_linkup(nss_gmac_dev *gmacdev)
 
 	nss_gmac_mac_init(gmacdev);
 
-	if (gmacdev->notify_open == 0) {
-		/*
-		 * The NSS allocates the descriptors in TCM, so it
-		 * does not expect descriptors from host.
-		 */
-		if (nss_tx_phys_if_open(gmacdev->nss_gmac_ctx,
-				     gmac_tx_desc, gmac_rx_desc, rx_forward_if, alignment_mode,
-				     gmacdev->macid) != NSS_TX_SUCCESS) {
-			nss_gmac_info(gmacdev,
-				      "%s: NSS open command un-successful",
-				      __FUNCTION__);
-			gmacdev->link_state = LINKDOWN;
-			return;
-		}
-
-		nss_gmac_info(gmacdev,
-			      "%s: NSS open command successfully issued",
-			      __FUNCTION__);
-		gmacdev->notify_open = 1;
+	if (gmacdev->data_plane_ops->open(gmacdev->data_plane_ctx, gmac_tx_desc,
+						gmac_rx_desc, mode) != NSS_GMAC_SUCCESS) {
+		nss_gmac_info(gmacdev, "%s: data plane open command un-successful", __FUNCTION__);
+		gmacdev->link_state = LINKDOWN;
+		return;
 	}
+	nss_gmac_info(gmacdev, "%s: data plane open command successfully issued", __FUNCTION__);
 
 	nss_notify_linkup(gmacdev);
 
@@ -339,8 +354,8 @@ void nss_gmac_linkdown(nss_gmac_dev *gmacdev)
 
 	if (test_bit(__NSS_GMAC_UP, &gmacdev->flags)) {
 		netif_carrier_off(netdev);
-		nss_tx_phys_if_link_state(gmacdev->nss_gmac_ctx, 0,
-				       gmacdev->macid);
+
+		gmacdev->data_plane_ops->link_state(gmacdev->data_plane_ctx, 0);
 	}
 }
 
@@ -357,8 +372,7 @@ void nss_gmac_adjust_link(struct net_device *netdev)
 
 	gmacdev = netdev_priv(netdev);
 
-	if (gmacdev->nss_state != NSS_STATE_INITIALIZED
-		|| !test_bit(__NSS_GMAC_UP, &gmacdev->flags)) {
+	if (!test_bit(__NSS_GMAC_UP, &gmacdev->flags)) {
 		return;
 	}
 
@@ -372,55 +386,31 @@ void nss_gmac_adjust_link(struct net_device *netdev)
 	mutex_unlock(&gmacdev->link_mutex);
 }
 
-
-/**
- * @brief Gmac work function to check for NSS initialization.
- * @param[in] struct work_struct *
- * @return Returns void.
- */
-void nss_gmac_work(struct work_struct *work)
+void nss_gmac_start_up(nss_gmac_dev *gmacdev)
 {
-	struct nss_gmac_global_ctx *ctx = NULL;
-
-	nss_gmac_dev *gmacdev = container_of(to_delayed_work(work),
-					nss_gmac_dev, gmacwork);
-	ctx = gmacdev->ctx;
-
-	gmacdev->nss_state = nss_get_state(gmacdev->nss_gmac_ctx);
-	if (gmacdev->nss_state == NSS_STATE_INITIALIZED) {
-		nss_gmac_info(gmacdev, "NSS Initialized...");
-		nss_tx_phys_if_mac_addr(gmacdev->nss_gmac_ctx,
-					(uint8_t *)
-					gmacdev->netdev->dev_addr,
-					gmacdev->macid);
-
-		nss_tx_phys_if_get_napi_ctx(gmacdev->nss_gmac_ctx, &gmacdev->napi);
-
-		if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
-			if (!IS_ERR_OR_NULL(gmacdev->phydev)) {
-				nss_gmac_info(gmacdev, "%s: start phy 0x%x", __FUNCTION__, gmacdev->phydev->phy_id);
-				phy_start(gmacdev->phydev);
-				phy_start_aneg(gmacdev->phydev);
-			} else {
-				nss_gmac_info(gmacdev, "%s: Invalid PHY device for a link polled interface", __FUNCTION__);
-			}
-		} else {
-			/*
-			 * Force link up if link polling is disabled
-			 */
-			mutex_lock(&gmacdev->link_mutex);
-			nss_gmac_linkup(gmacdev);
-			mutex_unlock(&gmacdev->link_mutex);
-		}
-
-		return;
+	if (!gmacdev->data_plane_ops) {
+		nss_gmac_info(gmacdev, "%s: offload is not enabled, bring up gmac with slowpath", __FUNCTION__);
+		gmacdev->data_plane_ops = &nss_gmac_slowpath_ops;
 	}
 
-	nss_gmac_info(gmacdev, "NSS Un-initialized...");
-	queue_delayed_work(ctx->gmac_workqueue, &gmacdev->gmacwork,
-			   NSS_GMAC_LINK_CHECK_TIME);
+	if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
+		if (!IS_ERR_OR_NULL(gmacdev->phydev)) {
+			nss_gmac_info(gmacdev, "%s: start phy 0x%x", __FUNCTION__, gmacdev->phydev->phy_id);
+			phy_start(gmacdev->phydev);
+			phy_start_aneg(gmacdev->phydev);
+		} else {
+			nss_gmac_info(gmacdev, "%s: Invalid PHY device for a link polled interface", __FUNCTION__);
+		}
+		return;
+	}
+	nss_gmac_info(gmacdev, "%s: Force link up", __FUNCTION__);
+	/*
+	 * Force link up if link polling is disabled
+	 */
+	mutex_lock(&gmacdev->link_mutex);
+	nss_gmac_linkup(gmacdev);
+	mutex_unlock(&gmacdev->link_mutex);
 }
-
 
 /**
  * @brief Function to transmit a given packet on the wire.
@@ -434,7 +424,7 @@ void nss_gmac_work(struct work_struct *work)
  */
 int32_t nss_gmac_linux_xmit_frames(struct sk_buff *skb, struct net_device *netdev)
 {
-	nss_tx_status_t nss_status = 0;
+	nss_gmac_status_t msg_status = 0;
 	nss_gmac_dev *gmacdev = NULL;
 
 	BUG_ON(skb == NULL);
@@ -448,13 +438,12 @@ int32_t nss_gmac_linux_xmit_frames(struct sk_buff *skb, struct net_device *netde
 	BUG_ON(gmacdev == NULL);
 	BUG_ON(gmacdev->netdev != netdev);
 
-	nss_gmac_info(gmacdev, "%s:Tx packet, len %d, CSUM %d",
+	nss_gmac_trace(gmacdev, "%s:Tx packet, len %d, CSUM %d",
 		      __FUNCTION__, skb->len, skb->ip_summed);
 
-	nss_status = nss_tx_phys_if_buf(gmacdev->nss_gmac_ctx,
-				    (void *)skb, gmacdev->macid);
+	msg_status = gmacdev->data_plane_ops->xmit(gmacdev->data_plane_ctx, skb);
 
-	if (likely(nss_status == NSS_TX_SUCCESS)) {
+	if (likely(msg_status == NSS_GMAC_SUCCESS)) {
 		goto tx_done;
 	}
 
@@ -530,8 +519,9 @@ int nss_gmac_linux_open(struct net_device *netdev)
 
 	gmacdev->link_state = LINKDOWN;
 
-	queue_delayed_work(ctx->gmac_workqueue, &gmacdev->gmacwork,
-			   NSS_GMAC_LINK_CHECK_TIME);
+	nss_gmac_start_up(gmacdev);
+
+	gmacdev->data_plane_ops->mac_addr(gmacdev->data_plane_ctx, (uint8_t *)gmacdev->netdev->dev_addr);
 
 	return 0;
 }
@@ -567,10 +557,7 @@ int nss_gmac_linux_close(struct net_device *netdev)
 	nss_gmac_tx_disable(gmacdev);
 
 	nss_gmac_disable_interrupt_all(gmacdev);
-
-	nss_tx_phys_if_link_state(gmacdev->nss_gmac_ctx, 0, gmacdev->macid);
-
-	cancel_delayed_work_sync(&gmacdev->gmacwork);
+	gmacdev->data_plane_ops->link_state(gmacdev->data_plane_ctx, 0);
 
 	if(!IS_ERR_OR_NULL(gmacdev->phydev)) {
 		phy_stop(gmacdev->phydev);
@@ -578,6 +565,8 @@ int nss_gmac_linux_close(struct net_device *netdev)
 
 	test_and_clear_bit(__NSS_GMAC_UP, &gmacdev->flags);
 	test_and_clear_bit(__NSS_GMAC_CLOSING, &gmacdev->flags);
+
+	gmacdev->data_plane_ops->close(gmacdev->data_plane_ctx);
 
 	return 0;
 }
@@ -621,7 +610,6 @@ void nss_gmac_linux_tx_timeout(struct net_device *netdev)
 int32_t nss_gmac_linux_change_mtu(struct net_device *netdev, int32_t newmtu)
 {
 	nss_gmac_dev *gmacdev = NULL;
-	nss_tx_status_t nss_status;
 
 	gmacdev = (nss_gmac_dev *)netdev_priv(netdev);
 	if (!gmacdev) {
@@ -632,23 +620,135 @@ int32_t nss_gmac_linux_change_mtu(struct net_device *netdev, int32_t newmtu)
 		return -EINVAL;
 	}
 
-	nss_status =
-	    nss_tx_phys_if_change_mtu(gmacdev->nss_gmac_ctx, newmtu,
-				   gmacdev->macid);
-	if (nss_status != NSS_TX_SUCCESS) {
+	if (gmacdev->data_plane_ops->change_mtu(gmacdev->data_plane_ctx, newmtu) != NSS_GMAC_SUCCESS) {
 		return -EAGAIN;
 	}
 
-	if (newmtu <= NSS_ETH_NORMAL_FRAME_MTU) {
+	if (newmtu <= NSS_GMAC_NORMAL_FRAME_MTU) {
 		nss_gmac_jumbo_frame_disable(gmacdev);
 		nss_gmac_twokpe_frame_disable(gmacdev);
-        } else if (newmtu <= NSS_ETH_MINI_JUMBO_FRAME_MTU) {
+        } else if (newmtu <= NSS_GMAC_MINI_JUMBO_FRAME_MTU) {
 		nss_gmac_jumbo_frame_disable(gmacdev);
 		nss_gmac_twokpe_frame_enable(gmacdev);
-        } else if (newmtu <= NSS_ETH_FULL_JUMBO_FRAME_MTU) {
+        } else if (newmtu <= NSS_GMAC_FULL_JUMBO_FRAME_MTU) {
 		nss_gmac_jumbo_frame_enable(gmacdev);
         }
 
 	netdev->mtu = newmtu;
 	return 0;
 }
+
+/*
+ * nss_gmac_is_in_open_state()
+ *	Return if a gmac is opened or not
+ */
+bool nss_gmac_is_in_open_state(struct net_device *netdev)
+{
+	nss_gmac_dev *gmacdev = (nss_gmac_dev *)netdev_priv(netdev);
+	if (test_bit(__NSS_GMAC_UP, &gmacdev->flags)) {
+		return true;
+	}
+	return false;
+}
+
+/*
+ * nss_gmac_register_offload()
+ *
+ * @param[netdev] netdev instance that is going to register
+ * @param[dp_ops] dataplan ops for chaning mac addr/mtu/link status
+ * @param[ctx] passing the ctx of this nss_phy_if to gmac
+ *
+ * @return Return SUCCESS or FAILURE
+ */
+int nss_gmac_override_data_plane(struct net_device *netdev,
+				struct nss_gmac_data_plane_ops *dp_ops,
+				void *ctx)
+{
+	nss_gmac_dev *gmacdev = (nss_gmac_dev *)netdev_priv(netdev);
+	BUG_ON(!gmacdev);
+
+	if (!dp_ops->open || !dp_ops->close || !dp_ops->link_state
+		|| !dp_ops->mac_addr || !dp_ops->change_mtu || !dp_ops->xmit) {
+		nss_gmac_info(gmacdev, "%s: All the op functions must be present, reject this registeration", __FUNCTION__);
+		return NSS_GMAC_FAILURE;
+	}
+
+	/*
+	 * If this gmac is up, close the netdev to force TX/RX stop
+	 */
+	if (test_bit(__NSS_GMAC_UP, &gmacdev->flags)) {
+		nss_gmac_linux_close(netdev);
+	}
+	/* Recored the data_plane_ctx, data_plane_ops */
+	gmacdev->data_plane_ctx = ctx;
+	gmacdev->data_plane_ops = dp_ops;
+	gmacdev->first_linkup_done = 0;
+
+	return NSS_GMAC_SUCCESS;
+}
+
+void nss_gmac_start_data_plane(struct net_device *netdev, void *ctx)
+{
+	nss_gmac_dev *gmacdev = (nss_gmac_dev *)netdev_priv(netdev);
+	struct nss_gmac_global_ctx *global_ctx = gmacdev->ctx;
+
+	if (test_bit(__NSS_GMAC_UP, &gmacdev->flags)) {
+		nss_gmac_warn(gmacdev, "This netdev already up, something is wrong\n");
+		return;
+	}
+	if (gmacdev->data_plane_ctx == ctx) {
+		nss_gmac_info(gmacdev, "Data plane cookie matches, let's start the netdev again\n");
+		queue_delayed_work(global_ctx->gmac_workqueue, &gmacdev->gmacwork, NSS_GMAC_LINK_CHECK_TIME);
+	}
+}
+/*
+ * gmac_unregister_nss_if()
+ *
+ * @param[if_num] gmac device id - 0~3
+ */
+void nss_gmac_restore_data_plane(struct net_device *netdev)
+{
+	nss_gmac_dev *gmacdev = (nss_gmac_dev *)netdev_priv(netdev);
+
+	/*
+	 * If this gmac is up, close the netdev to force TX/RX stop
+	 */
+	if (test_bit(__NSS_GMAC_UP, &gmacdev->flags)) {
+		nss_gmac_linux_close(netdev);
+	}
+	gmacdev->data_plane_ctx = netdev;
+	gmacdev->data_plane_ops = &nss_gmac_slowpath_ops ;
+}
+
+/*
+ * nss_gmac_get_netdev_by_macid()
+ *	return the net device of the corrsponding macid if exist
+ */
+struct net_device *nss_gmac_get_netdev_by_macid(int macid)
+{
+	nss_gmac_dev *gmacdev = ctx.nss_gmac[macid];
+	if (!gmacdev) {
+		return NULL;
+	}
+	return gmacdev->netdev;
+}
+
+/*
+ * nss_gmac_open_work()
+ *	Schedule delayed work to open the netdev again
+ */
+void nss_gmac_open_work(struct work_struct *work)
+{
+	nss_gmac_dev *gmacdev = container_of(to_delayed_work(work), nss_gmac_dev, gmacwork);
+
+	nss_gmac_info(gmacdev,"Do the network up in delayed queue %s\n", gmacdev->netdev->name);
+	nss_gmac_linux_open(gmacdev->netdev);
+}
+
+EXPORT_SYMBOL(nss_gmac_is_in_open_state);
+EXPORT_SYMBOL(nss_gmac_start_data_plane);
+EXPORT_SYMBOL(nss_gmac_override_data_plane);
+EXPORT_SYMBOL(nss_gmac_restore_data_plane);
+EXPORT_SYMBOL(nss_gmac_receive);
+EXPORT_SYMBOL(nss_gmac_event_receive);
+EXPORT_SYMBOL(nss_gmac_get_netdev_by_macid);

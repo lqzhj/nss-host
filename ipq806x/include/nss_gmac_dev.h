@@ -21,8 +21,7 @@
 #include <asm/io.h>
 
 #include <mach/msm_nss_gmac.h>
-
-#include <nss_api_if.h>
+#include <nss_gmac_api_if.h>
 
 #define NSS_GMAC_IPC_OFFLOAD
 
@@ -211,13 +210,12 @@ typedef struct _nss_gmac_dev {
 	struct nss_gmac_global_ctx *ctx;/* Global NSS GMAC context              */
 	struct resource *memres;	/* memory resource                      */
 
-	void *nss_gmac_ctx;		/* context when NSS owns GMACs          */
+	void *data_plane_ctx;		/* context when NSS owns GMACs          */
 	struct phy_device *phydev;	/* Phy device 				*/
-	uint32_t notify_open;		/* 0 = Open for gmac not issued to NSS
-					   1 = Open for gmac issued to NSS	*/
-	uint32_t nss_state;		/* NSS initialization state		*/
-	struct nss_gmac_sync nss_stats;	/* Stats synced from NSS                */
+	struct nss_gmac_stats nss_stats;/* Stats synced from NSS                */
 	struct mii_bus *miibus;		/* MDIO bus associated with this GMAC	*/
+	struct nss_gmac_data_plane_ops *data_plane_ops;
+					/* ops to send messages to nss-drv	*/
 } nss_gmac_dev;
 
 
