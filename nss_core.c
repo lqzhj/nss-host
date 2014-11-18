@@ -28,6 +28,12 @@
 #include "nss_data_plane.h"
 
 /*
+ * Atomic variables to control jumbo_mru & paged_mode
+ */
+atomic_t jumbo_mru;
+atomic_t paged_mode;
+
+/*
  * local structure declarations
  */
 
@@ -40,6 +46,42 @@ struct nss_rx_cb_list {
 };
 
 static struct nss_rx_cb_list nss_rx_interface_handlers[NSS_MAX_NET_INTERFACES];
+
+/*
+ * nss_core_set_jumbo_mru()
+ *	Set the jumbo_mru to the specified value
+ */
+void nss_core_set_jumbo_mru(int jumbo)
+{
+	atomic_set(&jumbo_mru, jumbo);
+}
+
+/*
+ * nss_core_get_jumbo_mru()
+ *	Does an atomic read of jumbo_mru
+ */
+int nss_core_get_jumbo_mru(void)
+{
+	return atomic_read(&jumbo_mru);
+}
+
+/*
+ * nss_core_set_paged_mode()
+ *	Set the paged_mode to the specified value
+ */
+void nss_core_set_paged_mode(int mode)
+{
+	atomic_set(&paged_mode, mode);
+}
+
+/*
+ * nss_core_get_paged_mode()
+ *	Does an atomic read of paged_mode
+ */
+int nss_core_get_paged_mode(void)
+{
+	return atomic_read(&paged_mode);
+}
 
 /*
  * nss_core_register_handler()
