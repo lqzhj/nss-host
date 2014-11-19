@@ -260,4 +260,12 @@ extern struct nss_ctx_instance *nss_ipsec_get_context(void);
 extern void nss_ipsec_msg_init(struct nss_ipsec_msg *nim, uint16_t if_num, uint32_t type, uint32_t len,
 				nss_ipsec_msg_callback_t *cb, void *app_data);
 
+/*
+ * @brief get the NSS interface number to be used for IPsec requests
+ *
+ * @param ctx[IN] HLOS driver's context
+ *
+ * @return interface number
+ */
+extern int32_t nss_ipsec_get_interface(struct nss_ctx_instance *ctx);
 #endif /* __NSS_IPSEC_H */
