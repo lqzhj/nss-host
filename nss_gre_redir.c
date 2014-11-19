@@ -120,7 +120,7 @@ static void nss_gre_redir_msg_handler(struct nss_ctx_instance *nss_ctx, struct n
 	 * callback
 	 */
 	cb = (nss_gre_redir_msg_callback_t)ncm->cb;
-	ctx =  nss_ctx->nss_top->if_ctx[ncm->interface];
+	ctx =  nss_ctx->nss_top->subsys_dp_register[ncm->interface].ndev;
 
 	/*
 	 * call gre tunnel callback
@@ -267,7 +267,7 @@ nss_tx_status_t nss_gre_redir_tx_buf(struct nss_ctx_instance *nss_ctx, struct sk
  * nss_gre_redir_register_if()
  */
 struct nss_ctx_instance *nss_gre_redir_register_if(uint32_t if_num, struct net_device *netdev, nss_gre_redir_data_callback_t cb_func_data,
-							nss_gre_redir_msg_callback_t cb_func_msg)
+							nss_gre_redir_msg_callback_t cb_func_msg, uint32_t features)
 {
 	uint32_t status;
 	int i;
@@ -283,8 +283,11 @@ struct nss_ctx_instance *nss_gre_redir_register_if(uint32_t if_num, struct net_d
 		return NULL;
 	}
 
-	nss_top_main.if_ctx[if_num] = netdev;
-        nss_top_main.if_rx_callback[if_num] = cb_func_data;
+	nss_top_main.subsys_dp_register[if_num].ndev = netdev;
+        nss_top_main.subsys_dp_register[if_num].cb = cb_func_data;
+	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
+	nss_top_main.subsys_dp_register[if_num].features = features;
+
         nss_top_main.if_rx_msg_callback[if_num] = cb_func_msg;
 
 	spin_lock_bh(&nss_gre_redir_stats_lock);
@@ -316,8 +319,11 @@ void nss_gre_redir_unregister_if(uint32_t if_num)
 		return;
 	}
 
-	nss_top_main.if_rx_callback[if_num] = NULL;
-	nss_top_main.if_ctx[if_num] = NULL;
+	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
+        nss_top_main.subsys_dp_register[if_num].cb = NULL;
+	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
+	nss_top_main.subsys_dp_register[if_num].features = 0;
+
 	nss_top_main.if_rx_msg_callback[if_num] = NULL;
 
 	spin_lock_bh(&nss_gre_redir_stats_lock);

@@ -166,12 +166,14 @@ typedef void (*nss_gre_redir_msg_callback_t)(void *app_data, struct nss_cmn_msg 
  * @param netdev netdevice associated with the gre tunnel
  * @param cb_func_data Callback for gre tunnel data
  * @param cb_func_msg Callback for gre tunnel messages
+ * @param features denote the skb types supported by this interface.
  *
  * @return NSS context
  */
 extern struct nss_ctx_instance *nss_gre_redir_register_if(uint32_t if_num, struct net_device *dev_ctx,
 							nss_gre_redir_data_callback_t cb_func_data,
-							nss_gre_redir_msg_callback_t cb_func_msg);
+							nss_gre_redir_msg_callback_t cb_func_msg,
+							uint32_t features);
 
 /**
  * @brief Unregister gre tunnel interface with NSS

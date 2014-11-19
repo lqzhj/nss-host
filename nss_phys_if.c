@@ -100,7 +100,7 @@ void nss_phys_if_gmac_stats_sync(struct nss_ctx_instance *nss_ctx,
 	/*
 	 * Get the netdev ctx
 	 */
-	ctx = nss_ctx->nss_top->if_ctx[id];
+	ctx = nss_ctx->nss_top->subsys_dp_register[id].ndev;
 
 	/*
 	 * Pass through gmac exported api
@@ -190,7 +190,7 @@ static void nss_phys_if_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 	 */
 	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
 		ncm->cb = (uint32_t)nss_ctx->nss_top->phys_if_msg_callback[ncm->interface];
-		ncm->app_data = (uint32_t)nss_ctx->nss_top->if_ctx[ncm->interface];
+		ncm->app_data = (uint32_t)nss_ctx->nss_top->subsys_dp_register[ncm->interface].ndev;
 	}
 
 	/*
@@ -296,7 +296,7 @@ nss_tx_status_t nss_phys_if_msg(struct nss_ctx_instance *nss_ctx, struct nss_phy
 	}
 
 	if_num = ncm->interface;
-	dev = nss_top_main.if_ctx[if_num];
+	dev = nss_top_main.subsys_dp_register[if_num].ndev;
 	if (!dev) {
 		nss_warning("%p: Unregister physical interface %d: no context", nss_ctx, if_num);
 		return NSS_TX_FAILURE_BAD_PARAM;
@@ -372,15 +372,19 @@ nss_tx_status_t nss_phys_if_msg_sync(struct nss_ctx_instance *nss_ctx, struct ns
 struct nss_ctx_instance *nss_phys_if_register(uint32_t if_num,
 				nss_phys_if_rx_callback_t rx_callback,
 				nss_phys_if_msg_callback_t msg_callback,
-				struct net_device *if_ctx)
+				struct net_device *netdev,
+				uint32_t features)
 {
 	uint8_t id = nss_top_main.phys_if_handler_id[if_num];
 	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[id];
 
 	nss_assert(if_num <= NSS_MAX_PHYSICAL_INTERFACES);
 
-	nss_top_main.if_ctx[if_num] = (void *)if_ctx;
-	nss_top_main.if_rx_callback[if_num] = rx_callback;
+	nss_top_main.subsys_dp_register[if_num].ndev = netdev;
+	nss_top_main.subsys_dp_register[if_num].cb = rx_callback;
+	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
+	nss_top_main.subsys_dp_register[if_num].features = features;
+
 	nss_top_main.phys_if_msg_callback[if_num] = msg_callback;
 
 	nss_ctx->phys_if_mtu[if_num] = NSS_GMAC_NORMAL_FRAME_MTU;
@@ -393,9 +397,14 @@ struct nss_ctx_instance *nss_phys_if_register(uint32_t if_num,
 void nss_phys_if_unregister(uint32_t if_num)
 {
 	nss_assert(if_num < NSS_MAX_PHYSICAL_INTERFACES);
-	nss_top_main.if_rx_callback[if_num] = NULL;
+
+	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
+	nss_top_main.subsys_dp_register[if_num].cb = NULL;
+	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
+	nss_top_main.subsys_dp_register[if_num].features = 0;
+
 	nss_top_main.phys_if_msg_callback[if_num] = NULL;
-	nss_top_main.if_ctx[if_num] = NULL;
+
 	nss_top_main.nss[0].phys_if_mtu[if_num] = 0;
 	nss_top_main.nss[1].phys_if_mtu[if_num] = 0;
 }

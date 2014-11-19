@@ -122,11 +122,12 @@ typedef void (*nss_tun6rd_callback_t)(struct net_device *netdev, struct sk_buff 
  * @param tun6rd_callback Callback for 6rd tunnel data
  * @param msg_callback Callback for 6rd tunnel messages
  * @param netdev netdevice associated with the 6rd tunnel
+ * @param features denotes the skb types supported by this interface
  *
  * @return nss_ctx_instance* NSS context
  */
 extern struct nss_ctx_instance *nss_register_tun6rd_if(uint32_t if_num, nss_tun6rd_callback_t tun6rd_callback,
-					nss_tun6rd_msg_callback_t msg_callback, struct net_device *netdev);
+					nss_tun6rd_msg_callback_t msg_callback, struct net_device *netdev, uint32_t features);
 
 /**
  * @brief Unregister 6rd tunnel interface with NSS

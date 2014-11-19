@@ -34,6 +34,7 @@ struct nss_data_plane_param {
 	struct nss_ctx_instance *nss_ctx;	/* which nss core */
 	int notify_open;			/* This gmac interface has been opened or not */
 	int enabled;				/* This gmac is enabled or not */
+	uint32_t features;			/* skb types supported by this interface */
 };
 
 /*

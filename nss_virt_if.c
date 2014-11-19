@@ -68,7 +68,7 @@ static void nss_virt_if_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 	 */
 	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
 		ncm->cb = (uint32_t)nss_ctx->nss_top->virt_if_msg_callback[ncm->interface];
-		ncm->app_data = (uint32_t)nss_ctx->nss_top->if_ctx[ncm->interface];
+		ncm->app_data = (uint32_t)nss_ctx->nss_top->subsys_dp_register[ncm->interface].ndev;
 	}
 
 	/*
@@ -213,10 +213,11 @@ nss_tx_status_t nss_virt_if_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_
 struct nss_ctx_instance *nss_virt_if_register(uint32_t if_num,
 						nss_virt_if_data_callback_t data_callback,
 						nss_virt_if_msg_callback_t msg_callback,
-						struct net_device *if_ctx)
+						struct net_device *netdev)
 {
 	struct nss_ctx_instance *nss_ctx = NULL;
 	uint32_t ret;
+	uint32_t features = 0;
 
 	/*
 	 * Register handler for dynamically allocated virtual interface on NSS with nss core.
@@ -236,8 +237,11 @@ struct nss_ctx_instance *nss_virt_if_register(uint32_t if_num,
 	 * for the caller is not how app_data is typically handled.
 	 * Re-think this.
 	 */
-	nss_top_main.if_ctx[if_num] = (void *)if_ctx;
-	nss_top_main.if_rx_callback[if_num] = data_callback;
+	nss_top_main.subsys_dp_register[if_num].ndev = netdev;
+	nss_top_main.subsys_dp_register[if_num].cb = data_callback;
+	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
+	nss_top_main.subsys_dp_register[if_num].features = features;
+
 	nss_top_main.if_rx_msg_callback[if_num] = msg_callback;
 
 	return nss_ctx;
@@ -261,8 +265,11 @@ void nss_virt_if_unregister(uint32_t if_num)
 		}
 	}
 
-	nss_top_main.if_ctx[if_num] = NULL;
-	nss_top_main.if_rx_callback[if_num] = NULL;
+	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
+	nss_top_main.subsys_dp_register[if_num].cb = NULL;
+	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
+	nss_top_main.subsys_dp_register[if_num].features = 0;
+
 	nss_top_main.if_rx_msg_callback[if_num] = NULL;
 }
 

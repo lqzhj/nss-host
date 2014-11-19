@@ -145,7 +145,7 @@ nss_tx_status_t nss_if_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_if_ms
 	}
 
 	if_num = ncm->interface;
-	dev = nss_top_main.if_ctx[if_num];
+	dev = nss_top_main.subsys_dp_register[if_num].ndev;
 	if (!dev) {
 		nss_warning("%p: Unregister interface %d: no context", nss_ctx, if_num);
 		return NSS_TX_FAILURE_BAD_PARAM;

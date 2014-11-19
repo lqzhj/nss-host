@@ -234,9 +234,8 @@ static inline void nss_dump_desc(struct nss_ctx_instance *nss_ctx, struct n2h_de
  * nss_core_skb_needs_linearize()
  *	Looks at if this skb needs to be linearized of not.
  */
-static inline int nss_core_skb_needs_linearize(struct sk_buff *skb)
+static inline int nss_core_skb_needs_linearize(struct sk_buff *skb, uint32_t features)
 {
-	netdev_features_t features = netif_skb_features(skb);
 	return skb_is_nonlinear(skb) &&
 			((skb_has_frag_list(skb) &&
 				!(features & NETIF_F_FRAGLIST)) ||
@@ -252,9 +251,9 @@ static inline void nss_core_rx_pbuf(struct nss_ctx_instance *nss_ctx, struct n2h
 {
 	unsigned int interface_num = desc->interface_num;
 	struct nss_top_instance *nss_top = nss_ctx->nss_top;
-	struct net_device *ndev;
+	struct net_device *ndev = NULL;
 	nss_phys_if_rx_callback_t cb;
-	void *ctx;
+	struct nss_subsystem_dataplane_register *subsys_dp_reg = &nss_top->subsys_dp_register[interface_num];
 
 	switch (buffer_type) {
 	case N2H_BUFFER_SHAPER_BOUNCED_INTERFACE:
@@ -373,7 +372,7 @@ static inline void nss_core_rx_pbuf(struct nss_ctx_instance *nss_ctx, struct n2h
 			/*
 			 * Obtain net_device pointer
 			 */
-			ndev = (struct net_device *)nss_top->if_ctx[interface_num];
+			ndev = subsys_dp_reg->ndev;
 			if (unlikely(ndev == NULL)) {
 				nss_warning("%p: Received packet for unregistered virtual interface %d",
 					nss_ctx, interface_num);
@@ -393,11 +392,10 @@ static inline void nss_core_rx_pbuf(struct nss_ctx_instance *nss_ctx, struct n2h
 			 */
 			dev_hold(ndev);
 			nbuf->dev = ndev;
-
 			/*
 			 * Linearize the skb if needed
 			 */
-			 if (nss_core_skb_needs_linearize(nbuf) && __skb_linearize(nbuf)) {
+			 if (nss_core_skb_needs_linearize(nbuf, (uint32_t)netif_skb_features(nbuf)) && __skb_linearize(nbuf)) {
 				/*
 				 * We needed to linearize, but __skb_linearize() failed. Therefore
 				 * we free the nbuf.
@@ -421,6 +419,8 @@ static inline void nss_core_rx_pbuf(struct nss_ctx_instance *nss_ctx, struct n2h
 		break;
 
 	case N2H_BUFFER_PACKET: {
+		uint32_t netif_flags = subsys_dp_reg->features;
+
 		NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_PACKET]);
 
 		/*
@@ -431,13 +431,21 @@ static inline void nss_core_rx_pbuf(struct nss_ctx_instance *nss_ctx, struct n2h
 			nbuf->ip_summed = CHECKSUM_NONE;
 		}
 
-		ctx = nss_top->if_ctx[interface_num];
-		cb = nss_top->if_rx_callback[interface_num];
-		if (likely(cb) && likely(ctx)) {
+		ndev = subsys_dp_reg->ndev;
+		cb = subsys_dp_reg->cb;
+		if (likely(cb) && likely(ndev)) {
 			/*
 			 * Packet was received on Physical interface
 			 */
-			cb(ctx, (void *)nbuf, napi);
+			if (nss_core_skb_needs_linearize(nbuf, netif_flags) && __skb_linearize(nbuf)) {
+				/*
+				 * We needed to linearize, but __skb_linearize() failed. So free the nbuf.
+				 */
+				dev_kfree_skb_any(nbuf);
+				break;
+			}
+
+			cb(ndev, (void *)nbuf, napi);
 		} else if (NSS_IS_IF_TYPE(DYNAMIC, interface_num) || NSS_IS_IF_TYPE(VIRTUAL, interface_num)) {
 			/*
 			 * Packet was received on Virtual interface
@@ -448,13 +456,13 @@ static inline void nss_core_rx_pbuf(struct nss_ctx_instance *nss_ctx, struct n2h
 			 *
 			 * TODO: Change to gro receive later
 			 */
-			ctx = nss_top->if_ctx[interface_num];
-			if (ctx) {
-				dev_hold(ctx);
-				nbuf->dev = (struct net_device*) ctx;
-				nbuf->protocol = eth_type_trans(nbuf, ctx);
+			ndev = subsys_dp_reg->ndev;
+			if (ndev) {
+				dev_hold(ndev);
+				nbuf->dev = ndev;
+				nbuf->protocol = eth_type_trans(nbuf, ndev);
 				netif_receive_skb(nbuf);
-				dev_put(ctx);
+				dev_put(ndev);
 			} else {
 				/*
 				 * Interface has gone down
@@ -1216,7 +1224,7 @@ static inline int32_t nss_core_send_buffer_simple_skb(struct nss_ctx_instance *n
 	if (unlikely(!NSS_IS_IF_TYPE(VIRTUAL, if_num))) {
 		if (likely(nbuf->destructor == NULL)) {
 			if (likely(skb_recycle_check(nbuf, nss_ctx->max_buf_size))) {
-				bit_flags |= H2N_BIT_BUFFER_REUSE;
+				bit_flags |= H2N_BIT_FLAG_BUFFER_REUSE;
 				desc->buffer_len = nss_ctx->max_buf_size + NET_SKB_PAD;
 				desc->bit_flags = bit_flags;
 			}

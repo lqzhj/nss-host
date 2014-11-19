@@ -145,16 +145,16 @@ typedef void (*nss_phys_if_rx_callback_t)(struct net_device *netdev, struct sk_b
  * @param if_num GMAC i/f number
  * @param rx_callback Receive callback for packets
  * @param event_callback Receive callback for events
- * @param if_ctx Interface context provided in callback
- *		(must be OS network device context pointer e.g.
- *		struct net_device * in Linux)
+ * @param netdev netdevice associated with this interface.
+ * @param features denote the skb types supported by this interface
  *
  * @return void* NSS context
  */
 struct nss_ctx_instance *nss_phys_if_register(uint32_t if_num,
 					nss_phys_if_rx_callback_t rx_callback,
 					nss_phys_if_msg_callback_t msg_callback,
-					struct net_device *if_ctx);
+					struct net_device *netdev,
+					uint32_t features);
 
 /**
  * @brief Send GMAC packet

@@ -219,11 +219,12 @@ extern struct nss_ctx_instance *nss_ipsec_notify_register(uint32_t if_num, nss_i
  *
  * @param if_num[IN] receive data from this interface (Encap, Decap or C2C)
  * @param cb[IN] data callback function
- * @param app_data[IN] conext of the callback user
+ * @param netdev associated netdevice.
+ * @param features denote the skb types supported by this interface.
  *
  * @return
  */
-extern struct nss_ctx_instance *nss_ipsec_data_register(uint32_t if_num, nss_ipsec_buf_callback_t cb, void *app_data);
+extern struct nss_ctx_instance *nss_ipsec_data_register(uint32_t if_num, nss_ipsec_buf_callback_t cb, struct net_device *netdev, uint32_t features);
 
 /**
  * @brief unregister the message notifier

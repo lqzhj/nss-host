@@ -456,7 +456,7 @@ EXPORT_SYMBOL(nss_capwap_notify_unregister);
  * nss_capwap_data_register()
  *	Registers a data packet notifier with NSS FW.
  */
-struct nss_ctx_instance *nss_capwap_data_register(uint32_t if_num, nss_capwap_buf_callback_t cb, void *app_data)
+struct nss_ctx_instance *nss_capwap_data_register(uint32_t if_num, nss_capwap_buf_callback_t cb, struct net_device *netdev, uint32_t features)
 {
 	struct nss_ctx_instance *nss_ctx;
 	int core_status;
@@ -468,7 +468,7 @@ struct nss_ctx_instance *nss_capwap_data_register(uint32_t if_num, nss_capwap_bu
 	}
 
 	spin_lock(&nss_capwap_spinlock);
-	if (nss_ctx->nss_top->if_ctx[if_num] != NULL) {
+	if (nss_ctx->nss_top->subsys_dp_register[if_num].ndev != NULL) {
 		spin_unlock(&nss_capwap_spinlock);
 		return NULL;
 	}
@@ -485,8 +485,10 @@ struct nss_ctx_instance *nss_capwap_data_register(uint32_t if_num, nss_capwap_bu
 		return NULL;
 	}
 
-	nss_ctx->nss_top->if_ctx[if_num] = app_data;
-	nss_ctx->nss_top->if_rx_callback[if_num] = cb;
+	nss_ctx->nss_top->subsys_dp_register[if_num].cb = cb;
+	nss_ctx->nss_top->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->nss_top->subsys_dp_register[if_num].ndev = netdev;
+	nss_ctx->nss_top->subsys_dp_register[if_num].features = features;
 
 	return nss_ctx;
 }
@@ -522,8 +524,11 @@ bool nss_capwap_data_unregister(uint32_t if_num)
 
 	(void) nss_core_unregister_handler(if_num);
 
-	nss_ctx->nss_top->if_rx_callback[if_num] = NULL;
-	nss_ctx->nss_top->if_ctx[if_num] = NULL;
+	nss_ctx->nss_top->subsys_dp_register[if_num].cb = NULL;
+	nss_ctx->nss_top->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->nss_top->subsys_dp_register[if_num].ndev = NULL;
+	nss_ctx->nss_top->subsys_dp_register[if_num].features = 0;
+
 	kfree(h);
 	return true;
 }

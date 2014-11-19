@@ -493,7 +493,10 @@ static nss_capwapmgr_status_t nss_capwapmgr_register_with_nss(uint32_t interface
 {
 	struct nss_ctx_instance *ctx;
 
-	ctx = nss_capwap_data_register(interface_num, nss_capwapmgr_receive_pkt, dev);
+	/* features denote the skb_types supported */
+	uint32_t features = 0;
+
+	ctx = nss_capwap_data_register(interface_num, nss_capwapmgr_receive_pkt, dev, features);
 	if (!ctx) {
 		nss_capwapmgr_warn("%p: %d: nss_capwapmgr_data_register failed\n", dev, interface_num);
 		return NSS_CAPWAPMGR_FAILURE;

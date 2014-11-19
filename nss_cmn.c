@@ -57,7 +57,7 @@ int32_t nss_cmn_get_interface_number(struct nss_ctx_instance *nss_ctx, struct ne
 	 * Check physical interface table
 	 */
 	for (i = 0; i < NSS_MAX_NET_INTERFACES; i++) {
-		if (dev == ((struct nss_ctx_instance *)nss_ctx)->nss_top->if_ctx[i]) {
+		if (dev == ((struct nss_ctx_instance *)nss_ctx)->nss_top->subsys_dp_register[i].ndev) {
 			return i;
 		}
 	}
@@ -86,7 +86,7 @@ struct net_device *nss_cmn_get_interface_dev(struct nss_ctx_instance *ctx, uint3
 		return NULL;
 	}
 
-	return nss_ctx->nss_top->if_ctx[if_num];
+	return nss_ctx->nss_top->subsys_dp_register[if_num].ndev;
 }
 
 /*
@@ -105,7 +105,7 @@ int32_t nss_cmn_get_interface_number_by_dev(struct net_device *dev)
 	 * Check physical interface table
 	 */
 	for (i = 0; i < NSS_MAX_NET_INTERFACES; i++) {
-		if (dev == nss_top_main.if_ctx[i]) {
+		if (dev == nss_top_main.subsys_dp_register[i].ndev) {
 			return i;
 		}
 	}

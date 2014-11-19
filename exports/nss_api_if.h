@@ -631,14 +631,12 @@ typedef void (*nss_virt_if_rx_callback_t)(struct net_device *netdev, struct sk_b
  *
  * @param ctx Context provided by NSS driver during creation
  * @param rx_callback Receive callback for packets
- * @param if_ctx Interface context provided in callback
- *		(must be OS network device context pointer e.g.
- *		struct net_device * in Linux)
+ * @param netdev netdevice associated with this interface.
  *
  * @return struct napi_struct * NSS NAPI context
  */
 extern void *nss_register_virt_if(void *ctx, nss_virt_if_rx_callback_t rx_callback,
-					struct net_device *if_ctx);
+					struct net_device *netdev);
 
 /**
  * @brief Unregister virtual handlers with NSS driver
@@ -650,12 +648,11 @@ extern void nss_unregister_virt_if(void *ctx);
 /**
  * @brief Create virtual interface (VAPs)
  *
- * @param if_ctx Interface context
- *		(struct net_device * in Linux)
+ * @param netdev netdevice associated with this interface.
  *
  * @return void* context
  */
-extern void *nss_create_virt_if(struct net_device *if_ctx);
+extern void *nss_create_virt_if(struct net_device *netdev);
 
 /**
  * @brief Obtain NSS Interface number for a virtual interface context

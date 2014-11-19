@@ -267,11 +267,12 @@ typedef void (*nss_capwap_msg_callback_t)(void *app_data, struct nss_capwap_msg 
  * @param if_num NSS interface number
  * @param capwap_callback Callback for capwap tunnel data
  * @param msg_callback Callback for capwap tunnel messages
- * @param app_data argunment for the callback
+ * @param netdev associated netdevice
+ * @param features denote the skb types supported by this interface.
  *
  * @return nss_ctx_instance* NSS context
  */
-extern struct nss_ctx_instance *nss_capwap_data_register(uint32_t if_num, nss_capwap_buf_callback_t capwap_callback, void *app_data);
+extern struct nss_ctx_instance *nss_capwap_data_register(uint32_t if_num, nss_capwap_buf_callback_t capwap_callback, struct net_device *netdev, uint32_t features);
 
 /**
  * @brief Send CAPWAP tunnel messages.
