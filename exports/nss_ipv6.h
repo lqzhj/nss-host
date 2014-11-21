@@ -55,6 +55,8 @@ enum nss_ipv6_message_types {
 					/**< Rule has for a VLAN marking configured */
 #define NSS_IPV6_RULE_CREATE_FLAG_ICMP_NO_CME_FLUSH 0x20
 					/**< Rule for not flushing CME on ICMP pkt */
+#define NSS_IPV6_RULE_UPDATE_FLAG_CHANGE_MTU 0x40
+					/**< Rule updation for MTU change */
 
 /**
  * IPv6 rule creation validity flags.
@@ -103,6 +105,9 @@ enum exception_events_ipv6 {
 	NSS_EXCEPTION_EVENT_IPV6_DSCP_MARKING_MISMATCH,			/**<  NSS Exception event: IPv6 DSCP marking mismatch */
 	NSS_EXCEPTION_EVENT_IPV6_VLAN_MARKING_MISMATCH,			/**<  NSS Exception event: IPv6 VLAN marking mismatch */
 	NSS_EXCEPTION_EVENT_IPV6_INTERFACE_MISMATCH,			/**<  NSS Exception event: IPv6 source interface mismatch */
+	NSS_EXCEPTION_EVENT_IPV6_GRE_NO_ICME,				/**<  NSS Exception event: GRE protocol no IPv6 conn match entry */
+	NSS_EXCEPTION_EVENT_IPV6_GRE_NEEDS_FRAGMENTATION,		/**<  NSS Exception event: GRE protocol needs fragmentation */
+	NSS_EXCEPTION_EVENT_IPV6_GRE_SMALL_HOP_LIMIT,			/**<  NSS Exception event: GRE protocol small hop limit reached */
 	NSS_EXCEPTION_EVENT_IPV6_DESTROY,				/**<  NSS Exception event: Destroy */
 	NSS_EXCEPTION_EVENT_IPV6_MAX					/**<  IPv6 exception events max type number */
 };
