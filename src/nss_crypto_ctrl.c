@@ -714,7 +714,7 @@ nss_crypto_status_t nss_crypto_session_update(nss_crypto_handle_t crypto, uint32
 		return NSS_CRYPTO_STATUS_EINVAL;
 	}
 
-	for (i = 0; i < NSS_CRYPTO_ENGINES; i++, e_ctrl++) {
+	for (i = 0; i < NSS_CRYPTO_MAX_ENGINES; i++, e_ctrl++) {
 		ctrl_idx = &e_ctrl->idx_tbl[session_idx];
 
 		/*
