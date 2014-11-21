@@ -629,25 +629,6 @@ done:
 }
 
 /*
- * nss_ipsecmgr_buf_drop()
- * 	invalid buffer received;drop it and account it
- */
-static void nss_ipsecmgr_buf_drop(struct net_device *dev, struct sk_buff *skb, __attribute((unused)) struct napi_struct *napi)
-{
-	struct iphdr *ip;
-
-	BUG_ON(skb == NULL);
-
-	ip = (struct iphdr *)skb->data;
-	if ((ip->version != IPVERSION) || (ip->ihl != 5)) {
-		nss_ipsecmgr_error("dropping packets(IP version:%x, Header len:%x)\n", ip->version, ip->ihl);
-	}
-
-	/* XXX: increment stats */
-
-	dev_kfree_skb_any(skb);
-}
-/*
  **********************
  * Netdev ops
  **********************
@@ -896,6 +877,7 @@ struct net_device *nss_ipsecmgr_tunnel_add(void *cb_ctx, nss_ipsecmgr_callback_t
 	struct net_device *dev;
 	struct nss_ipsecmgr_priv *priv;
 	int status;
+	int32_t if_number;
 
 	dev = alloc_netdev(sizeof(struct nss_ipsecmgr_priv), NSS_IPSECMGR_TUN_NAME, nss_ipsecmgr_tunnel_setup);
 	if (!dev) {
@@ -916,11 +898,13 @@ struct net_device *nss_ipsecmgr_tunnel_add(void *cb_ctx, nss_ipsecmgr_callback_t
 		goto fail;
 	}
 
-	/* if IPsec encap delivers a packet as exeception, then there is something wrong */
-	nss_ipsec_data_register(NSS_IPSEC_ENCAP_IF_NUMBER, nss_ipsecmgr_buf_drop, dev);
+	if_number = nss_ipsec_get_interface(priv->nss_ctx);
+	if (if_number < 0) {
+		nss_ipsecmgr_error("Invalid nss interface :%d\n", if_number);
+		return NULL;
+	}
 
-	nss_ipsec_data_register(NSS_C2C_TX_INTERFACE, nss_ipsecmgr_buf_receive, dev);
-	nss_ipsec_data_register(NSS_IPSEC_DECAP_IF_NUMBER, nss_ipsecmgr_buf_receive, dev);
+	nss_ipsec_data_register(if_number, nss_ipsecmgr_buf_receive, dev);
 
 	nss_ipsec_notify_register(NSS_IPSEC_ENCAP_IF_NUMBER, nss_ipsecmgr_op_receive, dev);
 	nss_ipsec_notify_register(NSS_IPSEC_DECAP_IF_NUMBER, nss_ipsecmgr_op_receive, dev);

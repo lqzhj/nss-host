@@ -352,6 +352,27 @@ void nss_ipsec_data_unregister(struct nss_ctx_instance *nss_ctx, uint32_t if_num
 EXPORT_SYMBOL(nss_ipsec_data_unregister);
 
 /*
+ * nss_ipsec_get_interface_num()
+ * 	Get the NSS interface number on which ipsec user shall register
+ */
+int32_t nss_ipsec_get_interface(struct nss_ctx_instance *nss_ctx)
+{
+	/*
+	 * Check on which core is ipsec enabled
+	 */
+	switch(nss_ctx->id) {
+	case 0:
+		return NSS_IPSEC_RULE_INTERFACE;
+
+	case 1:
+		return NSS_C2C_TX_INTERFACE;
+	}
+
+	return -1;
+}
+EXPORT_SYMBOL(nss_ipsec_get_interface);
+
+/*
  * nss_ipsec_get_ctx()
  * 	get NSS context instance for IPsec handle
  */
