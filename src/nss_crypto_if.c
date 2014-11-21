@@ -55,7 +55,7 @@ struct nss_crypto_stats_param {
  * crypto param structure.
  */
 struct nss_crypto_param {
-	struct nss_crypto_stats_param eng[NSS_CRYPTO_ENGINES];
+	struct nss_crypto_stats_param eng[NSS_CRYPTO_MAX_ENGINES];
 	struct nss_crypto_stats_param session[NSS_CRYPTO_MAX_IDXS];
 	struct nss_crypto_stats_param total;
 };
@@ -100,7 +100,7 @@ static struct nss_crypto_param param = {
  * Initializing crypto debugfs cookie structure.
  */
 static struct nss_crypto_debugfs_cookie debugfs_cookie[] = {
-	{.name = "engine_stats", .num = NSS_CRYPTO_ENGINES, .ptr = &param.eng[0]},
+	{.name = "engine_stats", .num = NSS_CRYPTO_MAX_ENGINES, .ptr = &param.eng[0]},
 	{.name = "session_stats", .num = NSS_CRYPTO_MAX_IDXS, .ptr = &param.session[0]},
 	{.name = "total_stats", .num = 1, .ptr = &param.total}
 };

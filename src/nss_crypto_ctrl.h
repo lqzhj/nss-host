@@ -104,7 +104,7 @@ struct nss_crypto_ctrl {
 
 	struct nss_crypto_idx_info idx_info[NSS_CRYPTO_MAX_IDXS]; /**< per index info */
 
-	struct nss_crypto_ctrl_eng eng[NSS_CRYPTO_ENGINES];		/**< per engine information */
+	struct nss_crypto_ctrl_eng eng[NSS_CRYPTO_MAX_ENGINES];		/**< per engine information */
 };
 
 static inline bool nss_crypto_check_idx_state(uint32_t map, uint32_t idx)

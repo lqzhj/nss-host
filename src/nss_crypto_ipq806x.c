@@ -101,7 +101,7 @@ static int nss_crypto_probe(struct platform_device *pdev)
 	int status = 0;
 
 	nss_crypto_info("probing engine - %d\n", eng_count);
-	nss_crypto_assert(eng_count < NSS_CRYPTO_ENGINES);
+	nss_crypto_assert(eng_count < NSS_CRYPTO_MAX_ENGINES);
 
 	e_ctrl = &gbl_crypto_ctrl.eng[eng_count];
 
