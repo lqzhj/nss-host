@@ -536,7 +536,8 @@ struct nss_top_instance {
 	struct dentry *capwap_encap_dentry;     /* CAPWAP encap ethnode stats dentry */
 	struct dentry *gre_redir_dentry;	/* gre_redir ethnode stats dentry */
 	struct dentry *sjack_dentry;		/* sjack stats dentry */
-
+	struct dentry *logs_dentry;	/* NSS FW logs directory */
+	struct dentry *core_log_dentry;	/* NSS Core's FW log file */
 	struct nss_ctx_instance nss[NSS_MAX_CORES];
 					/* NSS contexts */
 	/*
@@ -768,4 +769,11 @@ extern void nss_crypto_buf_handler(struct nss_ctx_instance *nss_ctx, void *buf, 
  */
 extern void nss_stats_init(void);
 extern void nss_stats_clean(void);
+
+/*
+ * APIs provided by nss_log.c
+ */
+extern void nss_log_init(void);
+extern bool nss_debug_log_buffer_alloc(uint8_t nss_id, uint32_t nentry);
+extern int nss_logbuffer_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos);
 #endif /* __NSS_CORE_H */

@@ -48,7 +48,8 @@ qca-nss-drv-objs := \
 			nss_eth_rx.o \
 			nss_n2h.o \
 			nss_data_plane.o \
-			nss_freq.o
+			nss_freq.o \
+			nss_log.o
 
 #
 # TODO: Deprecated files should be removed before merge
