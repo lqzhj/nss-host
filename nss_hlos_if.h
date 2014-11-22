@@ -175,10 +175,22 @@ struct nss_n2h_stats_sync {
 	uint32_t worst_case_ticks;	/* Worst case iteration of the PE in ticks */
 	uint32_t iterations;		/* Number of iterations around the PE */
 
-	struct nss_n2h_pbuf_mgr_stats pbuf_ocm_stats; 		/* Pbuf OCM Stats */
-	struct nss_n2h_pbuf_mgr_stats pbuf_default_stats; 	/* Pbuf Default Stats */
+	struct nss_n2h_pbuf_mgr_stats pbuf_ocm_stats;
+					/* Pbuf OCM Stats */
+	struct nss_n2h_pbuf_mgr_stats pbuf_default_stats;
+					/* Pbuf Default Stats */
 
-	uint32_t payload_alloc_fails;
+	uint32_t payload_alloc_fails;	/* Number of payload alloc failures */
+
+	uint32_t h2n_ctrl_pkts;		/* Control packets received from HLOS */
+	uint32_t h2n_ctrl_bytes;	/* Control bytes received from HLOS */
+	uint32_t n2h_ctrl_pkts;		/* Control packets sent to HLOS */
+	uint32_t n2h_ctrl_bytes;	/* Control bytes sent to HLOS */
+
+	uint32_t h2n_data_pkts;		/* Data packets received from HLOS */
+	uint32_t h2n_data_bytes;	/* Data bytes received from HLOS */
+	uint32_t n2h_data_pkts;		/* Data packets sent to HLOS */
+	uint32_t n2h_data_bytes;	/* Data bytes sent to HLOS */
 };
 
 /*

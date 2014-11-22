@@ -120,6 +120,22 @@ static void nss_n2h_stats_sync(struct nss_ctx_instance *nss_ctx, struct nss_n2h_
 	 */
 	nss_ctx->stats_n2h[NSS_STATS_N2H_PAYLOAD_ALLOC_FAILS] += nnss->payload_alloc_fails;
 
+	/*
+	 * Host <=> NSS control traffic stats
+	 */
+	nss_ctx->stats_n2h[NSS_STATS_N2H_H2N_CONTROL_PACKETS] += nnss->h2n_ctrl_pkts;
+	nss_ctx->stats_n2h[NSS_STATS_N2H_H2N_CONTROL_BYTES] += nnss->h2n_ctrl_bytes;
+	nss_ctx->stats_n2h[NSS_STATS_N2H_N2H_CONTROL_PACKETS] += nnss->n2h_ctrl_pkts;
+	nss_ctx->stats_n2h[NSS_STATS_N2H_N2H_CONTROL_BYTES] += nnss->n2h_ctrl_bytes;
+
+	/*
+	 * Host <=> NSS control data traffic stats
+	 */
+	nss_ctx->stats_n2h[NSS_STATS_N2H_H2N_DATA_PACKETS] += nnss->h2n_data_pkts;
+	nss_ctx->stats_n2h[NSS_STATS_N2H_H2N_DATA_BYTES] += nnss->h2n_data_bytes;
+	nss_ctx->stats_n2h[NSS_STATS_N2H_N2H_DATA_PACKETS] += nnss->n2h_data_pkts;
+	nss_ctx->stats_n2h[NSS_STATS_N2H_N2H_DATA_BYTES] += nnss->n2h_data_bytes;
+
 	spin_unlock_bh(&nss_top->stats_lock);
 }
 
