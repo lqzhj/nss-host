@@ -78,6 +78,7 @@ struct nss_tunipip6_tunnel{
 	uint32_t if_num;
 	struct net_device *netdev;
 	uint32_t device_up;
+	uint32_t features;  /* The skb types supported by this interface */
 };
 
 /*
@@ -148,7 +149,8 @@ void nss_tunipip6_dev_up( struct net_device * netdev)
 	g_tunipip6.nss_ctx = nss_register_tunipip6_if(g_tunipip6.if_num,
 				nss_tunipip6_exception,
 				nss_tunipip6_event_receive,
-				netdev);
+				netdev,
+				g_tunipip6.features);
 	if (g_tunipip6.nss_ctx == NULL) {
 		nss_tunipip6_trace("nss_register_tunipip6_if Failed \n");
 		return;
@@ -375,6 +377,7 @@ int __init nss_tunipip6_init_module(void)
 	g_tunipip6.netdev = NULL;
 	g_tunipip6.device_up = 0;
 	g_tunipip6.nss_ctx = NULL;
+	g_tunipip6.features = 0;
 
 	return 0;
 }

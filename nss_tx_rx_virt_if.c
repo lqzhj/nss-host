@@ -29,15 +29,18 @@ extern int nss_ctl_redirect;
  */
 void *nss_register_virt_if(void *ctx,
 				nss_virt_if_rx_callback_t rx_callback,
-				struct net_device *if_ctx)
+				struct net_device *netdev)
 {
 	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[nss_top_main.ipv4_handler_id];
 	int32_t if_num = (int32_t)ctx;
+	uint32_t features = 0;
 
 	nss_assert(NSS_IS_IF_TYPE(VIRTUAL, if_num));
 
-	nss_top_main.if_ctx[if_num] = (void *)if_ctx;
-	nss_top_main.if_rx_callback[if_num] = rx_callback;
+	nss_top_main.subsys_dp_register[if_num].ndev = netdev;
+	nss_top_main.subsys_dp_register[if_num].cb = rx_callback;
+	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
+	nss_top_main.subsys_dp_register[if_num].features = features;
 
 	return nss_ctx;
 }
@@ -50,7 +53,11 @@ void nss_unregister_virt_if(void *ctx)
 	int32_t if_num = (int32_t)ctx;
 
 	nss_assert(NSS_IS_IF_TYPE(VIRTUAL, if_num));
-	nss_top_main.if_rx_callback[if_num] = NULL;
+
+	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
+	nss_top_main.subsys_dp_register[if_num].cb = NULL;
+	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
+	nss_top_main.subsys_dp_register[if_num].features = 0;
 }
 
 /*
@@ -169,7 +176,7 @@ nss_tx_status_t nss_tx_virt_if_rx_nwifibuf(void *ctx, struct sk_buff *os_buf)
 /*
  * nss_create_virt_if()
  */
-void *nss_create_virt_if(struct net_device *if_ctx)
+void *nss_create_virt_if(struct net_device *netdev)
 {
 	struct nss_virt_if_msg nvim;
 	struct nss_virt_if_create *nvic;
@@ -184,8 +191,8 @@ void *nss_create_virt_if(struct net_device *if_ctx)
 	/*
 	 * Check if net_device is Ethernet type
 	 */
-	if (if_ctx->type != ARPHRD_ETHER) {
-		nss_warning("%p:Register virtual interface %p: type incorrect: %d ", nss_ctx, if_ctx, if_ctx->type);
+	if (netdev->type != ARPHRD_ETHER) {
+		nss_warning("%p:Register virtual interface %p: type incorrect: %d ", nss_ctx, netdev, netdev->type);
 		return NULL;
 	}
 
@@ -194,11 +201,11 @@ void *nss_create_virt_if(struct net_device *if_ctx)
 	 */
 	spin_lock_bh(&nss_top_main.lock);
 	for (if_num = NSS_VIRTUAL_IF_START; if_num < NSS_VIRTUAL_IF_START + NSS_MAX_VIRTUAL_INTERFACES; ++if_num) {
-		if (!nss_top_main.if_ctx[if_num]) {
+		if (!nss_top_main.subsys_dp_register[if_num].ndev) {
 			/*
 			 * Use this redirection interface
 			 */
-			nss_top_main.if_ctx[if_num] = (void *)if_ctx;
+			nss_top_main.subsys_dp_register[if_num].ndev = netdev;
 			break;
 		}
 	}
@@ -208,7 +215,7 @@ void *nss_create_virt_if(struct net_device *if_ctx)
 		/*
 		 * No available virtual contexts
 		 */
-		nss_warning("%p:Register virtual interface %p: no contexts available:", nss_ctx, if_ctx);
+		nss_warning("%p:Register virtual interface %p: no contexts available:", nss_ctx, netdev);
 		return NULL;
 	}
 
@@ -217,15 +224,15 @@ void *nss_create_virt_if(struct net_device *if_ctx)
 
 	nvic = &nvim.msg.create;
 	nvic->flags = 0;
-	memcpy(nvic->mac_addr, if_ctx->dev_addr, ETH_ALEN);
+	memcpy(nvic->mac_addr, netdev->dev_addr, ETH_ALEN);
 
 	(void)nss_virt_if_tx_msg(nss_ctx, &nvim);
 
 	/*
 	 * Hold a reference to the net_device
 	 */
-	dev_hold(if_ctx);
-	nss_info("%p:Registered virtual interface %d: context %p", nss_ctx, if_num, if_ctx);
+	dev_hold(netdev);
+	nss_info("%p:Registered virtual interface %d: context %p", nss_ctx, if_num, netdev);
 
 	/*
 	 * The context returned is the virtual interface # which is, essentially, the index into the if_ctx
@@ -253,7 +260,7 @@ nss_tx_status_t nss_destroy_virt_if(void *ctx)
 	nss_assert(NSS_IS_IF_TYPE(VIRTUAL, if_num));
 
 	spin_lock_bh(&nss_top_main.lock);
-	if (!nss_top_main.if_ctx[if_num]) {
+	if (!nss_top_main.subsys_dp_register[if_num].ndev) {
 		spin_unlock_bh(&nss_top_main.lock);
 		nss_warning("%p: Unregister virtual interface %d: no context", nss_ctx, if_num);
 		return NSS_TX_FAILURE_BAD_PARAM;
@@ -262,8 +269,8 @@ nss_tx_status_t nss_destroy_virt_if(void *ctx)
 	/*
 	 * Set this context to NULL
 	 */
-	dev = nss_top_main.if_ctx[if_num];
-	nss_top_main.if_ctx[if_num] = NULL;
+	dev = nss_top_main.subsys_dp_register[if_num].ndev;
+	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
 	spin_unlock_bh(&nss_top_main.lock);
 	nss_info("%p:Unregister virtual interface %d (%p)", nss_ctx, if_num, dev);
 	dev_put(dev);

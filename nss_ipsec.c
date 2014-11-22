@@ -317,7 +317,7 @@ EXPORT_SYMBOL(nss_ipsec_notify_unregister);
  * nss_ipsec_data_register()
  * 	register a data callback routine
  */
-struct nss_ctx_instance *nss_ipsec_data_register(uint32_t if_num, nss_ipsec_buf_callback_t cb, void *app_data)
+struct nss_ctx_instance *nss_ipsec_data_register(uint32_t if_num, nss_ipsec_buf_callback_t cb, struct net_device *netdev, uint32_t features)
 {
 	struct nss_ctx_instance *nss_ctx;
 
@@ -328,8 +328,10 @@ struct nss_ctx_instance *nss_ipsec_data_register(uint32_t if_num, nss_ipsec_buf_
 		return NULL;
 	}
 
-	nss_ctx->nss_top->if_ctx[if_num] = app_data;
-	nss_ctx->nss_top->if_rx_callback[if_num] = cb;
+	nss_ctx->nss_top->subsys_dp_register[if_num].cb = cb;
+	nss_ctx->nss_top->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->nss_top->subsys_dp_register[if_num].ndev = netdev;
+	nss_ctx->nss_top->subsys_dp_register[if_num].features = features;
 
 	return nss_ctx;
 }
@@ -346,8 +348,10 @@ void nss_ipsec_data_unregister(struct nss_ctx_instance *nss_ctx, uint32_t if_num
 		return;
 	}
 
-	nss_ctx->nss_top->if_ctx[if_num] = NULL;
-	nss_ctx->nss_top->if_rx_callback[if_num] = NULL;
+	nss_ctx->nss_top->subsys_dp_register[if_num].cb = NULL;
+	nss_ctx->nss_top->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->nss_top->subsys_dp_register[if_num].ndev = NULL;
+	nss_ctx->nss_top->subsys_dp_register[if_num].features = 0;
 }
 EXPORT_SYMBOL(nss_ipsec_data_unregister);
 

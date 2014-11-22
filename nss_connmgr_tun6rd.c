@@ -172,6 +172,7 @@ static int nss_tun6rd_dev_up(struct net_device *netdev)
 	uint32_t if_number;
 	nss_tx_status_t status;
 	struct nss_ctx_instance *nss_ctx;
+	uint32_t features = 0; /* features denote the skb types supported by this interface */
 
 	/*
 	 * Validate netdev for ipv6-in-ipv4  Tunnel
@@ -231,7 +232,8 @@ static int nss_tun6rd_dev_up(struct net_device *netdev)
 	nss_ctx = nss_register_tun6rd_if(if_number,
 				nss_tun6rd_exception,
 				nss_tun6rd_event_receive,
-				netdev);
+				netdev,
+				features);
 	if (!nss_ctx) {
 		status = nss_dynamic_interface_dealloc_node(if_number, NSS_DYNAMIC_INTERFACE_TYPE_TUN6RD);
 		if (status != NSS_TX_SUCCESS) {

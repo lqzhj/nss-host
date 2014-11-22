@@ -512,6 +512,18 @@ struct nss_ctx_instance {
 };
 
 /*
+ * NSS core <-> subsystem data plane registration related paramaters.
+ * This struct is filled in if_register/data_plane register APIs & retrieved
+ * when handling a data packet/skb destined to that subsystem interface.
+ */
+struct nss_subsystem_dataplane_register {
+	nss_phys_if_rx_callback_t cb;	/* callback to be invoked */
+	void *app_data;			/* additional info passed during callback(for future use) */
+	struct net_device *ndev;	/* Netdevice associated with the interface */
+	uint32_t features;		/* skb types supported by this subsystem */
+};
+
+/*
  * Main NSS context structure (singleton)
  */
 struct nss_top_instance {
@@ -559,11 +571,12 @@ struct nss_top_instance {
 	uint8_t sjack_handler_id;
 	uint8_t capwap_handler_id;
 
+	/* subsystem registration data */
+	struct nss_subsystem_dataplane_register subsys_dp_register[NSS_MAX_NET_INTERFACES];
+
 	/*
 	 * Data/Message callbacks for various interfaces
 	 */
-	nss_phys_if_rx_callback_t if_rx_callback[NSS_MAX_NET_INTERFACES];
-					/* Physical interface packet callback functions */
 	nss_if_rx_msg_callback_t if_rx_msg_callback[NSS_MAX_NET_INTERFACES];
 					/* All interfaces message callback functions */
 	nss_phys_if_msg_callback_t phys_if_msg_callback[NSS_MAX_PHYSICAL_INTERFACES];
@@ -605,12 +618,6 @@ struct nss_top_instance {
 
 	void *ipsec_encap_ctx;		/* IPsec encap context */
 	void *ipsec_decap_ctx;		/* IPsec decap context */
-
-	/*
-	 * Interface contexts (network device)
-	 */
-	struct net_device *if_ctx[NSS_MAX_NET_INTERFACES];
-					/* Phys/Virt interface context */
 
 	/*
 	 * Statistics for various interfaces

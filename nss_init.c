@@ -506,7 +506,7 @@ static int __devexit nss_remove(struct platform_device *nss_dev)
 	 * nss-drv is exiting, remove from nss-gmac
 	 */
 	for (i = 0 ; i < NSS_MAX_PHYSICAL_INTERFACES ; i ++) {
-		if (nss_top->if_ctx[i]) {
+		if (nss_top->subsys_dp_register[i].ndev) {
 			nss_data_plane_unregister_from_nss_gmac(i);
 		}
 	}

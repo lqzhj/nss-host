@@ -75,10 +75,15 @@ void *nss_register_lag_if(uint32_t if_num,
 			 nss_lag_event_callback_t lag_ev_cb,
 			 struct net_device *netdev)
 {
+	uint32_t features = 0;
+
 	nss_assert((if_num == NSS_LAG0_INTERFACE_NUM) || (if_num == NSS_LAG1_INTERFACE_NUM));
 
-	nss_top_main.if_ctx[if_num] = netdev;
-	nss_top_main.if_rx_callback[if_num] = lag_cb;
+	nss_top_main.subsys_dp_register[if_num].ndev = netdev;
+	nss_top_main.subsys_dp_register[if_num].cb = lag_cb;
+	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
+	nss_top_main.subsys_dp_register[if_num].features = features;
+
 	nss_top_main.lag_event_callback = lag_ev_cb;
 
 	/*
@@ -96,8 +101,11 @@ void nss_unregister_lag_if(uint32_t if_num)
 {
 	nss_assert((if_num == NSS_LAG0_INTERFACE_NUM) || (if_num == NSS_LAG1_INTERFACE_NUM));
 
-	nss_top_main.if_rx_callback[if_num] = NULL;
-	nss_top_main.if_ctx[if_num] = NULL;
+	nss_top_main.subsys_dp_register[if_num].cb = NULL;
+	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
+	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
+	nss_top_main.subsys_dp_register[if_num].features = 0;
+
 	nss_top_main.lag_event_callback = NULL;
 }
 EXPORT_SYMBOL(nss_unregister_lag_if);
@@ -151,7 +159,7 @@ void nss_lag_handler(struct nss_ctx_instance *nss_ctx,
 	 * callback
 	 */
 	cb = (nss_lag_event_callback_t)ncm->cb;
-	ctx = nss_ctx->nss_top->if_ctx[ncm->interface];
+	ctx = nss_ctx->nss_top->subsys_dp_register[ncm->interface].ndev;
 
 	cb(ctx, lm);
 }

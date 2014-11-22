@@ -142,6 +142,8 @@ bool nss_data_plane_register_to_nss_gmac(struct nss_ctx_instance *nss_ctx, int i
 	ndpp->nss_ctx = nss_ctx;
 	ndpp->if_num = if_num;
 	ndpp->notify_open = 0;
+	ndpp->features = 0;
+
 	if (nss_gmac_override_data_plane(netdev, &dp_ops, ndpp) != NSS_GMAC_SUCCESS) {
 		nss_info("Override nss-gmac data plane failed\n");
 		return false;
@@ -153,8 +155,11 @@ bool nss_data_plane_register_to_nss_gmac(struct nss_ctx_instance *nss_ctx, int i
 	 */
 	nss_top->phys_if_handler_id[if_num] = nss_ctx->id;
 	nss_phys_if_register_handler(if_num);
-	nss_top->if_ctx[if_num] = netdev;
-	nss_top_main.if_rx_callback[if_num] = nss_gmac_receive;
+
+	nss_top->subsys_dp_register[if_num].ndev = netdev;
+	nss_top->subsys_dp_register[if_num].cb = nss_gmac_receive;
+	nss_top->subsys_dp_register[if_num].app_data = NULL;
+	nss_top->subsys_dp_register[if_num].features = ndpp->features;
 
 	/*
 	 * Now we are registered and our side is ready, if the gmac was opened, ask it to start again

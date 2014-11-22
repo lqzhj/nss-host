@@ -879,6 +879,9 @@ struct net_device *nss_ipsecmgr_tunnel_add(void *cb_ctx, nss_ipsecmgr_callback_t
 	int status;
 	int32_t if_number;
 
+	/* Features denote the skb types supported */
+	uint32_t features = 0;
+
 	dev = alloc_netdev(sizeof(struct nss_ipsecmgr_priv), NSS_IPSECMGR_TUN_NAME, nss_ipsecmgr_tunnel_setup);
 	if (!dev) {
 		nss_ipsecmgr_error("unable to allocate a tunnel device\n");
@@ -904,7 +907,7 @@ struct net_device *nss_ipsecmgr_tunnel_add(void *cb_ctx, nss_ipsecmgr_callback_t
 		return NULL;
 	}
 
-	nss_ipsec_data_register(if_number, nss_ipsecmgr_buf_receive, dev);
+	nss_ipsec_data_register(if_number, nss_ipsecmgr_buf_receive, dev, features);
 
 	nss_ipsec_notify_register(NSS_IPSEC_ENCAP_IF_NUMBER, nss_ipsecmgr_op_receive, dev);
 	nss_ipsec_notify_register(NSS_IPSEC_DECAP_IF_NUMBER, nss_ipsecmgr_op_receive, dev);
