@@ -460,6 +460,22 @@ static void nss_cfi_ipsec_data_cb(void *cb_ctx, struct sk_buff *skb)
 }
 
 /*
+ * nss_ipsec_ev_cb()
+ * 	Receive events from NSS IPsec package
+ *
+ * Event callback called by IPsec manager
+ */
+static void nss_cfi_ipsec_ev_cb(void *ctx, struct nss_ipsecmgr_event *ev)
+{
+	switch (ev->type) {
+
+	default:
+		nss_cfi_dbg("unknown IPsec manager event\n");
+		break;
+	}
+}
+
+/*
  * nss_cfi_ipsec_dev_event()
  * 	notifier function for IPsec device events.
  */
@@ -479,7 +495,7 @@ static int nss_cfi_ipsec_dev_event(struct notifier_block *this, unsigned long ev
 
 		nss_cfi_info("IPsec interface being registered: %s\n", hlos_dev->name);
 
-		nss_dev = nss_ipsecmgr_tunnel_add(hlos_dev, nss_cfi_ipsec_data_cb);
+		nss_dev = nss_ipsecmgr_tunnel_add(hlos_dev, nss_cfi_ipsec_data_cb, nss_cfi_ipsec_ev_cb);
 		if (nss_dev == NULL) {
 			nss_cfi_err("NSS IPsec tunnel dev allocation failed for %s\n", hlos_dev->name);
 			return NOTIFY_BAD;
