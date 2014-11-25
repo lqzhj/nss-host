@@ -110,6 +110,7 @@ struct nss_ipsecmgr_priv {
 	nss_ipsecmgr_data_cb_t data_cb;				/* data callback function */
 	nss_ipsecmgr_event_cb_t event_cb;			/* event callback function */
 	struct nss_ctx_instance *nss_ctx;			/* NSS context */
+	uint32_t nss_ifnum;					/* NSS if num for data */
 };
 
 typedef bool (*nss_ipsecmgr_op_t)(struct net_device *dev, struct nss_ipsecmgr_tbl *tbl, struct nss_ipsec_msg *nim);
@@ -1038,7 +1039,7 @@ struct net_device *nss_ipsecmgr_tunnel_add(void *cb_ctx, nss_ipsecmgr_data_cb_t 
 	struct nss_ipsec_sa *sa;
 	int status;
 	int count;
-	int32_t if_number;
+	int32_t if_num;
 
 	/* Features denote the skb types supported */
 	uint32_t features = 0;
@@ -1068,13 +1069,18 @@ struct net_device *nss_ipsecmgr_tunnel_add(void *cb_ctx, nss_ipsecmgr_data_cb_t 
 		goto fail;
 	}
 
-	if_number = nss_ipsec_get_interface(priv->nss_ctx);
-	if (if_number < 0) {
-		nss_ipsecmgr_error("Invalid nss interface :%d\n", if_number);
+	if_num = nss_ipsec_get_interface(priv->nss_ctx);
+	if (if_num < 0) {
+		nss_ipsecmgr_error("Invalid nss interface :%d\n", if_num);
 		return NULL;
 	}
 
-	nss_ipsec_data_register(if_number, nss_ipsecmgr_buf_receive, dev, features);
+	nss_ipsec_data_register(if_num, nss_ipsecmgr_buf_receive, dev, features);
+
+	/*
+	 * Store data interface number in private data
+	 */
+	priv->nss_ifnum = if_num;
 
 	nss_ipsec_notify_register(NSS_IPSEC_ENCAP_IF_NUMBER, nss_ipsecmgr_op_receive, dev);
 	nss_ipsec_notify_register(NSS_IPSEC_DECAP_IF_NUMBER, nss_ipsecmgr_op_receive, dev);
@@ -1109,18 +1115,13 @@ bool nss_ipsecmgr_tunnel_del(struct net_device *dev)
 	 * Unregister the callbacks from the HLOS as we are no longer
 	 * interested in exception data & async messages
 	 */
-
-	nss_ipsec_data_unregister(priv->nss_ctx, NSS_C2C_TX_INTERFACE);
+	nss_ipsec_data_unregister(priv->nss_ctx, priv->nss_ifnum);
 
 	nss_ipsec_notify_unregister(priv->nss_ctx, NSS_IPSEC_ENCAP_IF_NUMBER);
 	nss_ipsec_notify_unregister(priv->nss_ctx, NSS_IPSEC_DECAP_IF_NUMBER);
 
-	nss_ipsec_data_unregister(priv->nss_ctx, NSS_IPSEC_DECAP_IF_NUMBER);
-	nss_ipsec_data_unregister(priv->nss_ctx, NSS_IPSEC_ENCAP_IF_NUMBER);
-
 	priv->data_cb = NULL;
 	priv->event_cb = NULL;
-	priv->cb_ctx = NULL;
 
 	/*
 	 * Prepare to flush all SA(s) inside a tunnel
