@@ -783,4 +783,13 @@ extern void nss_stats_clean(void);
 extern void nss_log_init(void);
 extern bool nss_debug_log_buffer_alloc(uint8_t nss_id, uint32_t nentry);
 extern int nss_logbuffer_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos);
+
+/*
+ * APIs to set jumbo_mru & paged_mode
+ */
+extern void nss_core_set_jumbo_mru(int jumbo_mru);
+extern int nss_core_get_jumbo_mru(void);
+extern void nss_core_set_paged_mode(int mode);
+extern int nss_core_get_paged_mode(void);
+
 #endif /* __NSS_CORE_H */

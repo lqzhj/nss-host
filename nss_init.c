@@ -54,6 +54,8 @@ int nss_ctl_redirect __read_mostly = 0;
 int nss_ctl_debug __read_mostly = 0;
 int nss_rps_cfg __read_mostly = 0;
 int nss_ctl_logbuf __read_mostly = 0;
+int nss_jumbo_mru  __read_mostly = 0;
+int nss_paged_mode __read_mostly = 0;
 
 /*
  * PM client handle
@@ -803,6 +805,48 @@ static int nss_coredump_handler(ctl_table *ctl, int write, void __user *buffer, 
 }
 
 /*
+ * nss_jumbo_mru_handler()
+ *	Sysctl to modify nss_jumbo_mru
+ */
+static int nss_jumbo_mru_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	int ret;
+
+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+	if (ret) {
+		return ret;
+	}
+
+	if (write) {
+		nss_core_set_jumbo_mru(nss_jumbo_mru);
+		nss_info("jumbo_mru set to %d\n", nss_jumbo_mru);
+	}
+
+	return ret;
+}
+
+/* nss_paged_mode_handler()
+ *	Sysctl to modify nss_paged_mode.
+ */
+
+static int nss_paged_mode_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	int ret;
+
+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+	if (ret) {
+		return ret;
+	}
+
+	if (write) {
+		nss_core_set_paged_mode(nss_paged_mode);
+		nss_info("paged_mode set to %d\n", nss_paged_mode);
+	}
+
+	return ret;
+}
+
+/*
  * sysctl-tuning infrastructure.
  */
 static ctl_table nss_freq_table[] = {
@@ -872,6 +916,20 @@ static ctl_table nss_general_table[] = {
 		.maxlen                 = sizeof(int),
 		.mode                   = 0644,
 		.proc_handler   	= &nss_logbuffer_handler,
+	},
+	{
+		.procname               = "jumbo_mru",
+		.data                   = &nss_jumbo_mru,
+		.maxlen                 = sizeof(int),
+		.mode                   = 0644,
+		.proc_handler           = &nss_jumbo_mru_handler,
+	},
+	{
+		.procname               = "paged_mode",
+		.data                   = &nss_paged_mode,
+		.maxlen                 = sizeof(int),
+		.mode                   = 0644,
+		.proc_handler           = &nss_paged_mode_handler,
 	},
 	{ }
 };
