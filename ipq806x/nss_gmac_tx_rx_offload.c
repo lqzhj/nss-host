@@ -462,6 +462,18 @@ static int nss_gmac_slowpath_if_xmit(void *app_data, struct sk_buff *skb)
 	return NSS_GMAC_FAILURE;
 }
 
+/*
+ * nss_gmac_slowpath_if_set_features()
+ *	Set the supported net_device features
+ */
+static void nss_gmac_slowpath_if_set_features(struct net_device *netdev)
+{
+	netdev->features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
+	netdev->hw_features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
+	netdev->vlan_features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
+	netdev->wanted_features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
+}
+
 struct nss_gmac_data_plane_ops nss_gmac_slowpath_ops = {
 	.open		= nss_gmac_slowpath_if_open,
 	.close		= nss_gmac_slowpath_if_close,
@@ -469,6 +481,7 @@ struct nss_gmac_data_plane_ops nss_gmac_slowpath_ops = {
 	.mac_addr	= nss_gmac_slowpath_if_mac_addr,
 	.change_mtu	= nss_gmac_slowpath_if_change_mtu,
 	.xmit		= nss_gmac_slowpath_if_xmit,
+	.set_features	= nss_gmac_slowpath_if_set_features,
 };
 
 /**
@@ -930,11 +943,9 @@ int nss_gmac_linux_open(struct net_device *netdev)
 	/*
 	 * Inform the Linux Networking stack about the hardware
 	 * capability of checksum offloading and other features.
+	 * Each data_plane is responsible to maintain the feature set it supports
 	 */
-	netdev->features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_TSO | NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_UFO | NETIF_F_TSO6;
-	netdev->hw_features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_TSO | NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_UFO | NETIF_F_TSO6;
-	netdev->vlan_features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_TSO | NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_UFO | NETIF_F_TSO6;
-	netdev->wanted_features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_TSO | NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_UFO | NETIF_F_TSO6;
+	gmacdev->data_plane_ops->set_features(netdev);
 
 	/**
 	 * Set GMAC state to UP before link state is checked
@@ -1067,6 +1078,18 @@ bool nss_gmac_is_in_open_state(struct net_device *netdev)
 EXPORT_SYMBOL(nss_gmac_is_in_open_state);
 
 /*
+ * nss_gmac_reset_netdev_features()
+ *	Resets the netdev features
+ */
+static inline void nss_gmac_reset_netdev_features(struct net_device *netdev)
+{
+	netdev->features = 0;
+	netdev->hw_features = 0;
+	netdev->vlan_features = 0;
+	netdev->wanted_features = 0;
+}
+
+/*
  * nss_gmac_register_offload()
  *
  * @param[netdev] netdev instance that is going to register
@@ -1084,17 +1107,19 @@ int nss_gmac_override_data_plane(struct net_device *netdev,
 	BUG_ON(!gmacdev);
 
 	if (!dp_ops->open || !dp_ops->close || !dp_ops->link_state
-		|| !dp_ops->mac_addr || !dp_ops->change_mtu || !dp_ops->xmit) {
+		|| !dp_ops->mac_addr || !dp_ops->change_mtu || !dp_ops->xmit || !dp_ops->set_features) {
 		netdev_dbg(netdev, "%s: All the op functions must be present, reject this registeration\n",
 								__func__);
 		return NSS_GMAC_FAILURE;
 	}
 
 	/*
-	 * If this gmac is up, close the netdev to force TX/RX stop
+	 * If this gmac is up, close the netdev to force TX/RX stop, and also reset the features
 	 */
-	if (test_bit(__NSS_GMAC_UP, &gmacdev->flags))
+	if (test_bit(__NSS_GMAC_UP, &gmacdev->flags)) {
 		nss_gmac_linux_close(netdev);
+		nss_gmac_reset_netdev_features(netdev);
+	}
 
 	/* Recored the data_plane_ctx, data_plane_ops */
 	gmacdev->data_plane_ctx = ctx;
@@ -1138,10 +1163,12 @@ void nss_gmac_restore_data_plane(struct net_device *netdev)
 	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 
 	/*
-	 * If this gmac is up, close the netdev to force TX/RX stop
+	 * If this gmac is up, close the netdev to force TX/RX stop, and also reset the features
 	 */
-	if (test_bit(__NSS_GMAC_UP, &gmacdev->flags))
+	if (test_bit(__NSS_GMAC_UP, &gmacdev->flags)) {
 		nss_gmac_linux_close(netdev);
+		nss_gmac_reset_netdev_features(netdev);
+	}
 	gmacdev->data_plane_ctx = netdev;
 	gmacdev->data_plane_ops = &nss_gmac_slowpath_ops;
 }
