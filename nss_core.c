@@ -27,6 +27,8 @@
 #include "nss_tx_rx_common.h"
 #include "nss_data_plane.h"
 
+#define NSS_CORE_JUMBO_LINEAR_BUF_SIZE 128
+
 /*
  * Atomic variables to control jumbo_mru & paged_mode
  */
@@ -140,7 +142,11 @@ void nss_core_handle_nss_status_pkt(struct nss_ctx_instance *nss_ctx, struct sk_
 	nss_core_rx_callback_t cb;
 	void *app_data;
 
-	ncm = (struct nss_cmn_msg *)nbuf->data;
+	if (skb_shinfo(nbuf)->nr_frags > 0) {
+		ncm = (struct nss_cmn_msg *)skb_frag_address(&skb_shinfo(nbuf)->frags[0]);
+	} else {
+		ncm = (struct nss_cmn_msg *)nbuf->data;
+	}
 
 	/*
 	 * Check for version number
@@ -266,8 +272,6 @@ static inline void nss_dump_desc(struct nss_ctx_instance *nss_ctx, struct n2h_de
 	printk("\tbit_flags = %x\n", desc->bit_flags);
 	printk("\tbuffer_addr = %x\n", desc->buffer);
 	printk("\tbuffer_len = %d\n", desc->buffer_len);
-	printk("\tpayload_offs = %d\n", desc->payload_offs);
-	printk("\tpayload_len = %d\n", desc->payload_len);
 	printk("\tpayload_offs = %d\n", desc->payload_offs);
 	printk("\tpayload_len = %d\n", desc->payload_len);
 }
@@ -543,6 +547,279 @@ static inline void nss_core_rx_pbuf(struct nss_ctx_instance *nss_ctx, struct n2h
 }
 
 /*
+ * nss_core_handle_nrfrag_skb()
+ *	Handled the processing of fragmented skb's
+ */
+static inline bool nss_core_handle_nr_frag_skb(struct sk_buff **nbuf_ptr, struct sk_buff **jumbo_start_ptr, struct n2h_descriptor *desc, unsigned int buffer_type)
+{
+	struct sk_buff *nbuf = *nbuf_ptr;
+	struct sk_buff *jumbo_start = *jumbo_start_ptr;
+
+	uint16_t payload_len = desc->payload_len;
+	uint16_t payload_offs = desc->payload_offs;
+	uint16_t bit_flags = desc->bit_flags;
+
+	nss_assert(desc->payload_offs + desc->payload_len <= PAGE_SIZE, "%p: payload offset %u + payload len %u larger than page size %u", nbuf, desc->payload_offs, desc->payload_len, PAGE_SIZE);
+	dma_unmap_page(NULL, (desc->buffer + desc->payload_offs), desc->payload_len, DMA_FROM_DEVICE);
+
+	/*
+	 * No chain.
+	 */
+	if (likely(bit_flags & N2H_BIT_FLAG_FIRST_SEGMENT) && likely(bit_flags & N2H_BIT_FLAG_LAST_SEGMENT)) {
+
+		/*
+		 * We have received another head before we saw the last segment.
+		 * Free the old head as the frag list is corrupt.
+		 */
+		if (unlikely(jumbo_start)) {
+			nss_warning("%p: received the second head before a last", jumbo_start);
+			dev_kfree_skb_any(jumbo_start);
+			*jumbo_start_ptr = NULL;
+			return false;
+		}
+
+		/*
+		 * NOTE: Need to use __skb_fill since we do not want to
+		 * increment nr_frags again. We just want to adjust the offset
+		 * and the length.
+		 */
+		__skb_fill_page_desc(nbuf, 0, skb_frag_page(&skb_shinfo(nbuf)->frags[0]), payload_offs, payload_len);
+
+		/*
+		 * We do not update truesize. We just keep the initial set value.
+		 */
+		nbuf->data_len = payload_len;
+		nbuf->len = payload_len;
+		goto pull;
+	}
+
+	/*
+	 * NSS sent us an SG chain.
+	 * Build a frags[] out of segments.
+	 */
+	if (unlikely((bit_flags & N2H_BIT_FLAG_FIRST_SEGMENT))) {
+
+		/*
+		 * We have received another head before we saw the last segment.
+		 * Free the old head as the frag list is corrupt.
+		 */
+		if (unlikely(jumbo_start)) {
+			nss_warning("%p: received the second head before a last", jumbo_start);
+			dev_kfree_skb_any(jumbo_start);
+			*jumbo_start_ptr = NULL;
+			return false;
+		}
+
+		/*
+		 * We do not update truesize. We just keep the initial set value.
+		 */
+		__skb_fill_page_desc(nbuf, 0, skb_frag_page(&skb_shinfo(nbuf)->frags[0]), payload_offs, payload_len);
+		nbuf->data_len = payload_len;
+		nbuf->len = payload_len;
+
+		/*
+		 * Set jumbo pointer to nbuf
+		 */
+		*jumbo_start_ptr = nbuf;
+
+		/*
+		 * Skip sending until last is received.
+		 */
+		return false;
+	}
+
+	/*
+	 * We've received a middle or a last segment.
+	 * Check that we have received a head first to avoid null deferencing.
+	 */
+	if (unlikely(jumbo_start == NULL)) {
+		/*
+		 * Middle before first! Free the middle.
+		 */
+		nss_warning("%p: saw a middle skb before head", nbuf);
+		dev_kfree_skb_any(nbuf);
+		return false;
+	}
+
+	/*
+	 * Free the skb after attaching the frag to the head skb.
+	 * Our page is safe although we are freeing it because we
+	 * just took a reference to it.
+	 */
+	skb_add_rx_frag(jumbo_start, skb_shinfo(jumbo_start)->nr_frags, skb_frag_page(&skb_shinfo(nbuf)->frags[0]), payload_offs, payload_len, PAGE_SIZE);
+	skb_frag_ref(jumbo_start, skb_shinfo(jumbo_start)->nr_frags - 1);
+	dev_kfree_skb_any(nbuf);
+
+	if (!(bit_flags & N2H_BIT_FLAG_LAST_SEGMENT)) {
+		/*
+		 * Skip sending until last is received.
+		 */
+		return false;
+	}
+
+	/*
+	 * Last is received. Set nbuf pointer to point to
+	 * the jumbo skb so that it continues to get processed.
+	 */
+	nbuf = jumbo_start;
+	*nbuf_ptr = nbuf;
+	*jumbo_start_ptr = NULL;
+
+pull:
+	/*
+	 * We need eth hdr to be in the linear part of the skb
+	 * for data packets. Otherwise eth_type_trans fails.
+	 */
+	if (buffer_type != N2H_BUFFER_STATUS) {
+		if (!pskb_may_pull(nbuf, ETH_HLEN)) {
+			dev_kfree_skb(nbuf);
+			nss_warning("%p: could not pull eth header", nbuf);
+			return false;
+		}
+	}
+
+	return true;
+}
+
+/*
+ * nss_core_handle_linear_skb()
+ *	Handler for processing linear skbs.
+ */
+static inline bool nss_core_handle_linear_skb(struct sk_buff **nbuf_ptr, struct sk_buff **head_ptr,
+						struct sk_buff **tail_ptr, struct n2h_descriptor *desc)
+{
+	uint16_t bit_flags = desc->bit_flags;
+	struct sk_buff *nbuf = *nbuf_ptr;
+	struct sk_buff *head = *head_ptr;
+	struct sk_buff *tail = *tail_ptr;
+
+	/*
+	 * We are in linear SKB mode.
+	 */
+	nbuf->data = nbuf->head + desc->payload_offs;
+	nbuf->len = desc->payload_len;
+	nbuf->tail = nbuf->data + nbuf->len;
+	dma_unmap_single(NULL, (desc->buffer + desc->payload_offs), desc->payload_len, DMA_FROM_DEVICE);
+	prefetch((void *)(nbuf->data));
+
+	if (likely(bit_flags & N2H_BIT_FLAG_FIRST_SEGMENT) && likely(bit_flags & N2H_BIT_FLAG_LAST_SEGMENT)) {
+
+		/*
+		 * We have received another head before we saw the last segment.
+		 * Free the old head as the frag list is corrupt.
+		 */
+		if (unlikely(head)) {
+			nss_warning("%p: received the second head before a last", head);
+			dev_kfree_skb_any(head);
+			*head_ptr = NULL;
+			return false;
+		}
+
+		/*
+		 * TODO: Check if there is any issue wrt map and unmap,
+		 * NSS should playaround with data area and should not
+		 * touch HEADROOM area
+		 */
+		return true;
+	}
+
+	/*
+	 * NSS sent us an SG chain.
+	 * Build a frag list out of segments.
+	 */
+	if (unlikely((bit_flags & N2H_BIT_FLAG_FIRST_SEGMENT))) {
+
+		/*
+		 * We have received another head before we saw the last segment.
+		 * Free the old head as the frag list is corrupt.
+		 */
+		if (unlikely(head)) {
+			nss_warning("%p: received the second head before a last", head);
+			dev_kfree_skb_any(head);
+			*head_ptr = NULL;
+			return false;
+		}
+
+		/*
+		 * Found head.
+		 */
+		if (unlikely(skb_has_frag_list(nbuf))) {
+			/*
+			 * We don't support chain in a chain.
+			 */
+			nss_warning("%p: skb already has a fraglist", nbuf);
+			dev_kfree_skb_any(nbuf);
+			return false;
+		}
+
+		skb_frag_list_init(nbuf);
+		nbuf->data_len = 0;
+		nbuf->truesize = desc->payload_len;
+
+		*head_ptr = nbuf;
+
+		/*
+		 * Skip sending until last is received.
+		 */
+		return false;
+	}
+
+	/*
+	 * We've received a middle segment.
+	 * Check that we have received a head first to avoid null deferencing.
+	 */
+	if (unlikely(head == NULL)) {
+
+		/*
+		 * Middle before first! Free the middle.
+		 */
+		nss_warning("%p: saw a middle skb before head", nbuf);
+		dev_kfree_skb_any(nbuf);
+
+		return false;
+	}
+
+	if (!skb_has_frag_list(head)) {
+		/*
+		 * 2nd skb in the chain. head's frag_list should point to him.
+		 */
+		skb_frag_add_head(head, nbuf);
+	} else {
+		/*
+		 * 3rd, 4th... skb in the chain. The chain's previous tail's
+		 * next should point to him.
+		 */
+		tail->next = nbuf;
+		nbuf->next = NULL;
+	}
+	*tail_ptr = nbuf;
+
+	/*
+	 * Now we've added a new nbuf to the chain.
+	 * Update the chain length.
+	 */
+	head->data_len += desc->payload_len;
+	head->len += desc->payload_len;
+	head->truesize += desc->payload_len;
+
+	if (!(bit_flags & N2H_BIT_FLAG_LAST_SEGMENT)) {
+		/*
+		 * Skip sending until last is received.
+		 */
+		return false;
+	}
+
+	/*
+	 * Last is received. Send the frag_list.
+	 */
+	*nbuf_ptr = head;
+	*head_ptr = NULL;
+	*tail_ptr = NULL;
+
+	return true;
+}
+
+/*
  * nss_core_handle_cause_queue()
  *	Handle interrupt cause related to N2H/H2N queues
  */
@@ -551,7 +828,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 	int16_t count, count_temp;
 	uint16_t size, mask, qid;
 	uint32_t nss_index, hlos_index;
-	struct sk_buff *nbuf, *head, *tail;
+	struct sk_buff *nbuf, *head, *tail, *jumbo_start;
 	struct hlos_n2h_desc_ring *n2h_desc_ring;
 	struct n2h_desc_if_instance *desc_if;
 	struct n2h_descriptor *desc_ring;
@@ -589,15 +866,12 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 		count = weight;
 	}
 
-	head = tail = NULL;
+	head = tail = jumbo_start = NULL;
 	count_temp = count;
 	while (count_temp) {
 		unsigned int buffer_type;
 		uint32_t opaque;
 		uint16_t bit_flags;
-		unsigned int payload_offs;
-		unsigned int payload_len;
-		dma_addr_t buffer;
 
 		desc = &desc_ring[hlos_index];
 		buffer_type = desc->buffer_type;
@@ -631,22 +905,9 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 		}
 
 		/*
-		 * Get the payload and buffer data from the descriptor.
-		 */
-		payload_offs = desc->payload_offs;
-		payload_len = desc->payload_len;
-		buffer = desc->buffer;
-
-		/*
 		 * Handle Empty Buffer Returns.
 		 */
 		if (unlikely(buffer_type == N2H_BUFFER_EMPTY)) {
-			/*
-			 * The firmware send's empty buffers as singleton buffers.
-			 * Make sure we treat frag_list buffers as singelton.
-			 */
-			skb_frag_list_init(nbuf);
-
 			/*
 			 * Since we only return the primary skb, we have no way to unmap
 			 * properly. Simple skb's are properly mapped but page data skbs
@@ -655,130 +916,71 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 			 * TODO: This only unmaps the first segment either slab payload or
 			 * skb page data.  Eventually, we need to unmap all of a frag_list
 			 * or all of page_data.
+			 *
+			 * No need to invalidate for Tx Completions, so set dma direction = DMA_TO_DEVICE;
+			 * Similarly prefetch is not needed for an empty buffer.
 			 */
-			dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_TO_DEVICE);
+			dma_unmap_single(NULL, (desc->buffer + desc->payload_offs), desc->payload_len, DMA_TO_DEVICE);
 			goto consume;
 		}
 
 		/*
-		 * Shaping uses the singelton approach as well. No need to unmap all the segments since only
-		 * one of them has actually looked at.
+		 * Shaping uses the singleton approach as well. No need to unmap all the segments since only
+		 * one of them is actually looked at.
 		 */
 		if ((unlikely(buffer_type == N2H_BUFFER_SHAPER_BOUNCED_INTERFACE)) || (unlikely(buffer_type == N2H_BUFFER_SHAPER_BOUNCED_BRIDGE))) {
-			dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_TO_DEVICE);
+			dma_unmap_page(NULL, (desc->buffer + desc->payload_offs), desc->payload_len, DMA_TO_DEVICE);
 			goto consume;
 		}
 
 		/*
-		 * From here we are re-creating a valid SKB.
+		 * TODO: The driver in its current state does not support receiving of scattered packets
+		 * from the driver. This needs to be fixed.
 		 */
-		nbuf->data = nbuf->head + payload_offs;
-		nbuf->len = payload_len;
-		nbuf->tail = nbuf->data + nbuf->len;
-		if (likely(bit_flags & N2H_BIT_FLAG_FIRST_SEGMENT) && likely(bit_flags & N2H_BIT_FLAG_LAST_SEGMENT)) {
-			/*
-			 * TODO: Check if there is any issue wrt map and unmap,
-			 * NSS should playaround with data area and should not
-			 * touch HEADROOM area
-			 */
-			dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_FROM_DEVICE);
-			prefetch((void *)(nbuf->data));
-			goto consume;
-		}
 
 		/*
-		 * NSS sent us an SG chain.
-		 * Build a frag list out of segments.
-		 * TODO: We will need to re-work this code to add page data support.
+		 * Check if we are received a paged skb.
 		 */
-		if (unlikely((bit_flags & N2H_BIT_FLAG_FIRST_SEGMENT))) {
+		if (skb_shinfo(nbuf)->nr_frags > 0) {
 			/*
-			 * Found head.
+			 * Check if we received paged skb while constructing
+			 * a linear skb chain. If so we need to free.
 			 */
-			if (unlikely(skb_has_frag_list(nbuf))) {
-				/*
-				 * We don't support chain in a chain.
-				 */
-				nss_warning("%p: skb already has a fraglist", nbuf);
-				dev_kfree_skb_any(nbuf);
+			if (unlikely(head)) {
+				nss_warning("%p: we should not have an incomplete paged skb while"
+								" constructing a linear skb %p", nbuf, head);
+				dev_kfree_skb_any(head);
+				head = NULL;
 				goto next;
 			}
 
-			/*
-			 * We've received another head before we saw the last segment.
-			 * Free the old head as the frag list is corrupt.
-			 */
-			if (unlikely(head != NULL)) {
-				nss_warning("%p: received the second head before a last", head);
-				dev_kfree_skb_any(head);
+			if (!nss_core_handle_nr_frag_skb(&nbuf, &jumbo_start, desc, buffer_type)) {
+				goto next;
 			}
-			head = nbuf;
 
-			skb_frag_list_init(nbuf);
-			head->data_len = 0;
-			head->truesize = payload_len;
-			dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_FROM_DEVICE);
-			prefetch((void *)(nbuf->data));
+			goto consume;
+		}
 
-			/*
-			 * Skip sending until last is received.
-			 */
+		/*
+		 * Check if we received a linear skb while constructing
+		 * a paged skb. If so we need to free.
+		 */
+		if (unlikely(jumbo_start)) {
+			nss_warning("%p: we should not have an incomplete linear skb while"
+							" constructing a paged skb %p", nbuf, jumbo_start);
+			dev_kfree_skb_any(jumbo_start);
+			jumbo_start = NULL;
 			goto next;
 		}
 
 		/*
-		 * We've received a middle segment.
-		 * Check that we have received a head first to avoid null deferencing.
+		 * This is a simple linear skb. Use the the linear skb
+		 * handler to process it.
 		 */
-		if (unlikely(head == NULL)) {
-			/*
-			 * Middle before first! Free the middle.
-			 */
-			nss_warning("%p: saw a middle skb before head", nbuf);
-			dev_kfree_skb_any(nbuf);
+		if (!nss_core_handle_linear_skb(&nbuf, &head, &tail, desc)) {
 			goto next;
 		}
 
-		if (!skb_has_frag_list(head)) {
-			/*
-			 * 2nd skb in the chain. head's frag_list should point to him.
-			 */
-			skb_frag_add_head(head, nbuf);
-		} else {
-			/*
-			 * 3rd, 4th... skb in the chain. The chain's previous tail's
-			 * next should point to him.
-			 */
-			tail->next = nbuf;
-			nbuf->next = NULL;
-		}
-
-		tail = nbuf;
-
-		/*
-		 * Now we've added a new nbuf to the chain.
-		 * Update the chain length.
-		 */
-		head->data_len += desc->payload_len;
-		head->len += desc->payload_len;
-		head->truesize += desc->payload_len;
-
-		dma_unmap_single(NULL, (buffer + payload_offs), payload_len, DMA_FROM_DEVICE);
-		prefetch((void *)(nbuf->data));
-
-		if (!(bit_flags & N2H_BIT_FLAG_LAST_SEGMENT)) {
-			/*
-			 * Skip sending until last is received.
-			 */
-			goto next;
-		}
-
-		/*
-		 * Last is received. Send the frag_list.
-		 */
-		nbuf = head;
-		head = NULL;
-		tail = NULL;
 consume:
 		nss_core_rx_pbuf(nss_ctx, desc, &(int_ctx->napi), buffer_type, nbuf);
 
@@ -869,12 +1071,15 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 	 */
 	if (likely(cause == NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFERS_SOS)) {
 		struct sk_buff *nbuf;
+		struct page *npage;
 		uint16_t count, size, mask;
 		int32_t nss_index, hlos_index;
 		struct hlos_h2n_desc_rings *h2n_desc_ring = &nss_ctx->h2n_desc_rings[NSS_IF_EMPTY_BUFFER_QUEUE];
 		struct h2n_desc_if_instance *desc_if = &h2n_desc_ring->desc_ring;
 		struct h2n_descriptor *desc_ring;
 		struct nss_top_instance *nss_top = nss_ctx->nss_top;
+		int paged_mode = nss_core_get_paged_mode();
+		int jumbo_mru = nss_core_get_jumbo_mru();
 
 
 		/*
@@ -943,19 +1148,90 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 			struct h2n_descriptor *desc = &desc_ring[hlos_index];
 			dma_addr_t buffer;
 
-			nbuf = dev_alloc_skb(max_buf_size);
-			if (unlikely(!nbuf)) {
+			if (paged_mode) {
 				/*
-				 * ERR:
+				 * Alloc an skb AND a page.
 				 */
-				spin_lock_bh(&nss_top->stats_lock);
-				nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
-				spin_unlock_bh(&nss_top->stats_lock);
-				nss_warning("%p: Could not obtain empty buffer", nss_ctx);
-				break;
+				nbuf = dev_alloc_skb(NSS_CORE_JUMBO_LINEAR_BUF_SIZE);
+				if (unlikely(!nbuf)) {
+					/*
+					 * ERR:
+					 */
+					spin_lock_bh(&nss_top->stats_lock);
+					nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
+					spin_unlock_bh(&nss_top->stats_lock);
+					nss_warning("%p: Could not obtain empty buffer", nss_ctx);
+					break;
+				}
+
+				npage = alloc_page(GFP_ATOMIC);
+				if (unlikely(!npage)) {
+					/*
+					 * ERR:
+					 */
+					dev_kfree_skb_any(nbuf);
+					spin_lock_bh(&nss_top->stats_lock);
+					nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
+					spin_unlock_bh(&nss_top->stats_lock);
+					nss_warning("%p: Could not obtain empty page", nss_ctx);
+					break;
+				}
+
+				/*
+				 * When we alloc an skb, initially head = data = tail and len = 0.
+				 * So nobody will try to read the linear part of the skb.
+				 */
+				skb_fill_page_desc(nbuf, 0, npage, 0, PAGE_SIZE);
+				nbuf->data_len += PAGE_SIZE;
+				nbuf->len += PAGE_SIZE;
+				nbuf->truesize += PAGE_SIZE;
+
+				/* Map the page for jumbo */
+				buffer = dma_map_page(NULL, npage, 0, PAGE_SIZE, DMA_FROM_DEVICE);
+				desc->buffer_len = PAGE_SIZE;
+				desc->payload_offs = 0;
+
+			} else if (jumbo_mru) {
+				nbuf = dev_alloc_skb(jumbo_mru);
+				if (unlikely(!nbuf)) {
+					/*
+					 * ERR:
+					 */
+					spin_lock_bh(&nss_top->stats_lock);
+					nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
+					spin_unlock_bh(&nss_top->stats_lock);
+					nss_warning("%p: Could not obtain empty jumbo mru buffer", nss_ctx);
+					break;
+				}
+
+				/*
+				 * Map the skb
+				 */
+				buffer = dma_map_single(NULL, nbuf->head, jumbo_mru, DMA_FROM_DEVICE);
+				desc->buffer_len = jumbo_mru;
+				desc->payload_offs = (uint16_t) (nbuf->data - nbuf->head);
+
+			} else {
+				nbuf = dev_alloc_skb(max_buf_size);
+				if (unlikely(!nbuf)) {
+					/*
+					 * ERR:
+					 */
+					spin_lock_bh(&nss_top->stats_lock);
+					nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
+					spin_unlock_bh(&nss_top->stats_lock);
+					nss_warning("%p: Could not obtain empty buffer", nss_ctx);
+					break;
+				}
+
+				/*
+				 * Map the skb
+				 */
+				buffer = dma_map_single(NULL, nbuf->head, max_buf_size, DMA_FROM_DEVICE);
+				desc->buffer_len = max_buf_size;
+				desc->payload_offs = (uint16_t) (nbuf->data - nbuf->head);
 			}
 
-			buffer = dma_map_single(NULL, nbuf->head, max_buf_size, DMA_FROM_DEVICE);
 			if (unlikely(dma_mapping_error(NULL, buffer))) {
 				/*
 				 * ERR:
@@ -966,9 +1242,7 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 			}
 
 			desc->opaque = (uint32_t)nbuf;
-			desc->payload_offs = (uint16_t) (nbuf->data - nbuf->head);
 			desc->buffer = buffer;
-			desc->buffer_len = max_buf_size;
 			desc->buffer_type = H2N_BUFFER_EMPTY;
 			hlos_index = (hlos_index + 1) & (mask);
 			count--;
@@ -1420,6 +1694,12 @@ static inline int32_t nss_core_send_buffer_fraglist(struct nss_ctx_instance *nss
 	}
 
 	/*
+	 * The firmware send's empty buffers as singleton buffers.
+	 * Make sure we treat frag_list buffers as singelton.
+	 */
+	skb_frag_list_init(nbuf);
+
+	/*
 	 * Update bit flag for last descriptor. The discard flag shall
 	 * be set for all fragments except the the last one.
 	 */
@@ -1458,7 +1738,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 					uint8_t buffer_type, uint16_t flags)
 {
 	int16_t count, hlos_index, nss_index, size, mask;
-	uint32_t nr_frags;
+	uint32_t segments;
 	struct hlos_h2n_desc_rings *h2n_desc_ring = &nss_ctx->h2n_desc_rings[qid];
 	struct h2n_desc_if_instance *desc_if = &h2n_desc_ring->desc_ring;
 	struct h2n_descriptor *desc_ring;
@@ -1484,18 +1764,13 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	 * from frags[] array. Otherwise walk the frag_list.
 	 */
 	if (!skb_has_frag_list(nbuf)) {
-		nr_frags = skb_shinfo(nbuf)->nr_frags;
-		BUG_ON(nr_frags > MAX_SKB_FRAGS);
+		segments = skb_shinfo(nbuf)->nr_frags;
+		BUG_ON(segments > MAX_SKB_FRAGS);
 	} else {
 		struct sk_buff *iter;
-
-		nr_frags = 0;
+		segments = 0;
 		skb_walk_frags(nbuf, iter) {
-			uint32_t nr_frags_list;
-
-			nr_frags_list = skb_shinfo(iter)->nr_frags;
-			BUG_ON(nr_frags_list > MAX_SKB_FRAGS);
-			nr_frags += (nr_frags_list + 1);
+			segments ++;
 		}
 	}
 
@@ -1515,7 +1790,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	mask = size - 1;
 	count = ((nss_index - hlos_index - 1) + size) & (mask);
 
-	if (unlikely(count < (nr_frags + 1))) {
+	if (unlikely(count < (segments + 1))) {
 		/*
 		 * NOTE: tx_q_full_cnt and TX_STOPPED flags will be used
 		 *	when we will add support for DESC Q congestion management
@@ -1592,7 +1867,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	 * processing (post shaping). These packets WILL NOT get transmitted/re-used in the NSS.
 	 */
 	count = 0;
-	if (likely((nr_frags == 0) || is_bounce)) {
+	if (likely((segments == 0) || is_bounce)) {
 		count = nss_core_send_buffer_simple_skb(nss_ctx, desc_if, if_num, frag0phyaddr,
 			nbuf, hlos_index, flags, buffer_type, mss);
 	} else if (skb_has_frag_list(nbuf)) {
