@@ -93,9 +93,10 @@ struct nss_crypto_ctrl {
 
 	struct delayed_work crypto_work;	/**<crypto_work structure */
 
-	struct nss_crypto_idx_info idx_info[NSS_CRYPTO_MAX_IDXS]; /**< per index info */
+	struct nss_crypto_idx_info idx_info[NSS_CRYPTO_MAX_IDXS];
+						/**< per index info */
 
-	struct nss_crypto_ctrl_eng eng[NSS_CRYPTO_MAX_ENGINES];		/**< per engine information */
+	struct nss_crypto_ctrl_eng *eng;	/**< pointer to engines control data information */
 };
 
 static inline bool nss_crypto_check_idx_state(uint32_t map, uint32_t idx)
@@ -146,5 +147,16 @@ void nss_crypto_ctrl_init(void);
  * @param state[IN] session stats (ALLOC/FREE)
  */
 void nss_crypto_reset_session(uint32_t session_idx, enum nss_crypto_session_state state);
+
+/**
+ * @brief reallocate memory.
+ *
+ * @param src[IN] pointer to src memory
+ * @param src_len[IN]  length of src memory
+ * @param dst_len[IN]  length of new meory required
+ *
+ * @return pointer to new memory allocated
+ */
+void *nss_crypto_mem_realloc(void *src, size_t src_len, size_t dst_len);
 
 #endif /* __NSS_CRYPTO_CTRL_H*/
