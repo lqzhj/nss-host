@@ -38,10 +38,47 @@
 #include <linux/vmalloc.h>
 #include <linux/debugfs.h>
 
-#define nss_crypto_info(fmt, arg...)	printk(KERN_INFO "<NSS-CRYPTO>:" fmt, ## arg)
-#define nss_crypto_err(fmt, arg...)	printk(KERN_ERR "<NSS-CRYPTO>:" fmt, ## arg)
-#define nss_crypto_dbg(fmt, arg...)	printk(KERN_DEBUG fmt, ## arg)
 
-#define nss_crypto_assert(expr)		BUG_ON(!(expr))
+#define NSS_CRYPTO_DEBUG_LVL_ERROR 1
+#define NSS_CRYPTO_DEBUG_LVL_WARN 2
+#define NSS_CRYPTO_DEBUG_LVL_INFO 3
+#define NSS_CRYPTO_DEBUG_LVL_TRACE 4
+
+
+#if defined(CONFIG_DYNAMIC_DEBUG)
+/*
+ * Compile messages for dynamic enable/disable
+ */
+#define nss_crypto_err(s, ...) pr_debug("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define nss_crypto_warn(s, ...) pr_debug("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define nss_crypto_info(s, ...) pr_debug("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define nss_crypto_trace(s, ...) pr_debug("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+
+#else
+/*
+ * Statically compile messages at different levels
+ */
+#define nss_crypto_err(s, ...) {	\
+	if (NSS_CRYPTO_DEBUG_LEVEL < NSS_CRYPTO_DEBUG_LVL_ERROR) {	\
+		pr_alert("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__);	\
+	}	\
+}
+#define nss_crypto_warn(s, ...) {	\
+	if (NSS_CRYPTO_DEBUG_LEVEL < NSS_CRYPTO_DEBUG_LVL_WARN) {	\
+		pr_warn("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__);	\
+	}	\
+}
+#define nss_crypto_info(s, ...) {	\
+	if (NSS_CRYPTO_DEBUG_LEVEL < NSS_CRYPTO_DEBUG_LVL_INFO) {	\
+		pr_notice("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__);	\
+	}	\
+}
+#define nss_crypto_trace(s, ...) {	\
+	if (NSS_CRYPTO_DEBUG_LEVEL < NSS_CRYPTO_DEBUG_LVL_TRACE) {	\
+		pr_info("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__);	\
+	}	\
+}
+
+#endif /* !CONFIG_DYNAMIC_DEBUG */
 
 #endif /* __NSS_CRYPTO_HLOS_H */

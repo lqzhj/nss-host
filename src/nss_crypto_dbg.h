@@ -19,6 +19,8 @@
 #define __NSS_CRYPTO_DBG_H
 
 #if defined (CONFIG_NSS_CRYPTO_DBG)
+#define nss_crypto_assert(expr)		BUG_ON(!(expr))
+#define nss_crypto_dbg(fmt, arg...)	printk(KERN_DEBUG fmt, ## arg)
 
 /*
  * nss_crypto_dump_desc()
@@ -76,6 +78,8 @@ static inline void nss_crypto_dump_buf(uint8_t *buf, uint32_t buf_len, uint8_t *
 }
 #else
 
+#define nss_crypto_dbg(fmt, arg...)
+#define nss_crypto_assert(expr)
 #define nss_crypto_dump_desc(head, num, str)
 #define nss_crypto_dump_cblk(cmd, len, str)
 #define nss_crypto_dump_buf(buf, len, str)
