@@ -57,24 +57,9 @@ qca-nss-drv-objs += \
 			nss_tx_rx_virt_if.o
 
 PM_SUPPORT := 0
-ifneq ($(findstring 3.4, $(KERNELVERSION)),)
-obj-m += qca-nss-tunipip6.o
-obj-m += qca-nss-ipsecmgr.o
-
-ifeq "$(CONFIG_IPV6_SIT_6RD)" "y"
-obj-m += qca-nss-tun6rd.o
-qca-nss-tun6rd-objs := nss_connmgr_tun6rd.o
-ccflags-y += -DNSS_TUN6RD_DEBUG_LEVEL=0
-endif
-
-qca-nss-tunipip6-objs := nss_connmgr_tunipip6.o
-qca-nss-ipsecmgr-objs := nss_ipsecmgr.o
-endif
 
 ccflags-y += -I$(obj)/nss_hal/include -I$(obj)/exports -DNSS_DEBUG_LEVEL=0 -DNSS_EMPTY_BUFFER_SIZE=1792 -DNSS_PKT_STATS_ENABLED=0
-ccflags-y += -DNSS_TUNIPIP6_DEBUG_LEVEL=0
 ccflags-y += -DNSS_PM_DEBUG_LEVEL=0
-ccflags-y += -DNSS_IPSECMGR_DEBUG_LEVEL=3
 
 ifneq ($(findstring 3.4, $(KERNELVERSION)),)
 NSS_CCFLAGS = -DNSS_DT_SUPPORT=0 -DNSS_PPP_SUPPORT=1 -DNSS_FW_DBG_SUPPORT=1 -DNSS_PM_SUPPORT=1
@@ -89,12 +74,6 @@ ccflags-y += $(NSS_CCFLAGS)
 export NSS_CCFLAGS
 
 qca-nss-drv-objs += nss_profiler.o
-obj-y+= profiler/
-
-ifneq ($(findstring 3.4, $(KERNELVERSION)),)
-obj-y+= nss_qdisc/
-obj-y+= capwapmgr/
-endif
 
 ifeq ($(PM_SUPPORT), 1)
 qca-nss-drv-objs += nss_freq.o
