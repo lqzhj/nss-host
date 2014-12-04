@@ -109,7 +109,7 @@ static void nss_gmac_rumi_qsgmii_init(nss_gmac_dev *gmacdev)
 	uint32_t *qsgmii_base;
 	uint8_t *nss_base;
 
-	nss_gmac_info(gmacdev, "%s:", __FUNCTION__);
+	nss_gmac_info(gmacdev, "%s:", __func__);
 
 	gmac1_dev = gmacdev->ctx->nss_gmac[1];
 	qsgmii_base = gmacdev->ctx->qsgmii_base;
@@ -119,13 +119,13 @@ static void nss_gmac_rumi_qsgmii_init(nss_gmac_dev *gmacdev)
 	 * _SGMII: Set only bit 3, with no polling for reset completion
 	 * inside status register for GMAC2
 	 */
-	nss_gmac_info(gmacdev,"Eth2: spare_ctl_reg value before setting = 0x%x",
+	nss_gmac_info(gmacdev, "Eth2: spare_ctl_reg value before setting = 0x%x",
 		      nss_gmac_read_reg((uint32_t *)nss_base, NSS_ETH_SPARE_CTL));
 	nss_gmac_set_reg_bits((uint32_t *)nss_base, NSS_ETH_SPARE_CTL, 0x8);
-	nss_gmac_info(gmacdev,"Eth2: spare_ctl_reg value after setting = 0x%x",
+	nss_gmac_info(gmacdev, "Eth2: spare_ctl_reg value after setting = 0x%x",
 		      nss_gmac_read_reg((uint32_t *)nss_base, NSS_ETH_SPARE_CTL));
 
-	nss_gmac_info(gmac1_dev, "%s: GMAC1's MACBASE = 0x%x",__FUNCTION__, gmac1_dev->mac_base);
+	nss_gmac_info(gmac1_dev, "%s: GMAC1's MACBASE = 0x%x", __func__, gmac1_dev->mac_base);
 
 	/* Put PHY in SGMII Mode */
 	nss_gmac_write_reg(qsgmii_base, QSGMII_PHY_MODE_CTL, 0x0);
@@ -154,7 +154,7 @@ static void nss_gmac_rumi_qsgmii_init(nss_gmac_dev *gmacdev)
 	nss_gmac_mii_wr_reg(gmac1_dev, 0x0, 0x1D, 0x0A);
 	phy_reg_val = nss_gmac_mii_rd_reg(gmac1_dev, 0x0, 0x1E);
 
-	nss_gmac_info(gmacdev, "Reg 1A reset val:  0x%x",phy_reg_val);
+	nss_gmac_info(gmacdev, "Reg 1A reset val:  0x%x", phy_reg_val);
 
 	nss_gmac_mii_wr_reg(gmac1_dev, 0x0, 0x1D, 0x0A);
 	nss_gmac_mii_wr_reg(gmac1_dev, 0x0, 0x1E, 0x3F9);
@@ -221,8 +221,8 @@ void nss_gmac_qsgmii_dev_init(nss_gmac_dev *gmacdev)
 								  | qsgmii_tx_drv);
 
 			val = nss_gmac_read_reg((uint32_t *)qsgmii_base, QSGMII_PHY_QSGMII_CTL);
-			nss_gmac_trace(gmacdev,"%s: QSGMII_PHY_QSGMII_CTL(0x%x) - 0x%x",
-						__FUNCTION__, QSGMII_PHY_QSGMII_CTL, val);
+			nss_gmac_trace(gmacdev, "%s: QSGMII_PHY_QSGMII_CTL(0x%x) - 0x%x",
+						__func__, QSGMII_PHY_QSGMII_CTL, val);
 
 			break;
 
@@ -240,8 +240,8 @@ void nss_gmac_qsgmii_dev_init(nss_gmac_dev *gmacdev)
 								  | QSGMII_PHY_TX_DRV_AMP(0xC));
 
 			val = nss_gmac_read_reg((uint32_t *)qsgmii_base, QSGMII_PHY_SGMII_1_CTL);
-			nss_gmac_trace(gmacdev,"%s: QSGMII_PHY_SGMII_1_CTL(0x%x) - 0x%x",
-						__FUNCTION__, QSGMII_PHY_SGMII_1_CTL, val);
+			nss_gmac_trace(gmacdev, "%s: QSGMII_PHY_SGMII_1_CTL(0x%x) - 0x%x",
+						__func__, QSGMII_PHY_SGMII_1_CTL, val);
 			break;
 
 		case 3:
@@ -258,8 +258,8 @@ void nss_gmac_qsgmii_dev_init(nss_gmac_dev *gmacdev)
 								  | QSGMII_PHY_TX_DRV_AMP(0xC));
 
 			val = nss_gmac_read_reg((uint32_t *)qsgmii_base, QSGMII_PHY_SGMII_2_CTL);
-			nss_gmac_trace(gmacdev,"%s: QSGMII_PHY_SGMII_2_CTL(0x%x) - 0x%x",
-						__FUNCTION__, QSGMII_PHY_SGMII_2_CTL, val);
+			nss_gmac_trace(gmacdev, "%s: QSGMII_PHY_SGMII_2_CTL(0x%x) - 0x%x",
+						__func__, QSGMII_PHY_SGMII_2_CTL, val);
 			break;
 		}
 	}
@@ -273,8 +273,8 @@ void nss_gmac_qsgmii_dev_init(nss_gmac_dev *gmacdev)
 	nss_gmac_clear_reg_bits((uint32_t *)nss_base, NSS_QSGMII_CLK_CTL, val);
 
 	val = nss_gmac_read_reg((uint32_t *)nss_base, NSS_QSGMII_CLK_CTL);
-	nss_gmac_trace(gmacdev,"%s: NSS_QSGMII_CLK_CTL(0x%x) - 0x%x",
-		      __FUNCTION__, NSS_QSGMII_CLK_CTL, val);
+	nss_gmac_trace(gmacdev, "%s: NSS_QSGMII_CLK_CTL(0x%x) - 0x%x",
+		      __func__, NSS_QSGMII_CLK_CTL, val);
 
 	/* Enable autonegotiation between PCS and PHY */
 	if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
@@ -366,11 +366,11 @@ static void nss_gmac_qsgmii_common_init(struct nss_gmac_global_ctx *ctx)
 out:
 	val = nss_gmac_read_reg(qsgmii_base, QSGMII_PHY_MODE_CTL);
 	nss_gmac_early_dbg("%s: qsgmii_base(0x%x) + QSGMII_PHY_MODE_CTL(0x%x): 0x%x",
-	       __FUNCTION__, (uint32_t)qsgmii_base, (uint32_t)QSGMII_PHY_MODE_CTL, val);
+	       __func__, (uint32_t)qsgmii_base, (uint32_t)QSGMII_PHY_MODE_CTL, val);
 
 	val = nss_gmac_read_reg(qsgmii_base, PCS_QSGMII_SGMII_MODE);
 	nss_gmac_early_dbg("%s: qsgmii_base(0x%x) + PCS_QSGMII_SGMII_MODE(0x%x): 0x%x",
-	       __FUNCTION__, (uint32_t)qsgmii_base, (uint32_t)PCS_QSGMII_SGMII_MODE, val);
+	       __func__, (uint32_t)qsgmii_base, (uint32_t)PCS_QSGMII_SGMII_MODE, val);
 
 	/* Mode ctrl signal for mode selection */
 	nss_gmac_clear_reg_bits(qsgmii_base, PCS_MODE_CTL, PCS_MODE_CTL_SGMII_MAC
@@ -384,7 +384,7 @@ out:
 
 	val = nss_gmac_read_reg((uint32_t *)(ctx->clk_ctl_base), NSS_RESET_SPARE);
 	nss_gmac_early_dbg("%s: qsgmii_base(0x%x) + NSS_RESET_SPARE(0x%x): 0x%x",
-	       __FUNCTION__, (uint32_t)(ctx->clk_ctl_base), (uint32_t)NSS_RESET_SPARE, val);
+	       __func__, (uint32_t)(ctx->clk_ctl_base), (uint32_t)NSS_RESET_SPARE, val);
 
 	/* signal detect and channel enable */
 	nss_gmac_write_reg(qsgmii_base,
@@ -398,7 +398,7 @@ out:
 						| PCS_CHn_SERDES_SN_DETECT_2(3));
 	val = nss_gmac_read_reg(qsgmii_base, PCS_QSGMII_CTL);
 	nss_gmac_early_dbg("%s: qsgmii_base(0x%x) + PCS_QSGMII_CTL(0x%x): 0x%x",
-	       __FUNCTION__, (uint32_t)qsgmii_base, (uint32_t)PCS_QSGMII_CTL, val);
+	       __func__, (uint32_t)qsgmii_base, (uint32_t)PCS_QSGMII_CTL, val);
 
 	/* set debug bits */
 	nss_gmac_set_reg_bits((uint32_t *)qsgmii_base, PCS_ALL_CH_CTL, 0xF0000000);
@@ -439,7 +439,7 @@ int32_t nss_gmac_common_init(struct nss_gmac_global_ctx *ctx)
 	nss_gmac_clear_reg_bits((uint32_t *)(ctx->clk_ctl_base), GMAC_AHB_RESET, 0x1);
 	val = nss_gmac_read_reg(ctx->clk_ctl_base, GMAC_AHB_RESET);
 	nss_gmac_early_dbg("%s: ctx->clk_ctl_base(0x%x) + GMAC_AHB_RESET(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)ctx->clk_ctl_base, (uint32_t)GMAC_AHB_RESET, val);
+		       __func__, (uint32_t)ctx->clk_ctl_base, (uint32_t)GMAC_AHB_RESET, val);
 
 	/* Bypass MACSEC */
 	nss_gmac_set_reg_bits((uint32_t *)(ctx->nss_base), NSS_MACSEC_CTL,
@@ -447,7 +447,7 @@ int32_t nss_gmac_common_init(struct nss_gmac_global_ctx *ctx)
 
 	val = nss_gmac_read_reg((uint32_t *)ctx->nss_base, NSS_MACSEC_CTL);
 	nss_gmac_early_dbg("%s: nss_bsae(0x%x) + NSS_MACSEC_CTL(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)ctx->nss_base, (uint32_t)NSS_MACSEC_CTL, val);
+		       __func__, (uint32_t)ctx->nss_base, (uint32_t)NSS_MACSEC_CTL, val);
 
 	nss_gmac_qsgmii_common_init(ctx);
 
@@ -458,7 +458,7 @@ int32_t nss_gmac_common_init(struct nss_gmac_global_ctx *ctx)
 	nss_gmac_clear_reg_bits((uint32_t *)(ctx->clk_ctl_base), NSS_ACC_REG, GMAC_ACC_CUST_MASK);
 	val = nss_gmac_read_reg(ctx->clk_ctl_base, NSS_ACC_REG);
 	nss_gmac_early_dbg("%s: ctx->clk_ctl_base(0x%x) + NSS_ACC_REG(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)ctx->clk_ctl_base, (uint32_t)NSS_ACC_REG, val);
+		       __func__, (uint32_t)ctx->clk_ctl_base, (uint32_t)NSS_ACC_REG, val);
 
 	return 0;
 }
@@ -635,7 +635,7 @@ int32_t nss_gmac_dev_set_speed(nss_gmac_dev *gmacdev)
 		break;
 
 	default:
-		nss_gmac_info(gmacdev, "%s: Invalid MII type", __FUNCTION__);
+		nss_gmac_info(gmacdev, "%s: Invalid MII type", __func__);
 		return -EINVAL;
 	}
 
@@ -671,7 +671,7 @@ int32_t nss_gmac_dev_set_speed(nss_gmac_dev *gmacdev)
 
 	val = nss_gmac_read_reg(nss_base, NSS_ETH_CLK_DIV0);
 	nss_gmac_info(gmacdev, "%s:NSS_ETH_CLK_DIV0(0x%x) - 0x%x",
-		      __FUNCTION__, NSS_ETH_CLK_DIV0, val);
+		      __func__, NSS_ETH_CLK_DIV0, val);
 
 	if (gmacdev->phy_mii_type == GMAC_INTF_SGMII
 	    || gmacdev->phy_mii_type == GMAC_INTF_QSGMII) {
@@ -686,7 +686,7 @@ int32_t nss_gmac_dev_set_speed(nss_gmac_dev *gmacdev)
 
 		val = nss_gmac_read_reg(qsgmii_base, PCS_MODE_CTL);
 		nss_gmac_trace(gmacdev, "%s: qsgmii_base(0x%x) + PCS_MODE_CTL(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)qsgmii_base, (uint32_t)PCS_MODE_CTL, val);
+		       __func__, (uint32_t)qsgmii_base, (uint32_t)PCS_MODE_CTL, val);
 
 	}
 
@@ -718,7 +718,7 @@ void nss_gmac_dev_init(nss_gmac_dev *gmacdev)
 	nss_gmac_set_reg_bits(ctx->clk_ctl_base, GMAC_COREn_CLK_FS(id) , GMAC_FS_S_W_VAL);
 	val = nss_gmac_read_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_FS(id));
 	nss_gmac_trace(gmacdev, "%s: ctx->clk_ctl_base(0x%x) + GMAC_COREn_CLK_FS(%d)(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_FS(id), val);
+		       __func__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_FS(id), val);
 
 	/*
 	 * Bring up GMAC core clock
@@ -733,7 +733,7 @@ void nss_gmac_dev_init(nss_gmac_dev *gmacdev)
 
 	val = nss_gmac_read_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC_CTL(id));
 	nss_gmac_trace(gmacdev, "%s: ctx->clk_ctl_base(0x%x) + GMAC_COREn_CLK_SRC_CTL(%d)(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_SRC_CTL(id), val);
+		       __func__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_SRC_CTL(id), val);
 
 	/* b) Program M & D values in GMAC_COREn_CLK_SRC[0,1]_MD register. */
 	nss_gmac_write_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC0_MD(id), 0);
@@ -745,11 +745,10 @@ void nss_gmac_dev_init(nss_gmac_dev *gmacdev)
 
 	val = nss_gmac_read_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC0_MD(id));
 	nss_gmac_trace(gmacdev, "%s: ctx->clk_ctl_base(0x%x) + GMAC_COREn_CLK_SRC0_MD(%d)(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_SRC0_MD(id), val);
+		       __func__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_SRC0_MD(id), val);
 	val = nss_gmac_read_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC1_MD(id));
 	nss_gmac_trace(gmacdev, "%s: ctx->clk_ctl_base(0x%x) + GMAC_COREn_CLK_SRC1_MD(%d)(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_SRC1_MD(id), val);
-
+		       __func__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_SRC1_MD(id), val);
 
 	/* c) Program N values on GMAC_COREn_CLK_SRC[0,1]_NS register */
 	nss_gmac_write_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC0_NS(id), 0);
@@ -769,24 +768,24 @@ void nss_gmac_dev_init(nss_gmac_dev *gmacdev)
 
 	val = nss_gmac_read_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC0_NS(id));
 	nss_gmac_trace(gmacdev, "%s: ctx->clk_ctl_base(0x%x) + GMAC_COREn_CLK_SRC0_NS(%d)(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_SRC0_NS(id), val);
+		       __func__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_SRC0_NS(id), val);
 	val = nss_gmac_read_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC1_NS(id));
 	nss_gmac_trace(gmacdev, "%s: ctx->clk_ctl_base(0x%x) + GMAC_COREn_CLK_SRC1_NS(%d)(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_SRC1_NS(id), val);
+		       __func__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_SRC1_NS(id), val);
 
 	/* d) Un-halt GMACn clock */
 	nss_gmac_clear_reg_bits(ctx->clk_ctl_base, CLK_HALT_NSSFAB0_NSSFAB1_STATEA,
 				GMACn_CORE_CLK_HALT(id));
 	val = nss_gmac_read_reg(ctx->clk_ctl_base, CLK_HALT_NSSFAB0_NSSFAB1_STATEA);
 	nss_gmac_trace(gmacdev, "%s: ctx->clk_ctl_base(0x%x) + CLK_HALT_NSSFAB0_NSSFAB1_STATEA(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)ctx->clk_ctl_base, (uint32_t)CLK_HALT_NSSFAB0_NSSFAB1_STATEA, val);
+		       __func__, (uint32_t)ctx->clk_ctl_base, (uint32_t)CLK_HALT_NSSFAB0_NSSFAB1_STATEA, val);
 
 	/* e) CLK_COREn_CLK_CTL: select branch enable and disable clk invert */
 	nss_gmac_clear_reg_bits(ctx->clk_ctl_base, GMAC_COREn_CLK_CTL(id), GMAC_CLK_INV);
 	nss_gmac_set_reg_bits(ctx->clk_ctl_base, GMAC_COREn_CLK_CTL(id), GMAC_CLK_BRANCH_EN);
 	val = nss_gmac_read_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_CTL(id));
 	nss_gmac_trace(gmacdev, "%s: ctx->clk_ctl_base(0x%x) + GMAC_COREn_CLK_CTL(%d)(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_CTL(id), val);
+		       __func__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_CTL(id), val);
 
 	/* Set GMACn Ctl: Phy interface select, IFG, AXI low power request signal (CSYSREQ) */
 	val = GMAC_IFG_CTL(GMAC_IFG) | GMAC_IFG_LIMIT(GMAC_IFG) | GMAC_CSYS_REQ;
@@ -801,7 +800,7 @@ void nss_gmac_dev_init(nss_gmac_dev *gmacdev)
 
 	val = nss_gmac_read_reg(nss_base, NSS_GMACn_CTL(id));
 	nss_gmac_trace(gmacdev, "%s: nss_base(0x%x) + NSS_GMACn_CTL(%d)(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)nss_base, id, (uint32_t)NSS_GMACn_CTL(id), val);
+		       __func__, (uint32_t)nss_base, id, (uint32_t)NSS_GMACn_CTL(id), val);
 
 	/*
 	 * Optionally enable/disable MACSEC bypass.
@@ -835,7 +834,7 @@ void nss_gmac_dev_init(nss_gmac_dev *gmacdev)
 
 	val = nss_gmac_read_reg(nss_base, NSS_ETH_CLK_DIV0);
 	nss_gmac_trace(gmacdev, "%s: nss_base(0x%x) + NSS_ETH_CLK_DIV0(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)nss_base, (uint32_t)NSS_ETH_CLK_DIV0, val);
+		       __func__, (uint32_t)nss_base, (uint32_t)NSS_ETH_CLK_DIV0, val);
 
 	/* Select Tx/Rx CLK source */
 	val = 0;
@@ -936,7 +935,7 @@ static void nss_gmac_link_status_set(uint32_t gmac_id, uint32_t link_state)
 	nss_gmac_dev *gmac_dev = NULL;
 
 	gmac_dev = ctx.nss_gmac[gmac_id];
-	if(gmac_dev == NULL)
+	if (gmac_dev == NULL)
 		return;
 
 	if (!test_bit(__NSS_GMAC_UP, &gmac_dev->flags)) {
@@ -965,11 +964,11 @@ void nss_macsec_bypass_en_set(uint32_t gmac_id, bool enable)
 	uint32_t link_reset_flag = 0;
 	struct nss_gmac_speed_ctx gmac_speed_ctx = {0, 0};
 
-	if((gmac_id == 0) || (gmac_id > 3))
+	if ((gmac_id == 0) || (gmac_id > 3))
 		return;
 
 	gmac_dev = ctx.nss_gmac[gmac_id];
-	if(gmac_dev == NULL)
+	if (gmac_dev == NULL)
 		return;
 
 	mutex_lock(&gmac_dev->link_mutex);
@@ -977,15 +976,15 @@ void nss_macsec_bypass_en_set(uint32_t gmac_id, bool enable)
 	/* If gmac is in link up state, it need to simulate link down event
 	 * before setting IFG and simulate link up event after the operation
 	 */
-	if(gmac_dev->link_state == LINKUP)
+	if (gmac_dev->link_state == LINKUP)
 		link_reset_flag = 1;
 
 	/* simulate a gmac link down event */
-	if(link_reset_flag)
+	if (link_reset_flag)
 		nss_gmac_link_status_set(gmac_id, LINKDOWN);
 
 	/* Set MACSEC_IFG value */
-	if(enable) {
+	if (enable) {
 		nss_gmac_ifg_reset(gmac_id);
 	} else {
 		val = nss_gmac_read_reg(nss_base, NSS_GMACn_CTL(gmac_id));
@@ -997,14 +996,14 @@ void nss_macsec_bypass_en_set(uint32_t gmac_id, bool enable)
 	/* Enable/Disable MACSEC for related port */
 	val = nss_gmac_read_reg(nss_base, NSS_MACSEC_CTL);
 	val |= MACSEC_DP_RST_VAL;
-	if(enable)
+	if (enable)
 		val |= (1<<(gmac_id - 1));
 	else
 		val &= ~(1<<(gmac_id - 1));
 	nss_gmac_write_reg(nss_base, NSS_MACSEC_CTL, val);
 
 	/* simulate a gmac link up event */
-	if(link_reset_flag)
+	if (link_reset_flag)
 		nss_gmac_link_status_set(gmac_id, LINKUP);
 
 	mutex_unlock(&gmac_dev->link_mutex);
@@ -1036,9 +1035,9 @@ void nss_macsec_pre_exit(void)
 	nss_gmac_write_reg(nss_base, NSS_MACSEC_CTL, MACSEC_EXT_BYPASS_EN_MASK | MACSEC_DP_RST_VAL);
 
 	/* Reset GMAC_IFG value */
-	for(gmac_id = 1; gmac_id < 4; gmac_id++) {
+	for (gmac_id = 1; gmac_id < 4; gmac_id++) {
 		gmac_dev = ctx.nss_gmac[gmac_id];
-		if(gmac_dev == NULL)
+		if (gmac_dev == NULL)
 			continue;
 
 		/* If gmac is in link up state, it need to simulate link down event
@@ -1048,17 +1047,17 @@ void nss_macsec_pre_exit(void)
 
 		mutex_lock(&gmac_dev->link_mutex);
 
-		if(gmac_dev->link_state == LINKUP)
+		if (gmac_dev->link_state == LINKUP)
 			link_reset_flag = 1;
 
 		/* simulate a gmac link down event */
-		if(link_reset_flag)
+		if (link_reset_flag)
 			nss_gmac_link_status_set(gmac_id, LINKDOWN);
 
 		nss_gmac_ifg_reset(gmac_id);
 
 		/* simulate a gmac link up event */
-		if(link_reset_flag)
+		if (link_reset_flag)
 			nss_gmac_link_status_set(gmac_id, LINKUP);
 
 		mutex_unlock(&gmac_dev->link_mutex);

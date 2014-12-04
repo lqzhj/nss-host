@@ -22,7 +22,7 @@
 
 #define GMAC_PROFILER_VCOUNT_INC(x)	((x)++)
 #else
-#define GMAC_PROFILER_VCOUNT_INC(x)	do { } while(0)
+#define GMAC_PROFILER_VCOUNT_INC(x)	do { } while (0)
 #endif /* GMAC_PROFILER */
 
 #endif /* End of File */

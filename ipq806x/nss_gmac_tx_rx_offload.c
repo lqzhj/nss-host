@@ -94,34 +94,34 @@ static void nss_gmac_copy_stats(nss_gmac_dev *gmacdev,
 	gmacdev->nss_stats.rx_overflow_errors += gstat->rx_overflow_errors;
 	gmacdev->nss_stats.rx_descriptor_errors += gstat->rx_descriptor_errors;
 	gmacdev->nss_stats.rx_watchdog_timeout_errors +=
-	    gstat->rx_watchdog_timeout_errors;
+		gstat->rx_watchdog_timeout_errors;
 	gmacdev->nss_stats.rx_crc_errors += gstat->rx_crc_errors;
 	gmacdev->nss_stats.rx_late_collision_errors +=
-	    gstat->rx_late_collision_errors;
+		gstat->rx_late_collision_errors;
 	gmacdev->nss_stats.rx_dribble_bit_errors += gstat->rx_dribble_bit_errors;
 	gmacdev->nss_stats.rx_length_errors += gstat->rx_length_errors;
 	gmacdev->nss_stats.rx_ip_header_errors += gstat->rx_ip_header_errors;
 	gmacdev->nss_stats.rx_ip_payload_errors += gstat->rx_ip_payload_errors;
 	gmacdev->nss_stats.rx_no_buffer_errors += gstat->rx_no_buffer_errors;
 	gmacdev->nss_stats.rx_transport_csum_bypassed +=
-	    gstat->rx_transport_csum_bypassed;
+		gstat->rx_transport_csum_bypassed;
 	gmacdev->nss_stats.tx_bytes += gstat->tx_bytes;
 	gmacdev->nss_stats.tx_packets += gstat->tx_packets;
 	gmacdev->nss_stats.tx_collisions += gstat->tx_collisions;
 	gmacdev->nss_stats.tx_errors += gstat->tx_errors;
 	gmacdev->nss_stats.tx_jabber_timeout_errors +=
-	    gstat->tx_jabber_timeout_errors;
+		gstat->tx_jabber_timeout_errors;
 	gmacdev->nss_stats.tx_frame_flushed_errors +=
-	    gstat->tx_frame_flushed_errors;
+		gstat->tx_frame_flushed_errors;
 	gmacdev->nss_stats.tx_loss_of_carrier_errors +=
-	    gstat->tx_loss_of_carrier_errors;
+		gstat->tx_loss_of_carrier_errors;
 	gmacdev->nss_stats.tx_no_carrier_errors += gstat->tx_no_carrier_errors;
 	gmacdev->nss_stats.tx_late_collision_errors +=
-	    gstat->tx_late_collision_errors;
+		gstat->tx_late_collision_errors;
 	gmacdev->nss_stats.tx_excessive_collision_errors +=
-	    gstat->tx_excessive_collision_errors;
+		gstat->tx_excessive_collision_errors;
 	gmacdev->nss_stats.tx_excessive_deferral_errors +=
-	    gstat->tx_excessive_deferral_errors;
+		gstat->tx_excessive_deferral_errors;
 	gmacdev->nss_stats.tx_underflow_errors += gstat->tx_underflow_errors;
 	gmacdev->nss_stats.tx_ip_header_errors += gstat->tx_ip_header_errors;
 	gmacdev->nss_stats.tx_ip_payload_errors += gstat->tx_ip_payload_errors;
@@ -152,7 +152,7 @@ static void nss_gmac_copy_stats(nss_gmac_dev *gmacdev,
  * @return Returns void.
  */
 static void nss_gmac_stats_receive(nss_gmac_dev *gmacdev,
-				   struct nss_gmac_stats *gstat)
+					struct nss_gmac_stats *gstat)
 {
 	struct net_device *netdev = NULL;
 
@@ -177,13 +177,13 @@ static void nss_gmac_stats_receive(nss_gmac_dev *gmacdev,
 	gmacdev->stats.rx_fifo_errors += gstat->fifo_overflows;
 	gmacdev->stats.rx_missed_errors += gstat->rx_missed;
 	gmacdev->stats.collisions += gstat->tx_collisions
-	    + gstat->rx_late_collision_errors;
+		+ gstat->rx_late_collision_errors;
 	gmacdev->stats.tx_packets += gstat->tx_packets;
 	gmacdev->stats.tx_bytes += gstat->tx_bytes;
 	gmacdev->stats.tx_errors += gstat->tx_errors;
 	gmacdev->stats.tx_dropped += gstat->tx_dropped;
 	gmacdev->stats.tx_carrier_errors += gstat->tx_loss_of_carrier_errors
-	    + gstat->tx_no_carrier_errors;
+		+ gstat->tx_no_carrier_errors;
 	gmacdev->stats.tx_fifo_errors += gstat->tx_underflow_errors;
 	gmacdev->stats.tx_window_errors += gstat->tx_late_collision_errors;
 
@@ -214,8 +214,8 @@ void nss_gmac_receive(struct net_device *netdev, struct sk_buff *skb, struct nap
 	skb->dev = netdev;
 	skb->protocol = eth_type_trans(skb, netdev);
 	nss_gmac_trace(gmacdev,
-		      "%s: Rx on gmac%d, packet len %d, CSUM %d",
-		      __FUNCTION__, gmacdev->macid, skb->len, skb->ip_summed);
+			"%s: Rx on gmac%d, packet len %d, CSUM %d",
+			__func__, gmacdev->macid, skb->len, skb->ip_summed);
 
 	napi_gro_receive(napi, skb);
 }
@@ -230,7 +230,7 @@ void nss_gmac_receive(struct net_device *netdev, struct sk_buff *skb, struct nap
  * @return Returns void
  */
 void nss_gmac_event_receive(void *if_ctx, nss_gmac_event_t ev_type,
-			    void *os_buf, uint32_t len)
+				void *os_buf, uint32_t len)
 {
 	struct net_device *netdev = NULL;
 	nss_gmac_dev *gmacdev = NULL;
@@ -246,7 +246,7 @@ void nss_gmac_event_receive(void *if_ctx, nss_gmac_event_t ev_type,
 
 	default:
 		nss_gmac_info(gmacdev, "%s: Unknown Event from NSS",
-			      __FUNCTION__);
+				__func__);
 		break;
 	}
 }
@@ -324,11 +324,11 @@ void nss_gmac_linkup(nss_gmac_dev *gmacdev)
 
 	if (gmacdev->data_plane_ops->open(gmacdev->data_plane_ctx, gmac_tx_desc,
 						gmac_rx_desc, mode) != NSS_GMAC_SUCCESS) {
-		nss_gmac_info(gmacdev, "%s: data plane open command un-successful", __FUNCTION__);
+		nss_gmac_info(gmacdev, "%s: data plane open command un-successful", __func__);
 		gmacdev->link_state = LINKDOWN;
 		return;
 	}
-	nss_gmac_info(gmacdev, "%s: data plane open command successfully issued", __FUNCTION__);
+	nss_gmac_info(gmacdev, "%s: data plane open command successfully issued", __func__);
 
 	nss_notify_linkup(gmacdev);
 
@@ -389,21 +389,21 @@ void nss_gmac_adjust_link(struct net_device *netdev)
 void nss_gmac_start_up(nss_gmac_dev *gmacdev)
 {
 	if (!gmacdev->data_plane_ops) {
-		nss_gmac_info(gmacdev, "%s: offload is not enabled, bring up gmac with slowpath", __FUNCTION__);
+		nss_gmac_info(gmacdev, "%s: offload is not enabled, bring up gmac with slowpath", __func__);
 		gmacdev->data_plane_ops = &nss_gmac_slowpath_ops;
 	}
 
 	if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
 		if (!IS_ERR_OR_NULL(gmacdev->phydev)) {
-			nss_gmac_info(gmacdev, "%s: start phy 0x%x", __FUNCTION__, gmacdev->phydev->phy_id);
+			nss_gmac_info(gmacdev, "%s: start phy 0x%x", __func__, gmacdev->phydev->phy_id);
 			phy_start(gmacdev->phydev);
 			phy_start_aneg(gmacdev->phydev);
 		} else {
-			nss_gmac_info(gmacdev, "%s: Invalid PHY device for a link polled interface", __FUNCTION__);
+			nss_gmac_info(gmacdev, "%s: Invalid PHY device for a link polled interface", __func__);
 		}
 		return;
 	}
-	nss_gmac_info(gmacdev, "%s: Force link up", __FUNCTION__);
+	nss_gmac_info(gmacdev, "%s: Force link up", __func__);
 	/*
 	 * Force link up if link polling is disabled
 	 */
@@ -430,7 +430,7 @@ int32_t nss_gmac_linux_xmit_frames(struct sk_buff *skb, struct net_device *netde
 	BUG_ON(skb == NULL);
 	if (skb->len < ETH_HLEN) {
 		nss_gmac_info(gmacdev, "%s: skb->len < ETH_HLEN",
-			      __FUNCTION__);
+				__func__);
 		goto drop;
 	}
 
@@ -439,7 +439,7 @@ int32_t nss_gmac_linux_xmit_frames(struct sk_buff *skb, struct net_device *netde
 	BUG_ON(gmacdev->netdev != netdev);
 
 	nss_gmac_trace(gmacdev, "%s:Tx packet, len %d, CSUM %d",
-		      __FUNCTION__, skb->len, skb->ip_summed);
+			__func__, skb->len, skb->ip_summed);
 
 	msg_status = gmacdev->data_plane_ops->xmit(gmacdev->data_plane_ctx, skb);
 
@@ -466,10 +466,10 @@ tx_done:
  * function prepares the the device for operation. This function is called
  * whenever ifconfig (in Linux) activates the device (for example
  * "ifconfig eth0 up"). This function registers system resources needed.
- *      - Disables interrupts
+ *	- Disables interrupts
  *	- Starts Linux network queue interface
  *	- Checks for NSS init completion and determines initial link status
- *      - Starts timer to detect cable plug/unplug
+ *	- Starts timer to detect cable plug/unplug
  * @param[in] pointer to net_device structure.
  * @return Returns 0 on success and error status upon failure.
  */
@@ -533,10 +533,10 @@ int nss_gmac_linux_open(struct net_device *netdev)
  * called whenever ifconfig (in Linux) closes the device (for example
  * "ifconfig eth0 down"). This releases all the system resources allocated
  * during open call.
- *      - Disable the device interrupts
+ *	- Disable the device interrupts
  *	- Send a link change event to NSS GMAC driver.
- *      - Stop the Linux network queue interface
- *      - Cancel timer rgistered for cable plug/unplug tracking
+ *	- Stop the Linux network queue interface
+ *	- Cancel timer rgistered for cable plug/unplug tracking
  * @param[in] pointer to net_device structure.
  * @return Returns 0 on success and error status upon failure.
  */
@@ -559,7 +559,7 @@ int nss_gmac_linux_close(struct net_device *netdev)
 	nss_gmac_disable_interrupt_all(gmacdev);
 	gmacdev->data_plane_ops->link_state(gmacdev->data_plane_ctx, 0);
 
-	if(!IS_ERR_OR_NULL(gmacdev->phydev)) {
+	if (!IS_ERR_OR_NULL(gmacdev->phydev)) {
 		phy_stop(gmacdev->phydev);
 	}
 
@@ -587,8 +587,8 @@ void nss_gmac_linux_tx_timeout(struct net_device *netdev)
 	if (gmacdev->gmac_power_down == 0) {
 		/* If Mac is in powerdown */
 		nss_gmac_info(gmacdev,
-			      "%s TX time out during power down is ignored",
-			      netdev->name);
+				"%s TX time out during power down is ignored",
+				netdev->name);
 		return;
 	}
 
@@ -627,12 +627,12 @@ int32_t nss_gmac_linux_change_mtu(struct net_device *netdev, int32_t newmtu)
 	if (newmtu <= NSS_GMAC_NORMAL_FRAME_MTU) {
 		nss_gmac_jumbo_frame_disable(gmacdev);
 		nss_gmac_twokpe_frame_disable(gmacdev);
-        } else if (newmtu <= NSS_GMAC_MINI_JUMBO_FRAME_MTU) {
+	} else if (newmtu <= NSS_GMAC_MINI_JUMBO_FRAME_MTU) {
 		nss_gmac_jumbo_frame_disable(gmacdev);
 		nss_gmac_twokpe_frame_enable(gmacdev);
-        } else if (newmtu <= NSS_GMAC_FULL_JUMBO_FRAME_MTU) {
+	} else if (newmtu <= NSS_GMAC_FULL_JUMBO_FRAME_MTU) {
 		nss_gmac_jumbo_frame_enable(gmacdev);
-        }
+	}
 
 	netdev->mtu = newmtu;
 	return 0;
@@ -669,7 +669,7 @@ int nss_gmac_override_data_plane(struct net_device *netdev,
 
 	if (!dp_ops->open || !dp_ops->close || !dp_ops->link_state
 		|| !dp_ops->mac_addr || !dp_ops->change_mtu || !dp_ops->xmit) {
-		nss_gmac_info(gmacdev, "%s: All the op functions must be present, reject this registeration", __FUNCTION__);
+		nss_gmac_info(gmacdev, "%s: All the op functions must be present, reject this registeration", __func__);
 		return NSS_GMAC_FAILURE;
 	}
 
@@ -741,7 +741,7 @@ void nss_gmac_open_work(struct work_struct *work)
 {
 	nss_gmac_dev *gmacdev = container_of(to_delayed_work(work), nss_gmac_dev, gmacwork);
 
-	nss_gmac_info(gmacdev,"Do the network up in delayed queue %s\n", gmacdev->netdev->name);
+	nss_gmac_info(gmacdev, "Do the network up in delayed queue %s\n", gmacdev->netdev->name);
 	nss_gmac_linux_open(gmacdev->netdev);
 }
 
