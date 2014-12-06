@@ -22,7 +22,12 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/gpio.h>
+#include <linux/version.h>
+
+#if (NSS_DT_SUPPORT != 1)
 #include <mach/gpiomux.h>
+#endif
+
 #include "nss_hal_pvt.h"
 #include "nss_clocks.h"
 #include "nss_core.h"
@@ -30,7 +35,9 @@
 /*
  * Global declarations
  */
+extern struct nss_top_instance nss_top_main;
 
+#if (NSS_FW_DBG_SUPPORT == 1)
 /*
  * NSS debug pins configuration
  */
@@ -148,6 +155,7 @@ static struct msm_gpiomux_config nss_spi_gpiomux[] = {
 		},
 	},
 };
+#endif /* NSS_FW_DBG_SUPPORT */
 
 /*
  * clk_reg_write_32()
@@ -173,10 +181,13 @@ static inline uint32_t clk_reg_read_32(volatile void *addr)
  */
 void __nss_hal_debug_enable(void)
 {
+#if (NSS_FW_DBG_SUPPORT == 1)
 	msm_gpiomux_install(nss_spi_gpiomux,
 				ARRAY_SIZE(nss_spi_gpiomux));
+#endif
 }
 
+#if (NSS_DT_SUPPORT != 1)
 /*
  * nss_hal_pvt_pll_change
  *	Change the Pll between 11(400mhz) or 18(1066 or 1466)
@@ -631,12 +642,18 @@ void __nss_hal_common_reset(uint32_t *clk_src)
 
 	return;
 }
+#endif /* NSS_DT_SUPPORT */
 
 /*
  * __nss_hal_core_reset
  */
+#if (NSS_DT_SUPPORT == 1)
+void __nss_hal_core_reset(uint32_t map, uint32_t addr)
+#else
 void __nss_hal_core_reset(uint32_t core_id, uint32_t map, uint32_t addr, uint32_t clk_src)
+#endif
 {
+#if (NSS_DT_SUPPORT != 1)
 #if defined(NSS_ENABLE_CLOCK)
 	/*
 	 * Enable mpt clock
@@ -715,6 +732,7 @@ void __nss_hal_core_reset(uint32_t core_id, uint32_t map, uint32_t addr, uint32_
 	clk_reg_write_32(UBI32_COREn_RESET_CLAMP(core_id), 0x0);
 
 	mdelay(1);
+#endif /* NSS_DT_SUPPORT */
 
 	/*
 	* Apply ubi32 core reset

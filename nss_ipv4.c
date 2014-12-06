@@ -32,7 +32,9 @@ static struct  nss_conn_cfg_pvt i4cfgp;
 static void nss_ipv4_driver_conn_sync_update(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_conn_sync *nirs)
 {
 	struct nss_top_instance *nss_top = nss_ctx->nss_top;
+#if (NSS_PPP_SUPPORT == 1)
 	struct net_device *pppoe_dev = NULL;
+#endif
 
 	/*
 	 * Update statistics maintained by NSS driver
@@ -47,6 +49,7 @@ static void nss_ipv4_driver_conn_sync_update(struct nss_ctx_instance *nss_ctx, s
 	/*
 	 * Update the PPPoE interface stats, if there is any PPPoE session on the interfaces.
 	 */
+#if (NSS_PPP_SUPPORT == 1)
 	if (nirs->flow_pppoe_session_id) {
 		pppoe_dev = ppp_session_to_netdev(nirs->flow_pppoe_session_id, (uint8_t *)nirs->flow_pppoe_remote_mac);
 		if (pppoe_dev) {
@@ -64,6 +67,7 @@ static void nss_ipv4_driver_conn_sync_update(struct nss_ctx_instance *nss_ctx, s
 			dev_put(pppoe_dev);
 		}
 	}
+#endif
 }
 
 /*

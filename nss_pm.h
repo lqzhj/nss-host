@@ -22,10 +22,13 @@
 #ifndef __NSS_PM_H
 #define __NSS_PM_H
 
+#include<linux/version.h>
+
 #include <mach/msm_nss_gmac.h>
 #include <mach/msm_nss_crypto.h>
 #include <mach/msm_bus_board.h>
 #include <mach/msm_bus.h>
+
 #include <nss_api_if.h>
 
 /*

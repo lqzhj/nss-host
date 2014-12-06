@@ -20,6 +20,7 @@
 #ifndef __NSS_CLOCKS_H
 #define __NSS_CLOCKS_H
 
+#if (NSS_DT_SUPPORT != 1)
 #include <asm/io.h>
 #include <mach/msm_iomap.h>
 
@@ -126,4 +127,5 @@ enum nss_hal_pvt_pll_status {
 	PLL_LOCKED
 };
 
+#endif
 #endif /* __NSS_CLOCKS_H */

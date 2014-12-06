@@ -23,6 +23,7 @@
 #define __NSS_CORE_H
 
 #include <linux/kernel.h>
+#include <linux/version.h>
 #include <linux/errno.h>
 #include <linux/types.h>
 #include <linux/spinlock.h>
@@ -181,6 +182,20 @@
 #define NSS_FREQ_733		733000000	/* Frequency in hz */
 #define NSS_FREQ_733_MIN	0x10000		/* Instructions Per ms Min */
 #define NSS_FREQ_733_MAX	0x50000		/* Instructions Per ms Max */
+
+#if (NSS_DT_SUPPORT == 1)
+#define NSSTCM_FREQ		400000000	/* NSS TCM Frequency in Hz */
+
+/* NSS Clock names */
+#define NSS_TCM_SRC_CLK		"nss_tcm_src"
+#define NSS_TCM_CLK		"nss_tcm_clk"
+
+/* NSS core reset/clamp names */
+#define NSS_CORE_CLK_RST_CLAMP	"clkrst_clamp"
+#define NSS_CORE_CLAMP		"clamp"
+#define NSS_CORE_AHB_RESET	"ahb"
+#define NSS_CORE_AXI_RESET	"axi"
+#endif
 
 /*
  * IPV4 node statistics
@@ -648,6 +663,11 @@ struct nss_top_instance {
 					/* IPv6 protocol exception events per interface */
 	uint64_t stats_if_exception_pppoe[NSS_MAX_PHYSICAL_INTERFACES][NSS_PPPOE_NUM_SESSION_PER_INTERFACE][NSS_PPPOE_EXCEPTION_EVENT_MAX];
 					/* PPPoE exception events for per session on per interface */
+#if (NSS_DT_SUPPORT == 1)
+	void *nss_fpb_base;			/* Virtual address of FPB base */
+	bool nss_hal_common_init_done;
+#endif
+
 	/*
 	 * TODO: Review and update following fields
 	 */
@@ -722,6 +742,46 @@ struct nss_runtime_sampling {
 	uint32_t message_rate_limit;				/* Debug Message Rate Limit */
 	uint32_t initialized;					/* Flag to check for adequate initial samples */
 };
+
+
+#if (NSS_DT_SUPPORT == 1)
+/*
+ * nss_feature_enabled
+ */
+enum nss_feature_enabled {
+	NSS_FEATURE_NOT_ENABLED = 0,    /* Feature is not enabled on this core */
+	NSS_FEATURE_ENABLED,            /* Feature is enabled on this core */
+};
+
+/*
+ * nss_platform_data
+ *      Platform data per core
+ */
+struct nss_platform_data {
+	uint32_t id;		/* NSS core ID */
+	uint32_t num_irq;       /* No. of interrupts supported per core */
+	uint32_t irq[2];        /* IRQ numbers per interrupt */
+	uint32_t nmap;          /* Virtual address of NSS CSM space */
+	uint32_t vmap;          /* Virtual address of NSS virtual register map */
+	uint32_t nphys;         /* Physical address of NSS CSM space */
+	uint32_t vphys;         /* Physical address of NSS virtual register map */
+	uint32_t rst_addr;      /* Reset address of NSS core */
+	uint32_t load_addr;     /* Load address of NSS firmware */
+	enum nss_feature_enabled turbo_frequency;	/* Does this core support turbo frequencies */
+	enum nss_feature_enabled ipv4_enabled;		/* Does this core handle IPv4? */
+	enum nss_feature_enabled ipv4_reasm_enabled;    /* Does this core handle IPv4? */
+	enum nss_feature_enabled ipv6_enabled;		/* Does this core handle IPv6? */
+	enum nss_feature_enabled l2switch_enabled;	/* Does this core handle L2 switch? */
+	enum nss_feature_enabled crypto_enabled;	/* Does this core handle crypto? */
+	enum nss_feature_enabled ipsec_enabled;		/* Does this core handle IPsec? */
+	enum nss_feature_enabled wlan_enabled;		/* Does this core handle WLAN 11ac? */
+	enum nss_feature_enabled tun6rd_enabled;	/* Does this core handle 6rd Tunnel ? */
+	enum nss_feature_enabled tunipip6_enabled;	/* Does this core handle ipip6 Tunnel ? */
+	enum nss_feature_enabled gre_redir_enabled;     /* Does this core handle gre_redir Tunnel ? */
+	enum nss_feature_enabled shaping_enabled;	/* Does this core handle shaping ? */
+	enum nss_feature_enabled gmac_enabled[4];	/* Does this core handle GMACs? */
+};
+#endif
 
 /*
  * nss_core_log_msg_failures()
