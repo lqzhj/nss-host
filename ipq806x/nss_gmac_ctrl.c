@@ -37,7 +37,18 @@
 #include <linux/workqueue.h>
 #include <linux/phy.h>
 
+#ifdef CONFIG_OF
+#include <linux/of.h>
+#include <linux/of_net.h>
+#include <linux/of_irq.h>
+#include <linux/of_platform.h>
+#include <linux/of_address.h>
+
+#include <msm_nss_gmac.h>
+#else
+#include <mach/msm_iomap.h>
 #include <mach/msm_nss_gmac.h>
+#endif
 
 #include <nss_gmac_dev.h>
 #include <nss_gmac_network_interface.h>
@@ -45,6 +56,7 @@
 
 #define NSS_GMAC_PHY_FIXUP_UID		0x004D0000
 #define NSS_GMAC_PHY_FIXUP_MASK		0xFFFF0000
+#define NSS_GMAC_COMMON_DEVICE_NODE	"nss-gmac-common"
 
 /* Prototypes */
 
@@ -715,7 +727,11 @@ static int32_t nss_gmac_set_features(struct net_device *netdev,
 
 	if (changed & NETIF_F_GRO) {
 		if (!(features & NETIF_F_GRO)) {
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3, 6, 0))
 			napi_gro_flush(gmacdev->napi);
+#else
+			napi_gro_flush(gmacdev->napi, false);
+#endif
 		}
 	}
 
@@ -775,6 +791,157 @@ static int32_t nss_gmac_phy_fixup(struct phy_device *phydev)
 	return ret;
 }
 
+#ifdef CONFIG_OF
+/**
+ * @brief Get device data via device tree node
+ * @param[in] np pointer to device tree node
+ * @param[in] netdev pointer to net_device
+ * @param[out] netdev pointer to gmac configuration data
+ * @return 0 on Success
+ */
+static int32_t nss_gmac_of_get_pdata(struct device_node *np,
+				     struct net_device *netdev,
+				     struct msm_nss_gmac_platform_data *gmaccfg)
+{
+	uint8_t *maddr = NULL;
+	nss_gmac_dev *gmacdev = NULL;
+	struct resource memres_devtree = {0};
+
+	gmacdev = netdev_priv(netdev);
+
+	if (of_property_read_u32(np, "qcom,id", &gmacdev->macid)
+		|| of_property_read_u32(np, "qcom,emulation", &gmaccfg->emulation)
+		|| of_property_read_u32(np, "qcom,phy_mii_type", &gmaccfg->phy_mii_type)
+		|| of_property_read_u32(np, "qcom,phy_mdio_addr", &gmaccfg->phy_mdio_addr)
+		|| of_property_read_u32(np, "qcom,rgmii_delay", &gmaccfg->rgmii_delay)
+		|| of_property_read_u32(np, "qcom,poll_required", &gmaccfg->poll_required)
+		|| of_property_read_u32(np, "qcom,forced_speed", &gmaccfg->forced_speed)
+		|| of_property_read_u32(np, "qcom,forced_duplex", &gmaccfg->forced_duplex)
+		|| of_property_read_u32(np, "qcom,irq", &netdev->irq)
+		|| of_property_read_u32(np, "qcom,socver", &gmaccfg->socver)) {
+		pr_err("%s: error reading critical device node properties\n", np->name);
+		return -EFAULT;
+	}
+
+	maddr = (uint8_t *)of_get_mac_address(np);
+	if (maddr) {
+		memcpy(gmaccfg->mac_addr, maddr, ETH_ALEN);
+	}
+
+	if (of_address_to_resource(np, 0, &memres_devtree) != 0) {
+		return -EFAULT;
+	}
+
+	netdev->base_addr = memres_devtree.start;
+
+	return 0;
+}
+#endif
+
+/**
+ * @brief Do GMAC driver common initialization.
+ * @param[in] pdev pointer to platform_device
+ * @return 0 on Success
+ */
+static int32_t nss_gmac_do_common_init(struct platform_device *pdev)
+{
+	int32_t ret = -EFAULT;
+	struct resource res_nss_base = {0};
+	struct resource res_qsgmii_base = {0};
+	struct resource res_clk_ctl_base = {0};
+
+#ifdef CONFIG_OF
+	struct device_node *common_device_node = NULL;
+	/*
+	 * Device tree based common init.
+	 */
+	common_device_node = of_find_node_by_name(NULL, NSS_GMAC_COMMON_DEVICE_NODE);
+	if (!common_device_node) {
+		nss_gmac_msg("Cannot find device tree node "NSS_GMAC_COMMON_DEVICE_NODE);
+		ret = -EFAULT;
+		goto nss_gmac_cmn_init_fail;
+	}
+		if (of_address_to_resource(common_device_node, 0, &res_nss_base) != 0) {
+		ret = -EFAULT;
+		goto nss_gmac_cmn_init_fail;
+	}
+		if (of_address_to_resource(common_device_node, 1, &res_qsgmii_base) != 0) {
+		ret = -EFAULT;
+		goto nss_gmac_cmn_init_fail;
+		}
+	if (of_address_to_resource(common_device_node, 2, &res_clk_ctl_base) != 0) {
+		ret = -EFAULT;
+		goto nss_gmac_cmn_init_fail;
+	}
+#else
+	res_nss_base.start = NSS_REG_BASE;
+	res_nss_base.end = NSS_REG_BASE + NSS_REG_LEN - 1;
+	res_nss_base.flags = IORESOURCE_MEM;
+
+	res_qsgmii_base.start = QSGMII_REG_BASE;
+	res_qsgmii_base.end =  QSGMII_REG_BASE + QSGMII_REG_LEN - 1;
+	res_qsgmii_base.flags = IORESOURCE_MEM;
+
+	res_clk_ctl_base.start = IPQ806X_CLK_CTL_PHYS;
+	res_clk_ctl_base.end = IPQ806X_CLK_CTL_PHYS + IPQ806X_CLK_CTL_SIZE - 1;
+	res_clk_ctl_base.flags = IORESOURCE_MEM;
+#endif
+
+	ctx.nss_base = (uint8_t *)ioremap_nocache(res_nss_base.start,
+						  resource_size(&res_nss_base));
+	if (!ctx.nss_base) {
+		nss_gmac_early_dbg("Error mapping NSS GMAC registers");
+		ret = -EIO;
+		goto nss_gmac_cmn_init_fail;
+	}
+	nss_gmac_early_dbg("%s: NSS base ioremap OK.", __FUNCTION__);
+
+	ctx.qsgmii_base = (uint32_t *)ioremap_nocache(res_qsgmii_base.start,
+						      resource_size(&res_qsgmii_base));
+	if (!ctx.qsgmii_base) {
+		nss_gmac_early_dbg("Error mapping QSGMII registers");
+		ret = -EIO;
+		goto nss_gmac_qsgmii_map_err;
+	}
+	nss_gmac_early_dbg("%s: QSGMII base ioremap OK, vaddr = 0x%p", __FUNCTION__, ctx.qsgmii_base);
+
+	ctx.clk_ctl_base = (uint32_t *)ioremap_nocache(res_clk_ctl_base.start,
+						       resource_size(&res_clk_ctl_base));
+	if (!ctx.clk_ctl_base) {
+		nss_gmac_early_dbg("Error mapping Clk control registers");
+		ret = -EIO;
+		goto nss_gmac_clkctl_map_err;
+	}
+	nss_gmac_early_dbg("%s: Clk control base ioremap OK, vaddr = 0x%p", __FUNCTION__, ctx.clk_ctl_base);
+
+	if (nss_gmac_common_init(&ctx) == 0) {
+		ret = 0;
+		ctx.common_init_done = true;
+		goto nss_gmac_cmn_init_ok;
+	}
+
+nss_gmac_clkctl_map_err:
+	iounmap(ctx.qsgmii_base);
+	ctx.qsgmii_base = NULL;
+
+nss_gmac_qsgmii_map_err:
+	iounmap(ctx.nss_base);
+	ctx.nss_base = NULL;
+
+nss_gmac_cmn_init_fail:
+	nss_gmac_msg("%s: platform init fail\n", __FUNCTION__);
+
+nss_gmac_cmn_init_ok:
+#ifdef CONFIG_OF
+	if (common_device_node) {
+		of_node_put(common_device_node);
+		common_device_node = NULL;
+	}
+#endif
+	return ret;
+}
+
+
 /**
  * @brief Function to initialize the Linux network interface.
  * Linux dependent Network interface is setup here. This provides
@@ -790,6 +957,13 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	int32_t ret = 0;
 	phy_interface_t phyif = 0;
 	uint8_t phy_id[MII_BUS_ID_SIZE + 3];
+
+	if (ctx.common_init_done == false) {
+		ret = nss_gmac_do_common_init(pdev);
+		if (ret != 0) {
+			return ret;
+		}
+	}
 
 	/*
 	 * Lets allocate and set up an ethernet device, it takes the sizeof
@@ -809,17 +983,34 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	spin_lock_init(&gmacdev->slock);
 	mutex_init(&gmacdev->link_mutex);
 
-	gmaccfg = (struct msm_nss_gmac_platform_data *)((pdev->dev).platform_data);
-
 	gmacdev->pdev = pdev;
 	gmacdev->netdev = netdev;
+	gmacdev->loop_back_mode = NOLOOPBACK;
+
+#ifdef CONFIG_OF
+	struct msm_nss_gmac_platform_data gmaccfg_devicetree;
+	struct device_node *np = NULL;
+
+	np = of_node_get(pdev->dev.of_node);
+	ret = nss_gmac_of_get_pdata(np, netdev, &gmaccfg_devicetree);
+	if (ret != 0) {
+		free_netdev(netdev);
+		return ret;
+	}
+
+	gmaccfg = &gmaccfg_devicetree;
+#else
+	gmaccfg = (struct msm_nss_gmac_platform_data *)((pdev->dev).platform_data);
+
 	netdev->base_addr = pdev->resource[0].start;
 	netdev->irq = pdev->resource[1].start;
-
+	gmacdev->macid = pdev->id;
+#endif
 	gmacdev->emulation = gmaccfg->emulation;
 	gmacdev->phy_mii_type = gmaccfg->phy_mii_type;
 	gmacdev->phy_base = gmaccfg->phy_mdio_addr;
-	gmacdev->loop_back_mode = NOLOOPBACK;
+	gmacdev->rgmii_delay = gmaccfg->rgmii_delay;
+
 	if (ctx.socver == 0) {
 		ctx.socver = gmaccfg->socver;
 	}
@@ -860,13 +1051,10 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 		break;
 	}
 
-	gmacdev->rgmii_delay = gmaccfg->rgmii_delay;
-	gmacdev->macid = pdev->id;
-
 	/* save global context within each GMAC context */
 	gmacdev->ctx = &ctx;
 
-	ctx.nss_gmac[pdev->id] = gmacdev;
+	ctx.nss_gmac[gmacdev->macid] = gmacdev;
 
 	/* Init for individual GMACs */
 	nss_gmac_dev_init(gmacdev);
@@ -880,14 +1068,47 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	}
 
 	if (gmacdev->emulation == 0) {
+#ifdef CONFIG_OF
+		const __be32 *prop = NULL;
+		struct device_node *mdio_node = NULL;
+		struct platform_device *mdio_plat = NULL;
+
+		prop = of_get_property(np, "mdiobus", NULL);
+		if (!prop) {
+			nss_gmac_info(gmacdev, "cannot get 'mdiobus' property");
+			ret = -EIO;
+			goto mdiobus_init_fail;
+		}
+
+		mdio_node = of_find_node_by_phandle(be32_to_cpup(prop));
+		if (!mdio_node) {
+			nss_gmac_info(gmacdev, "cannot find mdio node by phandle");
+			ret = -EIO;
+			goto mdiobus_init_fail;
+		}
+
+		mdio_plat = of_find_device_by_node(mdio_node);
+		if (!mdio_plat) {
+			nss_gmac_info(gmacdev, "cannot find platform device from mdio node");
+			of_node_put(mdio_node);
+			ret = -EIO;
+			goto mdiobus_init_fail;
+		}
+
+		gmacdev->miibus = dev_get_drvdata(&mdio_plat->dev);
+		if (!gmacdev->miibus) {
+			nss_gmac_info(gmacdev, "cannot get mii bus reference from device data");
+			of_node_put(mdio_node);
+			ret = -EIO;
+			goto mdiobus_init_fail;
+		}
+#else
 		struct device *miidev;
 		uint8_t busid[MII_BUS_ID_SIZE];
 
 		snprintf(busid, MII_BUS_ID_SIZE, "%s.%d", IPQ806X_MDIO_BUS_NAME, IPQ806X_MDIO_BUS_NUM);
 
-		miidev = bus_find_device_by_name(&platform_bus_type,
-						NULL,
-						busid);
+		miidev = bus_find_device_by_name(&platform_bus_type, NULL, busid);
 		if (!miidev) {
 			nss_gmac_info(gmacdev, "mdio bus '%s' get FAIL.", busid);
 			ret = -EIO;
@@ -900,6 +1121,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 			ret = -EIO;
 			goto mdiobus_init_fail;
 		}
+#endif
 
 		nss_gmac_info(gmacdev, "mdio bus '%s' OK.", gmacdev->miibus->id);
 
@@ -964,9 +1186,13 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 
 	/* connect PHY */
 	if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3, 8, 0))
 		gmacdev->phydev = phy_connect(netdev, (const char *)phy_id,
-					      &nss_gmac_adjust_link, 0,
-					      phyif);
+					      &nss_gmac_adjust_link, 0, phyif);
+#else
+		gmacdev->phydev = phy_connect(netdev, (const char *)phy_id,
+					      &nss_gmac_adjust_link, phyif);
+#endif
 
 		if (IS_ERR_OR_NULL(gmacdev->phydev)) {
 			nss_gmac_info(gmacdev, "PHY %s attach FAIL", phy_id);
@@ -999,7 +1225,11 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 		/*
 		 * Issue a phy_attach for the interface connected to a switch
 		 */
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3, 8, 0))
 		gmacdev->phydev = phy_attach(netdev, (const char *)phy_id, 0, phyif);
+#else
+		gmacdev->phydev = phy_attach(netdev, (const char *)phy_id, phyif);
+#endif
 		if (IS_ERR_OR_NULL(gmacdev->phydev)) {
 			nss_gmac_info(gmacdev, "PHY %s attach FAIL", phy_id);
 			ret = -EIO;
@@ -1031,6 +1261,12 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 		      netdev->name, netdev->base_addr, netdev->irq,
 		      gmacdev->phy_base, test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags));
 
+#ifdef CONFIG_OF
+	if (pdev->dev.of_node) {
+		of_node_put(np);
+		np = NULL;
+	}
+#endif
 	return 0;
 
 nss_gmac_reg_fail:
@@ -1052,6 +1288,12 @@ mdiobus_init_fail:
 nss_gmac_attach_fail:
 	free_netdev(netdev);
 
+#ifdef CONFIG_OF
+	if (pdev->dev.of_node) {
+		of_node_put(np);
+		np = NULL;
+	}
+#endif
 	return ret;
 }
 
@@ -1091,6 +1333,14 @@ static int nss_gmac_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static struct of_device_id nss_gmac_dt_ids[] = {
+	{ .compatible =  "qcom,nss-gmac0" },
+	{ .compatible =  "qcom,nss-gmac1" },
+	{ .compatible =  "qcom,nss-gmac2" },
+	{ .compatible =  "qcom,nss-gmac3" },
+	{},
+};
+MODULE_DEVICE_TABLE(of, nss_gmac_dt_ids);
 
 /**
  * @brief Linux Platform driver for GMACs
@@ -1101,6 +1351,9 @@ static struct platform_driver nss_gmac_drv = {
 	.driver = {
 		   .name = "nss-gmac",
 		   .owner = THIS_MODULE,
+#ifdef CONFIG_OF
+		   .of_match_table = of_match_ptr(nss_gmac_dt_ids),
+#endif
 		  },
 };
 
@@ -1111,10 +1364,7 @@ static struct platform_driver nss_gmac_drv = {
  */
 int32_t __init nss_gmac_register_driver(void)
 {
-	if (nss_gmac_common_init(&ctx) != 0) {
-		nss_gmac_msg("%s: platform init ERROR.\n", __FUNCTION__);
-		goto common_init_fail;
-	}
+	ctx.common_init_done = false;
 
 	ctx.gmac_workqueue = create_singlethread_workqueue(NSS_GMAC_WORKQUEUE_NAME);
 	if (!ctx.gmac_workqueue) {
@@ -1134,9 +1384,6 @@ drv_register_fail:
 	destroy_workqueue(ctx.gmac_workqueue);
 
 link_state_wq_fail:
-	nss_gmac_common_deinit(&ctx);
-
-common_init_fail:
 	return -EIO;
 }
 

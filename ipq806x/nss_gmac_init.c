@@ -27,13 +27,22 @@
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/notifier.h>
-#include <mach/msm_nss_gmac.h>
 
 #include <nss_gmac_dev.h>
 #include <nss_gmac_clocks.h>
+#include <nss_gmac_network_interface.h>
+
+#ifndef CONFIG_OF
+#include <mach/msm_nss_gmac.h>
 #include <mach/msm_nss_macsec.h>
 #include <mach/socinfo.h>
-#include <nss_gmac_network_interface.h>
+#else
+#include <linux/of.h>
+#include <msm_nss_gmac.h>
+#include <msm_nss_macsec.h>
+
+#define SOCINFO_VERSION_MAJOR(ver) (ver)
+#endif
 
 /* Initialize notifier list for NSS GMAC */
 static BLOCKING_NOTIFIER_HEAD(nss_gmac_notifier_list);
@@ -305,6 +314,21 @@ static void nss_gmac_clear_all_regs(uint32_t *nss_base)
 				NSS_QSGMII_CLK_CTL, 0xFFFFFFFF);
 }
 
+/**
+ * @brief Determine board type and return relevant
+ *	NSS GMAC Phy profile.
+ *
+ * @return Phy profile
+ */
+int32_t nss_gmac_get_phy_profile(void)
+{
+	if (of_machine_is_compatible("qcom,ipq8064")) {
+		return NSS_GMAC_PHY_PROFILE_2R_2S;
+	}
+
+	return NSS_GMAC_PHY_PROFILE_1R_3S;
+}
+
 
 /**
  * @brief QSGMII common init
@@ -312,9 +336,10 @@ static void nss_gmac_clear_all_regs(uint32_t *nss_base)
  * @param[in] nss_gmac_dev *
  * @return void
  */
-static void nss_gmac_qsgmii_common_init(uint32_t *qsgmii_base)
+static void nss_gmac_qsgmii_common_init(struct nss_gmac_global_ctx *ctx)
 {
 	uint32_t val ;
+	uint32_t *qsgmii_base = ctx->qsgmii_base;
 
 	if (nss_gmac_get_phy_profile() == NSS_GMAC_PHY_PROFILE_QS) {
 		/* Configure QSGMII Block for QSGMII mode */
@@ -353,13 +378,13 @@ out:
 	nss_gmac_set_reg_bits(qsgmii_base, PCS_MODE_CTL, PCS_MODE_CTL_SGMII_MAC);
 
 	/* Apply reset to PCS and release */
-	nss_gmac_write_reg((uint32_t *)(MSM_CLK_CTL_BASE), NSS_RESET_SPARE, 0x3FFFFFF);
+	nss_gmac_write_reg((uint32_t *)(ctx->clk_ctl_base), NSS_RESET_SPARE, 0x3FFFFFF);
 	udelay(100);
-	nss_gmac_write_reg((uint32_t *)(MSM_CLK_CTL_BASE), NSS_RESET_SPARE, 0x0);
+	nss_gmac_write_reg((uint32_t *)(ctx->clk_ctl_base), NSS_RESET_SPARE, 0x0);
 
-	val = nss_gmac_read_reg((uint32_t *)(MSM_CLK_CTL_BASE), NSS_RESET_SPARE);
+	val = nss_gmac_read_reg((uint32_t *)(ctx->clk_ctl_base), NSS_RESET_SPARE);
 	nss_gmac_early_dbg("%s: qsgmii_base(0x%x) + NSS_RESET_SPARE(0x%x): 0x%x",
-	       __FUNCTION__, (uint32_t)(MSM_CLK_CTL_BASE), (uint32_t)NSS_RESET_SPARE, val);
+	       __FUNCTION__, (uint32_t)(ctx->clk_ctl_base), (uint32_t)NSS_RESET_SPARE, val);
 
 	/* signal detect and channel enable */
 	nss_gmac_write_reg(qsgmii_base,
@@ -389,21 +414,6 @@ int32_t nss_gmac_common_init(struct nss_gmac_global_ctx *ctx)
 	volatile uint32_t val;
 
 	spin_lock_init(&ctx->reg_lock);
-	ctx->nss_base = (uint8_t *)ioremap_nocache(NSS_REG_BASE, NSS_REG_LEN);
-	if (!ctx->nss_base) {
-		nss_gmac_early_dbg("Error mapping NSS GMAC registers");
-		return -EIO;
-	}
-	nss_gmac_early_dbg("%s: NSS base ioremap OK.", __FUNCTION__);
-
-	ctx->qsgmii_base = (uint32_t *)ioremap_nocache(QSGMII_REG_BASE, QSGMII_REG_LEN);
-	if (!ctx->qsgmii_base) {
-		nss_gmac_early_dbg("Error mapping QSGMII registers");
-		iounmap(ctx->nss_base);
-		ctx->nss_base = NULL;
-		return -EIO;
-	}
-	nss_gmac_early_dbg("%s: QSGMII base ioremap OK, vaddr = 0x%p", __FUNCTION__, ctx->qsgmii_base);
 
 	nss_gmac_clear_all_regs((uint32_t *)ctx->nss_base);
 
@@ -426,10 +436,10 @@ int32_t nss_gmac_common_init(struct nss_gmac_global_ctx *ctx)
 	/*
 	 * Deaassert GMAC AHB reset
 	 */
-	nss_gmac_clear_reg_bits((uint32_t *)(MSM_CLK_CTL_BASE), GMAC_AHB_RESET, 0x1);
-	val = nss_gmac_read_reg(MSM_CLK_CTL_BASE, GMAC_AHB_RESET);
-	nss_gmac_early_dbg("%s: MSM_CLK_CTL_BASE(0x%x) + GMAC_AHB_RESET(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)MSM_CLK_CTL_BASE, (uint32_t)GMAC_AHB_RESET, val);
+	nss_gmac_clear_reg_bits((uint32_t *)(ctx->clk_ctl_base), GMAC_AHB_RESET, 0x1);
+	val = nss_gmac_read_reg(ctx->clk_ctl_base, GMAC_AHB_RESET);
+	nss_gmac_early_dbg("%s: ctx->clk_ctl_base(0x%x) + GMAC_AHB_RESET(0x%x): 0x%x",
+		       __FUNCTION__, (uint32_t)ctx->clk_ctl_base, (uint32_t)GMAC_AHB_RESET, val);
 
 	/* Bypass MACSEC */
 	nss_gmac_set_reg_bits((uint32_t *)(ctx->nss_base), NSS_MACSEC_CTL,
@@ -439,16 +449,16 @@ int32_t nss_gmac_common_init(struct nss_gmac_global_ctx *ctx)
 	nss_gmac_early_dbg("%s: nss_bsae(0x%x) + NSS_MACSEC_CTL(0x%x): 0x%x",
 		       __FUNCTION__, (uint32_t)ctx->nss_base, (uint32_t)NSS_MACSEC_CTL, val);
 
-	nss_gmac_qsgmii_common_init(ctx->qsgmii_base);
+	nss_gmac_qsgmii_common_init(ctx);
 
 	/*
 	 * Initialize ACC_GMAC_CUST field of NSS_ACC_REG register
 	 * for GMAC and MACSEC memories.
 	 */
-	nss_gmac_clear_reg_bits((uint32_t *)(MSM_CLK_CTL_BASE), NSS_ACC_REG, GMAC_ACC_CUST_MASK);
-	val = nss_gmac_read_reg(MSM_CLK_CTL_BASE, NSS_ACC_REG);
-	nss_gmac_early_dbg("%s: MSM_CLK_CTL_BASE(0x%x) + NSS_ACC_REG(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)MSM_CLK_CTL_BASE, (uint32_t)NSS_ACC_REG, val);
+	nss_gmac_clear_reg_bits((uint32_t *)(ctx->clk_ctl_base), NSS_ACC_REG, GMAC_ACC_CUST_MASK);
+	val = nss_gmac_read_reg(ctx->clk_ctl_base, NSS_ACC_REG);
+	nss_gmac_early_dbg("%s: ctx->clk_ctl_base(0x%x) + NSS_ACC_REG(0x%x): 0x%x",
+		       __FUNCTION__, (uint32_t)ctx->clk_ctl_base, (uint32_t)NSS_ACC_REG, val);
 
 	return 0;
 }
@@ -464,6 +474,11 @@ void nss_gmac_common_deinit(struct nss_gmac_global_ctx *ctx)
 	if (ctx->qsgmii_base) {
 		iounmap(ctx->qsgmii_base);
 		ctx->qsgmii_base = NULL;
+	}
+
+	if (ctx->clk_ctl_base) {
+		iounmap(ctx->clk_ctl_base);
+		ctx->clk_ctl_base = NULL;
 	}
 
 	if (ctx->nss_base) {
@@ -694,83 +709,84 @@ void nss_gmac_dev_init(nss_gmac_dev *gmacdev)
 	uint32_t div = 0;
 	uint32_t id = gmacdev->macid;
 	uint32_t *nss_base = (uint32_t *)(gmacdev->ctx->nss_base);
+	struct nss_gmac_global_ctx *ctx = gmacdev->ctx;
 
 	/*
 	 * Initialize wake and sleep counter values of
 	 * GMAC memory footswitch control.
 	 */
-	nss_gmac_set_reg_bits(MSM_CLK_CTL_BASE, GMAC_COREn_CLK_FS(id) , GMAC_FS_S_W_VAL);
-	val = nss_gmac_read_reg(MSM_CLK_CTL_BASE, GMAC_COREn_CLK_FS(id));
-	nss_gmac_trace(gmacdev, "%s: MSM_CLK_CTL_BASE(0x%x) + GMAC_COREn_CLK_FS(%d)(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)MSM_CLK_CTL_BASE, id, (uint32_t)GMAC_COREn_CLK_FS(id), val);
+	nss_gmac_set_reg_bits(ctx->clk_ctl_base, GMAC_COREn_CLK_FS(id) , GMAC_FS_S_W_VAL);
+	val = nss_gmac_read_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_FS(id));
+	nss_gmac_trace(gmacdev, "%s: ctx->clk_ctl_base(0x%x) + GMAC_COREn_CLK_FS(%d)(0x%x): 0x%x",
+		       __FUNCTION__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_FS(id), val);
 
 	/*
 	 * Bring up GMAC core clock
 	 */
 	/* a) Program GMAC_COREn_CLK_SRC_CTL register */
-	nss_gmac_clear_reg_bits(MSM_CLK_CTL_BASE, GMAC_COREn_CLK_SRC_CTL(id),
+	nss_gmac_clear_reg_bits(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC_CTL(id),
 				GMAC_DUAL_MN8_SEL |
 				GMAC_CLK_ROOT_ENA |
 				GMAC_CLK_LOW_PWR_ENA);
-	nss_gmac_set_reg_bits(MSM_CLK_CTL_BASE, GMAC_COREn_CLK_SRC_CTL(id),
+	nss_gmac_set_reg_bits(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC_CTL(id),
 			      GMAC_CLK_ROOT_ENA);
 
-	val = nss_gmac_read_reg(MSM_CLK_CTL_BASE, GMAC_COREn_CLK_SRC_CTL(id));
-	nss_gmac_trace(gmacdev, "%s: MSM_CLK_CTL_BASE(0x%x) + GMAC_COREn_CLK_SRC_CTL(%d)(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)MSM_CLK_CTL_BASE, id, (uint32_t)GMAC_COREn_CLK_SRC_CTL(id), val);
+	val = nss_gmac_read_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC_CTL(id));
+	nss_gmac_trace(gmacdev, "%s: ctx->clk_ctl_base(0x%x) + GMAC_COREn_CLK_SRC_CTL(%d)(0x%x): 0x%x",
+		       __FUNCTION__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_SRC_CTL(id), val);
 
 	/* b) Program M & D values in GMAC_COREn_CLK_SRC[0,1]_MD register. */
-	nss_gmac_write_reg(MSM_CLK_CTL_BASE, GMAC_COREn_CLK_SRC0_MD(id), 0);
-	nss_gmac_write_reg(MSM_CLK_CTL_BASE, GMAC_COREn_CLK_SRC1_MD(id), 0);
-	nss_gmac_set_reg_bits(MSM_CLK_CTL_BASE, GMAC_COREn_CLK_SRC0_MD(id),
+	nss_gmac_write_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC0_MD(id), 0);
+	nss_gmac_write_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC1_MD(id), 0);
+	nss_gmac_set_reg_bits(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC0_MD(id),
 			      GMAC_CORE_CLK_M_VAL | GMAC_CORE_CLK_D_VAL);
-	nss_gmac_set_reg_bits(MSM_CLK_CTL_BASE, GMAC_COREn_CLK_SRC1_MD(id),
+	nss_gmac_set_reg_bits(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC1_MD(id),
 			      GMAC_CORE_CLK_M_VAL | GMAC_CORE_CLK_D_VAL);
 
-	val = nss_gmac_read_reg(MSM_CLK_CTL_BASE, GMAC_COREn_CLK_SRC0_MD(id));
-	nss_gmac_trace(gmacdev, "%s: MSM_CLK_CTL_BASE(0x%x) + GMAC_COREn_CLK_SRC0_MD(%d)(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)MSM_CLK_CTL_BASE, id, (uint32_t)GMAC_COREn_CLK_SRC0_MD(id), val);
-	val = nss_gmac_read_reg(MSM_CLK_CTL_BASE, GMAC_COREn_CLK_SRC1_MD(id));
-	nss_gmac_trace(gmacdev, "%s: MSM_CLK_CTL_BASE(0x%x) + GMAC_COREn_CLK_SRC1_MD(%d)(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)MSM_CLK_CTL_BASE, id, (uint32_t)GMAC_COREn_CLK_SRC1_MD(id), val);
+	val = nss_gmac_read_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC0_MD(id));
+	nss_gmac_trace(gmacdev, "%s: ctx->clk_ctl_base(0x%x) + GMAC_COREn_CLK_SRC0_MD(%d)(0x%x): 0x%x",
+		       __FUNCTION__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_SRC0_MD(id), val);
+	val = nss_gmac_read_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC1_MD(id));
+	nss_gmac_trace(gmacdev, "%s: ctx->clk_ctl_base(0x%x) + GMAC_COREn_CLK_SRC1_MD(%d)(0x%x): 0x%x",
+		       __FUNCTION__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_SRC1_MD(id), val);
 
 
 	/* c) Program N values on GMAC_COREn_CLK_SRC[0,1]_NS register */
-	nss_gmac_write_reg(MSM_CLK_CTL_BASE, GMAC_COREn_CLK_SRC0_NS(id), 0);
-	nss_gmac_write_reg(MSM_CLK_CTL_BASE, GMAC_COREn_CLK_SRC1_NS(id), 0);
-	nss_gmac_set_reg_bits(MSM_CLK_CTL_BASE, GMAC_COREn_CLK_SRC0_NS(id),
+	nss_gmac_write_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC0_NS(id), 0);
+	nss_gmac_write_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC1_NS(id), 0);
+	nss_gmac_set_reg_bits(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC0_NS(id),
 			      GMAC_CORE_CLK_N_VAL
 			      | GMAC_CORE_CLK_MNCNTR_EN
 			      | GMAC_CORE_CLK_MNCNTR_MODE_DUAL
 			      | GMAC_CORE_CLK_PRE_DIV_SEL_BYP
 			      | GMAC_CORE_CLK_SRC_SEL_PLL0);
-	nss_gmac_set_reg_bits(MSM_CLK_CTL_BASE, GMAC_COREn_CLK_SRC1_NS(id),
+	nss_gmac_set_reg_bits(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC1_NS(id),
 			      GMAC_CORE_CLK_N_VAL
 			      | GMAC_CORE_CLK_MNCNTR_EN
 			      | GMAC_CORE_CLK_MNCNTR_MODE_DUAL
 			      | GMAC_CORE_CLK_PRE_DIV_SEL_BYP
 			      | GMAC_CORE_CLK_SRC_SEL_PLL0);
 
-	val = nss_gmac_read_reg(MSM_CLK_CTL_BASE, GMAC_COREn_CLK_SRC0_NS(id));
-	nss_gmac_trace(gmacdev, "%s: MSM_CLK_CTL_BASE(0x%x) + GMAC_COREn_CLK_SRC0_NS(%d)(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)MSM_CLK_CTL_BASE, id, (uint32_t)GMAC_COREn_CLK_SRC0_NS(id), val);
-	val = nss_gmac_read_reg(MSM_CLK_CTL_BASE, GMAC_COREn_CLK_SRC1_NS(id));
-	nss_gmac_trace(gmacdev, "%s: MSM_CLK_CTL_BASE(0x%x) + GMAC_COREn_CLK_SRC1_NS(%d)(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)MSM_CLK_CTL_BASE, id, (uint32_t)GMAC_COREn_CLK_SRC1_NS(id), val);
+	val = nss_gmac_read_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC0_NS(id));
+	nss_gmac_trace(gmacdev, "%s: ctx->clk_ctl_base(0x%x) + GMAC_COREn_CLK_SRC0_NS(%d)(0x%x): 0x%x",
+		       __FUNCTION__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_SRC0_NS(id), val);
+	val = nss_gmac_read_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC1_NS(id));
+	nss_gmac_trace(gmacdev, "%s: ctx->clk_ctl_base(0x%x) + GMAC_COREn_CLK_SRC1_NS(%d)(0x%x): 0x%x",
+		       __FUNCTION__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_SRC1_NS(id), val);
 
 	/* d) Un-halt GMACn clock */
-	nss_gmac_clear_reg_bits(MSM_CLK_CTL_BASE, CLK_HALT_NSSFAB0_NSSFAB1_STATEA,
+	nss_gmac_clear_reg_bits(ctx->clk_ctl_base, CLK_HALT_NSSFAB0_NSSFAB1_STATEA,
 				GMACn_CORE_CLK_HALT(id));
-	val = nss_gmac_read_reg(MSM_CLK_CTL_BASE, CLK_HALT_NSSFAB0_NSSFAB1_STATEA);
-	nss_gmac_trace(gmacdev, "%s: MSM_CLK_CTL_BASE(0x%x) + CLK_HALT_NSSFAB0_NSSFAB1_STATEA(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)MSM_CLK_CTL_BASE, (uint32_t)CLK_HALT_NSSFAB0_NSSFAB1_STATEA, val);
+	val = nss_gmac_read_reg(ctx->clk_ctl_base, CLK_HALT_NSSFAB0_NSSFAB1_STATEA);
+	nss_gmac_trace(gmacdev, "%s: ctx->clk_ctl_base(0x%x) + CLK_HALT_NSSFAB0_NSSFAB1_STATEA(0x%x): 0x%x",
+		       __FUNCTION__, (uint32_t)ctx->clk_ctl_base, (uint32_t)CLK_HALT_NSSFAB0_NSSFAB1_STATEA, val);
 
 	/* e) CLK_COREn_CLK_CTL: select branch enable and disable clk invert */
-	nss_gmac_clear_reg_bits(MSM_CLK_CTL_BASE, GMAC_COREn_CLK_CTL(id), GMAC_CLK_INV);
-	nss_gmac_set_reg_bits(MSM_CLK_CTL_BASE, GMAC_COREn_CLK_CTL(id), GMAC_CLK_BRANCH_EN);
-	val = nss_gmac_read_reg(MSM_CLK_CTL_BASE, GMAC_COREn_CLK_CTL(id));
-	nss_gmac_trace(gmacdev, "%s: MSM_CLK_CTL_BASE(0x%x) + GMAC_COREn_CLK_CTL(%d)(0x%x): 0x%x",
-		       __FUNCTION__, (uint32_t)MSM_CLK_CTL_BASE, id, (uint32_t)GMAC_COREn_CLK_CTL(id), val);
+	nss_gmac_clear_reg_bits(ctx->clk_ctl_base, GMAC_COREn_CLK_CTL(id), GMAC_CLK_INV);
+	nss_gmac_set_reg_bits(ctx->clk_ctl_base, GMAC_COREn_CLK_CTL(id), GMAC_CLK_BRANCH_EN);
+	val = nss_gmac_read_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_CTL(id));
+	nss_gmac_trace(gmacdev, "%s: ctx->clk_ctl_base(0x%x) + GMAC_COREn_CLK_CTL(%d)(0x%x): 0x%x",
+		       __FUNCTION__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_CTL(id), val);
 
 	/* Set GMACn Ctl: Phy interface select, IFG, AXI low power request signal (CSYSREQ) */
 	val = GMAC_IFG_CTL(GMAC_IFG) | GMAC_IFG_LIMIT(GMAC_IFG) | GMAC_CSYS_REQ;
@@ -795,7 +811,7 @@ void nss_gmac_dev_init(nss_gmac_dev *gmacdev)
 	/*
 	 * Deassert GMACn power on reset
 	 */
-	nss_gmac_clear_reg_bits(MSM_CLK_CTL_BASE, GMAC_COREn_RESET(id), 0x1);
+	nss_gmac_clear_reg_bits(ctx->clk_ctl_base, GMAC_COREn_RESET(id), 0x1);
 
 	/* Configure clock dividers for 1000Mbps default */
 	gmacdev->speed = SPEED1000;
@@ -873,15 +889,15 @@ void nss_macsec_pre_init(void)
 	nss_gmac_write_reg(nss_base, NSS_MACSEC3_CORE_CLK_FS_CTL, MACSEC_CLK_FS_CTL_S_W_VAL);
 
 	/* MACSEC reset */
-	nss_gmac_write_reg(MSM_CLK_CTL_BASE, MACSEC_CORE1_RESET, 1);
-	nss_gmac_write_reg(MSM_CLK_CTL_BASE, MACSEC_CORE2_RESET, 1);
-	nss_gmac_write_reg(MSM_CLK_CTL_BASE, MACSEC_CORE3_RESET, 1);
+	nss_gmac_write_reg(ctx.clk_ctl_base, MACSEC_CORE1_RESET, 1);
+	nss_gmac_write_reg(ctx.clk_ctl_base, MACSEC_CORE2_RESET, 1);
+	nss_gmac_write_reg(ctx.clk_ctl_base, MACSEC_CORE3_RESET, 1);
 	mdelay(100);
 
 	/* Deassert MACSEC reset */
-	nss_gmac_write_reg(MSM_CLK_CTL_BASE, MACSEC_CORE1_RESET, 0);
-	nss_gmac_write_reg(MSM_CLK_CTL_BASE, MACSEC_CORE2_RESET, 0);
-	nss_gmac_write_reg(MSM_CLK_CTL_BASE, MACSEC_CORE3_RESET, 0);
+	nss_gmac_write_reg(ctx.clk_ctl_base, MACSEC_CORE1_RESET, 0);
+	nss_gmac_write_reg(ctx.clk_ctl_base, MACSEC_CORE2_RESET, 0);
+	nss_gmac_write_reg(ctx.clk_ctl_base, MACSEC_CORE3_RESET, 0);
 
 	/* Enable MACSEC clocks */
 	val = nss_gmac_read_reg(nss_base, NSS_ETH_CLK_GATE_CTL);
@@ -1012,9 +1028,9 @@ void nss_macsec_pre_exit(void)
 	uint32_t link_reset_flag = 0;
 
 	/* MACSEC reset */
-	nss_gmac_write_reg(MSM_CLK_CTL_BASE, MACSEC_CORE1_RESET, 1);
-	nss_gmac_write_reg(MSM_CLK_CTL_BASE, MACSEC_CORE2_RESET, 1);
-	nss_gmac_write_reg(MSM_CLK_CTL_BASE, MACSEC_CORE3_RESET, 1);
+	nss_gmac_write_reg(ctx.clk_ctl_base, MACSEC_CORE1_RESET, 1);
+	nss_gmac_write_reg(ctx.clk_ctl_base, MACSEC_CORE2_RESET, 1);
+	nss_gmac_write_reg(ctx.clk_ctl_base, MACSEC_CORE3_RESET, 1);
 
 	/* Bypass all MACSECs */
 	nss_gmac_write_reg(nss_base, NSS_MACSEC_CTL, MACSEC_EXT_BYPASS_EN_MASK | MACSEC_DP_RST_VAL);

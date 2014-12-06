@@ -18,7 +18,10 @@
 #define __NSS_GMAC_CLOCKS_H
 
 #include <asm/io.h>
+
+#ifndef CONFIG_OF
 #include <mach/msm_iomap.h>
+#endif
 
 /* Peripheral clock registers. */
 #define NSS_ACC_REG				(0x28EC)

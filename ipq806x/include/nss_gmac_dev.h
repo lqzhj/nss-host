@@ -36,8 +36,13 @@
 #include <asm/cacheflush.h>
 #include <asm/io.h>
 
+#ifdef CONFIG_OF
+#include <msm_nss_gmac.h>
+#else
 #include <mach/msm_nss_gmac.h>
+#endif
 #include <nss_gmac_api_if.h>
+
 
 #define NSS_GMAC_IPC_OFFLOAD
 
@@ -228,7 +233,7 @@ typedef struct _nss_gmac_dev {
 
 	void *data_plane_ctx;		/* context when NSS owns GMACs          */
 	struct phy_device *phydev;	/* Phy device 				*/
-	struct nss_gmac_stats nss_stats;/* Stats synced from NSS                */
+	struct nss_gmac_stats nss_stats;/* Stats synced from NSS		*/
 	struct mii_bus *miibus;		/* MDIO bus associated with this GMAC	*/
 	struct nss_gmac_data_plane_ops *data_plane_ops;
 					/* ops to send messages to nss-drv	*/
@@ -259,9 +264,12 @@ struct nss_gmac_global_ctx {
 	uint8_t *nss_base;		/* Base address of NSS GMACs'
 					   global interface registers		*/
 	uint32_t *qsgmii_base;
+	uint32_t *clk_ctl_base;		/* Base address of platform
+					   clock control registers */
 	spinlock_t reg_lock;	/* Lock to protect NSS register	*/
 	uint32_t socver;		/* SOC version				*/
 	nss_gmac_dev *nss_gmac[NSS_MAX_GMACS];
+	bool common_init_done;			/* Flag to hold common init done state */
 };
 
 

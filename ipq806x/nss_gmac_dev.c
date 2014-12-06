@@ -31,7 +31,10 @@
 
 #include <linux/mii.h>
 #include <linux/phy.h>
+
+#ifndef CONFIG_OF
 #include <mach/msm_iomap.h>
+#endif
 
 #include <nss_gmac_dev.h>
 #include <nss_gmac_network_interface.h>

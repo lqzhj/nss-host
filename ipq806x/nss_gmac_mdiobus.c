@@ -31,7 +31,11 @@
 #include <linux/phy.h>
 #include <linux/device.h>
 
+#ifdef CONFIG_OF
+#include <msm_nss_gmac.h>
+#else
 #include <mach/msm_nss_gmac.h>
+#endif
 
 #include <nss_gmac_dev.h>
 #include <nss_gmac_network_interface.h>

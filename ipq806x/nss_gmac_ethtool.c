@@ -27,6 +27,12 @@
 #include <linux/mii.h>
 #include <linux/phy.h>
 
+#ifdef CONFIG_OF
+#include <msm_nss_macsec.h>
+#else
+#include <mach/msm_nss_macsec.h>
+#endif
+
 #include <nss_gmac_dev.h>
 #include <nss_gmac_network_interface.h>
 
