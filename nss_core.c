@@ -685,7 +685,7 @@ pull:
  * nss_core_handle_linear_skb()
  *	Handler for processing linear skbs.
  */
-static inline bool nss_core_handle_linear_skb(struct sk_buff **nbuf_ptr, struct sk_buff **head_ptr,
+static inline bool nss_core_handle_linear_skb(struct nss_ctx_instance *nss_ctx, struct sk_buff **nbuf_ptr, struct sk_buff **head_ptr,
 						struct sk_buff **tail_ptr, struct n2h_descriptor *desc)
 {
 	uint16_t bit_flags = desc->bit_flags;
@@ -720,6 +720,7 @@ static inline bool nss_core_handle_linear_skb(struct sk_buff **nbuf_ptr, struct 
 		 * NSS should playaround with data area and should not
 		 * touch HEADROOM area
 		 */
+		NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_RX_SIMPLE]);
 		return true;
 	}
 
@@ -815,7 +816,7 @@ static inline bool nss_core_handle_linear_skb(struct sk_buff **nbuf_ptr, struct 
 	*nbuf_ptr = head;
 	*head_ptr = NULL;
 	*tail_ptr = NULL;
-
+	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_RX_SKB_FRAGLIST]);
 	return true;
 }
 
@@ -879,8 +880,6 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 		bit_flags = desc->bit_flags;
 		if (unlikely((buffer_type == N2H_BUFFER_CRYPTO_RESP))) {
 			NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_CRYPTO_RESP]);
-
-
 			/*
 			 * This is a crypto buffer hence send it to crypto driver
 			 *
@@ -901,6 +900,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 			 * Invalid opaque pointer
 			 */
 			nss_dump_desc(nss_ctx, desc);
+			NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_RX_BAD_DESCRIPTOR]);
 			goto next;
 		}
 
@@ -957,7 +957,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 			if (!nss_core_handle_nr_frag_skb(&nbuf, &jumbo_start, desc, buffer_type)) {
 				goto next;
 			}
-
+			NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_RX_NR_FRAGS]);
 			goto consume;
 		}
 
@@ -977,7 +977,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 		 * This is a simple linear skb. Use the the linear skb
 		 * handler to process it.
 		 */
-		if (!nss_core_handle_linear_skb(&nbuf, &head, &tail, desc)) {
+		if (!nss_core_handle_linear_skb(nss_ctx, &nbuf, &head, &tail, desc)) {
 			goto next;
 		}
 
@@ -1548,9 +1548,11 @@ static inline int32_t nss_core_send_buffer_simple_skb(struct nss_ctx_instance *n
 		}
 	}
 #endif
-
+	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_SIMPLE]);
 	return 1;
 }
+
+//Note to Thomas:  Linux has support for atomic_inc() on a 64 bit value.  Hint, use iot
 
 /*
  * nss_core_send_buffer_nr_frags()
@@ -1621,7 +1623,7 @@ static inline int32_t nss_core_send_buffer_nr_frags(struct nss_ctx_instance *nss
 	desc->bit_flags |= H2N_BIT_FLAG_LAST_SEGMENT;
 	desc->bit_flags &= ~(H2N_BIT_FLAG_DISCARD);
 	desc->opaque = (uint32_t)nbuf;
-
+	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_NR_FRAGS]);
 	return i+1;
 }
 
@@ -1708,7 +1710,7 @@ static inline int32_t nss_core_send_buffer_fraglist(struct nss_ctx_instance *nss
 	desc->bit_flags |= H2N_BIT_FLAG_LAST_SEGMENT;
 	desc->bit_flags &= ~(H2N_BIT_FLAG_DISCARD);
 	desc->opaque = (uint32_t)nbuf;
-
+	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_FRAGLIST]);
 	return i+1;
 }
 
