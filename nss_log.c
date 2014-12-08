@@ -30,7 +30,6 @@
 #include <linux/interrupt.h>
 #include <linux/time.h>
 #include <linux/platform_device.h>
-#include <mach/msm_nss.h>
 #include <linux/device.h>
 #include <nss_hal.h>
 #include "nss_core.h"

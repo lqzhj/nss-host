@@ -1051,7 +1051,9 @@ static int nss_get_average_inst_handler(ctl_table *ctl, int write, void __user *
 
 	return ret;
 }
+#endif /* NSS_PM_SUPPORT */
 
+#if (NSS_FW_DBG_SUPPORT == 1)
 /*
  * nss_debug_handler()
  *	Enable NSS debug output
@@ -1070,6 +1072,7 @@ static int nss_debug_handler(ctl_table *ctl, int write, void __user *buffer, siz
 
 	return ret;
 }
+#endif
 
 /*
  * nss_rps_handler()
@@ -1165,6 +1168,7 @@ static int nss_paged_mode_handler(ctl_table *ctl, int write, void __user *buffer
 	return ret;
 }
 
+#if (NSS_PM_SUPPORT == 1)
 /*
  * sysctl-tuning infrastructure.
  */
@@ -1199,6 +1203,7 @@ static ctl_table nss_freq_table[] = {
 	},
 	{ }
 };
+#endif
 
 static ctl_table nss_general_table[] = {
 	{
@@ -1208,6 +1213,7 @@ static ctl_table nss_general_table[] = {
 		.mode                   = 0644,
 		.proc_handler   	= proc_dointvec,
 	},
+#if (NSS_FW_DBG_SUPPORT == 1)
 	{
 		.procname               = "debug",
 		.data                   = &nss_ctl_debug,
@@ -1215,6 +1221,7 @@ static ctl_table nss_general_table[] = {
 		.mode                   = 0644,
 		.proc_handler   	= &nss_debug_handler,
 	},
+#endif
 	{
 		.procname               = "coredump",
 		.data                   = &nss_cmd_buf.coredump,
@@ -1254,11 +1261,13 @@ static ctl_table nss_general_table[] = {
 };
 
 static ctl_table nss_clock_dir[] = {
+#if (NSS_PM_SUPPORT == 1)
 	{
 		.procname               = "clock",
 		.mode                   = 0555,
 		.child                  = nss_freq_table,
 	},
+#endif
 	{
 		.procname               = "general",
 		.mode                   = 0555,
@@ -1284,7 +1293,6 @@ static ctl_table nss_root[] = {
 	},
 	{ }
 };
-#endif /** NSS_PM_SUPPORT */
 
 static struct ctl_table_header *nss_dev_header;
 
@@ -1357,7 +1365,6 @@ static int __init nss_init(void)
 	 */
 	nss_stats_init();
 
-#if (NSS_PM_SUPPORT == 1)
 	/*
 	 * Register sysctl table.
 	 */
@@ -1369,6 +1376,7 @@ static int __init nss_init(void)
 	nss_ipv4_register_sysctl();
 	nss_ipv6_register_sysctl();
 
+#if (NSS_PM_SUPPORT == 1)
 	/*
 	 * Setup Runtime Sample values
 	 */
