@@ -751,7 +751,7 @@ static nss_capwapmgr_status_t nss_capwapmgr_tx_msg_sync(struct nss_ctx_instance 
  * nss_capwapmgr_create_capwap_rule()
  *	Internal function to create a CAPWAP rule
  */
-static nss_capwapmgr_status_t nss_capwapmgr_create_capwap_rule(struct net_device *dev, uint32_t if_num, struct nss_capwap_rule_msg *msg)
+static nss_capwapmgr_status_t nss_capwapmgr_create_capwap_rule(struct net_device *dev, uint32_t if_num, struct nss_capwap_rule_msg *msg, struct nss_ipv4_create *ip_rule)
 {
 	struct nss_ctx_instance *ctx = nss_capwap_get_ctx();
 	struct nss_capwap_msg capwapmsg;
@@ -794,6 +794,20 @@ static nss_capwapmgr_status_t nss_capwapmgr_create_capwap_rule(struct net_device
 
 	if (msg->encap.path_mtu == 0) {
 		msg->encap.path_mtu = htonl(NSS_GMAC_NORMAL_FRAME_MTU);
+	}
+
+	/*
+	 * We use type_flags to determine the correct header sizes
+	 * for a frame when encaping. CAPWAP processing node in the
+	 * NSS FW does not know anything about IP rule information.
+	 */
+	msg->type_flags = 0;
+	if ((ip_rule->out_vlan_tag[0] & 0xFFF) != 0xFFF) {
+		msg->type_flags |= NSS_CAPWAPMGR_RULE_CREATE_VLAN_CONFIGURED;
+	}
+
+	if (ip_rule->flow_pppoe_session_id) {
+		msg->type_flags |= NSS_CAPWAPMGR_RULE_CREATE_PPPOE_CONFIGURED;
 	}
 
 	/*
@@ -1037,7 +1051,7 @@ nss_capwapmgr_status_t nss_capwapmgr_ipv4_tunnel_create(struct net_device *dev, 
 		return NSS_CAPWAPMGR_FAILURE_REGISTER_NSS;
 	}
 
-	status = nss_capwapmgr_create_capwap_rule(dev, if_num, capwap_rule);
+	status = nss_capwapmgr_create_capwap_rule(dev, if_num, capwap_rule, ip_rule);
 	nss_capwapmgr_info("%p: dynamic interface if_num is :%d and capwap tunnel status:%d\n", dev, if_num, status);
 	if (status != NSS_CAPWAPMGR_SUCCESS) {
 		nss_capwapmgr_warn("%p: %d: CAPWAP rule create failed with status: %d", dev, if_num, status);
@@ -1243,7 +1257,7 @@ static void nss_capwapmgr_receive_pkt(struct net_device *dev, struct sk_buff *sk
 	skb->skb_iif = dev->ifindex;
 	skb_reset_mac_header(skb);
 	skb_reset_transport_header(skb);
-	(void) netif_rx(skb);
+	(void)netif_receive_skb(skb);
 	/* SKB NETIF END */
 	dev_put(dev);
 }

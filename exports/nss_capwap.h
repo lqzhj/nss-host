@@ -83,6 +83,15 @@ typedef enum nss_capwap_msg_response {
 				/**< UDPLite tunnel */
 
 /**
+ * CAPWAP tunnel create and type flags. These flags are used
+ * to determine packet header size during encapsulation.
+ */
+#define NSS_CAPWAPMGR_RULE_CREATE_VLAN_CONFIGURED	0x1
+				/**< VLAN Configured for CAPWAP tunnel */
+#define NSS_CAPWAPMGR_RULE_CREATE_PPPOE_CONFIGURED	0x2
+				/**< PPPoE configured for CAPWAP tunnel */
+
+/**
  * CAPWAP version
  */
 #define NSS_CAPWAP_VERSION_V1		0x1
@@ -161,6 +170,9 @@ struct nss_capwap_decap_rule {
 struct nss_capwap_rule_msg {
 	struct nss_capwap_encap_rule encap;	/**< Encap portion of the rule */
 	struct nss_capwap_decap_rule decap;	/**< Decap portion of the rule */
+	uint32_t stats_timer;			/**< Stats interval timer in mill-seconds */
+	int8_t rps;				/**< Core to choose for receiving packets. Set to -1 for NSS FW to decide */
+	uint8_t type_flags;			/**< VLAN and/or PPPOE configured */
 	uint8_t l3_proto;			/**< 0=IPv4 or 1=IPv6 */
 	uint8_t which_udp;			/**< 0=UDP or 1=UDPLite */
 };
