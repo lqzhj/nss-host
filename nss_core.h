@@ -401,6 +401,17 @@ enum nss_stats_n2h {
 
 	NSS_STATS_N2H_PAYLOAD_ALLOC_FAILS,
 					/* Number of pbuf allocations that have failed because there were no free payloads */
+
+	NSS_STATS_N2H_H2N_CONTROL_PACKETS,	/* Control packets received from HLOS */
+	NSS_STATS_N2H_H2N_CONTROL_BYTES,	/* Control bytes received from HLOS */
+	NSS_STATS_N2H_N2H_CONTROL_PACKETS,	/* Control packets sent to HLOS */
+	NSS_STATS_N2H_N2H_CONTROL_BYTES,	/* Control bytes sent to HLOS */
+
+	NSS_STATS_N2H_H2N_DATA_PACKETS,		/* Data packets received from HLOS */
+	NSS_STATS_N2H_H2N_DATA_BYTES,		/* Data bytes received from HLOS */
+	NSS_STATS_N2H_N2H_DATA_PACKETS,		/* Data packets sent to HLOS */
+	NSS_STATS_N2H_N2H_DATA_BYTES,		/* Data bytes sent to HLOS */
+
 	NSS_STATS_N2H_MAX,
 };
 
