@@ -18,7 +18,6 @@
  * nss_ipv6.c
  *	NSS IPv6 APIs
  */
-#include <linux/ppp_channel.h>
 #include "nss_tx_rx_common.h"
 
 int nss_ipv6_conn_cfg __read_mostly = NSS_DEFAULT_NUM_CONN;
@@ -31,9 +30,6 @@ static struct  nss_conn_cfg_pvt i6cfgp;
 static void nss_ipv6_driver_conn_sync_update(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_conn_sync *nics)
 {
 	struct nss_top_instance *nss_top = nss_ctx->nss_top;
-#if (NSS_PPP_SUPPORT == 1)
-	struct net_device *pppoe_dev = NULL;
-#endif
 
 	/*
 	 * Update statistics maintained by NSS driver
@@ -44,29 +40,6 @@ static void nss_ipv6_driver_conn_sync_update(struct nss_ctx_instance *nss_ctx, s
 	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_TX_PKTS] += nics->flow_tx_packet_count + nics->return_tx_packet_count;
 	nss_top->stats_ipv6[NSS_STATS_IPV6_ACCELERATED_TX_BYTES] += nics->flow_tx_byte_count + nics->return_tx_byte_count;
 	spin_unlock_bh(&nss_top->stats_lock);
-
-	/*
-	 * Update the PPPoE interface stats, if there is any PPPoE session on the interfaces.
-	 */
-#if (NSS_PPP_SUPPORT == 1)
-	if (nics->flow_pppoe_session_id) {
-		pppoe_dev = ppp_session_to_netdev(nics->flow_pppoe_session_id, (uint8_t *)nics->flow_pppoe_remote_mac);
-		if (pppoe_dev) {
-			ppp_update_stats(pppoe_dev, nics->flow_rx_packet_count, nics->flow_rx_byte_count,
-					nics->flow_tx_packet_count, nics->flow_tx_byte_count);
-			dev_put(pppoe_dev);
-		}
-	}
-
-	if (nics->return_pppoe_session_id) {
-		pppoe_dev = ppp_session_to_netdev(nics->return_pppoe_session_id, (uint8_t *)nics->return_pppoe_remote_mac);
-		if (pppoe_dev) {
-			ppp_update_stats(pppoe_dev, nics->return_rx_packet_count, nics->return_rx_byte_count,
-				nics->return_tx_packet_count, nics->return_tx_byte_count);
-			dev_put(pppoe_dev);
-		}
-	}
-#endif
 }
 
 /*
