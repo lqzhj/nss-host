@@ -1063,6 +1063,9 @@ enqueue_drop:
 	 * We therefore drop it.
 	 */
 	kfree_skb(skb);
+	spin_lock_bh(&nq->lock);
+	sch->qstats.drops++;
+	spin_unlock_bh(&nq->lock);
 
 	return NET_XMIT_DROP;
 }
@@ -1998,11 +2001,19 @@ static void nss_qdisc_get_stats_timer_callback(unsigned long int data)
 	nim.msg.shaper_configure.config.msg.shaper_node_basic_stats_get.qos_tag = nq->qos_tag;
 	rc = nss_if_tx_msg(nq->nss_shaping_ctx, &nim);
 
+	/*
+	 * Check if we failed to send the stats request to NSS.
+	 */
 	if (rc != NSS_TX_SUCCESS) {
 		nss_qdisc_error("%s: %p: basic stats get failed to send\n",
 				__func__, nq->qdisc);
-		atomic_sub(1, &nq->pending_stat_requests);
-		wake_up(&nss_qdics_wq);
+
+		/*
+		 * Schedule the timer once again for re-trying. Since this is a
+		 * re-try we schedule it 100ms from now, instead of a whole second.
+		 */
+		nq->stats_get_timer.expires = jiffies + HZ/10;
+		add_timer(&nq->stats_get_timer);
 	}
 }
 
