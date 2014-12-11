@@ -90,8 +90,11 @@ export NSS_CCFLAGS
 
 qca-nss-drv-objs += nss_profiler.o
 obj-y+= profiler/
+
+ifneq ($(findstring 3.4, $(KERNELVERSION)),)
 obj-y+= nss_qdisc/
 obj-y+= capwapmgr/
+endif
 
 ifeq ($(PM_SUPPORT), 1)
 qca-nss-drv-objs += nss_freq.o
