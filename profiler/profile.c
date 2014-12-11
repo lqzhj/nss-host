@@ -33,9 +33,7 @@
 #include <asm/uaccess.h>
 #include <asm/page.h>
 #include <asm/thread_info.h>
-
-#define	NSS_PKT_STATS_ENABLED	0	/* nss_core.h has no default DEF for NSS_PKT_STATS_ENABLED */
-#include "nss_core.h"                  /* needs only the number of NSS CORES */
+#include <nss_api_if.h>
 
 #include "profilenode.h"
 #include "profpkt.h"
@@ -720,7 +718,7 @@ static void profiler_handle_reply(struct nss_ctx_instance *nss_ctx, struct nss_c
 {
 	switch (ncm->response) {
 	default:
-		nss_warning("%p: profiler had error response %d\n", nss_ctx, ncm->response);
+		profileWarn("%p: profiler had error response %d\n", nss_ctx, ncm->response);
 		/*
 		 * fail through -- no plan to do anything yet
 		 */

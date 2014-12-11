@@ -35,7 +35,6 @@
 #include <linux/if_arp.h>
 #include <linux/etherdevice.h>
 #include <nss_api_if.h>
-#include "nss_core.h"
 #include <linux/in.h>
 #include <nss_api_if.h>
 #include <nss_cmn.h>
@@ -60,6 +59,9 @@
 /*
  * NSS capwap mgr debug macros
  */
+
+#define NSS_CAPWAPMGR_NORMAL_FRAME_MTU 1500
+
 #if (NSS_CAPWAPMGR_DEBUG_LEVEL < 1)
 #define nss_capwapmgr_assert(fmt, args...)
 #else
@@ -415,7 +417,7 @@ struct net_device *nss_capwapmgr_netdev_create()
 	int i;
 	int err;
 
-	ndev = alloc_netdev(sizeof(struct netdev_priv_instance),
+	ndev = alloc_netdev(sizeof(struct nss_capwapmgr_priv),
                                         "nsscapwap%d", nss_capwapmgr_dummpy_netdev_setup);
 	if (!ndev) {
 		nss_capwapmgr_warn("Error allocating netdev\n");
@@ -738,7 +740,7 @@ static nss_capwapmgr_status_t nss_capwapmgr_tx_msg_sync(struct nss_ctx_instance 
 	 */
 	if (r->response != NSS_CMN_RESPONSE_ACK) {
 		up(&r->sem);
-		nss_warning("%p: CAPWAP command msg response : %d, error:%d\n", ctx,
+		nss_capwapmgr_warn("%p: CAPWAP command msg response : %d, error:%d\n", ctx,
 				r->response, r->error);
 		return nss_capwap_remap_error(r->error);
 	}
@@ -786,7 +788,7 @@ static nss_capwapmgr_status_t nss_capwapmgr_create_capwap_rule(struct net_device
 	}
 
 	if (msg->decap.max_buffer_size == 0) {
-		msg->decap.max_buffer_size = htonl(ctx->max_buf_size);
+		msg->decap.max_buffer_size = htonl(nss_capwap_get_max_buf_size(ctx));
 	}
 
 	if (ntohl(msg->encap.path_mtu) > NSS_CAPWAP_MAX_MTU) {
@@ -794,7 +796,7 @@ static nss_capwapmgr_status_t nss_capwapmgr_create_capwap_rule(struct net_device
 	}
 
 	if (msg->encap.path_mtu == 0) {
-		msg->encap.path_mtu = htonl(NSS_GMAC_NORMAL_FRAME_MTU);
+		msg->encap.path_mtu = htonl(NSS_CAPWAPMGR_NORMAL_FRAME_MTU);
 	}
 
 	/*
