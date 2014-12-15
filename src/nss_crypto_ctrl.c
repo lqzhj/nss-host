@@ -22,6 +22,7 @@
 #include <nss_crypto_if.h>
 #include <nss_crypto_hw.h>
 #include <nss_crypto_ctrl.h>
+#include <nss_crypto_dbg.h>
 
 struct nss_crypto_ctrl gbl_crypto_ctrl = {0};
 
@@ -644,6 +645,14 @@ static nss_crypto_status_t nss_crypto_set_idx_reqtype(struct nss_crypto_idx_info
 {
 	const uint16_t req_mask = (NSS_CRYPTO_REQ_TYPE_DECRYPT | NSS_CRYPTO_REQ_TYPE_ENCRYPT);
 
+	/*
+	 * check if the call is for resetting the state
+	 */
+	if (req_type == NSS_CRYPTO_REQ_TYPE_NONE) {
+		idx->req_type = req_type;
+		return NSS_CRYPTO_STATUS_OK;
+	}
+
 	switch (req_type & req_mask) {
         case NSS_CRYPTO_REQ_TYPE_ENCRYPT:
         case NSS_CRYPTO_REQ_TYPE_DECRYPT:
@@ -846,7 +855,7 @@ nss_crypto_status_t nss_crypto_session_free(nss_crypto_handle_t crypto, uint32_t
 
 	nss_crypto_update_cipher_info(&ctrl->idx_info[session_idx], NULL);
 	nss_crypto_update_auth_info(&ctrl->idx_info[session_idx], NULL);
-	nss_crypto_set_idx_reqtype(&ctrl->idx_info[session_idx], 0);
+	nss_crypto_set_idx_reqtype(&ctrl->idx_info[session_idx], NSS_CRYPTO_REQ_TYPE_NONE);
 
 	/*
 	 * program keys for all the engines for the given pipe pair (index)

@@ -21,6 +21,7 @@
 #include <nss_crypto_if.h>
 #include <nss_crypto_hw.h>
 #include <nss_crypto_ctrl.h>
+#include <nss_crypto_dbg.h>
 
 #define NSS_CRYPTO_DEBUGFS_PERM_RO 0444
 #define NSS_CRYPTO_DEBUGFS_PERM_RW 0666

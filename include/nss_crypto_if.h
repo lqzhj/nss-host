@@ -81,6 +81,7 @@ enum nss_crypto_max_hashlen {
  * @brief crypto request type
  */
 enum nss_crypto_req_type {
+	NSS_CRYPTO_REQ_TYPE_NONE = 0x0,			/**< Reset request */
 	NSS_CRYPTO_REQ_TYPE_AUTH = 0x0001,		/**< authentication request */
 	NSS_CRYPTO_REQ_TYPE_ENCRYPT = 0x0002,		/**< encryption request*/
 	NSS_CRYPTO_REQ_TYPE_DECRYPT = 0x0004,		/**< decryption request*/
