@@ -148,6 +148,8 @@ static void nss_capwapmgr_update_stats(struct nss_capwap_handle *handle, struct 
 	stats->rx_segments += fstats->rx_segments;
 	stats->tx_segments += fstats->tx_segments;
 	stats->dtls_pkts += fstats->dtls_pkts;
+
+	stats->rx_dup_frag += fstats->rx_dup_frag;
 	stats->oversize_drops += fstats->oversize_drops;
 	stats->frag_timeout_drops += fstats->frag_timeout_drops;
 	stats->rx_queue_full_drops += fstats->rx_queue_full_drops;
@@ -156,6 +158,8 @@ static void nss_capwapmgr_update_stats(struct nss_capwap_handle *handle, struct 
 
 	stats->tx_queue_full_drops += fstats->tx_queue_full_drops;
 	stats->tx_mem_failure_drops += fstats->tx_mem_failure_drops;
+
+	stats->tx_dropped += fstats->tx_dropped;
 
 	/*
 	 * add pnode stats now.
