@@ -314,6 +314,7 @@ static void nss_gmac_clear_all_regs(uint32_t *nss_base)
 				NSS_QSGMII_CLK_CTL, 0xFFFFFFFF);
 }
 
+#ifdef CONFIG_OF
 /**
  * @brief Determine board type and return relevant
  *	NSS GMAC Phy profile.
@@ -328,7 +329,7 @@ int32_t nss_gmac_get_phy_profile(void)
 
 	return NSS_GMAC_PHY_PROFILE_1R_3S;
 }
-
+#endif
 
 /**
  * @brief QSGMII common init
