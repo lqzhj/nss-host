@@ -211,7 +211,7 @@ static void nss_gmac_get_strings(struct net_device *netdev, uint32_t stringset,
 static void nss_gmac_get_ethtool_stats(struct net_device *netdev,
 				struct ethtool_stats *stats, uint64_t *data)
 {
-	nss_gmac_dev *gmacdev = netdev_priv(netdev);
+	struct nss_gmac_dev *gmacdev = netdev_priv(netdev);
 	int32_t i;
 	uint8_t *p = NULL;
 
@@ -246,9 +246,9 @@ static void nss_gmac_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo 
 static void nss_gmac_get_pauseparam(struct net_device *netdev,
 			     struct ethtool_pauseparam *pause)
 {
-	nss_gmac_dev *gmacdev = NULL;
+	struct nss_gmac_dev *gmacdev = NULL;
 
-	gmacdev = (nss_gmac_dev *)netdev_priv(netdev);
+	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 	BUG_ON(gmacdev->netdev != netdev);
 
@@ -266,10 +266,10 @@ static void nss_gmac_get_pauseparam(struct net_device *netdev,
 static int nss_gmac_set_pauseparam(struct net_device *netdev,
 			    struct ethtool_pauseparam *pause)
 {
-	nss_gmac_dev *gmacdev = NULL;
+	struct nss_gmac_dev *gmacdev = NULL;
 	struct phy_device *phydev = NULL;
 
-	gmacdev = (nss_gmac_dev *)netdev_priv(netdev);
+	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 	BUG_ON(gmacdev->netdev != netdev);
 
@@ -315,9 +315,9 @@ static int nss_gmac_set_pauseparam(struct net_device *netdev,
  */
 static int nss_gmac_nway_reset(struct net_device *netdev)
 {
-	nss_gmac_dev *gmacdev = NULL;
+	struct nss_gmac_dev *gmacdev = NULL;
 
-	gmacdev = (nss_gmac_dev *)netdev_priv(netdev);
+	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 
 	if (!netif_running(netdev)) {
@@ -371,11 +371,11 @@ static uint32_t nss_gmac_get_msglevel(struct net_device *netdev)
 static int32_t nss_gmac_get_settings(struct net_device *netdev,
 			      struct ethtool_cmd *ecmd)
 {
-	nss_gmac_dev *gmacdev = NULL;
+	struct nss_gmac_dev *gmacdev = NULL;
 	struct phy_device *phydev = NULL;
 	uint16_t phyreg;
 
-	gmacdev = (nss_gmac_dev *)netdev_priv(netdev);
+	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 
 	/* Populate supported capabilities */
@@ -470,10 +470,10 @@ static int32_t nss_gmac_get_settings(struct net_device *netdev,
 static int32_t nss_gmac_set_settings(struct net_device *netdev,
 			      struct ethtool_cmd *ecmd)
 {
-	nss_gmac_dev *gmacdev = NULL;
+	struct nss_gmac_dev *gmacdev = NULL;
 	struct phy_device *phydev = NULL;
 
-	gmacdev = (nss_gmac_dev *)netdev_priv(netdev);
+	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 
 	/*

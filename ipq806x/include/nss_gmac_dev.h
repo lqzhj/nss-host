@@ -116,7 +116,7 @@ const static uint8_t nss_gmac_copyright[] =
  * In addition to this whenever extended status bit is set (RX DESC0 bit 0),
  * RX DESC4 contains the extended status information.
  */
-typedef struct DmaDescStruct {
+struct DmaDesc {
 	volatile uint32_t status;	/* Status                               */
 	volatile uint32_t length;	/* Buffer 1  and Buffer 2 length        */
 	volatile uint32_t buffer1;	/* Network Buffer 1 pointer (Dma-able)  */
@@ -130,7 +130,7 @@ typedef struct DmaDescStruct {
 					   bit timestamp value                  */
 	volatile uint32_t timestamphigh;	/* Higher 32 bits of the 64
 						   bit timestamp value          */
-} DmaDesc;
+};
 
 enum DescMode {
 	RINGMODE = 0x00000001,
@@ -143,7 +143,7 @@ struct nss_gmac_global_ctx;
 /**
  * @brief NSS GMAC device data
  */
-typedef struct _nss_gmac_dev {
+struct nss_gmac_dev {
 	uint32_t mac_base;	/* base address of MAC registers                */
 	uint32_t dma_base;	/* base address of DMA registers                */
 	uint32_t phy_base;	/* PHY device address on MII interface          */
@@ -160,10 +160,10 @@ typedef struct _nss_gmac_dev {
 				   either in ring or chain mode, this is
 				   used by the GMAC device                      */
 
-	DmaDesc *tx_desc;	/* start address of TX descriptors ring or
+	struct DmaDesc *tx_desc;	/* start address of TX descriptors ring or
 				   chain, this is used by the driver            */
 
-	DmaDesc *rx_desc;	/* start address of RX descriptors ring or
+	struct DmaDesc *rx_desc;	/* start address of RX descriptors ring or
 				   chain, this is used by the driver            */
 
 	uint32_t busy_tx_desc;	/* Number of Tx Descriptors owned by
@@ -190,13 +190,13 @@ typedef struct _nss_gmac_dev {
 				   with driver, given to DMA by
 				   nss_gmac_set_rx_qptr()                       */
 
-	DmaDesc *tx_busy_desc;	/* Tx Descriptor address corresponding
+	struct DmaDesc *tx_busy_desc;	/* Tx Descriptor address corresponding
 				   to the index TxBusy                          */
-	DmaDesc *tx_next_desc;	/* Tx Descriptor address corresponding
+	struct DmaDesc *tx_next_desc;	/* Tx Descriptor address corresponding
 				   to the index TxNext                          */
-	DmaDesc *rx_busy_desc;	/* Rx Descriptor address corresponding
+	struct DmaDesc *rx_busy_desc;	/* Rx Descriptor address corresponding
 				   to the index TxBusy                          */
-	DmaDesc *rx_next_desc;	/* Rx Descriptor address corresponding
+	struct DmaDesc *rx_next_desc;	/* Rx Descriptor address corresponding
 				   to the index RxNext                          */
 
 	/*
@@ -237,7 +237,7 @@ typedef struct _nss_gmac_dev {
 	struct mii_bus *miibus;		/* MDIO bus associated with this GMAC	*/
 	struct nss_gmac_data_plane_ops *data_plane_ops;
 					/* ops to send messages to nss-drv	*/
-} nss_gmac_dev;
+};
 
 
 /**
@@ -268,7 +268,7 @@ struct nss_gmac_global_ctx {
 					   clock control registers */
 	spinlock_t reg_lock;	/* Lock to protect NSS register	*/
 	uint32_t socver;		/* SOC version				*/
-	nss_gmac_dev *nss_gmac[NSS_MAX_GMACS];
+	struct nss_gmac_dev *nss_gmac[NSS_MAX_GMACS];
 	bool common_init_done;			/* Flag to hold common init done state */
 };
 
@@ -1426,7 +1426,7 @@ enum PTPMessageType {
 	Management = 0xD,
 };
 
-typedef struct TimeStampStruct {
+struct TimeStamp {
 	uint32_t TSversion;	/* PTP Version 1 or PTP version2               */
 	uint32_t TSmessagetype;	/* Message type associated with this
 				   time stamp                                  */
@@ -1435,7 +1435,7 @@ typedef struct TimeStampStruct {
 				   configured in corekit                       */
 	uint32_t TSupper32;	/* Most significant 32 bit time stamp value    */
 	uint32_t TSlower32;	/* Least Significat 32 bit time stamp value    */
-} TimeStamp;
+};
 
 enum GmacMiiStatusReg {
 	GmacMiiLinkSpeed_1000 = 0x00000004,
@@ -1587,79 +1587,79 @@ enum GmacTSStatusReg {
 /**********************************************************
  * Time stamp related functions
  **********************************************************/
-void nss_gmac_ts_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_ts_disable(nss_gmac_dev *gmacdev);
+void nss_gmac_ts_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_ts_disable(struct nss_gmac_dev *gmacdev);
 
-void nss_gmac_ts_int_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_ts_int_disable(nss_gmac_dev *gmacdev);
+void nss_gmac_ts_int_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_ts_int_disable(struct nss_gmac_dev *gmacdev);
 
-void nss_gmac_ts_mac_addr_filt_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_ts_mac_addr_filt_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_ts_set_clk_type(nss_gmac_dev *gmacdev, uint32_t clk_type);
-
-/* Only for Ordinary clock and Boundary clock and "Advanced Time Stamp" */
-void nss_gmac_ts_master_enable(nss_gmac_dev *gmacdev);
+void nss_gmac_ts_mac_addr_filt_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_ts_mac_addr_filt_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_ts_set_clk_type(struct nss_gmac_dev *gmacdev, uint32_t clk_type);
 
 /* Only for Ordinary clock and Boundary clock and "Advanced Time Stamp" */
-void nss_gmac_ts_master_disable(nss_gmac_dev *gmacdev);
+void nss_gmac_ts_master_enable(struct nss_gmac_dev *gmacdev);
 
-void nss_gmac_ts_event_enable(nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
-void nss_gmac_ts_event_disable(nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
-void nss_gmac_ts_ipv4_enable(nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
-void nss_gmac_ts_ipv4_disable(nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
-void nss_gmac_ts_ipv6_enable(nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
-void nss_gmac_ts_ipv6_disable(nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
-void nss_gmac_ts_ptp_over_ethernet_enable(nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
-void nss_gmac_ts_ptp_over_ethernet_disable(nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
-void nss_gmac_ts_pkt_snoop_ver2(nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
-void nss_gmac_ts_pkt_snoop_ver1(nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
+/* Only for Ordinary clock and Boundary clock and "Advanced Time Stamp" */
+void nss_gmac_ts_master_disable(struct nss_gmac_dev *gmacdev);
 
-void nss_gmac_ts_digital_rollover_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_ts_binary_rollover_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_ts_all_frames_enable(nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
-void nss_gmac_ts_all_frames_disable(nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
+void nss_gmac_ts_event_enable(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
+void nss_gmac_ts_event_disable(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
+void nss_gmac_ts_ipv4_enable(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
+void nss_gmac_ts_ipv4_disable(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
+void nss_gmac_ts_ipv6_enable(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
+void nss_gmac_ts_ipv6_disable(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
+void nss_gmac_ts_ptp_over_ethernet_enable(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
+void nss_gmac_ts_ptp_over_ethernet_disable(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
+void nss_gmac_ts_pkt_snoop_ver2(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
+void nss_gmac_ts_pkt_snoop_ver1(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
 
-int32_t nss_gmac_ts_addend_update(nss_gmac_dev *gmacdev,
+void nss_gmac_ts_digital_rollover_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_ts_binary_rollover_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_ts_all_frames_enable(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
+void nss_gmac_ts_all_frames_disable(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
+
+int32_t nss_gmac_ts_addend_update(struct nss_gmac_dev *gmacdev,
 				  uint32_t addend_value);
-int32_t nss_gmac_ts_timestamp_update(nss_gmac_dev *gmacdev,
+int32_t nss_gmac_ts_timestamp_update(struct nss_gmac_dev *gmacdev,
 				     uint32_t high_value, uint32_t low_value);
-int32_t nss_gmac_ts_timestamp_init(nss_gmac_dev *gmacdev, uint32_t high_value,
+int32_t nss_gmac_ts_timestamp_init(struct nss_gmac_dev *gmacdev, uint32_t high_value,
 				   uint32_t low_value);
 
-void nss_gmac_ts_coarse_update(nss_gmac_dev *gmacdev);	/* Only if "fine correction" enabled */
-void nss_gmac_ts_fine_update(nss_gmac_dev *gmacdev);	/* Only if "fine correction" enabled */
+void nss_gmac_ts_coarse_update(struct nss_gmac_dev *gmacdev);	/* Only if "fine correction" enabled */
+void nss_gmac_ts_fine_update(struct nss_gmac_dev *gmacdev);	/* Only if "fine correction" enabled */
 
 /* Update should happen making use of subsecond mask */
-void nss_gmac_ts_subsecond_init(nss_gmac_dev *gmacdev,
+void nss_gmac_ts_subsecond_init(struct nss_gmac_dev *gmacdev,
 				uint32_t sub_sec_inc_val);
 
 /*
  * Reads the timestamp low,high and higher(Ver2) registers
  * in the the struct pointer; readonly contents
  */
-void nss_gmac_ts_read_timestamp(nss_gmac_dev *gmacdev,
+void nss_gmac_ts_read_timestamp(struct nss_gmac_dev *gmacdev,
 				uint16_t *higher_sec_val, uint32_t *sec_val,
 				uint32_t *sub_sec_val);
 
 /* Loads the timestamp target register with the values provided */
-void nss_gmac_ts_load_target_timestamp(nss_gmac_dev *gmacdev,
+void nss_gmac_ts_load_target_timestamp(struct nss_gmac_dev *gmacdev,
 				       uint32_t sec_val, uint32_t sub_sec_val);
 
-void nss_gmac_ts_load_timestamp_higher_val(nss_gmac_dev *gmacdev,
+void nss_gmac_ts_load_timestamp_higher_val(struct nss_gmac_dev *gmacdev,
 					   uint32_t higher_sec_val);
-void nss_gmac_ts_read_timestamp_higher_val(nss_gmac_dev *gmacdev,
+void nss_gmac_ts_read_timestamp_higher_val(struct nss_gmac_dev *gmacdev,
 					   uint16_t *higher_sec_val);
 
 /* Read the target time stamp register contents */
-void nss_gmac_ts_read_target_timestamp(nss_gmac_dev *gmacdev,
+void nss_gmac_ts_read_target_timestamp(struct nss_gmac_dev *gmacdev,
 				       uint32_t *sec_val,
 				       uint32_t *sub_sec_val);
 
 /*******************Ip checksum offloading APIs**********************************/
-void nss_gmac_enable_rx_chksum_offload(nss_gmac_dev *gmacdev);
-void nss_gmac_disable_rx_chksum_offload(nss_gmac_dev *gmacdev);
-void nss_gmac_rx_tcpip_chksum_drop_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_rx_tcpip_chksum_drop_disable(nss_gmac_dev *gmacdev);
+void nss_gmac_enable_rx_chksum_offload(struct nss_gmac_dev *gmacdev);
+void nss_gmac_disable_rx_chksum_offload(struct nss_gmac_dev *gmacdev);
+void nss_gmac_rx_tcpip_chksum_drop_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_rx_tcpip_chksum_drop_disable(struct nss_gmac_dev *gmacdev);
 
 /**
  * Decodes the Rx Descriptor status to various checksum error conditions.
@@ -1667,7 +1667,7 @@ void nss_gmac_rx_tcpip_chksum_drop_disable(nss_gmac_dev *gmacdev);
  * @param[in] uint32_t status field of the corresponding descriptor.
  * @return returns decoded enum (uint32_t) indicating the status.
  */
-static inline uint32_t nss_gmac_is_rx_checksum_error(nss_gmac_dev *gmacdev,
+static inline uint32_t nss_gmac_is_rx_checksum_error(struct nss_gmac_dev *gmacdev,
 						     uint32_t status)
 {
 	return status & (DescRxChkBit7 | DescRxChkBit5 | DescRxChkBit0);
@@ -1681,7 +1681,7 @@ static inline uint32_t nss_gmac_is_rx_checksum_error(nss_gmac_dev *gmacdev,
  * @param[in] uint32_t status field of the corresponding descriptor.
  * @return returns true if error in ipv4 header checksum, else returns false.
  */
-static inline bool nss_gmac_is_tx_ipv4header_checksum_error(nss_gmac_dev *
+static inline bool nss_gmac_is_tx_ipv4header_checksum_error(struct nss_gmac_dev *
 							    gmacdev,
 							    uint32_t status)
 {
@@ -1696,7 +1696,7 @@ static inline bool nss_gmac_is_tx_ipv4header_checksum_error(nss_gmac_dev *
  * @param[in] uint32_t status field of the corresponding descriptor.
  * @return returns true if error in ipv4 header checksum, else returns false.
  */
-static inline bool nss_gmac_is_tx_payload_checksum_error(nss_gmac_dev *gmacdev,
+static inline bool nss_gmac_is_tx_payload_checksum_error(struct nss_gmac_dev *gmacdev,
 							 uint32_t status)
 {
 	return (status & DescTxPayChkError) == DescTxPayChkError;
@@ -1709,8 +1709,8 @@ static inline bool nss_gmac_is_tx_payload_checksum_error(nss_gmac_dev *gmacdev,
  * @param[in] Pointer to tx descriptor for which  ointer to nss_gmac_dev.
  * @return returns void.
  */
-static inline void nss_gmac_tx_checksum_offload_bypass(nss_gmac_dev *gmacdev,
-						       DmaDesc *desc)
+static inline void nss_gmac_tx_checksum_offload_bypass(struct nss_gmac_dev *gmacdev,
+						       struct DmaDesc *desc)
 {
 	desc->status = (desc->length & (~DescTxCisMask));
 }
@@ -1719,11 +1719,11 @@ static inline void nss_gmac_tx_checksum_offload_bypass(nss_gmac_dev *gmacdev,
  * The check summ offload engine is enabled to do only IPV4 header checksum.
  * IPV4 header Checksum is computed in the Hardware.
  * @param[in] pointer to nss_gmac_dev.
- * @param[in] Pointer to tx descriptor for which  ointer to nss_gmac_dev.
+ * @param[in] Pointer to tx descriptor for which  ointer to struct nss_gmac_dev.
  * @return returns void.
  */
-static inline void nss_gmac_tx_checksum_offload_ipv4hdr(nss_gmac_dev *gmacdev,
-							DmaDesc *desc)
+static inline void nss_gmac_tx_checksum_offload_ipv4hdr(struct nss_gmac_dev *gmacdev,
+							struct DmaDesc *desc)
 {
 	desc->status = ((desc->status & (~DescTxCisMask)) | DescTxCisIpv4HdrCs);
 }
@@ -1736,8 +1736,8 @@ static inline void nss_gmac_tx_checksum_offload_ipv4hdr(nss_gmac_dev *gmacdev,
  * @param[in] Pointer to tx descriptor for which  ointer to nss_gmac_dev.
  * @return returns void.
  */
-static inline void nss_gmac_tx_checksum_offload_tcponly(nss_gmac_dev *gmacdev,
-							DmaDesc *desc)
+static inline void nss_gmac_tx_checksum_offload_tcponly(struct nss_gmac_dev *gmacdev,
+							struct DmaDesc *desc)
 {
 	desc->status = ((desc->status & (~DescTxCisMask)) | DescTxCisTcpOnlyCs);
 }
@@ -1751,9 +1751,9 @@ static inline void nss_gmac_tx_checksum_offload_tcponly(nss_gmac_dev *gmacdev,
  * @param[in] Pointer to tx descriptor for which pointer to nss_gmac_dev.
  * @return returns void.
  */
-static inline void nss_gmac_tx_checksum_offload_tcp_pseudo(nss_gmac_dev *
+static inline void nss_gmac_tx_checksum_offload_tcp_pseudo(struct nss_gmac_dev *
 							   gmacdev,
-							   DmaDesc *desc)
+							   struct DmaDesc *desc)
 {
 	desc->status =
 	    ((desc->status & (~DescTxCisMask)) | DescTxCisTcpPseudoCs);
@@ -1857,100 +1857,100 @@ static bool __inline__ nss_gmac_check_reg_bits(uint32_t *regbase,
 	return data != 0;
 }
 
-int32_t nss_gmac_set_mdc_clk_div(nss_gmac_dev *gmacdev, uint32_t clk_div_val);
-uint32_t nss_gmac_get_mdc_clk_div(nss_gmac_dev *gmacdev);
-uint16_t nss_gmac_mii_rd_reg(nss_gmac_dev *gmacdev, uint32_t phy,
+int32_t nss_gmac_set_mdc_clk_div(struct nss_gmac_dev *gmacdev, uint32_t clk_div_val);
+uint32_t nss_gmac_get_mdc_clk_div(struct nss_gmac_dev *gmacdev);
+uint16_t nss_gmac_mii_rd_reg(struct nss_gmac_dev *gmacdev, uint32_t phy,
 			     uint32_t reg);
-void nss_gmac_mii_wr_reg(nss_gmac_dev *gmacdev, uint32_t phy,
+void nss_gmac_mii_wr_reg(struct nss_gmac_dev *gmacdev, uint32_t phy,
 			 uint32_t reg, uint16_t data);
-int32_t nss_gmac_phy_loopback(nss_gmac_dev *gmacdev, bool loopback);
-int32_t nss_gmac_read_version(nss_gmac_dev *gmacdev);
-void nss_gmac_reset(nss_gmac_dev *gmacdev);
-int32_t nss_gmac_dma_bus_mode_init(nss_gmac_dev *gmacdev, uint32_t init_value);
-int32_t nss_gmac_dma_axi_bus_mode_init(nss_gmac_dev *gmacdev, uint32_t init_value);
-int32_t nss_gmac_dma_control_init(nss_gmac_dev *gmacdev, uint32_t init_value);
-void nss_gmac_wd_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_wd_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_jab_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_jab_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_frame_burst_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_frame_burst_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_jumbo_frame_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_jumbo_frame_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_twokpe_frame_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_twokpe_frame_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_select_gmii(nss_gmac_dev *gmacdev);
-void nss_gmac_select_mii(nss_gmac_dev *gmacdev);
-void nss_gmac_rx_own_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_rx_own_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_loopback_on(nss_gmac_dev *gmacdev);
-void nss_gmac_loopback_off(nss_gmac_dev *gmacdev);
-void nss_gmac_set_full_duplex(nss_gmac_dev *gmacdev);
-void nss_gmac_set_half_duplex(nss_gmac_dev *gmacdev);
-void nss_gmac_retry_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_retry_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_pad_crc_strip_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_pad_crc_strip_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_back_off_limit(nss_gmac_dev *gmacdev, uint32_t value);
-void nss_gmac_deferral_check_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_deferral_check_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_rx_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_rx_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_tx_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_tx_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_frame_filter_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_frame_filter_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_write_hash_table_high(nss_gmac_dev *gmacdev, uint32_t data);
-void nss_gmac_write_hash_table_low(nss_gmac_dev *gmacdev, uint32_t data);
-void nss_gmac_hash_perfect_filter_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_Hash_filter_only_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_src_addr_filter_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_src_addr_filter_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_dst_addr_filter_inverse(nss_gmac_dev *gmacdev);
-void nss_gmac_dst_addr_filter_normal(nss_gmac_dev *gmacdev);
-void nss_gmac_set_pass_control(nss_gmac_dev *gmacdev, uint32_t passcontrol);
-void nss_gmac_broadcast_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_broadcast_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_multicast_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_multicast_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_multicast_hash_filter_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_multicast_hash_filter_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_promisc_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_promisc_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_unicast_hash_filter_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_unicast_hash_filter_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_unicast_pause_frame_detect_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_unicast_pause_frame_detect_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_rx_flow_control_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_rx_flow_control_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_tx_flow_control_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_tx_flow_control_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_tx_pause_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_tx_pause_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_rx_pause_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_rx_pause_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_flush_tx_fifo(nss_gmac_dev *gmacdev);
-void nss_gmac_mac_init(nss_gmac_dev *gmacdev);
-int32_t nss_gmac_check_phy_init(nss_gmac_dev *gmacdev);
+int32_t nss_gmac_phy_loopback(struct nss_gmac_dev *gmacdev, bool loopback);
+int32_t nss_gmac_read_version(struct nss_gmac_dev *gmacdev);
+void nss_gmac_reset(struct nss_gmac_dev *gmacdev);
+int32_t nss_gmac_dma_bus_mode_init(struct nss_gmac_dev *gmacdev, uint32_t init_value);
+int32_t nss_gmac_dma_axi_bus_mode_init(struct nss_gmac_dev *gmacdev, uint32_t init_value);
+int32_t nss_gmac_dma_control_init(struct nss_gmac_dev *gmacdev, uint32_t init_value);
+void nss_gmac_wd_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_wd_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_jab_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_jab_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_frame_burst_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_frame_burst_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_jumbo_frame_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_jumbo_frame_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_twokpe_frame_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_twokpe_frame_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_select_gmii(struct nss_gmac_dev *gmacdev);
+void nss_gmac_select_mii(struct nss_gmac_dev *gmacdev);
+void nss_gmac_rx_own_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_rx_own_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_loopback_on(struct nss_gmac_dev *gmacdev);
+void nss_gmac_loopback_off(struct nss_gmac_dev *gmacdev);
+void nss_gmac_set_full_duplex(struct nss_gmac_dev *gmacdev);
+void nss_gmac_set_half_duplex(struct nss_gmac_dev *gmacdev);
+void nss_gmac_retry_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_retry_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_pad_crc_strip_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_pad_crc_strip_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_back_off_limit(struct nss_gmac_dev *gmacdev, uint32_t value);
+void nss_gmac_deferral_check_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_deferral_check_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_rx_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_rx_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_tx_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_tx_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_frame_filter_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_frame_filter_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_write_hash_table_high(struct nss_gmac_dev *gmacdev, uint32_t data);
+void nss_gmac_write_hash_table_low(struct nss_gmac_dev *gmacdev, uint32_t data);
+void nss_gmac_hash_perfect_filter_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_Hash_filter_only_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_src_addr_filter_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_src_addr_filter_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_dst_addr_filter_inverse(struct nss_gmac_dev *gmacdev);
+void nss_gmac_dst_addr_filter_normal(struct nss_gmac_dev *gmacdev);
+void nss_gmac_set_pass_control(struct nss_gmac_dev *gmacdev, uint32_t passcontrol);
+void nss_gmac_broadcast_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_broadcast_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_multicast_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_multicast_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_multicast_hash_filter_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_multicast_hash_filter_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_promisc_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_promisc_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_unicast_hash_filter_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_unicast_hash_filter_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_unicast_pause_frame_detect_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_unicast_pause_frame_detect_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_rx_flow_control_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_rx_flow_control_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_tx_flow_control_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_tx_flow_control_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_tx_pause_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_tx_pause_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_rx_pause_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_rx_pause_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_flush_tx_fifo(struct nss_gmac_dev *gmacdev);
+void nss_gmac_mac_init(struct nss_gmac_dev *gmacdev);
+int32_t nss_gmac_check_phy_init(struct nss_gmac_dev *gmacdev);
 int32_t nss_gmac_ath_phy_mmd_wr(struct phy_device *phydev, uint32_t mmd_dev_addr,
 			uint32_t reg, uint16_t val);
 int32_t nss_gmac_ath_phy_mmd_rd(struct phy_device *phydev,
 			uint32_t mmd_dev_addr, uint32_t reg);
 int32_t nss_gmac_ath_phy_disable_smart_802az(struct phy_device *phydev);
 int32_t nss_gmac_ath_phy_disable_802az(struct phy_device *phydev);
-void nss_gmac_set_mac_addr(nss_gmac_dev *gmacdev,
+void nss_gmac_set_mac_addr(struct nss_gmac_dev *gmacdev,
 			      uint32_t MacHigh, uint32_t MacLow, uint8_t *MacAddr);
-void nss_gmac_get_mac_addr(nss_gmac_dev *gmacdev,
+void nss_gmac_get_mac_addr(struct nss_gmac_dev *gmacdev,
 			      uint32_t MacHigh, uint32_t MacLow, uint8_t *MacAddr);
-int32_t nss_gmac_attach(nss_gmac_dev *gmacdev, uint32_t regBase,
+int32_t nss_gmac_attach(struct nss_gmac_dev *gmacdev, uint32_t regBase,
 			uint32_t reglen);
-void nss_gmac_detach(nss_gmac_dev *gmacdev);
-int32_t nss_gmac_check_link(nss_gmac_dev *gmacdev);
-void nss_gmac_ipc_offload_init(nss_gmac_dev *gmacdev);
-void nss_gmac_tx_rx_desc_init(nss_gmac_dev *gmacdev);
-int32_t nss_gmac_init_mdiobus(nss_gmac_dev *gmacdev);
-void nss_gmac_deinit_mdiobus(nss_gmac_dev *gmacdev);
-void nss_gmac_reset_phy(nss_gmac_dev *gmacdev, uint32_t phyid);
+void nss_gmac_detach(struct nss_gmac_dev *gmacdev);
+int32_t nss_gmac_check_link(struct nss_gmac_dev *gmacdev);
+void nss_gmac_ipc_offload_init(struct nss_gmac_dev *gmacdev);
+void nss_gmac_tx_rx_desc_init(struct nss_gmac_dev *gmacdev);
+int32_t nss_gmac_init_mdiobus(struct nss_gmac_dev *gmacdev);
+void nss_gmac_deinit_mdiobus(struct nss_gmac_dev *gmacdev);
+void nss_gmac_reset_phy(struct nss_gmac_dev *gmacdev, uint32_t phyid);
 int32_t nss_gmac_write_phy_reg(uint32_t *reg_base, uint32_t phy_base,
 			       uint32_t reg_offset, uint16_t data,
 			       uint32_t mdc_clk_div);
@@ -1974,19 +1974,19 @@ void nss_gmac_common_deinit(struct nss_gmac_global_ctx *ctx);
  * nss_gmac_dev_init()
  *	GMAC device initializaton.
  */
-void nss_gmac_dev_init(nss_gmac_dev *gmacdev);
+void nss_gmac_dev_init(struct nss_gmac_dev *gmacdev);
 
 /*
  * nss_gmac_dev_set_speed()
  *	Set GMAC speed.
  */
-int32_t nss_gmac_dev_set_speed(nss_gmac_dev *gmacdev);
+int32_t nss_gmac_dev_set_speed(struct nss_gmac_dev *gmacdev);
 
 /*
  * nss_gmac_spare_ctl()
  *	Spare Control reset. Required only for emulation.
  */
-void nss_gmac_spare_ctl(nss_gmac_dev *gmacdev);
+void nss_gmac_spare_ctl(struct nss_gmac_dev *gmacdev);
 
 /**
  * Initialize the rx descriptors for ring or chain mode operation.
@@ -2002,7 +2002,7 @@ void nss_gmac_spare_ctl(nss_gmac_dev *gmacdev);
  * in chain mode or ring mode. For chain mode of operation the buffer2 and data2
  * are programmed before calling this function.
  */
-static inline void nss_gmac_rx_desc_init_ring(DmaDesc *desc,
+static inline void nss_gmac_rx_desc_init_ring(struct DmaDesc *desc,
 					      bool last_ring_desc)
 {
 	desc->status = 0;
@@ -2025,7 +2025,7 @@ static inline void nss_gmac_rx_desc_init_ring(DmaDesc *desc,
  * in chain mode or ring mode. For chain mode of operation the buffer2 and data2
  * are programmed before calling this function.
  */
-static inline void nss_gmac_tx_desc_init_ring(DmaDesc *desc,
+static inline void nss_gmac_tx_desc_init_ring(struct DmaDesc *desc,
 					      bool last_ring_desc)
 {
 	desc->status = last_ring_desc ? TxDescEndOfRing : 0;
@@ -2034,15 +2034,15 @@ static inline void nss_gmac_tx_desc_init_ring(DmaDesc *desc,
 	desc->data1 = 0;
 }
 
-void nss_gmac_init_rx_desc_base(nss_gmac_dev *gmacdev);
-void nss_gmac_init_tx_desc_base(nss_gmac_dev *gmacdev);
-void nss_gmac_set_owner_dma(DmaDesc *desc);
-void nss_gmac_set_desc_sof(DmaDesc *desc);
-void nss_gmac_set_desc_eof(DmaDesc *desc);
-bool nss_gmac_is_sof_in_rx_desc(DmaDesc *desc);
-bool nss_gmac_is_eof_in_rx_desc(DmaDesc *desc);
-bool nss_gmac_is_da_filter_failed(DmaDesc *desc);
-bool nss_gmac_is_sa_filter_failed(DmaDesc *desc);
+void nss_gmac_init_rx_desc_base(struct nss_gmac_dev *gmacdev);
+void nss_gmac_init_tx_desc_base(struct nss_gmac_dev *gmacdev);
+void nss_gmac_set_owner_dma(struct DmaDesc *desc);
+void nss_gmac_set_desc_sof(struct DmaDesc *desc);
+void nss_gmac_set_desc_eof(struct DmaDesc *desc);
+bool nss_gmac_is_sof_in_rx_desc(struct DmaDesc *desc);
+bool nss_gmac_is_eof_in_rx_desc(struct DmaDesc *desc);
+bool nss_gmac_is_da_filter_failed(struct DmaDesc *desc);
+bool nss_gmac_is_sa_filter_failed(struct DmaDesc *desc);
 
 /**
  * Checks whether the descriptor is owned by DMA.
@@ -2051,7 +2051,7 @@ bool nss_gmac_is_sa_filter_failed(DmaDesc *desc);
  * @param[in] pointer to DmaDesc structure.
  * @return returns true if Dma owns descriptor and false if not.
  */
-static inline bool nss_gmac_is_desc_owned_by_dma(DmaDesc *desc)
+static inline bool nss_gmac_is_desc_owned_by_dma(struct DmaDesc *desc)
 {
 	return (desc->status & DescOwnByDma) == DescOwnByDma;
 }
@@ -2089,7 +2089,7 @@ static inline bool nss_gmac_is_desc_valid(uint32_t status)
  * @param[in] pointer to DmaDesc structure.
  * @return returns true if descriptor is empty, false if not empty.
  */
-static inline bool nss_gmac_is_desc_empty(DmaDesc *desc)
+static inline bool nss_gmac_is_desc_empty(struct DmaDesc *desc)
 {
 	/* if both the buffer1 length and buffer2 length are zero desc is empty */
 	return (desc->length & DescSize1Mask) == 0;
@@ -2146,8 +2146,8 @@ bool nss_gmac_is_rx_frame_length_errors(uint32_t status);
  * @param[in] pointer to DmaDesc structure.
  * @return returns true if it is last descriptor, false if not.
  */
-static inline bool nss_gmac_is_last_rx_desc(nss_gmac_dev *gmacdev,
-					    DmaDesc *desc)
+static inline bool nss_gmac_is_last_rx_desc(struct nss_gmac_dev *gmacdev,
+					    struct DmaDesc *desc)
 {
 	return unlikely((desc->length & RxDescEndOfRing) != 0);
 }
@@ -2160,8 +2160,8 @@ static inline bool nss_gmac_is_last_rx_desc(nss_gmac_dev *gmacdev,
  * @param[in] pointer to DmaDesc structure.
  * @return returns true if it is last descriptor, false if not.
  */
-static inline bool nss_gmac_is_last_tx_desc(nss_gmac_dev *gmacdev,
-					    DmaDesc *desc)
+static inline bool nss_gmac_is_last_tx_desc(struct nss_gmac_dev *gmacdev,
+					    struct DmaDesc *desc)
 {
 	return unlikely((desc->status & TxDescEndOfRing) != 0);
 }
@@ -2173,7 +2173,7 @@ static inline bool nss_gmac_is_last_tx_desc(nss_gmac_dev *gmacdev,
  * @param[in] pointer to DmaDesc structure.
  * @return returns true if chain mode is set, false if not.
  */
-static inline bool nss_gmac_is_rx_desc_chained(DmaDesc *desc)
+static inline bool nss_gmac_is_rx_desc_chained(struct DmaDesc *desc)
 {
 	/*
 	 * Use ring mode only.
@@ -2189,7 +2189,7 @@ static inline bool nss_gmac_is_rx_desc_chained(DmaDesc *desc)
  * @param[in] pointer to DmaDesc structure.
  * @return returns true if chain mode is set, false if not.
  */
-static inline bool nss_gmac_is_tx_desc_chained(DmaDesc *desc)
+static inline bool nss_gmac_is_tx_desc_chained(struct DmaDesc *desc)
 {
 	/*
 	 * Use ring mode only.
@@ -2198,7 +2198,7 @@ static inline bool nss_gmac_is_tx_desc_chained(DmaDesc *desc)
 	return 0;
 }
 
-void nss_gmac_get_desc_data(DmaDesc *desc, uint32_t *Status,
+void nss_gmac_get_desc_data(struct DmaDesc *desc, uint32_t *Status,
 			    uint32_t *Buffer1, uint32_t *Length1,
 			    uint32_t *Data1);
 
@@ -2210,9 +2210,9 @@ void nss_gmac_get_desc_data(DmaDesc *desc, uint32_t *Status,
  * @param[in] pointer to nss_gmac_dev.
  * @return returns present tx descriptor index on success. Negative value if error.
  */
-static inline DmaDesc *nss_gmac_get_tx_qptr(nss_gmac_dev *gmacdev)
+static inline struct DmaDesc *nss_gmac_get_tx_qptr(struct nss_gmac_dev *gmacdev)
 {
-	DmaDesc *txdesc = gmacdev->tx_busy_desc;
+	struct DmaDesc *txdesc = gmacdev->tx_busy_desc;
 
 	if (unlikely(gmacdev->busy_tx_desc == 0)) {
 		return NULL;
@@ -2234,10 +2234,10 @@ static inline DmaDesc *nss_gmac_get_tx_qptr(nss_gmac_dev *gmacdev)
  * @param[in] pointer to nss_gmac_dev.
  * @return Returns void
  */
-static inline void nss_gmac_reset_tx_qptr(nss_gmac_dev *gmacdev)
+static inline void nss_gmac_reset_tx_qptr(struct nss_gmac_dev *gmacdev)
 {
 	uint32_t txover = gmacdev->tx_busy;
-	DmaDesc *txdesc = gmacdev->tx_busy_desc;
+	struct DmaDesc *txdesc = gmacdev->tx_busy_desc;
 
 	BUG_ON(txdesc != (gmacdev->tx_desc + txover));
 	gmacdev->tx_busy = (txover + 1) & (gmacdev->tx_desc_count - 1);
@@ -2273,14 +2273,14 @@ static inline void nss_gmac_reset_tx_qptr(nss_gmac_dev *gmacdev)
  * @param[in] uint32_t indicating descriptor DMA flag state.
  * @return returns present tx descriptor index on success. Negative value if error.
  */
-static inline int32_t nss_gmac_set_tx_qptr(nss_gmac_dev *gmacdev,
+static inline int32_t nss_gmac_set_tx_qptr(struct nss_gmac_dev *gmacdev,
 					   uint32_t Buffer1, uint32_t Length1,
 					   uint32_t Data1,
 					   uint32_t offload_needed,
 					   uint32_t tx_cntl, uint32_t set_dma)
 {
 	uint32_t txnext = gmacdev->tx_next;
-	DmaDesc *txdesc = gmacdev->tx_next_desc;
+	struct DmaDesc *txdesc = gmacdev->tx_next_desc;
 
 	BUG_ON(gmacdev->busy_tx_desc > gmacdev->tx_desc_count);
 	BUG_ON(txdesc != (gmacdev->tx_desc + txnext));
@@ -2334,12 +2334,12 @@ static inline int32_t nss_gmac_set_tx_qptr(nss_gmac_dev *gmacdev,
  * @param[in] pointer to buffer context.
  * @return returns present rx descriptor index on success. Negative value if error.
  */
-static inline int32_t nss_gmac_set_rx_qptr(nss_gmac_dev *gmacdev,
+static inline int32_t nss_gmac_set_rx_qptr(struct nss_gmac_dev *gmacdev,
 					   uint32_t Buffer1, uint32_t Length1,
 					   uint32_t Data1)
 {
 	uint32_t rxnext = gmacdev->rx_next;
-	DmaDesc *rxdesc = gmacdev->rx_next_desc;
+	struct DmaDesc *rxdesc = gmacdev->rx_next_desc;
 
 	BUG_ON(gmacdev->busy_rx_desc >= gmacdev->rx_desc_count);
 	BUG_ON(rxdesc != (gmacdev->rx_desc + rxnext));
@@ -2391,9 +2391,9 @@ static inline int32_t nss_gmac_set_rx_qptr(nss_gmac_dev *gmacdev,
  * @param[in] pointer to nss_gmac_dev.
  * @return returns pointer to DmaDesc on success. Negative value if error.
  */
-static inline DmaDesc *nss_gmac_get_rx_qptr(nss_gmac_dev *gmacdev)
+static inline struct DmaDesc *nss_gmac_get_rx_qptr(struct nss_gmac_dev *gmacdev)
 {
-	DmaDesc *rxdesc = gmacdev->rx_busy_desc;
+	struct DmaDesc *rxdesc = gmacdev->rx_busy_desc;
 
 	if (unlikely(gmacdev->busy_rx_desc == 0)) {
 		return NULL;
@@ -2414,14 +2414,14 @@ static inline DmaDesc *nss_gmac_get_rx_qptr(nss_gmac_dev *gmacdev)
  * @param[in] pointer to nss_gmac_dev.
  * @return Returns void
  */
-static inline void nss_gmac_reset_rx_qptr(nss_gmac_dev *gmacdev)
+static inline void nss_gmac_reset_rx_qptr(struct nss_gmac_dev *gmacdev)
 {
 
 	/* Index of descriptor the DMA just completed.
 	 * May be useful when data is spread over multiple buffers/descriptors
 	 */
 	uint32_t rxnext = gmacdev->rx_busy;
-	DmaDesc *rxdesc = gmacdev->rx_busy_desc;
+	struct DmaDesc *rxdesc = gmacdev->rx_busy_desc;
 
 	BUG_ON(rxdesc != (gmacdev->rx_desc + rxnext));
 	gmacdev->rx_busy = (rxnext + 1) & (gmacdev->rx_desc_count - 1);
@@ -2446,7 +2446,7 @@ static inline void nss_gmac_reset_rx_qptr(nss_gmac_dev *gmacdev)
  * @param[in] pointer to nss_gmac_dev.
  * @return returns void.
  */
-static inline void nss_gmac_clear_interrupt(nss_gmac_dev *gmacdev)
+static inline void nss_gmac_clear_interrupt(struct nss_gmac_dev *gmacdev)
 {
 	uint32_t data;
 	data = nss_gmac_read_reg((uint32_t *)gmacdev->dma_base, DmaStatus);
@@ -2459,7 +2459,7 @@ static inline void nss_gmac_clear_interrupt(nss_gmac_dev *gmacdev)
  * @param[in] pointer to nss_gmac_dev.
  * @return 0 upon success. Error code upon failure.
  */
-static inline uint32_t nss_gmac_get_interrupt_type(nss_gmac_dev *gmacdev)
+static inline uint32_t nss_gmac_get_interrupt_type(struct nss_gmac_dev *gmacdev)
 {
 	uint32_t interrupts = 0;
 
@@ -2479,7 +2479,7 @@ static inline uint32_t nss_gmac_get_interrupt_type(nss_gmac_dev *gmacdev)
  * @param[in] pointer to nss_gmac_dev.
  * @return 0 upon success. Error code upon failure.
  */
-static inline uint32_t nss_gmac_get_interrupt_mask(nss_gmac_dev *gmacdev)
+static inline uint32_t nss_gmac_get_interrupt_mask(struct nss_gmac_dev *gmacdev)
 {
 	return nss_gmac_read_reg((uint32_t *)gmacdev->dma_base, DmaInterrupt);
 }
@@ -2491,7 +2491,7 @@ static inline uint32_t nss_gmac_get_interrupt_mask(nss_gmac_dev *gmacdev)
  * @param[in] bit mask of interrupts to be enabled.
  * @return returns void.
  */
-static inline void nss_gmac_enable_interrupt(nss_gmac_dev *gmacdev,
+static inline void nss_gmac_enable_interrupt(struct nss_gmac_dev *gmacdev,
 					     uint32_t interrupts)
 {
 	nss_gmac_write_reg((uint32_t *)gmacdev->dma_base, DmaInterrupt,
@@ -2504,7 +2504,7 @@ static inline void nss_gmac_enable_interrupt(nss_gmac_dev *gmacdev,
  * @param[in] pointer to nss_gmac_dev.
  * @return returns void.
  */
-static inline void nss_gmac_disable_mac_interrupt(nss_gmac_dev *gmacdev)
+static inline void nss_gmac_disable_mac_interrupt(struct nss_gmac_dev *gmacdev)
 {
 	nss_gmac_write_reg((uint32_t *)gmacdev->mac_base, GmacInterruptMask,
 			   0xFFFFFFFF);
@@ -2519,7 +2519,7 @@ static inline void nss_gmac_disable_mac_interrupt(nss_gmac_dev *gmacdev)
  * @note This function disabled all the interrupts, if you want to disable a particular interrupt then
  *  use nss_gmac_disable_interrupt().
  */
-static inline void nss_gmac_disable_interrupt_all(nss_gmac_dev *gmacdev)
+static inline void nss_gmac_disable_interrupt_all(struct nss_gmac_dev *gmacdev)
 {
 	nss_gmac_write_reg((uint32_t *)gmacdev->dma_base, DmaInterrupt,
 			   DmaIntDisable);
@@ -2534,7 +2534,7 @@ static inline void nss_gmac_disable_interrupt_all(nss_gmac_dev *gmacdev)
  * @param[in] bit mask for interrupts to be disabled.
  * @return returns void.
  */
-static inline void nss_gmac_disable_interrupt(nss_gmac_dev *gmacdev,
+static inline void nss_gmac_disable_interrupt(struct nss_gmac_dev *gmacdev,
 					      uint32_t interrupts)
 {
 	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->dma_base, DmaInterrupt,
@@ -2547,7 +2547,7 @@ static inline void nss_gmac_disable_interrupt(nss_gmac_dev *gmacdev,
  * @param[in] pointer to nss_gmac_dev.
  * @return returns bitmask of pending interrupts
  */
-static inline uint32_t nss_gmac_check_interrupt(nss_gmac_dev *gmacdev)
+static inline uint32_t nss_gmac_check_interrupt(struct nss_gmac_dev *gmacdev)
 {
 	uint32_t int_status;
 
@@ -2557,8 +2557,8 @@ static inline uint32_t nss_gmac_check_interrupt(nss_gmac_dev *gmacdev)
 	return int_status;
 }
 
-void nss_gmac_enable_dma_rx(nss_gmac_dev *gmacdev);
-void nss_gmac_enable_dma_tx(nss_gmac_dev *gmacdev);
+void nss_gmac_enable_dma_rx(struct nss_gmac_dev *gmacdev);
+void nss_gmac_enable_dma_tx(struct nss_gmac_dev *gmacdev);
 
 
 /**
@@ -2568,7 +2568,7 @@ void nss_gmac_enable_dma_tx(nss_gmac_dev *gmacdev);
  * @param[in] pointer to nss_gmac_dev.
  * @return returns void.
  */
-static inline void nss_gmac_resume_dma_tx(nss_gmac_dev *gmacdev)
+static inline void nss_gmac_resume_dma_tx(struct nss_gmac_dev *gmacdev)
 {
 	nss_gmac_write_reg((uint32_t *)gmacdev->dma_base, DmaTxPollDemand, 0);
 }
@@ -2581,16 +2581,16 @@ static inline void nss_gmac_resume_dma_tx(nss_gmac_dev *gmacdev)
  * @param[in] pointer to nss_gmac_dev.
  * @return returns void.
  */
-static inline void nss_gmac_resume_dma_rx(nss_gmac_dev *gmacdev)
+static inline void nss_gmac_resume_dma_rx(struct nss_gmac_dev *gmacdev)
 {
 	nss_gmac_write_reg((uint32_t *)gmacdev->dma_base, DmaRxPollDemand, 0);
 }
 
-void nss_gmac_take_desc_ownership(DmaDesc *desc);
-void nss_gmac_take_desc_ownership_rx(nss_gmac_dev *gmacdev);
-void nss_gmac_take_desc_ownership_tx(nss_gmac_dev *gmacdev);
-void nss_gmac_disable_dma_tx(nss_gmac_dev *gmacdev);
-void nss_gmac_disable_dma_rx(nss_gmac_dev *gmacdev);
+void nss_gmac_take_desc_ownership(struct DmaDesc *desc);
+void nss_gmac_take_desc_ownership_rx(struct nss_gmac_dev *gmacdev);
+void nss_gmac_take_desc_ownership_tx(struct nss_gmac_dev *gmacdev);
+void nss_gmac_disable_dma_tx(struct nss_gmac_dev *gmacdev);
+void nss_gmac_disable_dma_rx(struct nss_gmac_dev *gmacdev);
 
 /**
  * This function indicates whether extended status is available in the RDES0.
@@ -2601,7 +2601,7 @@ void nss_gmac_disable_dma_rx(nss_gmac_dev *gmacdev);
  * @param[in] uint32_t status field of the corresponding descriptor.
  * @return returns TRUE or FALSE.
  */
-static inline bool nss_gmac_is_ext_status(nss_gmac_dev *gmacdev,
+static inline bool nss_gmac_is_ext_status(struct nss_gmac_dev *gmacdev,
 					  uint32_t status)
 {
 	return (status & DescRxEXTsts) != 0;
@@ -2616,7 +2616,7 @@ static inline bool nss_gmac_is_ext_status(nss_gmac_dev *gmacdev,
  * @param[in] uint32_t status field of the corresponding descriptor.
  * @return returns TRUE or FALSE.
  */
-static inline bool nss_gmac_ES_is_IP_header_error(nss_gmac_dev *gmacdev,
+static inline bool nss_gmac_ES_is_IP_header_error(struct nss_gmac_dev *gmacdev,
 						  uint32_t ext_status)
 {
 	return (ext_status & DescRxIpHeaderError) != 0;
@@ -2630,7 +2630,7 @@ static inline bool nss_gmac_ES_is_IP_header_error(nss_gmac_dev *gmacdev,
  * @param[in] uint32_t status field of the corresponding descriptor.
  * @return returns TRUE or FALSE.
  */
-static inline bool nss_gmac_ES_is_rx_checksum_bypassed(nss_gmac_dev *gmacdev,
+static inline bool nss_gmac_ES_is_rx_checksum_bypassed(struct nss_gmac_dev *gmacdev,
 						       uint32_t ext_status)
 {
 	return (ext_status & DescRxChkSumBypass) != 0;
@@ -2645,42 +2645,42 @@ static inline bool nss_gmac_ES_is_rx_checksum_bypassed(nss_gmac_dev *gmacdev,
  * @param[in] uint32_t status field of the corresponding descriptor.
  * @return returns TRUE or FALSE.
  */
-static inline bool nss_gmac_ES_is_IP_payload_error(nss_gmac_dev *gmacdev,
+static inline bool nss_gmac_ES_is_IP_payload_error(struct nss_gmac_dev *gmacdev,
 						   uint32_t ext_status)
 {
 	return (ext_status & DescRxIpPayloadError) != 0;
 }
 
 /*******************PMT APIs***************************************/
-void nss_gmac_pmt_int_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_pmt_int_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_power_down_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_power_down_disable(nss_gmac_dev *gmacdev);
-void nss_gmac_magic_packet_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_wakeup_frame_enable(nss_gmac_dev *gmacdev);
-void nss_gmac_pmt_unicast_enable(nss_gmac_dev *gmacdev);
-bool nss_gmac_is_magic_packet_received(nss_gmac_dev *gmacdev);
-bool nss_gmac_is_wakeup_frame_received(nss_gmac_dev *gmacdev);
-void nss_gmac_write_wakeup_frame_register(nss_gmac_dev *gmacdev,
+void nss_gmac_pmt_int_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_pmt_int_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_power_down_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_power_down_disable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_magic_packet_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_wakeup_frame_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_pmt_unicast_enable(struct nss_gmac_dev *gmacdev);
+bool nss_gmac_is_magic_packet_received(struct nss_gmac_dev *gmacdev);
+bool nss_gmac_is_wakeup_frame_received(struct nss_gmac_dev *gmacdev);
+void nss_gmac_write_wakeup_frame_register(struct nss_gmac_dev *gmacdev,
 					  uint32_t *filter_contents);
 
 /*******************MMC APIs***************************************/
-void nss_gmac_mmc_counters_stop(nss_gmac_dev *gmacdev);
-void nss_gmac_mmc_counters_resume(nss_gmac_dev *gmacdev);
-void nss_gmac_mmc_counters_set_selfclear(nss_gmac_dev *gmacdev);
-void nss_gmac_mmc_counters_reset_selfclear(nss_gmac_dev *gmacdev);
-void nss_gmac_mmc_counters_disable_rollover(nss_gmac_dev *gmacdev);
-void nss_gmac_mmc_counters_enable_rollover(nss_gmac_dev *gmacdev);
-uint32_t nss_gmac_read_mmc_counter(nss_gmac_dev *gmacdev, uint32_t counter);
-uint32_t nss_gmac_read_mmc_rx_int_status(nss_gmac_dev *gmacdev);
-uint32_t nss_gmac_read_mmc_tx_int_status(nss_gmac_dev *gmacdev);
-void nss_gmac_disable_mmc_tx_interrupt(nss_gmac_dev *gmacdev, uint32_t mask);
-void nss_gmac_enable_mmc_tx_interrupt(nss_gmac_dev *gmacdev, uint32_t mask);
-void nss_gmac_disable_mmc_rx_interrupt(nss_gmac_dev *gmacdev, uint32_t mask);
-void nss_gmac_enable_mmc_rx_interrupt(nss_gmac_dev *gmacdev, uint32_t mask);
-void nss_gmac_enable_mmc_ipc_rx_interrupt(nss_gmac_dev *gmacdev,
+void nss_gmac_mmc_counters_stop(struct nss_gmac_dev *gmacdev);
+void nss_gmac_mmc_counters_resume(struct nss_gmac_dev *gmacdev);
+void nss_gmac_mmc_counters_set_selfclear(struct nss_gmac_dev *gmacdev);
+void nss_gmac_mmc_counters_reset_selfclear(struct nss_gmac_dev *gmacdev);
+void nss_gmac_mmc_counters_disable_rollover(struct nss_gmac_dev *gmacdev);
+void nss_gmac_mmc_counters_enable_rollover(struct nss_gmac_dev *gmacdev);
+uint32_t nss_gmac_read_mmc_counter(struct nss_gmac_dev *gmacdev, uint32_t counter);
+uint32_t nss_gmac_read_mmc_rx_int_status(struct nss_gmac_dev *gmacdev);
+uint32_t nss_gmac_read_mmc_tx_int_status(struct nss_gmac_dev *gmacdev);
+void nss_gmac_disable_mmc_tx_interrupt(struct nss_gmac_dev *gmacdev, uint32_t mask);
+void nss_gmac_enable_mmc_tx_interrupt(struct nss_gmac_dev *gmacdev, uint32_t mask);
+void nss_gmac_disable_mmc_rx_interrupt(struct nss_gmac_dev *gmacdev, uint32_t mask);
+void nss_gmac_enable_mmc_rx_interrupt(struct nss_gmac_dev *gmacdev, uint32_t mask);
+void nss_gmac_enable_mmc_ipc_rx_interrupt(struct nss_gmac_dev *gmacdev,
 					  uint32_t mask);
-void nss_gmac_disable_mmc_ipc_rx_interrupt(nss_gmac_dev *gmacdev,
+void nss_gmac_disable_mmc_ipc_rx_interrupt(struct nss_gmac_dev *gmacdev,
 					   uint32_t mask);
 
 

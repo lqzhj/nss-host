@@ -48,17 +48,18 @@ int32_t nss_gmac_linux_change_mtu(struct net_device *netdev, int32_t newmtu);
 void nss_gmac_linux_tx_timeout(struct net_device *netdev);
 
 /* NSS driver interface APIs */
-void nss_gmac_receive(struct net_device *netdev, struct sk_buff *skb, struct napi_struct *napi);
-void nss_gmac_event_receive(void *if_ctx, nss_gmac_event_t ev_type,
+void nss_gmac_receive(struct net_device *netdev, struct sk_buff *skb,
+						struct napi_struct *napi);
+void nss_gmac_event_receive(void *if_ctx, int ev_type,
 			    void *os_buf, uint32_t len);
 void nss_gmac_open_work(struct work_struct *work);
 void nss_gmac_ethtool_register(struct net_device *netdev);
 void __exit nss_gmac_deregister_driver(void);
 int32_t __init nss_gmac_register_driver(void);
-void nss_gmac_linux_powerup_mac(nss_gmac_dev *gmacdev);
-void nss_gmac_linux_powerdown_mac(nss_gmac_dev *gmacdev);
-void nss_gmac_linkdown(nss_gmac_dev *gmacdev);
-void nss_gmac_linkup(nss_gmac_dev *gmacdev);
+void nss_gmac_linux_powerup_mac(struct nss_gmac_dev *gmacdev);
+void nss_gmac_linux_powerdown_mac(struct nss_gmac_dev *gmacdev);
+void nss_gmac_linkdown(struct nss_gmac_dev *gmacdev);
+void nss_gmac_linkup(struct nss_gmac_dev *gmacdev);
 void nss_gmac_adjust_link(struct net_device *netdev);
 
 #endif /* End of file */
