@@ -219,7 +219,7 @@ struct nss_gmac_dev {
 	struct net_device *netdev;
 	struct platform_device *pdev;
 	struct delayed_work gmacwork;
-	struct napi_struct *napi;
+	struct napi_struct napi;
 	struct rtnl_link_stats64 stats;	/* statistics counters                  */
 	spinlock_t stats_lock;		/* Lock to retrieve stats atomically    */
 	spinlock_t slock;		/* Lock to protect datapath		*/
@@ -2271,9 +2271,9 @@ static inline void nss_gmac_reset_tx_qptr(struct nss_gmac_dev *gmacdev)
  * @param[in] uint32_t indicating whether the checksum offloading in HW/SW.
  * @param[in] uint32_t indicating TX control flag - the first, last segment and interrupt state.
  * @param[in] uint32_t indicating descriptor DMA flag state.
- * @return returns present tx descriptor index on success. Negative value if error.
+ * @return returns present tx descriptor pointer.
  */
-static inline int32_t nss_gmac_set_tx_qptr(struct nss_gmac_dev *gmacdev,
+static inline struct DmaDesc *nss_gmac_set_tx_qptr(struct nss_gmac_dev *gmacdev,
 					   uint32_t Buffer1, uint32_t Length1,
 					   uint32_t Data1,
 					   uint32_t offload_needed,
@@ -2318,7 +2318,7 @@ static inline int32_t nss_gmac_set_tx_qptr(struct nss_gmac_dev *gmacdev,
 	gmacdev->tx_next = (txnext + 1) & (gmacdev->tx_desc_count - 1);
 	gmacdev->tx_next_desc = gmacdev->tx_desc + gmacdev->tx_next;
 
-	return txnext;
+	return txdesc;
 }
 
 
@@ -2449,8 +2449,8 @@ static inline void nss_gmac_reset_rx_qptr(struct nss_gmac_dev *gmacdev)
 static inline void nss_gmac_clear_interrupt(struct nss_gmac_dev *gmacdev)
 {
 	uint32_t data;
-	data = nss_gmac_read_reg((uint32_t *)gmacdev->dma_base, DmaStatus);
-	nss_gmac_write_reg((uint32_t *)gmacdev->dma_base, DmaStatus, data);
+	data = readl_relaxed((unsigned char *)gmacdev->dma_base + DmaStatus);
+	writel_relaxed(data, (unsigned char *)gmacdev->dma_base + DmaStatus);
 }
 
 
@@ -2537,8 +2537,9 @@ static inline void nss_gmac_disable_interrupt_all(struct nss_gmac_dev *gmacdev)
 static inline void nss_gmac_disable_interrupt(struct nss_gmac_dev *gmacdev,
 					      uint32_t interrupts)
 {
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->dma_base, DmaInterrupt,
-				interrupts);
+	uint32_t data = 0;
+	data = ~interrupts & readl_relaxed((unsigned char *)gmacdev->dma_base + DmaInterrupt);
+	writel_relaxed(data, (unsigned char *)gmacdev->dma_base + DmaInterrupt);
 }
 
 
