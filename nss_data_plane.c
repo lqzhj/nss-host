@@ -26,7 +26,7 @@ struct nss_data_plane_param nss_data_plane_params[NSS_MAX_PHYSICAL_INTERFACES];
  * nss_data_plane_open()
  *	Called by gmac to notify open to nss-fw
  */
-static nss_gmac_status_t nss_data_plane_open(void *arg, uint32_t tx_desc_ring, uint32_t rx_desc_ring, uint32_t mode)
+static int nss_data_plane_open(void *arg, uint32_t tx_desc_ring, uint32_t rx_desc_ring, uint32_t mode)
 {
 	struct nss_data_plane_param *dp = (struct nss_data_plane_param *)arg;
 
@@ -44,7 +44,7 @@ static nss_gmac_status_t nss_data_plane_open(void *arg, uint32_t tx_desc_ring, u
  * nss_data_plane_close()
  *	Called by gmac to notify close to nss-fw
  */
-static nss_gmac_status_t nss_data_plane_close(void *arg)
+static int nss_data_plane_close(void *arg)
 {
 	/*
 	 * We don't actually do synopsys gmac close in fw, just return success
@@ -56,7 +56,7 @@ static nss_gmac_status_t nss_data_plane_close(void *arg)
  * nss_data_plane_link_state()
  *	Called by gmac to notify link state change to nss-fw
  */
-static nss_gmac_status_t nss_data_plane_link_state(void *arg, uint32_t link_state)
+static int nss_data_plane_link_state(void *arg, uint32_t link_state)
 {
 	struct nss_data_plane_param *dp = (struct nss_data_plane_param *)arg;
 
@@ -67,7 +67,7 @@ static nss_gmac_status_t nss_data_plane_link_state(void *arg, uint32_t link_stat
  * nss_data_plane_mac_addr()
  *	Called by gmac to set mac address
  */
-static nss_gmac_status_t nss_data_plane_mac_addr(void *arg, uint8_t *addr)
+static int nss_data_plane_mac_addr(void *arg, uint8_t *addr)
 {
 	struct nss_data_plane_param *dp = (struct nss_data_plane_param *)arg;
 
@@ -78,7 +78,7 @@ static nss_gmac_status_t nss_data_plane_mac_addr(void *arg, uint8_t *addr)
  * nss_data_plane_change_mtu()
  *	Called by gmac to change mtu of a gmac
  */
-static nss_gmac_status_t nss_data_plane_change_mtu(void *arg, uint32_t mtu)
+static int nss_data_plane_change_mtu(void *arg, uint32_t mtu)
 {
 	struct nss_data_plane_param *dp = (struct nss_data_plane_param *)arg;
 
@@ -89,7 +89,7 @@ static nss_gmac_status_t nss_data_plane_change_mtu(void *arg, uint32_t mtu)
  * nss_data_plane_buf()
  *	Called by gmac to pass a sk_buff for xmit
  */
-static nss_gmac_status_t nss_data_plane_buf(void *arg, struct sk_buff *os_buf)
+static int nss_data_plane_buf(void *arg, struct sk_buff *os_buf)
 {
 	struct nss_data_plane_param *dp = (struct nss_data_plane_param *)arg;
 
