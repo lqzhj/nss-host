@@ -164,7 +164,7 @@ void nss_gmac_linux_powerdown_mac(struct nss_gmac_dev *gmacdev)
 	gmacdev->gmac_power_down = 1;
 
 	/* allow any pending transmission to complete */
-	mdelay(10);
+	usleep_range(10000, 12000);
 
 	/* Disable Mac Tx */
 	nss_gmac_tx_disable(gmacdev);
@@ -173,7 +173,7 @@ void nss_gmac_linux_powerdown_mac(struct nss_gmac_dev *gmacdev)
 	nss_gmac_rx_disable(gmacdev);
 
 	/* Allow any pending buffer to be read by host */
-	mdelay(10);
+	usleep_range(10000, 12000);
 
 	/* Disable the Dma in rx path */
 	nss_gmac_disable_dma_rx(gmacdev);
@@ -234,24 +234,29 @@ void nss_gmac_linux_powerup_mac(struct nss_gmac_dev *gmacdev)
 /**
  * This sets up the transmit Descriptor queue in ring or chain mode.
  * This function is tightly coupled to the platform and operating system
- * Device is interested only after the descriptors are setup. Therefore this function
- * is not included in the device driver API. This function should be treated as an
- * example code to design the descriptor structures for ring mode or chain mode.
- * This function depends on the device structure for allocation consistent dma-able memory in case of linux.
+ * Device is interested only after the descriptors are setup. Therefore this
+ * function is not included in the device driver API. This function should be
+ * treated as an example code to design the descriptor structures for ring mode
+ * or chain mode.
+ * This function depends on the device structure for allocation consistent
+ * dma-able memory in case of linux.
  *	- Allocates the memory for the descriptors.
- *	- Initialize the Busy and Next descriptors indices to 0(Indicating first descriptor).
+ *	- Initialize the Busy and Next descriptors indices to 0(Indicating first
+ *	  descriptor).
  *	- Initialize the Busy and Next descriptors to first descriptor address.
- * 	- Initialize the last descriptor with the endof ring in case of ring mode.
+ *	- Initialize the last descriptor with the endof ring in case of ring
+ *	  mode.
  *	- Initialize the descriptors in chain mode.
  * @param[in] pointer to nss_gmac_dev.
  * @param[in] pointer to device structure.
  * @param[in] number of descriptor expected in tx descriptor queue.
  * @param[in] whether descriptors to be created in RING mode or CHAIN mode.
  * @return 0 upon success. Error code upon failure.
- * @note This function fails if allocation fails for required number of descriptors
- * in Ring mode, but in chain mode function returns -ENOMEM in the process
- * of descriptor chain creation. once returned from this function user should
- * for gmacdev->tx_desc_count to see how many descriptors are there in the chain.
+ * @note This function fails if allocation fails for required number of
+ * descriptors in Ring mode, but in chain mode function returns -ENOMEM in the
+ * process of descriptor chain creation. once returned from this function user
+ * should for gmacdev->tx_desc_count to see how many descriptors are there in
+ * the chain.
  * Should continue further only if the number of descriptors in the
  * chain meets the requirements.
  */
@@ -272,9 +277,7 @@ static int32_t nss_gmac_setup_tx_desc_queue(struct nss_gmac_dev *gmacdev,
 	BUG_ON(desc_mode != RINGMODE);
 	BUG_ON((no_of_desc & (no_of_desc - 1)) != 0);
 
-	nss_gmac_info(gmacdev,
-		      "Total size of memory required for Tx Descriptors "
-		      "in Ring Mode = 0x%08x",
+	nss_gmac_info(gmacdev, "Total size of memory required for Tx Descriptors in Ring Mode = 0x%08x",
 		      (uint32_t) ((sizeof(struct DmaDesc) * no_of_desc)));
 
 	first_desc = dma_alloc_coherent(dev, sizeof(struct DmaDesc) * no_of_desc,
@@ -288,8 +291,7 @@ static int32_t nss_gmac_setup_tx_desc_queue(struct nss_gmac_dev *gmacdev,
 	gmacdev->tx_desc_count = no_of_desc;
 	gmacdev->tx_desc = first_desc;
 	gmacdev->tx_desc_dma = dma_addr;
-	nss_gmac_info(gmacdev, "Tx Descriptors in Ring Mode: "
-		      "No. of descriptors = %d base = 0x%08x dma = 0x%08x",
+	nss_gmac_info(gmacdev, "Tx Descriptors in Ring Mode: No. of descriptors = %d base = 0x%08x dma = 0x%08x",
 		      no_of_desc, (uint32_t)first_desc, dma_addr);
 
 	for (i = 0; i < gmacdev->tx_desc_count; i++) {
@@ -310,25 +312,29 @@ static int32_t nss_gmac_setup_tx_desc_queue(struct nss_gmac_dev *gmacdev,
 /**
  * This sets up the receive Descriptor queue in ring or chain mode.
  * This function is tightly coupled to the platform and operating system
- * Device is interested only after the descriptors are setup. Therefore this function
- * is not included in the device driver API. This function should be treated as an
- * example code to design the descriptor structures in ring mode or chain mode.
+ * Device is interested only after the descriptors are setup. Therefore this
+ * function is not included in the device driver API. This function should be
+ * treated as an example code to design the descriptor structures in ring mode
+ * or chain mode.
  * This function depends on the device structure for allocation of
  * consistent dma-able memory in case of linux.
  *	- Allocates the memory for the descriptors.
- *	- Initialize the Busy and Next descriptors indices to 0(Indicating first descriptor).
+ *	- Initialize the Busy and Next descriptors indices to 0(Indicating first
+ *	  descriptor).
  *	- Initialize the Busy and Next descriptors to first descriptor address.
- * 	- Initialize the last descriptor with the endof ring in case of ring mode.
+ *	- Initialize the last descriptor with the endof ring in case of ring
+ *	- mode.
  *	- Initialize the descriptors in chain mode.
  * @param[in] pointer to nss_gmac_dev.
  * @param[in] pointer to device structure.
  * @param[in] number of descriptor expected in rx descriptor queue.
  * @param[in] whether descriptors to be created in RING mode or CHAIN mode.
  * @return 0 upon success. Error code upon failure.
- * @note This function fails if allocation fails for required number of descriptors
- * in Ring mode, but in chain mode function returns -ENOMEM in the process
- * of descriptor chain creation. once returned from this function user should for
- *gmacdev->rx_desc_count to see how many descriptors are there in the chain.
+ * @note This function fails if allocation fails for required number of
+ * descriptors in Ring mode, but in chain mode function returns -ENOMEM in the
+ * process of descriptor chain creation. once returned from this function user
+ * should for gmacdev->rx_desc_count to see how many descriptors are there in
+ * the chain.
  * Should continue further only if the number of descriptors in the
  * chain meets the requirements.
  */
@@ -349,8 +355,7 @@ static int32_t nss_gmac_setup_rx_desc_queue(struct nss_gmac_dev *gmacdev,
 	BUG_ON(desc_mode != RINGMODE);
 	BUG_ON((no_of_desc & (no_of_desc - 1)) != 0);
 
-	nss_gmac_info(gmacdev, "total size of memory required for "
-		      "Rx Descriptors in Ring Mode = 0x%08x",
+	nss_gmac_info(gmacdev, "total size of memory required for Rx Descriptors in Ring Mode = 0x%08x",
 		      (uint32_t) ((sizeof(struct DmaDesc) * no_of_desc)));
 
 	first_desc = dma_alloc_coherent(dev, sizeof(struct DmaDesc) * no_of_desc,
@@ -365,9 +370,8 @@ static int32_t nss_gmac_setup_rx_desc_queue(struct nss_gmac_dev *gmacdev,
 	gmacdev->rx_desc = first_desc;
 	gmacdev->rx_desc_dma = dma_addr;
 	nss_gmac_info(gmacdev,
-		      "Rx Descriptors in Ring Mode: No. of descriptors = %d "
-		      "base = 0x%08x dma = 0x%08x", no_of_desc,
-		      (uint32_t)first_desc, dma_addr);
+		      "Rx Descriptors in Ring Mode: No. of descriptors = %d base = 0x%08x dma = 0x%08x",
+			no_of_desc, (uint32_t)first_desc, dma_addr);
 
 	for (i = 0; i < gmacdev->rx_desc_count; i++) {
 		nss_gmac_rx_desc_init_ring(gmacdev->rx_desc + i,
@@ -432,9 +436,8 @@ static void nss_gmac_giveup_rx_desc_queue(struct nss_gmac_dev *gmacdev,
 	dma_free_coherent(dev, (sizeof(struct DmaDesc) * gmacdev->rx_desc_count)
 			 , gmacdev->rx_desc, gmacdev->rx_desc_dma);
 
-	nss_gmac_info(gmacdev,
-		      "Memory allocated %08x for Rx Desriptors (ring) "
-		      "is given back", (uint32_t)gmacdev->rx_desc);
+	nss_gmac_info(gmacdev, "Memory allocated %08x for Rx Desriptors (ring) is given back"
+						, (uint32_t)gmacdev->rx_desc);
 
 	gmacdev->rx_desc = NULL;
 	gmacdev->rx_desc_dma = 0;
@@ -489,9 +492,8 @@ static void nss_gmac_giveup_tx_desc_queue(struct nss_gmac_dev *gmacdev,
 	dma_free_coherent(dev, (sizeof(struct DmaDesc) * gmacdev->tx_desc_count),
 			  gmacdev->tx_desc, gmacdev->tx_desc_dma);
 
-	nss_gmac_info(gmacdev,
-		      "Memory allocated %08x for Tx Desriptors (ring) "
-		      "is given back", (uint32_t)gmacdev->tx_desc);
+	nss_gmac_info(gmacdev, "Memory allocated %08x for Tx Desriptors (ring) is given back"
+						, (uint32_t)gmacdev->tx_desc);
 
 	gmacdev->tx_desc = NULL;
 	gmacdev->tx_desc_dma = 0;
@@ -629,10 +631,8 @@ static int32_t nss_gmac_linux_do_ioctl(struct net_device *netdev,
 	BUG_ON(gmacdev == NULL);
 	BUG_ON(gmacdev->netdev != netdev);
 
-	nss_gmac_info(gmacdev,
-		      "%s :: on device %s req->unit = %08x req->addr = %08x "
-		      "req->data = %08x cmd = %08x", __func__, netdev->name,
-		      req->unit, req->addr, req->data, cmd);
+	nss_gmac_info(gmacdev, "%s :: on device %s req->unit = %08x req->addr = %08x req->data = %08x cmd = %08x"
+		, __func__, netdev->name, req->unit, req->addr, req->data, cmd);
 
 	retval = 0;
 	switch (cmd) {
@@ -861,14 +861,14 @@ static int32_t nss_gmac_do_common_init(struct platform_device *pdev)
 		ret = -EFAULT;
 		goto nss_gmac_cmn_init_fail;
 	}
-		if (of_address_to_resource(common_device_node, 0, &res_nss_base) != 0) {
+	if (of_address_to_resource(common_device_node, 0, &res_nss_base) != 0) {
 		ret = -EFAULT;
 		goto nss_gmac_cmn_init_fail;
 	}
-		if (of_address_to_resource(common_device_node, 1, &res_qsgmii_base) != 0) {
+	if (of_address_to_resource(common_device_node, 1, &res_qsgmii_base) != 0) {
 		ret = -EFAULT;
 		goto nss_gmac_cmn_init_fail;
-		}
+	}
 	if (of_address_to_resource(common_device_node, 2, &res_clk_ctl_base) != 0) {
 		ret = -EFAULT;
 		goto nss_gmac_cmn_init_fail;
@@ -1125,7 +1125,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 
 		nss_gmac_info(gmacdev, "mdio bus '%s' OK.", gmacdev->miibus->id);
 
-	} else 	if (gmacdev->emulation && (gmacdev->phy_mii_type == GMAC_INTF_RGMII)) {
+	} else if (gmacdev->emulation && (gmacdev->phy_mii_type == GMAC_INTF_RGMII)) {
 		if (nss_gmac_init_mdiobus(gmacdev) != 0) {
 			nss_gmac_info(gmacdev, "mdio bus register FAIL for emulation.");
 			ret = -EIO;
@@ -1255,11 +1255,10 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	netdev_change_features(netdev);
 	rtnl_unlock();
 
-	nss_gmac_info(gmacdev,
-		      "Initialized NSS GMAC%d interface %s: (base = 0x%lx, "
-		      "irq = %d, PhyId = %d, PollLink = %d)", gmacdev->macid,
-		      netdev->name, netdev->base_addr, netdev->irq,
-		      gmacdev->phy_base, test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags));
+	nss_gmac_info(gmacdev, "Initialized NSS GMAC%d interface %s: (base = 0x%lx, irq = %d, PhyId = %d, PollLink = %d)"
+			, gmacdev->macid, netdev->name, netdev->base_addr
+			, netdev->irq, gmacdev->phy_base
+			, test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags));
 
 #ifdef CONFIG_OF
 	if (pdev->dev.of_node) {

@@ -21,9 +21,9 @@
  * Since the phy register mapping are standardised, the phy register map and the
  * bit definitions remain the same for other phy as well.
  * This also defines some of the Ethernet related parmeters.
- *  -----------------------------REVISION HISTORY------------------------------------
- * Qualcomm Atheros		   01/Mar/2013             	Modified for QCA NSS
- * Synopsys			   01/Aug/2007				Created
+ *  ---------------------------REVISION HISTORY---------------------------------
+ * Qualcomm Atheros		01/Mar/2013		Modified for QCA NSS
+ * Synopsys			01/Aug/2007			Created
  */
 
 #ifndef __NSS_GMAC_DEV_H__
@@ -97,11 +97,11 @@
 #define ATH_MMD_DEVADDR_3				3
 #define ATH_MMD_DEVADDR_7				7
 
-const static uint8_t nss_gmac_driver_string[] =
-    "NSS GMAC Driver for RTL v" NSS_GMAC_RTL_VER;
-const static uint8_t nss_gmac_driver_version[] = "1.0";
-const static uint8_t nss_gmac_copyright[] =
-    "Copyright (c) 2013 The Linux Foundation. All rights reserved.";
+static const uint8_t nss_gmac_driver_string[] =
+	"NSS GMAC Driver for RTL v" NSS_GMAC_RTL_VER;
+static const uint8_t nss_gmac_driver_version[] = "1.0";
+static const uint8_t nss_gmac_copyright[] =
+	"Copyright (c) 2013 The Linux Foundation. All rights reserved.";
 
 /**
  * @brief DMA Descriptor Structure
@@ -232,7 +232,7 @@ struct nss_gmac_dev {
 	struct resource *memres;	/* memory resource                      */
 
 	void *data_plane_ctx;		/* context when NSS owns GMACs          */
-	struct phy_device *phydev;	/* Phy device 				*/
+	struct phy_device *phydev;	/* Phy device				*/
 	struct nss_gmac_stats nss_stats;/* Stats synced from NSS		*/
 	struct mii_bus *miibus;		/* MDIO bus associated with this GMAC	*/
 	struct nss_gmac_data_plane_ops *data_plane_ops;
@@ -1504,8 +1504,8 @@ enum GmacTSControlReg {
 };
 
 /* GmacTSSubSecIncr	= 0x0704,	8 bit value by which sub second register is incremented:
- * 					only when IEEE 1588 time stamping without
- * 					external timestamp input.
+ *					only when IEEE 1588 time stamping without
+ *					external timestamp input.
  */
 enum GmacTSSubSecIncrReg {
 	GmacSSINCMsk = 0x000000FF,	/* Only Lower 8 bits are valid bits */
@@ -1521,8 +1521,8 @@ enum GmacTSSign {
 };
 
 /* GmacTargetTimeLow	= 0x0718,	32 bit nano seconds(MS) to be compared with
- * 					system time: only when IEEE 1588 time
- * 					stamping without external timestamp input.
+ *					system time: only when IEEE 1588 time
+ *					stamping without external timestamp input.
  */
 enum GmacTSLowReg {
 	GmacTSDecThr = 0x3B9AC9FF,	/* when TSCTRLSSR is set the max
@@ -1562,7 +1562,7 @@ enum GmacTSStatusReg {
 #define nss_gmac_early_dbg(msg, args...)
 #else
 #define nss_gmac_warn(gmacdev, msg, args...)				\
-		printk(KERN_WARNING "nss_gmac: GMAC%d(%p) "msg, 	\
+		printk(KERN_WARNING "nss_gmac: GMAC%d(%p) "msg,		\
 				gmacdev->macid, gmacdev, ##args)
 #define nss_gmac_early_dbg(msg, args...)				\
 		printk(KERN_WARNING "nss_gmac:"msg, ##args)
@@ -1768,7 +1768,7 @@ static inline void nss_gmac_tx_checksum_offload_tcp_pseudo(struct nss_gmac_dev *
  * @param[in] register offset
  * @return contents of register
  */
-static uint32_t __inline__ nss_gmac_read_reg(uint32_t *regbase,
+static inline uint32_t nss_gmac_read_reg(uint32_t *regbase,
 					     uint32_t regoffset)
 {
 	uint32_t addr = 0;
@@ -1790,7 +1790,7 @@ static uint32_t __inline__ nss_gmac_read_reg(uint32_t *regbase,
  * @param[in] data to be written
  * @return void
  */
-static void __inline__ nss_gmac_write_reg(uint32_t *regbase,
+static inline void nss_gmac_write_reg(uint32_t *regbase,
 					  uint32_t regoffset,
 					  uint32_t regdata)
 {
@@ -1810,7 +1810,7 @@ static void __inline__ nss_gmac_write_reg(uint32_t *regbase,
  * @param[in] bit mask of bits to be set
  * @return void
  */
-static void __inline__ nss_gmac_set_reg_bits(uint32_t *regbase,
+static inline void nss_gmac_set_reg_bits(uint32_t *regbase,
 					     uint32_t regoffset,
 					     uint32_t bitpos)
 {
@@ -1828,7 +1828,7 @@ static void __inline__ nss_gmac_set_reg_bits(uint32_t *regbase,
  * @param[in] bit mask of bits to be cleared
  * @return void
  */
-static void __inline__ nss_gmac_clear_reg_bits(uint32_t *regbase,
+static inline void nss_gmac_clear_reg_bits(uint32_t *regbase,
 					       uint32_t regoffset,
 					       uint32_t bitpos)
 {
@@ -1846,7 +1846,7 @@ static void __inline__ nss_gmac_clear_reg_bits(uint32_t *regbase,
  * @param[in] bit mask of bits to be checked
  * @return True if bits corresponding to the given bitmask are set.
  */
-static bool __inline__ nss_gmac_check_reg_bits(uint32_t *regbase,
+static inline bool nss_gmac_check_reg_bits(uint32_t *regbase,
 					       uint32_t regoffset,
 					       uint32_t bitpos)
 {
@@ -1990,7 +1990,7 @@ void nss_gmac_spare_ctl(struct nss_gmac_dev *gmacdev);
 
 /**
  * Initialize the rx descriptors for ring or chain mode operation.
- * 	- Status field is initialized to 0.
+ *	- Status field is initialized to 0.
  *	- EndOfRing set for the last descriptor.
  *	- buffer1 and buffer2 set to 0 for ring mode of operation. (note)
  *	- data1 and data2 set to 0. (note)
@@ -2013,7 +2013,7 @@ static inline void nss_gmac_rx_desc_init_ring(struct DmaDesc *desc,
 
 /**
  * Initialize the tx descriptors for ring or chain mode operation.
- * 	- Status field is initialized to 0.
+ *	- Status field is initialized to 0.
  *	- EndOfRing set for the last descriptor.
  *	- buffer1 and buffer2 set to 0 for ring mode of operation. (note)
  *	- data1 and data2 set to 0. (note)

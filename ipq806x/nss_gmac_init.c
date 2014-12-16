@@ -84,7 +84,7 @@ void nss_gmac_spare_ctl(struct nss_gmac_dev *gmacdev)
 		      val, id);
 	count = 0;
 	while ((val & (1 << id)) != (1 << id)) {
-		mdelay(10);
+		usleep_range(10000, 12000);
 		val = nss_gmac_read_reg(nss_base,
 					NSS_ETH_SPARE_STAT);
 		if (count++ > 20) {
@@ -338,7 +338,7 @@ int32_t nss_gmac_get_phy_profile(void)
  */
 static void nss_gmac_qsgmii_common_init(struct nss_gmac_global_ctx *ctx)
 {
-	uint32_t val ;
+	uint32_t val;
 	uint32_t *qsgmii_base = ctx->qsgmii_base;
 
 	if (nss_gmac_get_phy_profile() == NSS_GMAC_PHY_PROFILE_QS) {
@@ -891,7 +891,7 @@ void nss_macsec_pre_init(void)
 	nss_gmac_write_reg(ctx.clk_ctl_base, MACSEC_CORE1_RESET, 1);
 	nss_gmac_write_reg(ctx.clk_ctl_base, MACSEC_CORE2_RESET, 1);
 	nss_gmac_write_reg(ctx.clk_ctl_base, MACSEC_CORE3_RESET, 1);
-	mdelay(100);
+	msleep(100);
 
 	/* Deassert MACSEC reset */
 	nss_gmac_write_reg(ctx.clk_ctl_base, MACSEC_CORE1_RESET, 0);

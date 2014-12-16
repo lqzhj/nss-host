@@ -21,8 +21,8 @@
  *
  * @note Many of the functions other than the device specific functions
  *  changes for operating system other than Linux 2.6.xx
- *-----------------------------REVISION HISTORY----------------------------------
- * Qualcomm Atheros    		09/Jun/2013			Created
+ *-----------------------------REVISION HISTORY--------------------------------
+ * Qualcomm Atheros		09/Jun/2013				Created
  */
 
 #include <linux/version.h>
