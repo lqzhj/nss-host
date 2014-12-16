@@ -341,7 +341,7 @@ void nss_crypto_pipe_init(struct nss_crypto_ctrl_eng *eng, uint32_t idx, uint32_
 		desc->out[i].results.data_len = NSS_CRYPTO_RESULTS_SZ;
 	}
 
-	nss_crypto_info("init completed for Pipe Pair[%d]\n", idx);
+	nss_crypto_info_always("init completed for Pipe Pair[%d]\n", idx);
 	nss_crypto_dbg("total size - %d, qdepth - %d, in_sz - %d, out_sz - %d\n",
 			NSS_CRYPTO_DESC_SZ, NSS_CRYPTO_MAX_QDEPTH,
 			in_pipe_sz, out_pipe_sz);
