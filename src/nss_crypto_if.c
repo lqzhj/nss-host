@@ -399,6 +399,16 @@ void nss_crypto_process_event(void *app_data, struct nss_crypto_msg *nim)
 
 		nss_crypto_info("session(%d) reset successfully\n", session->idx);
 
+		nss_crypto_assert(session->idx < NSS_CRYPTO_MAX_IDXS);
+
+		/*
+		 * If NSS state has changed to free, start the delayed free
+		 * timer for de-allocating session resources
+		 */
+		if (session->state == NSS_CRYPTO_SESSION_STATE_FREE) {
+			nss_crypto_start_idx_free(session->idx);
+		}
+
 		break;
 
 	default:
