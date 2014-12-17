@@ -44,6 +44,7 @@
 #define NSS_CRYPTO_DEBUG_LVL_INFO 3
 #define NSS_CRYPTO_DEBUG_LVL_TRACE 4
 
+#define nss_crypto_info_always(s, ...) pr_notice("<NSS-CRYPTO>:" s, ##__VA_ARGS__)
 
 #if defined(CONFIG_DYNAMIC_DEBUG)
 /*
