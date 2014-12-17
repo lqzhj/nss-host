@@ -60,9 +60,8 @@ void nss_gmac_spare_ctl(struct nss_gmac_dev *gmacdev)
 	uint32_t id = gmacdev->macid;
 	uint32_t *nss_base = (uint32_t *)(gmacdev->ctx->nss_base);
 
-	if (!gmacdev->emulation) {
+	if (!gmacdev->emulation)
 		return;
-	}
 
 	val = 1 << id;
 	nss_gmac_set_reg_bits(nss_base, NSS_ETH_SPARE_CTL, val);
@@ -189,9 +188,8 @@ void nss_gmac_qsgmii_dev_init(struct nss_gmac_dev *gmacdev)
 	uint32_t qsgmii_tx_slew;
 	uint32_t qsgmii_deemphasis;
 
-	if (gmacdev->emulation) {
+	if (gmacdev->emulation)
 		nss_gmac_rumi_qsgmii_init(gmacdev);
-	}
 
 	if (gmacdev->phy_mii_type == GMAC_INTF_SGMII) {
 		switch (gmacdev->macid) {
@@ -266,7 +264,8 @@ void nss_gmac_qsgmii_dev_init(struct nss_gmac_dev *gmacdev)
 
 	/* Enable clk for GMACn */
 	val = 0;
-	if ((gmacdev->phy_mii_type == GMAC_INTF_SGMII) || (gmacdev->phy_mii_type == GMAC_INTF_QSGMII)) {
+	if ((gmacdev->phy_mii_type == GMAC_INTF_SGMII)
+			|| (gmacdev->phy_mii_type == GMAC_INTF_QSGMII)) {
 		val |= GMACn_QSGMII_RX_CLK(id) | GMACn_QSGMII_TX_CLK(id);
 	}
 
@@ -322,9 +321,8 @@ static void nss_gmac_clear_all_regs(uint32_t *nss_base)
  */
 int32_t nss_gmac_get_phy_profile(void)
 {
-	if (of_machine_is_compatible("qcom,ipq8064")) {
+	if (of_machine_is_compatible("qcom,ipq8064"))
 		return NSS_GMAC_PHY_PROFILE_2R_2S;
-	}
 
 	return NSS_GMAC_PHY_PROFILE_1R_3S;
 }
@@ -653,11 +651,10 @@ int32_t nss_gmac_dev_set_speed(struct nss_gmac_dev *gmacdev)
 
 	clk = 0;
 	/* Disable GMACn Tx/Rx clk */
-	if (gmacdev->phy_mii_type == GMAC_INTF_RGMII) {
+	if (gmacdev->phy_mii_type == GMAC_INTF_RGMII)
 		clk |= GMACn_RGMII_RX_CLK(id) | GMACn_RGMII_TX_CLK(id);
-	} else {
+	else
 		clk |= GMACn_GMII_RX_CLK(id) | GMACn_GMII_TX_CLK(id);
-	}
 	nss_gmac_clear_reg_bits(nss_base, NSS_ETH_CLK_GATE_CTL, clk);
 
 	/* set clock divider */
@@ -789,11 +786,10 @@ void nss_gmac_dev_init(struct nss_gmac_dev *gmacdev)
 
 	/* Set GMACn Ctl: Phy interface select, IFG, AXI low power request signal (CSYSREQ) */
 	val = GMAC_IFG_CTL(GMAC_IFG) | GMAC_IFG_LIMIT(GMAC_IFG) | GMAC_CSYS_REQ;
-	if (gmacdev->phy_mii_type == GMAC_INTF_RGMII) {
+	if (gmacdev->phy_mii_type == GMAC_INTF_RGMII)
 		val |= GMAC_PHY_RGMII;
-	} else {
+	else
 		val &= ~GMAC_PHY_RGMII;
-	}
 
 	nss_gmac_write_reg(nss_base, NSS_GMACn_CTL(id), 0x0);
 	nss_gmac_write_reg(nss_base, NSS_GMACn_CTL(id), val);
@@ -839,23 +835,20 @@ void nss_gmac_dev_init(struct nss_gmac_dev *gmacdev)
 	/* Select Tx/Rx CLK source */
 	val = 0;
 	if (id == 0 || id == 1) {
-		if (gmacdev->phy_mii_type == GMAC_INTF_RGMII) {
+		if (gmacdev->phy_mii_type == GMAC_INTF_RGMII)
 			val |= (1 << id);
-		}
 	} else {
-		if (gmacdev->phy_mii_type == GMAC_INTF_SGMII) {
+		if (gmacdev->phy_mii_type == GMAC_INTF_SGMII)
 			val |= (1 << id);
-		}
 	}
 	nss_gmac_set_reg_bits(nss_base, NSS_ETH_CLK_SRC_CTL, val);
 
 	/* Enable xGMII clk for GMACn */
 	val = 0;
-	if (gmacdev->phy_mii_type == GMAC_INTF_RGMII) {
+	if (gmacdev->phy_mii_type == GMAC_INTF_RGMII)
 		val |= GMACn_RGMII_RX_CLK(id) | GMACn_RGMII_TX_CLK(id);
-	} else {
+	else
 		val |= GMACn_GMII_RX_CLK(id) | GMACn_GMII_TX_CLK(id);
-	}
 
 	/* Optionally configure RGMII CDC delay */
 
@@ -938,16 +931,13 @@ static void nss_gmac_link_status_set(uint32_t gmac_id, uint32_t link_state)
 	if (gmac_dev == NULL)
 		return;
 
-	if (!test_bit(__NSS_GMAC_UP, &gmac_dev->flags)) {
+	if (!test_bit(__NSS_GMAC_UP, &gmac_dev->flags))
 		return;
-	}
 
-	if (link_state == LINKDOWN && gmac_dev->link_state == LINKUP) {
+	if (link_state == LINKDOWN && gmac_dev->link_state == LINKUP)
 		nss_gmac_linkdown(gmac_dev);
-	} else if (link_state == LINKUP && gmac_dev->link_state == LINKDOWN) {
+	else if (link_state == LINKUP && gmac_dev->link_state == LINKDOWN)
 		nss_gmac_linkup(gmac_dev);
-	}
-
 }
 
 /**

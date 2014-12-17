@@ -210,9 +210,8 @@ void nss_gmac_linux_powerup_mac(struct nss_gmac_dev *gmacdev)
 	/* Let ISR know that MAC is out of power down now */
 	gmacdev->gmac_power_down = 0;
 
-	if (nss_gmac_is_magic_packet_received(gmacdev)) {
+	if (nss_gmac_is_magic_packet_received(gmacdev))
 		nss_gmac_info(gmacdev, "GMAC wokeup due to Magic Pkt Received");
-	}
 
 	if (nss_gmac_is_wakeup_frame_received(gmacdev)) {
 		nss_gmac_info(gmacdev,
@@ -426,9 +425,8 @@ static int32_t nss_gmac_linux_set_mac_address(struct net_device *netdev,
 		      addr->sa_data[1], addr->sa_data[2], addr->sa_data[3],
 		      addr->sa_data[4], addr->sa_data[5]);
 
-	if (!is_valid_ether_addr(addr->sa_data)) {
+	if (!is_valid_ether_addr(addr->sa_data))
 		return -EADDRNOTAVAIL;
-	}
 
 	nss_gmac_set_mac_addr(gmacdev, GmacAddr0High, GmacAddr0Low,
 			      addr->sa_data);
@@ -529,11 +527,10 @@ static void nss_gmac_linux_set_rx_mode(struct net_device *netdev)
 	} else {
 		nss_gmac_promisc_disable(gmacdev);
 
-		if (netdev->flags & IFF_ALLMULTI) {
+		if (netdev->flags & IFF_ALLMULTI)
 			nss_gmac_multicast_enable(gmacdev);
-		} else {
+		else
 			nss_gmac_multicast_disable(gmacdev);
-		}
 	}
 }
 
@@ -554,16 +551,14 @@ static int32_t nss_gmac_set_features(struct net_device *netdev,
 	BUG_ON(gmacdev == NULL);
 
 	changed = features ^ netdev->features;
-	if (!(changed & (NETIF_F_RXCSUM | NETIF_F_HW_CSUM | NETIF_F_GRO))) {
+	if (!(changed & (NETIF_F_RXCSUM | NETIF_F_HW_CSUM | NETIF_F_GRO)))
 		return 0;
-	}
 
 	if (changed & NETIF_F_RXCSUM) {
-		if (features & NETIF_F_RXCSUM) {
+		if (features & NETIF_F_RXCSUM)
 			test_and_set_bit(__NSS_GMAC_RXCSUM, &gmacdev->flags);
-		} else {
+		else
 			test_and_clear_bit(__NSS_GMAC_RXCSUM, &gmacdev->flags);
-		}
 		nss_gmac_ipc_offload_init(gmacdev);
 	}
 
@@ -621,14 +616,12 @@ static int32_t nss_gmac_phy_fixup(struct phy_device *phydev)
 	int32_t ret = 0;
 
 	/* Disable QCA Smart 802.3az in PHY */
-	if (nss_gmac_ath_phy_disable_smart_802az(phydev) != 0) {
+	if (nss_gmac_ath_phy_disable_smart_802az(phydev) != 0)
 		ret = -EFAULT;
-	}
 
 	/* Disable IEEE 802.3az in PHY */
-	if (nss_gmac_ath_phy_disable_802az(phydev) != 0) {
+	if (nss_gmac_ath_phy_disable_802az(phydev) != 0)
 		ret = -EFAULT;
-	}
 
 	return ret;
 }
@@ -666,13 +659,11 @@ static int32_t nss_gmac_of_get_pdata(struct device_node *np,
 	}
 
 	maddr = (uint8_t *)of_get_mac_address(np);
-	if (maddr) {
+	if (maddr)
 		memcpy(gmaccfg->mac_addr, maddr, ETH_ALEN);
-	}
 
-	if (of_address_to_resource(np, 0, &memres_devtree) != 0) {
+	if (of_address_to_resource(np, 0, &memres_devtree) != 0)
 		return -EFAULT;
-	}
 
 	netdev->base_addr = memres_devtree.start;
 
@@ -802,9 +793,8 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 
 	if (ctx.common_init_done == false) {
 		ret = nss_gmac_do_common_init(pdev);
-		if (ret != 0) {
+		if (ret != 0)
 			return ret;
-		}
 	}
 
 	/*
@@ -853,13 +843,11 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	gmacdev->phy_base = gmaccfg->phy_mdio_addr;
 	gmacdev->rgmii_delay = gmaccfg->rgmii_delay;
 
-	if (ctx.socver == 0) {
+	if (ctx.socver == 0)
 		ctx.socver = gmaccfg->socver;
-	}
 
-	if (gmaccfg->poll_required) {
+	if (gmaccfg->poll_required)
 		test_and_set_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags);
-	}
 
 	switch (gmaccfg->forced_speed) {
 	case SPEED_10:
@@ -1119,9 +1107,8 @@ nss_gmac_reg_fail:
 	}
 
 nss_gmac_phy_attach_fail:
-	if (gmacdev->emulation) {
+	if (gmacdev->emulation)
 		nss_gmac_deinit_mdiobus(gmacdev);
-	}
 
 mdiobus_init_fail:
 	nss_gmac_detach(gmacdev);
@@ -1162,9 +1149,8 @@ static int nss_gmac_remove(struct platform_device *pdev)
 		gmacdev->phydev = NULL;
 	}
 
-	if (gmacdev->emulation) {
+	if (gmacdev->emulation)
 		nss_gmac_deinit_mdiobus(gmacdev);
-	}
 
 	nss_gmac_detach(gmacdev);
 	unregister_netdev(gmacdev->netdev);
@@ -1281,9 +1267,8 @@ int __init nss_gmac_host_interface_init(void)
 	    ("**********************************************************");
 
 	/* Initialize the Network dependent services */
-	if (nss_gmac_register_driver() != 0) {
+	if (nss_gmac_register_driver() != 0)
 		return -EFAULT;
-	}
 
 	return 0;
 }

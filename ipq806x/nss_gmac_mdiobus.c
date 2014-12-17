@@ -63,9 +63,8 @@ static int32_t nss_gmac_mdiobus_read(struct mii_bus *bus, int32_t phy_id, int32_
 					phy_id, regnum,
 					&data, gmacdev->mdc_clk_div);
 
-	if (status != 0) {
+	if (status != 0)
 		data = 0;
-	}
 
 	return (int32_t)data;
 }

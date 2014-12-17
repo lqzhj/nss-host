@@ -275,34 +275,29 @@ static int nss_gmac_set_pauseparam(struct net_device *netdev,
 
 	/* set flow control settings */
 	gmacdev->pause = 0;
-	if (pause->rx_pause) {
+	if (pause->rx_pause)
 		gmacdev->pause |= FLOW_CTRL_RX;
-	}
 
-	if (pause->tx_pause) {
+	if (pause->tx_pause)
 		gmacdev->pause |= FLOW_CTRL_TX;
-	}
 
 	/*
 	 * If the link polling for this GMAC is disabled, we do not
 	 * attempt to make changes to the PHY settings.
 	 */
-	if (!test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
+	if (!test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags))
 		return 0;
-	}
 
 	phydev = gmacdev->phydev;
 
 	/* Update flow control advertisment */
 	phydev->advertising &= ~(ADVERTISED_Pause | ADVERTISED_Asym_Pause);
 
-	if (gmacdev->pause & FLOW_CTRL_RX) {
+	if (gmacdev->pause & FLOW_CTRL_RX)
 		phydev->advertising |= (ADVERTISED_Pause | ADVERTISED_Asym_Pause);
-	}
 
-	if (gmacdev->pause & FLOW_CTRL_TX) {
+	if (gmacdev->pause & FLOW_CTRL_TX)
 		phydev->advertising |= ADVERTISED_Asym_Pause;
-	}
 
 	genphy_config_aneg(gmacdev->phydev);
 
@@ -320,21 +315,18 @@ static int nss_gmac_nway_reset(struct net_device *netdev)
 	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 
-	if (!netif_running(netdev)) {
+	if (!netif_running(netdev))
 		return -EAGAIN;
-	}
 
 	/*
 	 * If the link polling for this GMAC is disabled, we probably
 	 * do not have a PHY attached.
 	 */
-	if (!test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
+	if (!test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags))
 		return -EINVAL;
-	}
 
-	if (!test_bit(__NSS_GMAC_AUTONEG, &gmacdev->flags)) {
+	if (!test_bit(__NSS_GMAC_AUTONEG, &gmacdev->flags))
 		return -EINVAL;
-	}
 
 	genphy_restart_aneg(gmacdev->phydev);
 
@@ -426,38 +418,30 @@ static int32_t nss_gmac_get_settings(struct net_device *netdev,
 
 	/* Populate capabilities advertised by link partner */
 	phyreg = nss_gmac_mii_rd_reg(gmacdev, gmacdev->phy_base, MII_LPA);
-	if (phyreg & LPA_10HALF) {
+	if (phyreg & LPA_10HALF)
 		ecmd->lp_advertising |= ADVERTISED_10baseT_Half;
-	}
 
-	if (phyreg & LPA_10FULL) {
+	if (phyreg & LPA_10FULL)
 		ecmd->lp_advertising |= ADVERTISED_10baseT_Full;
-	}
 
-	if (phyreg & LPA_100HALF) {
+	if (phyreg & LPA_100HALF)
 		ecmd->lp_advertising |= ADVERTISED_100baseT_Half;
-	}
 
-	if (phyreg & LPA_100FULL) {
+	if (phyreg & LPA_100FULL)
 		ecmd->lp_advertising |= ADVERTISED_100baseT_Full;
-	}
 
-	if (phyreg & LPA_PAUSE_CAP) {
+	if (phyreg & LPA_PAUSE_CAP)
 		ecmd->lp_advertising |= ADVERTISED_Pause;
-	}
 
-	if (phyreg & LPA_PAUSE_ASYM) {
+	if (phyreg & LPA_PAUSE_ASYM)
 		ecmd->lp_advertising |= ADVERTISED_Asym_Pause;
-	}
 
 	phyreg = nss_gmac_mii_rd_reg(gmacdev, gmacdev->phy_base, MII_STAT1000);
-	if (phyreg & LPA_1000HALF) {
+	if (phyreg & LPA_1000HALF)
 		ecmd->lp_advertising |= ADVERTISED_1000baseT_Half;
-	}
 
-	if (phyreg & LPA_1000FULL) {
+	if (phyreg & LPA_1000FULL)
 		ecmd->lp_advertising |= ADVERTISED_1000baseT_Full;
-	}
 
 	return 0;
 }
@@ -481,9 +465,8 @@ static int32_t nss_gmac_set_settings(struct net_device *netdev,
 	 * changes below. This would be true for GMACs connected to switch
 	 * and interfaces that do not use a PHY.
 	 */
-	if (gmacdev->forced_speed != SPEED_UNKNOWN) {
+	if (gmacdev->forced_speed != SPEED_UNKNOWN)
 		return -EPERM;
-	}
 
 	phydev = gmacdev->phydev;
 
@@ -497,11 +480,10 @@ static int32_t nss_gmac_set_settings(struct net_device *netdev,
 	phydev->speed = ethtool_cmd_speed(ecmd);
 	phydev->duplex = ecmd->duplex;
 
-	if (ecmd->autoneg == AUTONEG_ENABLE) {
+	if (ecmd->autoneg == AUTONEG_ENABLE)
 		test_and_set_bit(__NSS_GMAC_AUTONEG, &gmacdev->flags);
-	} else {
+	else
 		test_and_clear_bit(__NSS_GMAC_AUTONEG, &gmacdev->flags);
-	}
 
 	genphy_config_aneg(phydev);
 

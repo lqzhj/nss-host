@@ -219,9 +219,8 @@ static inline int nss_gmac_rx(struct nss_gmac_dev *gmacdev, int budget)
 	}
 
 	busy = gmacdev->busy_rx_desc;
-	if (busy > budget) {
+	if (busy > budget)
 		busy = budget;
-	}
 
 	do {
 		desc = gmacdev->rx_busy_desc;
@@ -414,9 +413,8 @@ static int nss_gmac_slowpath_if_xmit(void *app_data, struct sk_buff *skb)
 	/*
 	 * We don't have enough tx descriptor for this pkt, return busy
 	 */
-	if ((NSS_GMAC_TX_DESC_SIZE - gmacdev->busy_tx_desc) < nfrags + 1) {
+	if ((NSS_GMAC_TX_DESC_SIZE - gmacdev->busy_tx_desc) < nfrags + 1)
 		return NETDEV_TX_BUSY;
-	}
 
 	/*
 	 * Most likely, it is not a fragmented pkt, optimize for that
@@ -532,9 +530,8 @@ static void nss_gmac_stats_receive(struct nss_gmac_dev *gmacdev,
 
 	netdev = (struct net_device *)gmacdev->netdev;
 
-	if (!test_bit(__NSS_GMAC_UP, &gmacdev->flags)) {
+	if (!test_bit(__NSS_GMAC_UP, &gmacdev->flags))
 		return;
-	}
 
 	spin_lock(&gmacdev->stats_lock);
 
@@ -635,16 +632,14 @@ static void nss_notify_linkup(struct nss_gmac_dev *gmacdev)
 {
 	uint32_t link = 0;
 
-	if (!test_bit(__NSS_GMAC_UP, &gmacdev->flags)) {
+	if (!test_bit(__NSS_GMAC_UP, &gmacdev->flags))
 		return;
-	}
 
 	link = 0x1;
-	if (gmacdev->speed == SPEED1000) {
+	if (gmacdev->speed == SPEED1000)
 		link |= 0x4;
-	} else if (gmacdev->speed == SPEED100) {
+	else if (gmacdev->speed == SPEED100)
 		link |= 0x2;
-	}
 
 	gmacdev->data_plane_ops->link_state(gmacdev->data_plane_ctx, link);
 }
@@ -670,9 +665,8 @@ void nss_gmac_linkup(struct nss_gmac_dev *gmacdev)
 	}
 
 	gmacdev->link_state = LINKUP;
-	if (nss_gmac_dev_set_speed(gmacdev) != 0) {
+	if (nss_gmac_dev_set_speed(gmacdev) != 0)
 		return;
-	}
 
 	if (gmacdev->first_linkup_done == 0) {
 		nss_gmac_disable_interrupt_all(gmacdev);
@@ -745,17 +739,15 @@ void nss_gmac_adjust_link(struct net_device *netdev)
 
 	gmacdev = netdev_priv(netdev);
 
-	if (!test_bit(__NSS_GMAC_UP, &gmacdev->flags)) {
+	if (!test_bit(__NSS_GMAC_UP, &gmacdev->flags))
 		return;
-	}
 
 	status = nss_gmac_check_link(gmacdev);
 	mutex_lock(&gmacdev->link_mutex);
-	if (status == LINKUP && gmacdev->link_state == LINKDOWN) {
+	if (status == LINKUP && gmacdev->link_state == LINKDOWN)
 		nss_gmac_linkup(gmacdev);
-	} else if (status == LINKDOWN && gmacdev->link_state == LINKUP) {
+	else if (status == LINKDOWN && gmacdev->link_state == LINKUP)
 		nss_gmac_linkdown(gmacdev);
-	}
 	mutex_unlock(&gmacdev->link_mutex);
 }
 
@@ -811,9 +803,8 @@ int32_t nss_gmac_linux_xmit_frames(struct sk_buff *skb, struct net_device *netde
 
 	msg_status = gmacdev->data_plane_ops->xmit(gmacdev->data_plane_ctx, skb);
 
-	if (likely(msg_status == NSS_GMAC_SUCCESS)) {
+	if (likely(msg_status == NSS_GMAC_SUCCESS))
 		goto tx_done;
-	}
 
 drop:
 	/*
@@ -848,9 +839,8 @@ int nss_gmac_linux_open(struct net_device *netdev)
 	struct nss_gmac_global_ctx *ctx = NULL;
 	int err;
 
-	if (!gmacdev) {
+	if (!gmacdev)
 		return -EINVAL;
-	}
 
 	dev = &netdev->dev;
 	ctx = gmacdev->ctx;
@@ -933,9 +923,8 @@ int nss_gmac_linux_close(struct net_device *netdev)
 {
 	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 
-	if (!gmacdev) {
+	if (!gmacdev)
 		return -EINVAL;
-	}
 
 	test_and_set_bit(__NSS_GMAC_CLOSING, &gmacdev->flags);
 
@@ -948,9 +937,8 @@ int nss_gmac_linux_close(struct net_device *netdev)
 	nss_gmac_disable_interrupt_all(gmacdev);
 	gmacdev->data_plane_ops->link_state(gmacdev->data_plane_ctx, 0);
 
-	if (!IS_ERR_OR_NULL(gmacdev->phydev)) {
+	if (!IS_ERR_OR_NULL(gmacdev->phydev))
 		phy_stop(gmacdev->phydev);
-	}
 
 	test_and_clear_bit(__NSS_GMAC_UP, &gmacdev->flags);
 	test_and_clear_bit(__NSS_GMAC_CLOSING, &gmacdev->flags);
@@ -1001,17 +989,14 @@ int32_t nss_gmac_linux_change_mtu(struct net_device *netdev, int32_t newmtu)
 	struct nss_gmac_dev *gmacdev = NULL;
 
 	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
-	if (!gmacdev) {
+	if (!gmacdev)
 		return -EINVAL;
-	}
 
-	if (newmtu > NSS_GMAC_JUMBO_MTU) {
+	if (newmtu > NSS_GMAC_JUMBO_MTU)
 		return -EINVAL;
-	}
 
-	if (gmacdev->data_plane_ops->change_mtu(gmacdev->data_plane_ctx, newmtu) != NSS_GMAC_SUCCESS) {
+	if (gmacdev->data_plane_ops->change_mtu(gmacdev->data_plane_ctx, newmtu) != NSS_GMAC_SUCCESS)
 		return -EAGAIN;
-	}
 
 	if (newmtu <= NSS_GMAC_NORMAL_FRAME_MTU) {
 		nss_gmac_jumbo_frame_disable(gmacdev);
@@ -1034,9 +1019,8 @@ int32_t nss_gmac_linux_change_mtu(struct net_device *netdev, int32_t newmtu)
 bool nss_gmac_is_in_open_state(struct net_device *netdev)
 {
 	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
-	if (test_bit(__NSS_GMAC_UP, &gmacdev->flags)) {
+	if (test_bit(__NSS_GMAC_UP, &gmacdev->flags))
 		return true;
-	}
 	return false;
 }
 EXPORT_SYMBOL(nss_gmac_is_in_open_state);
@@ -1066,9 +1050,9 @@ int nss_gmac_override_data_plane(struct net_device *netdev,
 	/*
 	 * If this gmac is up, close the netdev to force TX/RX stop
 	 */
-	if (test_bit(__NSS_GMAC_UP, &gmacdev->flags)) {
+	if (test_bit(__NSS_GMAC_UP, &gmacdev->flags))
 		nss_gmac_linux_close(netdev);
-	}
+
 	/* Recored the data_plane_ctx, data_plane_ops */
 	gmacdev->data_plane_ctx = ctx;
 	gmacdev->data_plane_ops = dp_ops;
@@ -1112,9 +1096,8 @@ void nss_gmac_restore_data_plane(struct net_device *netdev)
 	/*
 	 * If this gmac is up, close the netdev to force TX/RX stop
 	 */
-	if (test_bit(__NSS_GMAC_UP, &gmacdev->flags)) {
+	if (test_bit(__NSS_GMAC_UP, &gmacdev->flags))
 		nss_gmac_linux_close(netdev);
-	}
 	gmacdev->data_plane_ctx = netdev;
 	gmacdev->data_plane_ops = &nss_gmac_slowpath_ops;
 }
@@ -1127,9 +1110,8 @@ EXPORT_SYMBOL(nss_gmac_restore_data_plane);
 struct net_device *nss_gmac_get_netdev_by_macid(int macid)
 {
 	struct nss_gmac_dev *gmacdev = ctx.nss_gmac[macid];
-	if (!gmacdev) {
+	if (!gmacdev)
 		return NULL;
-	}
 	return gmacdev->netdev;
 }
 EXPORT_SYMBOL(nss_gmac_get_netdev_by_macid);

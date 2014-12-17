@@ -2214,13 +2214,11 @@ static inline struct DmaDesc *nss_gmac_get_tx_qptr(struct nss_gmac_dev *gmacdev)
 {
 	struct DmaDesc *txdesc = gmacdev->tx_busy_desc;
 
-	if (unlikely(gmacdev->busy_tx_desc == 0)) {
+	if (unlikely(gmacdev->busy_tx_desc == 0))
 		return NULL;
-	}
 
-	if (nss_gmac_is_desc_owned_by_dma(txdesc)) {
+	if (nss_gmac_is_desc_owned_by_dma(txdesc))
 		return NULL;
-	}
 
 	BUG_ON(nss_gmac_is_desc_empty(txdesc));
 
@@ -2303,15 +2301,13 @@ static inline struct DmaDesc *nss_gmac_set_tx_qptr(struct nss_gmac_dev *gmacdev,
 	txdesc->reserved1 = Data1;
 
 	/* Program second buffer address if using two buffers. */
-	if (Length1 > NSS_GMAC_MAX_DESC_BUFF) {
+	if (Length1 > NSS_GMAC_MAX_DESC_BUFF)
 		txdesc->data1 = Buffer1 + NSS_GMAC_MAX_DESC_BUFF;
-	} else {
+	else
 		txdesc->data1 = 0;
-	}
 
-	if (likely(offload_needed)) {
+	if (likely(offload_needed))
 		nss_gmac_tx_checksum_offload_tcp_pseudo(gmacdev, txdesc);
-	}
 
 	txdesc->status |= set_dma;
 
@@ -2360,11 +2356,10 @@ static inline int32_t nss_gmac_set_rx_qptr(struct nss_gmac_dev *gmacdev,
 	rxdesc->reserved1 = Data1;
 
 	/* Program second buffer address if using two buffers. */
-	if (Length1 > NSS_GMAC_MAX_DESC_BUFF) {
+	if (Length1 > NSS_GMAC_MAX_DESC_BUFF)
 		rxdesc->data1 = Buffer1 + NSS_GMAC_MAX_DESC_BUFF;
-	} else {
+	else
 		rxdesc->data1 = 0;
-	}
 
 	rxdesc->extstatus = 0;
 	rxdesc->timestamplow = 0;
@@ -2395,13 +2390,12 @@ static inline struct DmaDesc *nss_gmac_get_rx_qptr(struct nss_gmac_dev *gmacdev)
 {
 	struct DmaDesc *rxdesc = gmacdev->rx_busy_desc;
 
-	if (unlikely(gmacdev->busy_rx_desc == 0)) {
+	if (unlikely(gmacdev->busy_rx_desc == 0))
 		return NULL;
-	}
 
-	if (nss_gmac_is_desc_owned_by_dma(rxdesc)) {
+	if (nss_gmac_is_desc_owned_by_dma(rxdesc))
 		return NULL;
-	}
+
 	BUG_ON(nss_gmac_is_desc_empty(rxdesc));
 
 	return rxdesc;
