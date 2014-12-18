@@ -64,6 +64,9 @@ struct nss_crypto_ctrl_eng {
 
 	struct nss_crypto_desc *hw_desc[NSS_CRYPTO_BAM_PP]; 		/**< H/W descriptors BAM rings, command descriptors */
 	struct nss_crypto_ctrl_idx idx_tbl[NSS_CRYPTO_MAX_IDXS];	/**< index table */
+
+	struct nss_crypto_stats stats;	/**< engine stats */
+	struct dentry *stats_dentry;	/**< debufs entry corresponding to stats directory */
 };
 
 /**
@@ -74,6 +77,13 @@ struct nss_crypto_idx_info {
 
 	struct nss_crypto_key ckey;		/**< cipher key */
 	struct nss_crypto_key akey;		/**< auth key */
+
+	struct nss_crypto_stats stats;		/**< session stats */
+
+	enum nss_crypto_session_state state;	/**< Indicates whether session is active or not */
+
+	struct dentry *stats_dentry;		/**< debufs entry corresponding to stats */
+	struct dentry *cfg_dentry;		/**< debufs entry corresponding to config */
 
 	uint16_t req_type;			/**< transform is for encryption or decryption */
 	uint16_t res;				/**< reserved for padding */
@@ -98,6 +108,12 @@ struct nss_crypto_ctrl {
 	struct delayed_work crypto_work;	/**< crypto_work structure */
 
 	struct nss_crypto_ctrl_eng *eng;	/**< pointer to engines control data information */
+
+	struct nss_crypto_stats total_stats;	/**< crypto total stats */
+
+	struct dentry *root_dentry;		/**< debufs entry corresponding to qca-nss-crypto directory */
+	struct dentry *stats_dentry;		/**< debufs entry corresponding to stats directory */
+	struct dentry *cfg_dentry;		/**< debufs entry corresponding to config directory */
 
 	struct nss_crypto_idx_info idx_info[NSS_CRYPTO_MAX_IDXS];
 						/**< per index info */
@@ -171,4 +187,13 @@ void *nss_crypto_mem_realloc(void *src, size_t src_len, size_t dst_len);
  * @return result of the call
  */
 bool nss_crypto_start_idx_free(uint32_t session_idx);
+
+/*
+ * @brief checks session's current state
+ *
+ * @param idx_info[IN] pointer to index info structure
+ *
+ * @return true if session is free
+ */
+bool nss_crypto_chk_idx_isfree(struct nss_crypto_idx_info *idx_info);
 #endif /* __NSS_CRYPTO_CTRL_H*/

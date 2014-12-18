@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -22,17 +22,14 @@
 #include <nss_crypto_hw.h>
 #include <nss_crypto_ctrl.h>
 #include <nss_crypto_dbg.h>
+#include <nss_crypto_debugfs.h>
 
 #define NSS_CRYPTO_DEBUGFS_PERM_RO 0444
 #define NSS_CRYPTO_DEBUGFS_PERM_RW 0666
-#define NSS_CRYPTO_DEBUGFS_NAME_SZ 64
-#define NSS_CRYPTO_DEBUGFS_BUF_SZ 512
 #define NSS_CRYPTO_MSG_LEN (sizeof(struct nss_crypto_msg) - sizeof(struct nss_cmn_msg))
 
 #define NSS_CRYPTO_ZONE_NAME_LEN	64
 #define NSS_CRYPTO_ZONE_DEFAULT_NAME	"crypto_buf-"
-
-static ssize_t nss_crypto_read_stats(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos);
 
 /*
  * global control component
@@ -41,82 +38,6 @@ extern struct nss_crypto_ctrl gbl_crypto_ctrl;
 
 struct nss_ctx_instance *nss_drv_hdl;
 void *nss_pm_hdl;
-
-/*
- * param structure for crypto stats
- */
-struct nss_crypto_stats_param {
-	uint8_t *name;
-	uint8_t data[NSS_CRYPTO_MAX_NAME];
-	uint32_t valid;
-	struct nss_crypto_stats stats;
-};
-
-/*
- * crypto param structure.
- */
-struct nss_crypto_param {
-	struct nss_crypto_stats_param eng[NSS_CRYPTO_MAX_ENGINES];
-	struct nss_crypto_stats_param session[NSS_CRYPTO_MAX_IDXS];
-	struct nss_crypto_stats_param total;
-};
-
-/*
- * crypto debugfs cookie structure.
- */
-struct nss_crypto_debugfs_cookie {
-	uint32_t num;
-	uint8_t *name;
-	void *ptr;
-};
-
-/*
- * Initializing crypto param structure.
- */
-static struct nss_crypto_param param = {
-	.eng[0] = { .name = "engine-0"},
-	.eng[1] = { .name = "engine-1"},
-	.eng[2] = { .name = "engine-2"},
-	.eng[3] = { .name = "engine-3"},
-	.session[0] = { .name = "session-0" },
-	.session[1] = { .name = "session-1" },
-	.session[2] = { .name = "session-2" },
-	.session[3] = { .name = "session-3" },
-	.session[4] = { .name = "session-4" },
-	.session[5] = { .name = "session-5" },
-	.session[6] = { .name = "session-6" },
-	.session[7] = { .name = "session-7" },
-	.session[8] = { .name = "session-8" },
-	.session[9] = { .name = "session-9" },
-	.session[10] = { .name = "session-10" },
-	.session[11] = { .name = "session-11" },
-	.session[12] = { .name = "session-12" },
-	.session[13] = { .name = "session-13" },
-	.session[14] = { .name = "session-14" },
-	.session[15] = { .name = "session-15" },
-	.total = {.name = "total"}
-};
-
-/*
- * Initializing crypto debugfs cookie structure.
- */
-static struct nss_crypto_debugfs_cookie debugfs_cookie[] = {
-	{.name = "engine_stats", .num = NSS_CRYPTO_MAX_ENGINES, .ptr = &param.eng[0]},
-	{.name = "session_stats", .num = NSS_CRYPTO_MAX_IDXS, .ptr = &param.session[0]},
-	{.name = "total_stats", .num = 1, .ptr = &param.total}
-};
-
-#define NSS_CRYPTO_DEBUGFS_NUM_COOKIES ((uint32_t)(sizeof(debugfs_cookie) / sizeof(debugfs_cookie[0])))
-
-/*
- * crypto dentry categories
- */
-struct nss_crypto_dentry {
-	struct dentry *root;
-	struct dentry *config;
-};
-
-static struct nss_crypto_dentry dentry;
 
 /*
  * internal structure for a buffer node
@@ -140,14 +61,6 @@ struct nss_crypto_user {
 
 	struct kmem_cache *zone;
 	uint8_t zone_name[NSS_CRYPTO_ZONE_NAME_LEN];
-};
-
-/*
- * initializing file ops structure.
- */
-static const struct file_operations nss_crypto_show_stats_ops = {
-	.open = simple_open,
-	.read = nss_crypto_read_stats,
 };
 
 LIST_HEAD(user_head);
@@ -335,14 +248,10 @@ void nss_crypto_transform_done(void *app_data __attribute((unused)), void *buffe
  * nss_crypto_copy_stats()
  * 	copy stats from msg to local copy.
  */
-static void nss_crypto_copy_stats(struct nss_crypto_stats_param *param, struct nss_crypto_stats *stats)
+static void nss_crypto_copy_stats(void *dst, void *src)
 {
 
-	if (!param->valid) {
-		return;
-	}
-
-	memcpy(&param->stats, stats, sizeof(struct nss_crypto_stats));
+	memcpy(dst, src, sizeof(struct nss_crypto_stats));
 }
 
 /*
@@ -352,6 +261,8 @@ static void nss_crypto_copy_stats(struct nss_crypto_stats_param *param, struct n
 void nss_crypto_process_event(void *app_data, struct nss_crypto_msg *nim)
 {
 	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
+	struct nss_crypto_ctrl_eng *e_ctrl;
+	struct nss_crypto_idx_info *idx;
 	struct nss_crypto_sync_stats *stats;
 	struct nss_crypto_config_eng *open;
 	struct nss_crypto_config_session *session;
@@ -363,14 +274,24 @@ void nss_crypto_process_event(void *app_data, struct nss_crypto_msg *nim)
 		stats = &nim->msg.stats;
 
 		for (i = 0; i < ctrl->num_eng; i++) {
-			nss_crypto_copy_stats(&param.eng[i], &stats->eng_stats[i]);
+			e_ctrl = &ctrl->eng[i];
+			nss_crypto_copy_stats(&e_ctrl->stats, &stats->eng_stats[i]);
 		}
 
 		for (i = 0; i < NSS_CRYPTO_MAX_IDXS; i++) {
-			nss_crypto_copy_stats(&param.session[i], &stats->idx_stats[i]);
+			idx = &ctrl->idx_info[i];
+
+			/*
+			 * Copy statistics only if session is active
+			 */
+			if (nss_crypto_chk_idx_isfree(idx) == true) {
+				continue;
+			}
+
+			nss_crypto_copy_stats(&idx->stats, &stats->idx_stats[i]);
 		}
 
-		nss_crypto_copy_stats(&param.total, &stats->total);
+		nss_crypto_copy_stats(&ctrl->total_stats, &stats->total);
 
 		break;
 
@@ -440,78 +361,6 @@ nss_crypto_status_t nss_crypto_transform_payload(nss_crypto_handle_t crypto, str
 EXPORT_SYMBOL(nss_crypto_transform_payload);
 
 /*
- *  nss_crypto_read_stats()
- *  	read crypto stats.
- */
-static ssize_t nss_crypto_read_stats(struct file *fp, char __user *u_buf, size_t sz, loff_t *ppos)
-{
-	size_t size_al = 0;
-	size_t size_wr = 0;
-	ssize_t bytes_read = 0;
-	struct nss_crypto_stats_param *l_param;
-	struct nss_crypto_stats *stats;
-	char *l_buf;
-	int i;
-	struct nss_crypto_debugfs_cookie *cookie = (struct nss_crypto_debugfs_cookie *)fp->private_data;
-
-	l_param = (struct nss_crypto_stats_param *)cookie->ptr;
-
-	size_al = cookie->num * NSS_CRYPTO_DEBUGFS_BUF_SZ;
-
-	l_buf = kzalloc(size_al, GFP_KERNEL);
-	if (unlikely(l_buf == NULL)) {
-		nss_crypto_err("Could not allocate memory for local statistics buffer \n");
-		return 0;
-	}
-
-	for (i = 0; i < cookie->num; i++, l_param++) {
-
-		stats = &l_param->stats;
-
-		if (size_wr >= size_al) {
-			break;
-		}
-
-		if (!l_param->valid) {
-			continue;
-		}
-
-		size_wr += scnprintf(l_buf + size_wr, size_al - size_wr,
-					"--- %s --- \n"
-					"queued: %d\n"
-					"completed: %d\n"
-					"dropped: %d\n"
-					"%s\n\n",
-					l_param->name, stats->queued, stats->completed, stats->dropped, l_param->data);
-
-	}
-
-	bytes_read = simple_read_from_buffer(u_buf, sz, ppos, l_buf, strlen(l_buf));
-
-	kfree(l_buf);
-
-	return bytes_read;
-}
-
-/*
- * nss_crypto_param_init()
- * 	initiallize the crypto stats interface
- */
-static void nss_crypto_param_init(void)
-{
-	int i;
-
-	dentry.root = debugfs_create_dir("qca-nss-crypto", NULL);
-
-	param.total.valid = 1;
-
-	for (i = 0; i < NSS_CRYPTO_DEBUGFS_NUM_COOKIES; i++) {
-		debugfs_create_file(debugfs_cookie[i].name, S_IRUGO , dentry.root,
-					&debugfs_cookie[i], &nss_crypto_show_stats_ops);
-	}
-}
-
-/*
  * nss_crypto_init()
  * 	initialize the crypto driver
  *
@@ -534,7 +383,10 @@ void nss_crypto_init(void)
 		nss_crypto_info(" Not able to set pm perf level to TURBO!!!\n");
 	}
 
-	nss_crypto_param_init();
+	/*
+	 * Initialize debugfs entries
+	 */
+	nss_crypto_debugfs_init(&gbl_crypto_ctrl);
 
 	nss_drv_hdl = nss_crypto_notify_register(nss_crypto_process_event, &user_head);
 	nss_drv_hdl = nss_crypto_data_register(nss_crypto_transform_done, &user_head);
@@ -550,15 +402,16 @@ void nss_crypto_init(void)
  * - initialize the control component for all pipes in that engine
  * - send the open message to the NSS crypto
  */
-void nss_crypto_engine_init(uint32_t eng_count)
+void nss_crypto_engine_init(uint32_t eng_num)
 {
 	struct nss_crypto_msg nim;
 	struct nss_cmn_msg *ncm = &nim.cm;
 	struct nss_crypto_config_eng *open = &nim.msg.eng;
 	struct nss_crypto_ctrl_eng *e_ctrl;
+	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
 	int i;
 
-	e_ctrl = &gbl_crypto_ctrl.eng[eng_count];
+	e_ctrl = &ctrl->eng[eng_num];
 
 	memset(&nim, 0, sizeof(struct nss_crypto_msg));
 
@@ -567,12 +420,12 @@ void nss_crypto_engine_init(uint32_t eng_count)
 			NSS_CRYPTO_MSG_TYPE_OPEN_ENG,
 			NSS_CRYPTO_MSG_LEN,
 			nss_crypto_process_event,
-			(void *)eng_count);
+			(void *)eng_num);
 
 	/*
 	 * prepare the open config message
 	 */
-	open->eng_id = eng_count;
+	open->eng_id = eng_num;
 	open->bam_pbase = e_ctrl->bam_pbase;
 
 	for (i = 0; i < NSS_CRYPTO_BAM_PP; i++) {
@@ -592,97 +445,10 @@ void nss_crypto_engine_init(uint32_t eng_count)
 		return;
 	}
 
-	param.eng[eng_count].valid = 1;
-}
-
-/*
- * nss_crypto_param_update_session()
- * 	update session specific param
- */
-void nss_crypto_param_update_session(struct nss_crypto_stats_param *session, uint32_t session_idx)
-{
-	uint8_t *data = session->data;
-
-	enum nss_crypto_cipher cipher_algo;
-	enum nss_crypto_auth auth_algo;
-	uint32_t cipher_keylen = 0;
-	uint32_t auth_keylen = 0;
-
-	size_t size_al = NSS_CRYPTO_MAX_NAME;
-	size_t size_wr = 0;
-
-	cipher_algo = nss_crypto_get_cipher(session_idx);
-	cipher_keylen = nss_crypto_get_cipher_keylen(session_idx);
-
-	auth_algo = nss_crypto_get_auth(session_idx);
-	auth_keylen = nss_crypto_get_auth_keylen(session_idx);
-
-	memset(data, 0, size_al);
-
 	/*
-	 * populate the cipher algorithm
+	 * Create debufs information of the engine
 	 */
-	switch (cipher_algo) {
-	case NSS_CRYPTO_CIPHER_AES:
-		size_wr = snprintf(data, size_al, "%s-%d,", "AES,", NSS_CRYPTO_BYTES2BITS(cipher_keylen));
-		size_al = size_al - size_wr;
-		data = data + size_wr;
-
-		break;
-
-	case NSS_CRYPTO_CIPHER_DES:
-		size_wr = snprintf(data, size_al, "%s-%d,", "DES,", NSS_CRYPTO_BYTES2BITS(cipher_keylen));
-		size_al = size_al - size_wr;
-		data = data + size_wr;
-
-		break;
-	case NSS_CRYPTO_CIPHER_NULL:
-		size_wr = snprintf(data, size_al, "%s-%d,", "NULL,", NSS_CRYPTO_BYTES2BITS(cipher_keylen));
-		size_al = size_al - size_wr;
-		data = data + size_wr;
-
-		break;
-
-	default:
-		size_wr = snprintf(data, size_al, "%s,", "NONE,");
-		size_al = size_al - size_wr;
-		data = data + size_wr;
-
-		break;
-	}
-
-	/*
-	 * populate the authentication algorithm
-	 */
-	switch (auth_algo) {
-	case NSS_CRYPTO_AUTH_SHA1_HMAC:
-		size_wr = snprintf(data, size_al, "%s-%d", "SHA1", NSS_CRYPTO_BYTES2BITS(auth_keylen));
-		size_al = size_al - size_wr;
-		data = data + size_wr;
-
-		break;
-
-	case NSS_CRYPTO_AUTH_SHA256_HMAC:
-		size_wr = snprintf(data, size_al, "%s-%d", "SHA256", NSS_CRYPTO_BYTES2BITS(auth_keylen));
-		size_al = size_al - size_wr;
-		data = data + size_wr;
-
-		break;
-
-	case NSS_CRYPTO_AUTH_NULL:
-		size_wr = snprintf(data, size_al, "%s-%d", "NULL", NSS_CRYPTO_BYTES2BITS(auth_keylen));
-		size_al = size_al - size_wr;
-		data = data + size_wr;
-
-		break;
-
-	default:
-		size_wr = snprintf(data, size_al, "%s,", "NONE,");
-		size_al = size_al - size_wr;
-		data = data + size_wr;
-
-		break;
-	}
+	nss_crypto_debugfs_add_engine(ctrl, eng_num);
 }
 
 /*
@@ -694,17 +460,16 @@ void nss_crypto_reset_session(uint32_t session_idx, enum nss_crypto_session_stat
 	struct nss_crypto_msg nim;
 	struct nss_cmn_msg *ncm = &nim.cm;
 	struct nss_crypto_config_session *session = &nim.msg.session;
+	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
 
 	switch (state) {
 	case NSS_CRYPTO_SESSION_STATE_ACTIVE:
-		param.session[session_idx].valid = 1;
-
-		nss_crypto_param_update_session(&param.session[session_idx], session_idx);
+		nss_crypto_debugfs_add_session(ctrl, session_idx);
 
 		break;
 
 	case NSS_CRYPTO_SESSION_STATE_FREE:
-		param.session[session_idx].valid = 0;
+		nss_crypto_debugfs_del_session(ctrl, session_idx);
 
 		break;
 

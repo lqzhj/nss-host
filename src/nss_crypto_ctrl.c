@@ -686,10 +686,19 @@ void nss_crypto_update_cipher_info(struct nss_crypto_idx_info *idx, struct nss_c
 }
 
 /*
- * nss_crypto_set_idx_reqtype()
+ * nss_crypto_update_idx_state()
+ *	Updates the session state
+ */
+void nss_crypto_update_idx_state(struct nss_crypto_idx_info *idx, enum nss_crypto_session_state state)
+{
+	idx->state = state;
+}
+
+/*
+ * nss_crypto_update_idx_reqtype()
  *	update the session crypto request type (encryption/decryption)
  */
-static nss_crypto_status_t nss_crypto_set_idx_reqtype(struct nss_crypto_idx_info *idx, uint16_t req_type)
+static nss_crypto_status_t nss_crypto_update_idx_reqtype(struct nss_crypto_idx_info *idx, uint16_t req_type)
 {
 	const uint16_t req_mask = (NSS_CRYPTO_REQ_TYPE_DECRYPT | NSS_CRYPTO_REQ_TYPE_ENCRYPT);
 
@@ -723,6 +732,21 @@ void nss_crypto_update_auth_info(struct nss_crypto_idx_info *idx, struct nss_cry
 	idx->akey.algo = auth ? auth->algo : NSS_CRYPTO_AUTH_NONE;
 	idx->akey.key_len = auth ? auth->key_len : 0;
 	idx->akey.key = NULL;
+}
+
+/*
+ * nss_crypto_chk_idx_isfree()
+ *	get the session state
+ */
+bool nss_crypto_chk_idx_isfree(struct nss_crypto_idx_info *idx)
+{
+	bool session_state = false;
+
+	if (idx->state != NSS_CRYPTO_SESSION_STATE_ACTIVE) {
+		session_state = true;
+	}
+
+	return session_state;
 }
 
 /*
@@ -765,7 +789,7 @@ nss_crypto_status_t nss_crypto_session_update(nss_crypto_handle_t crypto, uint32
 	 * Update whether this SA index is used for encryption or decryption
 	 * TODO: Need to evaluate this for the case of pure authentication
 	 */
-	status = nss_crypto_set_idx_reqtype(&ctrl->idx_info[session_idx], params->req_type);
+	status = nss_crypto_update_idx_reqtype(&ctrl->idx_info[session_idx], params->req_type);
 	if (status != NSS_CRYPTO_STATUS_OK) {
 		nss_crypto_err("invalid parameters\n");
 		return NSS_CRYPTO_STATUS_EINVAL;
@@ -845,6 +869,7 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
 
 	nss_crypto_update_cipher_info(&ctrl->idx_info[idx], cipher);
 	nss_crypto_update_auth_info(&ctrl->idx_info[idx], auth);
+	nss_crypto_update_idx_state(&ctrl->idx_info[idx], NSS_CRYPTO_SESSION_STATE_ACTIVE);
 
 	/*
 	 * program keys for all the engines for the given pipe pair (index)
@@ -929,7 +954,8 @@ void nss_crypto_idx_free(unsigned long session_idx)
 
 	nss_crypto_update_cipher_info(&ctrl->idx_info[session_idx], NULL);
 	nss_crypto_update_auth_info(&ctrl->idx_info[session_idx], NULL);
-	nss_crypto_set_idx_reqtype(&ctrl->idx_info[session_idx], NSS_CRYPTO_REQ_TYPE_NONE);
+	nss_crypto_update_idx_state(&ctrl->idx_info[session_idx], NSS_CRYPTO_SESSION_STATE_FREE);
+	nss_crypto_update_idx_reqtype(&ctrl->idx_info[session_idx], NSS_CRYPTO_REQ_TYPE_NONE);
 
 	/*
 	 * program keys for all the engines for the given pipe pair (index)
@@ -975,7 +1001,6 @@ uint32_t nss_crypto_get_cipher_keylen(uint32_t session_idx)
 	idx = &ctrl->idx_info[session_idx];
 
 	return idx->ckey.key_len;
-
 }
 EXPORT_SYMBOL(nss_crypto_get_cipher_keylen);
 

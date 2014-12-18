@@ -22,6 +22,7 @@ obj-m += $(NSS_CRYPTO_MOD_NAME).o
 $(NSS_CRYPTO_MOD_NAME)-objs = nss_crypto_ipq806x.o
 $(NSS_CRYPTO_MOD_NAME)-objs += nss_crypto_if.o
 $(NSS_CRYPTO_MOD_NAME)-objs += nss_crypto_ctrl.o
+$(NSS_CRYPTO_MOD_NAME)-objs += nss_crypto_debugfs.o
 
 obj ?= .
 ccflags-y += -I$(obj)/include -I$(obj)/
