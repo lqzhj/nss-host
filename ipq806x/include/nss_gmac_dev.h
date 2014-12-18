@@ -848,17 +848,6 @@ enum DmaInterruptReg {
 	DmaIeTxCompleted = DmaIntTxCompleted,	/* Transmit completed enable            */
 };
 
-/* DmaMissedFr	= 0x,0020	CSR8 - Missed Frame & Buffer overflow Counter	*/
-enum DmaMissedFrReg {
-	DmaMissFrmCntMask = 0x0000FFFF,
-	DmaMissFrmCntShift = 0,
-	DmaMissFrmCntOvf = 0x00010000,
-	DmaOvfFrmCntMask = 0x0FFE0000,
-	DmaOvfFrmCntShift = 17,
-	DmaOvfFrmCntOvf = 0x10000000,
-};
-
-
 /* DmaAxiBusMod	= 0x,0028 */
 enum DmaAxiBusModeReg {
 	DmaEnLpi = 0x80000000,
@@ -1196,7 +1185,6 @@ enum InitialRegisters {
 	DmaIntDisable = 0,
 	DmaAxiBusModeVal = DmaAxiBlen16 | DmaRdOsrNumReqs8 | DmaWrOsrNumReqs8,
 };
-
 /**********************************************************
  * Mac Management Counters (MMC)
  **********************************************************/
@@ -1213,335 +1201,9 @@ enum mmc_enable {
 					   generated from tx counters   */
 };
 
-enum mmc_tx {
-	GmacMmcTxOctetCountGb = 0x0114,	/*Bytes Tx excl. of preamble and retried bytes     (Good or Bad)                        */
-	GmacMmcTxFrameCountGb = 0x0118,	/*Frames Tx excl. of retried frames                (Good or Bad)                        */
-	GmacMmcTxBcFramesG = 0x011C,	/*Broadcast Frames Tx                              (Good)                               */
-	GmacMmcTxMcFramesG = 0x0120,	/*Multicast Frames Tx                              (Good)                               */
-
-	GmacMmcTx64OctetsGb = 0x0124,	/*Tx with len 64 bytes excl. of pre and retried    (Good or Bad)                        */
-	GmacMmcTx65To127OctetsGb = 0x0128,	/*Tx with len >64 bytes <=127 excl. of pre and retried    (Good or Bad)                 */
-	GmacMmcTx128To255OctetsGb = 0x012C,	/*Tx with len >128 bytes <=255 excl. of pre and retried   (Good or Bad)                 */
-	GmacMmcTx256To511OctetsGb = 0x0130,	/*Tx with len >256 bytes <=511 excl. of pre and retried   (Good or Bad)                 */
-	GmacMmcTx512To1023OctetsGb = 0x0134,	/*Tx with len >512 bytes <=1023 excl. of pre and retried  (Good or Bad)                 */
-	GmacMmcTx1024ToMaxOctetsGb = 0x0138,	/*Tx with len >1024 bytes <=MaxSize excl. of pre and retried (Good or Bad)              */
-
-	GmacMmcTxUcFramesGb = 0x013C,	/*Unicast Frames Tx                                      (Good or Bad)                  */
-	GmacMmcTxMcFramesGb = 0x0140,	/*Multicast Frames Tx                              (Good and Bad)                       */
-	GmacMmcTxBcFramesGb = 0x0144,	/*Broadcast Frames Tx                              (Good and Bad)                       */
-	GmacMmcTxUnderFlowError = 0x0148,	/*Frames aborted due to Underflow error                                                 */
-	GmacMmcTxSingleColG = 0x014C,	/*Successfully Tx Frames after singel collision in Half duplex mode                     */
-	GmacMmcTxMultiColG = 0x0150,	/*Successfully Tx Frames after more than singel collision in Half duplex mode           */
-	GmacMmcTxDeferred = 0x0154,	/*Successfully Tx Frames after a deferral in Half duplex mode                           */
-	GmacMmcTxLateCol = 0x0158,	/*Frames aborted due to late collision error                                            */
-	GmacMmcTxExessCol = 0x015C,	/*Frames aborted due to excessive (16) collision errors                                 */
-	GmacMmcTxCarrierError = 0x0160,	/*Frames aborted due to carrier sense error (No carrier or Loss of carrier)             */
-	GmacMmcTxOctetCountG = 0x0164,	/*Bytes Tx excl. of preamble and retried bytes     (Good)                               */
-	GmacMmcTxFrameCountG = 0x0168,	/*Frames Tx                                        (Good)                               */
-	GmacMmcTxExessDef = 0x016C,	/*Frames aborted due to excessive deferral errors (deferred for more than 2 max-sized frame times) */
-
-	GmacMmcTxPauseFrames = 0x0170,	/*Number of good pause frames Tx.                                                       */
-	GmacMmcTxVlanFramesG = 0x0174,	/*Number of good Vlan frames Tx excl. retried frames                                    */
-};
-enum mmc_rx {
-	GmacMmcRxFrameCountGb = 0x0180,	/*Frames Rx                                        (Good or Bad)                        */
-	GmacMmcRxOctetCountGb = 0x0184,	/*Bytes Rx excl. of preamble and retried bytes     (Good or Bad)                        */
-	GmacMmcRxOctetCountG = 0x0188,	/*Bytes Rx excl. of preamble and retried bytes     (Good)                               */
-	GmacMmcRxBcFramesG = 0x018C,	/*Broadcast Frames Rx                              (Good)                               */
-	GmacMmcRxMcFramesG = 0x0190,	/*Multicast Frames Rx                              (Good)                               */
-
-	GmacMmcRxCrcError = 0x0194,	/*Number of frames received with CRC error                                              */
-	GmacMmcRxAlignError = 0x0198,	/*Number of frames received with alignment (dribble) error. Only in 10/100mode          */
-	GmacMmcRxRuntError = 0x019C,	/*Number of frames received with runt (<64 bytes and CRC error) error                   */
-	GmacMmcRxJabberError = 0x01A0,	/*Number of frames rx with jabber (>1518/1522 or >9018/9022 and CRC)                    */
-	GmacMmcRxUnderSizeG = 0x01A4,	/*Number of frames received with <64 bytes without any error                            */
-	GmacMmcRxOverSizeG = 0x01A8,	/*Number of frames received with >1518/1522 bytes without any error                     */
-
-	GmacMmcRx64OctetsGb = 0x01AC,	/*Rx with len 64 bytes excl. of pre and retried    (Good or Bad)                        */
-	GmacMmcRx65To127OctetsGb = 0x01B0,	/*Rx with len >64 bytes <=127 excl. of pre and retried    (Good or Bad)                 */
-	GmacMmcRx128To255OctetsGb = 0x01B4,	/*Rx with len >128 bytes <=255 excl. of pre and retried   (Good or Bad)                 */
-	GmacMmcRx256To511OctetsGb = 0x01B8,	/*Rx with len >256 bytes <=511 excl. of pre and retried   (Good or Bad)                 */
-	GmacMmcRx512To1023OctetsGb = 0x01BC,	/*Rx with len >512 bytes <=1023 excl. of pre and retried  (Good or Bad)                 */
-	GmacMmcRx1024ToMaxOctetsGb = 0x01C0,	/*Rx with len >1024 bytes <=MaxSize excl. of pre and retried (Good or Bad)              */
-
-	GmacMmcRxUcFramesG = 0x01C4,	/*Unicast Frames Rx                                      (Good)                         */
-	GmacMmcRxLengthError = 0x01C8,	/*Number of frames received with Length type field != frame size                        */
-	GmacMmcRxOutOfRangeType = 0x01CC,	/*Number of frames received with length field != valid frame size                       */
-
-	GmacMmcRxPauseFrames = 0x01D0,	/*Number of good pause frames Rx.                                                       */
-	GmacMmcRxFifoOverFlow = 0x01D4,	/*Number of missed rx frames due to FIFO overflow                                       */
-	GmacMmcRxVlanFramesGb = 0x01D8,	/*Number of good Vlan frames Rx                                                         */
-
-	GmacMmcRxWatchdobError = 0x01DC,	/*Number of frames rx with error due to watchdog timeout error                          */
-};
 enum mmc_ip_related {
-	GmacMmcRxIpcIntrMask = 0x0200,	/*Maintains the mask for interrupt generated from rx IPC statistic counters             */
-	GmacMmcRxIpcIntr = 0x0208,	/*Maintains the interrupt that rx IPC statistic counters generate                       */
-
-	GmacMmcRxIpV4FramesG = 0x0210,	/*Good IPV4 datagrams received                                                          */
-	GmacMmcRxIpV4HdrErrFrames = 0x0214,	/*Number of IPV4 datagrams received with header errors                                  */
-	GmacMmcRxIpV4NoPayFrames = 0x0218,	/*Number of IPV4 datagrams received which didnot have TCP/UDP/ICMP payload              */
-	GmacMmcRxIpV4FragFrames = 0x021C,	/*Number of IPV4 datagrams received with fragmentation                                  */
-	GmacMmcRxIpV4UdpChkDsblFrames = 0x0220,	/*Number of IPV4 datagrams received that had a UDP payload checksum disabled            */
-
-	GmacMmcRxIpV6FramesG = 0x0224,	/*Good IPV6 datagrams received                                                          */
-	GmacMmcRxIpV6HdrErrFrames = 0x0228,	/*Number of IPV6 datagrams received with header errors                                  */
-	GmacMmcRxIpV6NoPayFrames = 0x022C,	/*Number of IPV6 datagrams received which didnot have TCP/UDP/ICMP payload              */
-
-	GmacMmcRxUdpFramesG = 0x0230,	/*Number of good IP datagrams with good UDP payload                                     */
-	GmacMmcRxUdpErrorFrames = 0x0234,	/*Number of good IP datagrams with UDP payload having checksum error                    */
-
-	GmacMmcRxTcpFramesG = 0x0238,	/*Number of good IP datagrams with good TDP payload                                     */
-	GmacMmcRxTcpErrorFrames = 0x023C,	/*Number of good IP datagrams with TCP payload having checksum error                    */
-
-	GmacMmcRxIcmpFramesG = 0x0240,	/*Number of good IP datagrams with good Icmp payload                                    */
-	GmacMmcRxIcmpErrorFrames = 0x0244,	/*Number of good IP datagrams with Icmp payload having checksum error                   */
-
-	GmacMmcRxIpV4OctetsG = 0x0250,	/*Good IPV4 datagrams received excl. Ethernet hdr,FCS,Pad,Ip Pad bytes                  */
-	GmacMmcRxIpV4HdrErrorOctets = 0x0254,	/*Number of bytes in IPV4 datagram with header errors                                   */
-	GmacMmcRxIpV4NoPayOctets = 0x0258,	/*Number of bytes in IPV4 datagram with no TCP/UDP/ICMP payload                         */
-	GmacMmcRxIpV4FragOctets = 0x025C,	/*Number of bytes received in fragmented IPV4 datagrams                                 */
-	GmacMmcRxIpV4UdpChkDsblOctets = 0x0260,	/*Number of bytes received in UDP segment that had UDP checksum disabled                */
-
-	GmacMmcRxIpV6OctetsG = 0x0264,	/*Good IPV6 datagrams received excl. Ethernet hdr,FCS,Pad,Ip Pad bytes                  */
-	GmacMmcRxIpV6HdrErrorOctets = 0x0268,	/*Number of bytes in IPV6 datagram with header errors                                   */
-	GmacMmcRxIpV6NoPayOctets = 0x026C,	/*Number of bytes in IPV6 datagram with no TCP/UDP/ICMP payload                         */
-
-	GmacMmcRxUdpOctetsG = 0x0270,	/*Number of bytes in IP datagrams with good UDP payload                                 */
-	GmacMmcRxUdpErrorOctets = 0x0274,	/*Number of bytes in IP datagrams with UDP payload having checksum error                */
-
-	GmacMmcRxTcpOctetsG = 0x0278,	/*Number of bytes in IP datagrams with good TDP payload                                 */
-	GmacMmcRxTcpErrorOctets = 0x027C,	/*Number of bytes in IP datagrams with TCP payload having checksum error                */
-
-	GmacMmcRxIcmpOctetsG = 0x0280,	/*Number of bytes in IP datagrams with good Icmp payload                                */
-	GmacMmcRxIcmpErrorOctets = 0x0284,	/*Number of bytes in IP datagrams with Icmp payload having checksum error               */
-};
-
-enum MMC_CNTRL_REG_BIT_DESCRIPTIONS {
-	GmacMmcCounterFreeze = 0x00000008,	/* when set MMC counters freeze to current value                                */
-	GmacMmcCounterResetOnRead = 0x00000004,	/* when set MMC counters will be reset to 0 after read                          */
-	GmacMmcCounterStopRollover = 0x00000002,	/* when set counters will not rollover after max value                          */
-	GmacMmcCounterReset = 0x00000001,	/* when set all counters wil be reset (automatically cleared after 1 clk)       */
-};
-
-enum mmc_rx_intr_mask_and_status_bit_descriptions {
-	GmacMmcRxWDInt = 0x00800000,	/* set when rxwatchdog error reaches half of max value                          */
-	GmacMmcRxVlanInt = 0x00400000,	/* set when GmacMmcRxVlanFramesGb counter reaches half of max value             */
-	GmacMmcRxFifoOverFlowInt = 0x00200000,	/* set when GmacMmcRxFifoOverFlow counter reaches half of max value             */
-	GmacMmcRxPauseFrameInt = 0x00100000,	/* set when GmacMmcRxPauseFrames counter reaches half of max value              */
-	GmacMmcRxOutOfRangeInt = 0x00080000,	/* set when GmacMmcRxOutOfRangeType counter reaches half of max value           */
-	GmacMmcRxLengthErrorInt = 0x00040000,	/* set when GmacMmcRxLengthError counter reaches half of max value              */
-	GmacMmcRxUcFramesInt = 0x00020000,	/* set when GmacMmcRxUcFramesG counter reaches half of max value                */
-	GmacMmcRx1024OctInt = 0x00010000,	/* set when GmacMmcRx1024ToMaxOctetsGb counter reaches half of max value        */
-	GmacMmcRx512OctInt = 0x00008000,	/* set when GmacMmcRx512To1023OctetsGb counter reaches half of max value        */
-	GmacMmcRx256OctInt = 0x00004000,	/* set when GmacMmcRx256To511OctetsGb counter reaches half of max value         */
-	GmacMmcRx128OctInt = 0x00002000,	/* set when GmacMmcRx128To255OctetsGb counter reaches half of max value         */
-	GmacMmcRx65OctInt = 0x00001000,	/* set when GmacMmcRx65To127OctetsG counter reaches half of max value           */
-	GmacMmcRx64OctInt = 0x00000800,	/* set when GmacMmcRx64OctetsGb counter reaches half of max value               */
-	GmacMmcRxOverSizeInt = 0x00000400,	/* set when GmacMmcRxOverSizeG counter reaches half of max value                */
-	GmacMmcRxUnderSizeInt = 0x00000200,	/* set when GmacMmcRxUnderSizeG counter reaches half of max value               */
-	GmacMmcRxJabberErrorInt = 0x00000100,	/* set when GmacMmcRxJabberError counter reaches half of max value              */
-	GmacMmcRxRuntErrorInt = 0x00000080,	/* set when GmacMmcRxRuntError counter reaches half of max value                */
-	GmacMmcRxAlignErrorInt = 0x00000040,	/* set when GmacMmcRxAlignError counter reaches half of max value               */
-	GmacMmcRxCrcErrorInt = 0x00000020,	/* set when GmacMmcRxCrcError counter reaches half of max value                 */
-	GmacMmcRxMcFramesInt = 0x00000010,	/* set when GmacMmcRxMcFramesG counter reaches half of max value                */
-	GmacMmcRxBcFramesInt = 0x00000008,	/* set when GmacMmcRxBcFramesG counter reaches half of max value                */
-	GmacMmcRxOctetGInt = 0x00000004,	/* set when GmacMmcRxOctetCountG counter reaches half of max value              */
-	GmacMmcRxOctetGbInt = 0x00000002,	/* set when GmacMmcRxOctetCountGb counter reaches half of max value             */
-	GmacMmcRxFrameInt = 0x00000001,	/* set when GmacMmcRxFrameCountGb counter reaches half of max value             */
-};
-
-enum mmc_tx_intr_mask_and_status_bit_descriptions {
-
-	GmacMmcTxVlanInt = 0x01000000,	/* set when GmacMmcTxVlanFramesG counter reaches half of max value              */
-	GmacMmcTxPauseFrameInt = 0x00800000,	/* set when GmacMmcTxPauseFrames counter reaches half of max value              */
-	GmacMmcTxExessDefInt = 0x00400000,	/* set when GmacMmcTxExessDef counter reaches half of max value                 */
-	GmacMmcTxFrameInt = 0x00200000,	/* set when GmacMmcTxFrameCount counter reaches half of max value               */
-	GmacMmcTxOctetInt = 0x00100000,	/* set when GmacMmcTxOctetCountG counter reaches half of max value              */
-	GmacMmcTxCarrierErrorInt = 0x00080000,	/* set when GmacMmcTxCarrierError counter reaches half of max value             */
-	GmacMmcTxExessColInt = 0x00040000,	/* set when GmacMmcTxExessCol counter reaches half of max value                 */
-	GmacMmcTxLateColInt = 0x00020000,	/* set when GmacMmcTxLateCol counter reaches half of max value                  */
-	GmacMmcTxDeferredInt = 0x00010000,	/* set when GmacMmcTxDeferred counter reaches half of max value                 */
-	GmacMmcTxMultiColInt = 0x00008000,	/* set when GmacMmcTxMultiColG counter reaches half of max value                */
-	GmacMmcTxSingleCol = 0x00004000,	/* set when GmacMmcTxSingleColG counter reaches half of max value               */
-	GmacMmcTxUnderFlowErrorInt = 0x00002000,	/* set when GmacMmcTxUnderFlowError counter reaches half of max value           */
-	GmacMmcTxBcFramesGbInt = 0x00001000,	/* set when GmacMmcTxBcFramesGb counter reaches half of max value               */
-	GmacMmcTxMcFramesGbInt = 0x00000800,	/* set when GmacMmcTxMcFramesGb counter reaches half of max value               */
-	GmacMmcTxUcFramesInt = 0x00000400,	/* set when GmacMmcTxUcFramesGb counter reaches half of max value               */
-	GmacMmcTx1024OctInt = 0x00000200,	/* set when GmacMmcTx1024ToMaxOctetsGb counter reaches half of max value        */
-	GmacMmcTx512OctInt = 0x00000100,	/* set when GmacMmcTx512To1023OctetsGb counter reaches half of max value        */
-	GmacMmcTx256OctInt = 0x00000080,	/* set when GmacMmcTx256To511OctetsGb counter reaches half of max value         */
-	GmacMmcTx128OctInt = 0x00000040,	/* set when GmacMmcTx128To255OctetsGb counter reaches half of max value         */
-	GmacMmcTx65OctInt = 0x00000020,	/* set when GmacMmcTx65To127OctetsGb counter reaches half of max value          */
-	GmacMmcTx64OctInt = 0x00000010,	/* set when GmacMmcTx64OctetsGb counter reaches half of max value               */
-	GmacMmcTxMcFramesInt = 0x00000008,	/* set when GmacMmcTxMcFramesG counter reaches half of max value                */
-	GmacMmcTxBcFramesInt = 0x00000004,	/* set when GmacMmcTxBcFramesG counter reaches half of max value                */
-	GmacMmcTxFrameGbInt = 0x00000002,	/* set when GmacMmcTxFrameCountGb counter reaches half of max value             */
-	GmacMmcTxOctetGbInt = 0x00000001,	/* set when GmacMmcTxOctetCountGb counter reaches half of max value             */
-};
-
-/**********************************************************
- * Power Management (PMT) Block
- **********************************************************/
-
-/*
- * PMT supports the reception of network (remote) wake-up frames and Magic packet frames.
- * It generates interrupts for wake-up frames and Magic packets received by GMAC.
- * PMT sits in Rx path and is enabled with remote wake-up frame enable and Magic packet enable.
- * These enable are in PMT control and Status register and are programmed by apllication.
- *
- * When power down mode is enabled in PMT, all rx frames are dropped by the core. Core comes
- * out of power down mode only when either Magic packe tor a Remote wake-up frame is received
- * and the corresponding detection is enabled.
- *
- * Driver need not be modified to support this feature. Only Api to put the device in to power
- * down mode is sufficient
-  */
-
-#define WAKEUP_REG_LENGTH		8	/*This is the reg length for wake up register configuration */
-
-enum GmacPmtCtrlStatusBitDefinition {
-	GmacPmtFrmFilterPtrReset = 0x80000000,	/* when set remote wake-up frame filter register pointer to 3'b000 */
-	GmacPmtGlobalUnicast = 0x00000200,	/* When set enables any unicast packet to be a wake-up frame       */
-	GmacPmtWakeupFrameReceived = 0x00000040,	/* Wake up frame received                                          */
-	GmacPmtMagicPktReceived = 0x00000020,	/* Magic Packet received                                           */
-	GmacPmtWakeupFrameEnable = 0x00000004,	/* Wake-up frame enable                                            */
-	GmacPmtMagicPktEnable = 0x00000002,	/* Magic packet enable                                             */
-	GmacPmtPowerDown = 0x00000001,	/* Power Down                                                              */
-};
-
-/**********************************************************
- * IEEE 1588-2008 Precision Time Protocol (PTP) Support
- **********************************************************/
-enum PTPMessageType {
-	SYNC = 0x0,
-	Delay_Req = 0x1,
-	Pdelay_Req = 0x2,
-	Pdelay_Resp = 0x3,
-	Follow_up = 0x8,
-	Delay_Resp = 0x9,
-	Pdelay_Resp_Follow_Up = 0xA,
-	Announce = 0xB,
-	Signaling = 0xC,
-	Management = 0xD,
-};
-
-struct TimeStamp {
-	uint32_t TSversion;	/* PTP Version 1 or PTP version2               */
-	uint32_t TSmessagetype;	/* Message type associated with this
-				   time stamp                                  */
-	uint16_t TShighest16;	/* Highest 16 bit time stamp value, Valid
-				   onley when ADV_TIME_HIGH_WORD
-				   configured in corekit                       */
-	uint32_t TSupper32;	/* Most significant 32 bit time stamp value    */
-	uint32_t TSlower32;	/* Least Significat 32 bit time stamp value    */
-};
-
-enum GmacMiiStatusReg {
-	GmacMiiLinkSpeed_1000 = 0x00000004,
-	GmacMiiLinkSpeed_100 = 0x00000002,
-	GmacMiiLinkSpeed_10 = 0x00000000,
-	GmacMiiLinkSpeedMask = 0x00000003,
-	GmacMiiModeFull = 0x00000001,
-	GmacMiiModeMask = 0x00000001,
-};
-
-/*
- * IEEE 1588-2008 is the optional module to support Ethernet frame time stamping.
- * Sixty four (+16) bit time stamps are given in each frames transmit and receive status.
- * The driver assumes the following
- *  1. "IEEE 1588 Time Stamping" "TIME_STAMPING"is ENABLED in corekit
- *  2. "IEEE 1588 External Time Stamp Input Enable" "EXT_TIME_STAMPING" is DISABLED in corekit
- *  3. "IEEE 1588 Advanced Time Stamp support" "ADV_TIME_STAMPING" is ENABLED in corekit
- *  4. "IEEE 1588 Higher Word Register Enable" "ADV_TIME_HIGH_WORD" is ENABLED in corekit
- */
-
-/*	GmacTSControl  = 0x0700,	Controls the Timestamp update logic  : only when IEEE 1588 time stamping is enabled in corekit	*/
-enum GmacTSControlReg {
-	GmacTSENMACADDR = 0x00040000,	/* Enable Mac Addr for PTP filtering    */
-	GmacTSCLKTYPE = 0x00030000,	/* Select the type of clock node        */
-/*
- *   TSCLKTYPE        TSMSTRENA      TSEVNTENA   Messages for wihich TS snapshot is taken
- *    00/01                X             0        SYNC, FOLLOW_UP, DELAY_REQ, DELAY_RESP
- *    00/01                1             0        DELAY_REQ
- *    00/01                0             1        SYNC
- *     10                  NA            0        SYNC, FOLLOW_UP, DELAY_REQ, DELAY_RESP
- *     10                  NA            1        SYNC, FOLLOW_UP
- *     11                  NA            0        SYNC, FOLLOW_UP, DELAY_REQ, DELAY_RESP,
- *						  PDELAY_REQ, PDELAY_RESP
- *     11                  NA            1        SYNC, PDELAY_REQ, PDELAY_RESP
- */
-
-	GmacTSOrdClk = 0x00000000,	/* 00=> Ordinary clock          */
-	GmacTSBouClk = 0x00010000,	/* 01=> Boundary clock          */
-	GmacTSEtoEClk = 0x00020000,	/* 10=> End-to-End
-					   transparent clock            */
-	GmacTSPtoPClk = 0x00030000,	/* 11=> P-to-P transparent clock */
-	GmacTSMSTRENA = 0x00008000,	/* Ena TS Snapshot for
-					   Master Messages              */
-	GmacTSEVNTENA = 0x00004000,	/* Ena TS Snapshot for
-					   Event Messages               */
-	GmacTSIPV4ENA = 0x00002000,	/* Ena TS snapshot for IPv4     */
-	GmacTSIPV6ENA = 0x00001000,	/* Ena TS snapshot for IPv6     */
-	GmacTSIPENA = 0x00000800,	/* Ena TS snapshot for
-					   PTP over E'net               */
-	GmacTSVER2ENA = 0x00000400,	/* Ena PTP snooping
-					   for version 2                */
-	GmacTSCTRLSSR = 0x00000200,	/* Digital or Binary Rollover   */
-	GmacTSENALL = 0x00000100,	/* Enable TS fro all
-					   frames (Ver2 only)           */
-	GmacTSADDREG = 0x00000020,	/* Addend Register Update       */
-	GmacTSUPDT = 0x00000008,	/* Time Stamp Update            */
-	GmacTSINT = 0x00000004,		/* Time Atamp Initialize        */
-	GmacTSTRIG = 0x00000010,	/* Time stamp interrupt
-					   Trigger Enable               */
-	GmacTSCFUPDT = 0x00000002,	/* Time Stamp Fine/Coarse       */
-	GmacTSCUPDTCoarse = 0x00000000,	/* 0=> Time Stamp update method
-					   is coarse                    */
-	GmacTSCUPDTFine = 0x00000002,	/* 1=> Time Stamp update method
-					   is fine                      */
-	GmacTSENA = 0x00000001,		/* Time Stamp Enable            */
-};
-
-/* GmacTSSubSecIncr	= 0x0704,	8 bit value by which sub second register is incremented:
- *					only when IEEE 1588 time stamping without
- *					external timestamp input.
- */
-enum GmacTSSubSecIncrReg {
-	GmacSSINCMsk = 0x000000FF,	/* Only Lower 8 bits are valid bits */
-};
-
-/* GmacTSLow	= 0x070C,	Indicates whether the timestamp low count is positive or negative;
- *				for Adv timestamp it is always zero.
- */
-enum GmacTSSign {
-	GmacTSSign = 0x80000000,
-	GmacTSPositive = 0x00000000,
-	GmacTSNegative = 0x80000000,
-};
-
-/* GmacTargetTimeLow	= 0x0718,	32 bit nano seconds(MS) to be compared with
- *					system time: only when IEEE 1588 time
- *					stamping without external timestamp input.
- */
-enum GmacTSLowReg {
-	GmacTSDecThr = 0x3B9AC9FF,	/* when TSCTRLSSR is set the max
-					   value for GmacTargetTimeLowReg
-					   and GmacTimeStampLow register
-					   is 0x3B9AC9FF at 1ns precision */
-};
-
-/* GmacTSHighWord	= 0x0724,	Time Stamp Higher Word Register (Version 2 only);
- *					only lower 16 bits are valid
- */
-enum GmacTSHighWordReg {
-	GmacTSHighWordMask = 0x0000FFFF,
-};
-
-/* GmacTSStatus		= 0x0728,	Time Stamp Status Register */
-enum GmacTSStatusReg {
-	GmacTSTargTimeReached = 0x00000002,
-	GmacTSSecondsOverflow = 0x00000001,
+	GmacMmcRxIpcIntrMask = 0x0200,	
+/*Maintains the mask for interrupt generated from rx IPC statistic counters   */
 };
 
 /*
@@ -1553,8 +1215,6 @@ enum GmacTSStatusReg {
  * @param[in] variable number of arguments for format string.
  *
  */
-
-
 #define nss_gmac_msg(msg, args...) printk("nss_gmac: " msg "\n", ##args)
 
 #if (NSS_GMAC_DEBUG_LEVEL < 1)
@@ -1584,163 +1244,11 @@ enum GmacTSStatusReg {
 		gmacdev->macid, gmacdev, ##args)
 #endif
 
-/**********************************************************
- * Time stamp related functions
- **********************************************************/
-void nss_gmac_ts_enable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_ts_disable(struct nss_gmac_dev *gmacdev);
-
-void nss_gmac_ts_int_enable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_ts_int_disable(struct nss_gmac_dev *gmacdev);
-
-void nss_gmac_ts_mac_addr_filt_enable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_ts_mac_addr_filt_disable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_ts_set_clk_type(struct nss_gmac_dev *gmacdev, uint32_t clk_type);
-
-/* Only for Ordinary clock and Boundary clock and "Advanced Time Stamp" */
-void nss_gmac_ts_master_enable(struct nss_gmac_dev *gmacdev);
-
-/* Only for Ordinary clock and Boundary clock and "Advanced Time Stamp" */
-void nss_gmac_ts_master_disable(struct nss_gmac_dev *gmacdev);
-
-void nss_gmac_ts_event_enable(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
-void nss_gmac_ts_event_disable(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
-void nss_gmac_ts_ipv4_enable(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
-void nss_gmac_ts_ipv4_disable(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
-void nss_gmac_ts_ipv6_enable(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
-void nss_gmac_ts_ipv6_disable(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
-void nss_gmac_ts_ptp_over_ethernet_enable(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
-void nss_gmac_ts_ptp_over_ethernet_disable(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
-void nss_gmac_ts_pkt_snoop_ver2(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
-void nss_gmac_ts_pkt_snoop_ver1(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
-
-void nss_gmac_ts_digital_rollover_enable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_ts_binary_rollover_enable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_ts_all_frames_enable(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
-void nss_gmac_ts_all_frames_disable(struct nss_gmac_dev *gmacdev);	/* Only for "Advanced Time Stamp" */
-
-int32_t nss_gmac_ts_addend_update(struct nss_gmac_dev *gmacdev,
-				  uint32_t addend_value);
-int32_t nss_gmac_ts_timestamp_update(struct nss_gmac_dev *gmacdev,
-				     uint32_t high_value, uint32_t low_value);
-int32_t nss_gmac_ts_timestamp_init(struct nss_gmac_dev *gmacdev, uint32_t high_value,
-				   uint32_t low_value);
-
-void nss_gmac_ts_coarse_update(struct nss_gmac_dev *gmacdev);	/* Only if "fine correction" enabled */
-void nss_gmac_ts_fine_update(struct nss_gmac_dev *gmacdev);	/* Only if "fine correction" enabled */
-
-/* Update should happen making use of subsecond mask */
-void nss_gmac_ts_subsecond_init(struct nss_gmac_dev *gmacdev,
-				uint32_t sub_sec_inc_val);
-
-/*
- * Reads the timestamp low,high and higher(Ver2) registers
- * in the the struct pointer; readonly contents
- */
-void nss_gmac_ts_read_timestamp(struct nss_gmac_dev *gmacdev,
-				uint16_t *higher_sec_val, uint32_t *sec_val,
-				uint32_t *sub_sec_val);
-
-/* Loads the timestamp target register with the values provided */
-void nss_gmac_ts_load_target_timestamp(struct nss_gmac_dev *gmacdev,
-				       uint32_t sec_val, uint32_t sub_sec_val);
-
-void nss_gmac_ts_load_timestamp_higher_val(struct nss_gmac_dev *gmacdev,
-					   uint32_t higher_sec_val);
-void nss_gmac_ts_read_timestamp_higher_val(struct nss_gmac_dev *gmacdev,
-					   uint16_t *higher_sec_val);
-
-/* Read the target time stamp register contents */
-void nss_gmac_ts_read_target_timestamp(struct nss_gmac_dev *gmacdev,
-				       uint32_t *sec_val,
-				       uint32_t *sub_sec_val);
-
 /*******************Ip checksum offloading APIs**********************************/
 void nss_gmac_enable_rx_chksum_offload(struct nss_gmac_dev *gmacdev);
 void nss_gmac_disable_rx_chksum_offload(struct nss_gmac_dev *gmacdev);
 void nss_gmac_rx_tcpip_chksum_drop_enable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_rx_tcpip_chksum_drop_disable(struct nss_gmac_dev *gmacdev);
-
-/**
- * Decodes the Rx Descriptor status to various checksum error conditions.
- * @param[in] pointer to nss_gmac_dev.
- * @param[in] uint32_t status field of the corresponding descriptor.
- * @return returns decoded enum (uint32_t) indicating the status.
- */
-static inline uint32_t nss_gmac_is_rx_checksum_error(struct nss_gmac_dev *gmacdev,
-						     uint32_t status)
-{
-	return status & (DescRxChkBit7 | DescRxChkBit5 | DescRxChkBit0);
-}
-
-/**
- * Checks if any Ipv4 header checksum error in the frame just transmitted.
- * This serves as indication that error occureed in the IPv4 header checksum insertion.
- * The sent out frame doesnot carry any ipv4 header checksum inserted by the hardware.
- * @param[in] pointer to nss_gmac_dev.
- * @param[in] uint32_t status field of the corresponding descriptor.
- * @return returns true if error in ipv4 header checksum, else returns false.
- */
-static inline bool nss_gmac_is_tx_ipv4header_checksum_error(struct nss_gmac_dev *
-							    gmacdev,
-							    uint32_t status)
-{
-	return (status & DescTxIpv4ChkError) == DescTxIpv4ChkError;
-}
-
-/**
- * Checks if any payload checksum error in the frame just transmitted.
- * This serves as indication that error occureed in the payload checksum insertion.
- * The sent out frame doesnot carry any payload checksum inserted by the hardware.
- * @param[in] pointer to nss_gmac_dev.
- * @param[in] uint32_t status field of the corresponding descriptor.
- * @return returns true if error in ipv4 header checksum, else returns false.
- */
-static inline bool nss_gmac_is_tx_payload_checksum_error(struct nss_gmac_dev *gmacdev,
-							 uint32_t status)
-{
-	return (status & DescTxPayChkError) == DescTxPayChkError;
-}
-
-/**
- * The check summ offload engine is bypassed in the tx path.
- * Checksum is not computed in the Hardware.
- * @param[in] pointer to nss_gmac_dev.
- * @param[in] Pointer to tx descriptor for which  ointer to nss_gmac_dev.
- * @return returns void.
- */
-static inline void nss_gmac_tx_checksum_offload_bypass(struct nss_gmac_dev *gmacdev,
-						       struct DmaDesc *desc)
-{
-	desc->status = (desc->length & (~DescTxCisMask));
-}
-
-/**
- * The check summ offload engine is enabled to do only IPV4 header checksum.
- * IPV4 header Checksum is computed in the Hardware.
- * @param[in] pointer to nss_gmac_dev.
- * @param[in] Pointer to tx descriptor for which  ointer to struct nss_gmac_dev.
- * @return returns void.
- */
-static inline void nss_gmac_tx_checksum_offload_ipv4hdr(struct nss_gmac_dev *gmacdev,
-							struct DmaDesc *desc)
-{
-	desc->status = ((desc->status & (~DescTxCisMask)) | DescTxCisIpv4HdrCs);
-}
-
-/**
- * The check summ offload engine is enabled to do TCPIP checsum assuming Pseudo header is available.
- * Hardware computes the tcp ip checksum assuming pseudo header checksum is computed in software.
- * Ipv4 header checksum is also inserted.
- * @param[in] pointer to nss_gmac_dev.
- * @param[in] Pointer to tx descriptor for which  ointer to nss_gmac_dev.
- * @return returns void.
- */
-static inline void nss_gmac_tx_checksum_offload_tcponly(struct nss_gmac_dev *gmacdev,
-							struct DmaDesc *desc)
-{
-	desc->status = ((desc->status & (~DescTxCisMask)) | DescTxCisTcpOnlyCs);
-}
 
 /**
  * The check summ offload engine is enabled to do complete checksum computation.
@@ -1857,24 +1365,18 @@ static inline bool nss_gmac_check_reg_bits(uint32_t *regbase,
 	return data != 0;
 }
 
-int32_t nss_gmac_set_mdc_clk_div(struct nss_gmac_dev *gmacdev, uint32_t clk_div_val);
-uint32_t nss_gmac_get_mdc_clk_div(struct nss_gmac_dev *gmacdev);
 uint16_t nss_gmac_mii_rd_reg(struct nss_gmac_dev *gmacdev, uint32_t phy,
 			     uint32_t reg);
 void nss_gmac_mii_wr_reg(struct nss_gmac_dev *gmacdev, uint32_t phy,
 			 uint32_t reg, uint16_t data);
-int32_t nss_gmac_phy_loopback(struct nss_gmac_dev *gmacdev, bool loopback);
 int32_t nss_gmac_read_version(struct nss_gmac_dev *gmacdev);
 void nss_gmac_reset(struct nss_gmac_dev *gmacdev);
 int32_t nss_gmac_dma_bus_mode_init(struct nss_gmac_dev *gmacdev, uint32_t init_value);
 int32_t nss_gmac_dma_axi_bus_mode_init(struct nss_gmac_dev *gmacdev, uint32_t init_value);
 int32_t nss_gmac_dma_control_init(struct nss_gmac_dev *gmacdev, uint32_t init_value);
 void nss_gmac_wd_enable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_wd_disable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_jab_enable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_jab_disable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_frame_burst_enable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_frame_burst_disable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_jumbo_frame_enable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_jumbo_frame_disable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_twokpe_frame_disable(struct nss_gmac_dev *gmacdev);
@@ -1883,47 +1385,31 @@ void nss_gmac_select_gmii(struct nss_gmac_dev *gmacdev);
 void nss_gmac_select_mii(struct nss_gmac_dev *gmacdev);
 void nss_gmac_rx_own_enable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_rx_own_disable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_loopback_on(struct nss_gmac_dev *gmacdev);
 void nss_gmac_loopback_off(struct nss_gmac_dev *gmacdev);
 void nss_gmac_set_full_duplex(struct nss_gmac_dev *gmacdev);
 void nss_gmac_set_half_duplex(struct nss_gmac_dev *gmacdev);
 void nss_gmac_retry_enable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_retry_disable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_pad_crc_strip_enable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_pad_crc_strip_disable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_back_off_limit(struct nss_gmac_dev *gmacdev, uint32_t value);
-void nss_gmac_deferral_check_enable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_deferral_check_disable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_rx_enable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_rx_disable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_tx_enable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_tx_disable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_frame_filter_enable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_frame_filter_disable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_write_hash_table_high(struct nss_gmac_dev *gmacdev, uint32_t data);
-void nss_gmac_write_hash_table_low(struct nss_gmac_dev *gmacdev, uint32_t data);
-void nss_gmac_hash_perfect_filter_enable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_Hash_filter_only_enable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_src_addr_filter_enable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_src_addr_filter_disable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_dst_addr_filter_inverse(struct nss_gmac_dev *gmacdev);
 void nss_gmac_dst_addr_filter_normal(struct nss_gmac_dev *gmacdev);
 void nss_gmac_set_pass_control(struct nss_gmac_dev *gmacdev, uint32_t passcontrol);
 void nss_gmac_broadcast_enable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_broadcast_disable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_multicast_enable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_multicast_disable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_multicast_hash_filter_enable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_multicast_hash_filter_disable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_promisc_enable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_promisc_disable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_unicast_hash_filter_enable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_unicast_hash_filter_disable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_unicast_pause_frame_detect_enable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_unicast_pause_frame_detect_disable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_rx_flow_control_enable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_rx_flow_control_disable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_tx_flow_control_enable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_tx_flow_control_disable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_tx_pause_enable(struct nss_gmac_dev *gmacdev);
 void nss_gmac_tx_pause_disable(struct nss_gmac_dev *gmacdev);
@@ -2537,21 +2023,6 @@ static inline void nss_gmac_disable_interrupt(struct nss_gmac_dev *gmacdev,
 }
 
 
-/**
- * Read interrupt status
- * @param[in] pointer to nss_gmac_dev.
- * @return returns bitmask of pending interrupts
- */
-static inline uint32_t nss_gmac_check_interrupt(struct nss_gmac_dev *gmacdev)
-{
-	uint32_t int_status;
-
-	int_status =
-	    nss_gmac_read_reg((uint32_t *)gmacdev->dma_base, DmaStatus);
-
-	return int_status;
-}
-
 void nss_gmac_enable_dma_rx(struct nss_gmac_dev *gmacdev);
 void nss_gmac_enable_dma_tx(struct nss_gmac_dev *gmacdev);
 
@@ -2587,96 +2058,10 @@ void nss_gmac_take_desc_ownership_tx(struct nss_gmac_dev *gmacdev);
 void nss_gmac_disable_dma_tx(struct nss_gmac_dev *gmacdev);
 void nss_gmac_disable_dma_rx(struct nss_gmac_dev *gmacdev);
 
-/**
- * This function indicates whether extended status is available in the RDES0.
- * Any function which accesses the fields of extended status register must
- * ensure a check on this has been made.
- * Extended status present indicates that the RDES4 need to be probed
- * @param[in] pointer to nss_gmac_dev.
- * @param[in] uint32_t status field of the corresponding descriptor.
- * @return returns TRUE or FALSE.
- */
-static inline bool nss_gmac_is_ext_status(struct nss_gmac_dev *gmacdev,
-					  uint32_t status)
-{
-	return (status & DescRxEXTsts) != 0;
-}
-
-
-/**
- * This function returns true if the IP header checksum bit is set in
- * the extended status. Valid only when enhaced status available is set
- * in RDES0 bit 0.
- * @param[in] pointer to nss_gmac_dev.
- * @param[in] uint32_t status field of the corresponding descriptor.
- * @return returns TRUE or FALSE.
- */
-static inline bool nss_gmac_ES_is_IP_header_error(struct nss_gmac_dev *gmacdev,
-						  uint32_t ext_status)
-{
-	return (ext_status & DescRxIpHeaderError) != 0;
-}
-
-
-/**
- * This function returns true if the Checksum is bypassed in the hardware.
- * Valid only when enhaced status available is set in RDES0 bit 0.
- * @param[in] pointer to nss_gmac_dev.
- * @param[in] uint32_t status field of the corresponding descriptor.
- * @return returns TRUE or FALSE.
- */
-static inline bool nss_gmac_ES_is_rx_checksum_bypassed(struct nss_gmac_dev *gmacdev,
-						       uint32_t ext_status)
-{
-	return (ext_status & DescRxChkSumBypass) != 0;
-}
-
-
-/**
- * This function returns true if payload checksum error
- * (UDP/TCP/ICMP checksum error) is set in the extended status.
- * Valid only when enhaced status available is set in RDES0 bit 0.
- * @param[in] pointer to nss_gmac_dev.
- * @param[in] uint32_t status field of the corresponding descriptor.
- * @return returns TRUE or FALSE.
- */
-static inline bool nss_gmac_ES_is_IP_payload_error(struct nss_gmac_dev *gmacdev,
-						   uint32_t ext_status)
-{
-	return (ext_status & DescRxIpPayloadError) != 0;
-}
-
-/*******************PMT APIs***************************************/
-void nss_gmac_pmt_int_enable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_pmt_int_disable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_power_down_enable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_power_down_disable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_magic_packet_enable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_wakeup_frame_enable(struct nss_gmac_dev *gmacdev);
-void nss_gmac_pmt_unicast_enable(struct nss_gmac_dev *gmacdev);
-bool nss_gmac_is_magic_packet_received(struct nss_gmac_dev *gmacdev);
-bool nss_gmac_is_wakeup_frame_received(struct nss_gmac_dev *gmacdev);
-void nss_gmac_write_wakeup_frame_register(struct nss_gmac_dev *gmacdev,
-					  uint32_t *filter_contents);
-
 /*******************MMC APIs***************************************/
-void nss_gmac_mmc_counters_stop(struct nss_gmac_dev *gmacdev);
-void nss_gmac_mmc_counters_resume(struct nss_gmac_dev *gmacdev);
-void nss_gmac_mmc_counters_set_selfclear(struct nss_gmac_dev *gmacdev);
-void nss_gmac_mmc_counters_reset_selfclear(struct nss_gmac_dev *gmacdev);
-void nss_gmac_mmc_counters_disable_rollover(struct nss_gmac_dev *gmacdev);
-void nss_gmac_mmc_counters_enable_rollover(struct nss_gmac_dev *gmacdev);
-uint32_t nss_gmac_read_mmc_counter(struct nss_gmac_dev *gmacdev, uint32_t counter);
-uint32_t nss_gmac_read_mmc_rx_int_status(struct nss_gmac_dev *gmacdev);
-uint32_t nss_gmac_read_mmc_tx_int_status(struct nss_gmac_dev *gmacdev);
 void nss_gmac_disable_mmc_tx_interrupt(struct nss_gmac_dev *gmacdev, uint32_t mask);
-void nss_gmac_enable_mmc_tx_interrupt(struct nss_gmac_dev *gmacdev, uint32_t mask);
 void nss_gmac_disable_mmc_rx_interrupt(struct nss_gmac_dev *gmacdev, uint32_t mask);
-void nss_gmac_enable_mmc_rx_interrupt(struct nss_gmac_dev *gmacdev, uint32_t mask);
-void nss_gmac_enable_mmc_ipc_rx_interrupt(struct nss_gmac_dev *gmacdev,
-					  uint32_t mask);
 void nss_gmac_disable_mmc_ipc_rx_interrupt(struct nss_gmac_dev *gmacdev,
 					   uint32_t mask);
-
 
 #endif /* End of file */

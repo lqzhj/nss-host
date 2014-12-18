@@ -56,8 +56,6 @@ void nss_gmac_open_work(struct work_struct *work);
 void nss_gmac_ethtool_register(struct net_device *netdev);
 void __exit nss_gmac_deregister_driver(void);
 int32_t __init nss_gmac_register_driver(void);
-void nss_gmac_linux_powerup_mac(struct nss_gmac_dev *gmacdev);
-void nss_gmac_linux_powerdown_mac(struct nss_gmac_dev *gmacdev);
 void nss_gmac_linkdown(struct nss_gmac_dev *gmacdev);
 void nss_gmac_linkup(struct nss_gmac_dev *gmacdev);
 void nss_gmac_adjust_link(struct net_device *netdev);
