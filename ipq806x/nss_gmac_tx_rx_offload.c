@@ -78,13 +78,13 @@ static int32_t nss_gmac_setup_tx_desc_queue(struct nss_gmac_dev *gmacdev,
 	BUG_ON(desc_mode != RINGMODE);
 	BUG_ON((no_of_desc & (no_of_desc - 1)) != 0);
 
-	nss_gmac_info(gmacdev, "Total size of memory required for Tx Descriptors in Ring Mode = 0x%08x"
+	netdev_dbg(gmacdev->netdev, "Total size of memory required for Tx Descriptors in Ring Mode = 0x%08x"
 			, (uint32_t) ((sizeof(struct DmaDesc) * no_of_desc)));
 
 	first_desc = dma_alloc_coherent(dev, sizeof(struct DmaDesc) * no_of_desc
 					, &dma_addr, GFP_KERNEL);
 	if (first_desc == NULL) {
-		nss_gmac_info(gmacdev,
+		netdev_dbg(gmacdev->netdev,
 				"Error in Tx Descriptors memory allocation");
 		return -ENOMEM;
 	}
@@ -92,7 +92,7 @@ static int32_t nss_gmac_setup_tx_desc_queue(struct nss_gmac_dev *gmacdev,
 	gmacdev->tx_desc_count = no_of_desc;
 	gmacdev->tx_desc = first_desc;
 	gmacdev->tx_desc_dma = dma_addr;
-	nss_gmac_info(gmacdev, "Tx Descriptors in Ring Mode: No. of descriptors = %d base = 0x%08x dma = 0x%08x"
+	netdev_dbg(gmacdev->netdev, "Tx Descriptors in Ring Mode: No. of descriptors = %d base = 0x%08x dma = 0x%08x"
 			, no_of_desc, (uint32_t)first_desc, dma_addr);
 
 	for (i = 0; i < gmacdev->tx_desc_count; i++) {
@@ -148,13 +148,13 @@ static int32_t nss_gmac_setup_rx_desc_queue(struct nss_gmac_dev *gmacdev,
 	BUG_ON(desc_mode != RINGMODE);
 	BUG_ON((no_of_desc & (no_of_desc - 1)) != 0);
 
-	nss_gmac_info(gmacdev, "total size of memory required for Rx Descriptors in Ring Mode = 0x%08x"
+	netdev_dbg(gmacdev->netdev, "total size of memory required for Rx Descriptors in Ring Mode = 0x%08x"
 			, (uint32_t) ((sizeof(struct DmaDesc) * no_of_desc)));
 
 	first_desc = dma_alloc_coherent(dev, sizeof(struct DmaDesc) * no_of_desc
 					, &dma_addr, GFP_KERNEL);
 	if (first_desc == NULL) {
-		nss_gmac_info(gmacdev,
+		netdev_dbg(gmacdev->netdev,
 				"Error in Rx Descriptor Memory allocation in Ring mode");
 		return -ENOMEM;
 	}
@@ -162,7 +162,7 @@ static int32_t nss_gmac_setup_rx_desc_queue(struct nss_gmac_dev *gmacdev,
 	gmacdev->rx_desc_count = no_of_desc;
 	gmacdev->rx_desc = first_desc;
 	gmacdev->rx_desc_dma = dma_addr;
-	nss_gmac_info(gmacdev, "Rx Descriptors in Ring Mode: No. of descriptors = %d base = 0x%08x dma = 0x%08x", no_of_desc
+	netdev_dbg(gmacdev->netdev, "Rx Descriptors in Ring Mode: No. of descriptors = %d base = 0x%08x dma = 0x%08x", no_of_desc
 			, (uint32_t)first_desc, dma_addr);
 
 	for (i = 0; i < gmacdev->rx_desc_count; i++) {
@@ -193,7 +193,7 @@ static inline void nss_gmac_rx_refill(struct nss_gmac_dev *gmacdev)
 	for (i = 0; i < count; i++) {
 		skb = __netdev_alloc_skb(gmacdev->netdev, NSS_GMAC_MINI_JUMBO_FRAME_MTU, GFP_KERNEL);
 		if (unlikely(skb == NULL)) {
-			nss_gmac_info(gmacdev, "Unable to allocate skb, will try next time");
+			netdev_dbg(gmacdev->netdev, "Unable to allocate skb, will try next time");
 			break;
 		}
 		skb_reserve(skb, NET_IP_ALIGN);
@@ -584,7 +584,7 @@ void nss_gmac_receive(struct net_device *netdev, struct sk_buff *skb, struct nap
 
 	skb->dev = netdev;
 	skb->protocol = eth_type_trans(skb, netdev);
-	nss_gmac_trace(gmacdev,
+	netdev_dbg(netdev,
 			"%s: Rx on gmac%d, packet len %d, CSUM %d",
 			__func__, gmacdev->macid, skb->len, skb->ip_summed);
 
@@ -616,8 +616,7 @@ void nss_gmac_event_receive(void *if_ctx, int ev_type,
 		break;
 
 	default:
-		nss_gmac_info(gmacdev, "%s: Unknown Event from NSS",
-				__func__);
+		netdev_dbg(netdev, "%s: Unknown Event from NSS", __func__);
 		break;
 	}
 }
@@ -692,11 +691,11 @@ void nss_gmac_linkup(struct nss_gmac_dev *gmacdev)
 
 	if (gmacdev->data_plane_ops->open(gmacdev->data_plane_ctx, gmac_tx_desc,
 						gmac_rx_desc, mode) != NSS_GMAC_SUCCESS) {
-		nss_gmac_info(gmacdev, "%s: data plane open command un-successful", __func__);
+		netdev_dbg(netdev, "%s: data plane open command un-successful", __func__);
 		gmacdev->link_state = LINKDOWN;
 		return;
 	}
-	nss_gmac_info(gmacdev, "%s: data plane open command successfully issued", __func__);
+	netdev_dbg(netdev, "%s: data plane open command successfully issued", __func__);
 
 	nss_notify_linkup(gmacdev);
 
@@ -714,7 +713,7 @@ void nss_gmac_linkdown(struct nss_gmac_dev *gmacdev)
 {
 	struct net_device *netdev = gmacdev->netdev;
 
-	nss_gmac_msg("%s Link %s", netdev->name, "down");
+	netdev_info(netdev, "Link down");
 
 	if (test_bit(__NSS_GMAC_UP, &gmacdev->flags)) {
 		netif_carrier_off(netdev);
@@ -755,15 +754,15 @@ void nss_gmac_start_up(struct nss_gmac_dev *gmacdev)
 {
 	if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
 		if (!IS_ERR_OR_NULL(gmacdev->phydev)) {
-			nss_gmac_info(gmacdev, "%s: start phy 0x%x", __func__, gmacdev->phydev->phy_id);
+			netdev_dbg(gmacdev->netdev, "%s: start phy 0x%x", __func__, gmacdev->phydev->phy_id);
 			phy_start(gmacdev->phydev);
 			phy_start_aneg(gmacdev->phydev);
 		} else {
-			nss_gmac_info(gmacdev, "%s: Invalid PHY device for a link polled interface", __func__);
+			netdev_dbg(gmacdev->netdev, "%s: Invalid PHY device for a link polled interface", __func__);
 		}
 		return;
 	}
-	nss_gmac_info(gmacdev, "%s: Force link up", __func__);
+	netdev_dbg(gmacdev->netdev, "%s: Force link up", __func__);
 	/*
 	 * Force link up if link polling is disabled
 	 */
@@ -789,8 +788,7 @@ int32_t nss_gmac_linux_xmit_frames(struct sk_buff *skb, struct net_device *netde
 
 	BUG_ON(skb == NULL);
 	if (skb->len < ETH_HLEN) {
-		nss_gmac_info(gmacdev, "%s: skb->len < ETH_HLEN",
-				__func__);
+		netdev_dbg(netdev, "%s: skb->len < ETH_HLEN", __func__);
 		goto drop;
 	}
 
@@ -798,7 +796,7 @@ int32_t nss_gmac_linux_xmit_frames(struct sk_buff *skb, struct net_device *netde
 	BUG_ON(gmacdev == NULL);
 	BUG_ON(gmacdev->netdev != netdev);
 
-	nss_gmac_trace(gmacdev, "%s:Tx packet, len %d, CSUM %d",
+	netdev_dbg(netdev, "%s:Tx packet, len %d, CSUM %d",
 			__func__, skb->len, skb->ip_summed);
 
 	msg_status = gmacdev->data_plane_ops->xmit(gmacdev->data_plane_ctx, skb);
@@ -810,7 +808,7 @@ drop:
 	/*
 	 * Now drop it
 	 */
-	nss_gmac_info(gmacdev, "dropping skb");
+	netdev_dbg(netdev, "dropping skb");
 	dev_kfree_skb_any(skb);
 	netdev->stats.tx_dropped++;
 
@@ -848,7 +846,7 @@ int nss_gmac_linux_open(struct net_device *netdev)
 	netif_carrier_off(netdev);
 
 	if (!gmacdev->data_plane_ops) {
-		nss_gmac_info(gmacdev, "%s: offload is not enabled, bring up gmac with slowpath", __func__);
+		netdev_dbg(netdev, "%s: offload is not enabled, bring up gmac with slowpath", __func__);
 
 		netif_napi_add(netdev, &gmacdev->napi, nss_gmac_poll, NSS_GMAC_NAPI_BUDGET);
 		/* Initial the RX/TX ring */
@@ -860,7 +858,7 @@ int nss_gmac_linux_open(struct net_device *netdev)
 		/* Register IRQ */
 		err = request_irq(netdev->irq, nss_gmac_handle_irq, IRQF_DISABLED, "nss-gmac", gmacdev);
 		if (err) {
-			nss_gmac_warn(gmacdev, "Mac %d IRQ %d request failed", gmacdev->macid, netdev->irq);
+			netdev_dbg(netdev, "Mac %d IRQ %d request failed", gmacdev->macid, netdev->irq);
 			return err;
 		}
 
@@ -963,7 +961,7 @@ void nss_gmac_linux_tx_timeout(struct net_device *netdev)
 
 	if (gmacdev->gmac_power_down == 0) {
 		/* If Mac is in powerdown */
-		nss_gmac_info(gmacdev,
+		netdev_dbg(netdev,
 				"%s TX time out during power down is ignored",
 				netdev->name);
 		return;
@@ -1043,7 +1041,7 @@ int nss_gmac_override_data_plane(struct net_device *netdev,
 
 	if (!dp_ops->open || !dp_ops->close || !dp_ops->link_state
 		|| !dp_ops->mac_addr || !dp_ops->change_mtu || !dp_ops->xmit) {
-		nss_gmac_info(gmacdev, "%s: All the op functions must be present, reject this registeration", __func__);
+		netdev_dbg(netdev, "%s: All the op functions must be present, reject this registeration", __func__);
 		return NSS_GMAC_FAILURE;
 	}
 
@@ -1074,11 +1072,11 @@ void nss_gmac_start_data_plane(struct net_device *netdev, void *ctx)
 	struct nss_gmac_global_ctx *global_ctx = gmacdev->ctx;
 
 	if (test_bit(__NSS_GMAC_UP, &gmacdev->flags)) {
-		nss_gmac_warn(gmacdev, "This netdev already up, something is wrong\n");
+		netdev_dbg(netdev, "This netdev already up, something is wrong\n");
 		return;
 	}
 	if (gmacdev->data_plane_ctx == ctx) {
-		nss_gmac_info(gmacdev, "Data plane cookie matches, let's start the netdev again\n");
+		netdev_dbg(netdev, "Data plane cookie matches, let's start the netdev again\n");
 		queue_delayed_work(global_ctx->gmac_workqueue, &gmacdev->gmacwork, NSS_GMAC_LINK_CHECK_TIME);
 	}
 }
@@ -1124,6 +1122,6 @@ void nss_gmac_open_work(struct work_struct *work)
 {
 	struct nss_gmac_dev *gmacdev = container_of(to_delayed_work(work), struct nss_gmac_dev, gmacwork);
 
-	nss_gmac_info(gmacdev, "Do the network up in delayed queue %s\n", gmacdev->netdev->name);
+	netdev_dbg(gmacdev->netdev, "Do the network up in delayed queue %s\n", gmacdev->netdev->name);
 	nss_gmac_linux_open(gmacdev->netdev);
 }

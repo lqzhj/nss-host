@@ -1202,47 +1202,9 @@ enum mmc_enable {
 };
 
 enum mmc_ip_related {
-	GmacMmcRxIpcIntrMask = 0x0200,	
+	GmacMmcRxIpcIntrMask = 0x0200,
 /*Maintains the mask for interrupt generated from rx IPC statistic counters   */
 };
-
-/*
- * Debugging APIs to print NSS GMAC driver messages.
- *
- * @param[in] Pointer to device private structure or NULL.
- * @param[in] Linux Kernel Loglevel.
- * @param[in] Pointer to message format string.
- * @param[in] variable number of arguments for format string.
- *
- */
-#define nss_gmac_msg(msg, args...) printk("nss_gmac: " msg "\n", ##args)
-
-#if (NSS_GMAC_DEBUG_LEVEL < 1)
-#define nss_gmac_warn(gmacdev, msg, args...)
-#define nss_gmac_early_dbg(msg, args...)
-#else
-#define nss_gmac_warn(gmacdev, msg, args...)				\
-		printk(KERN_WARNING "nss_gmac: GMAC%d(%p) "msg,		\
-				gmacdev->macid, gmacdev, ##args)
-#define nss_gmac_early_dbg(msg, args...)				\
-		printk(KERN_WARNING "nss_gmac:"msg, ##args)
-#endif
-
-#if (NSS_GMAC_DEBUG_LEVEL < 2)
-#define nss_gmac_info(gmacdev, msg, args...)
-#else
-#define nss_gmac_info(gmacdev, msg, args...)				\
-		printk(KERN_INFO "nss_gmac: GMAC%d(%p) "msg,		\
-				gmacdev->macid, gmacdev, ##args)
-#endif
-
-#if (NSS_GMAC_DEBUG_LEVEL < 3)
-#define nss_gmac_trace(gmacdev, msg, args...)
-#else
-#define nss_gmac_trace(gmacdev, msg, args...)				\
-		printk(KERN_DEBUG "nss_gmac: GMAC%d(%p) "msg,		\
-		gmacdev->macid, gmacdev, ##args)
-#endif
 
 /*******************Ip checksum offloading APIs**********************************/
 void nss_gmac_enable_rx_chksum_offload(struct nss_gmac_dev *gmacdev);

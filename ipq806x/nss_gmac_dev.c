@@ -111,8 +111,7 @@ int32_t nss_gmac_read_phy_reg(uint32_t *RegBase, uint32_t PhyBase,
 		msleep(100);
 	}
 
-	nss_gmac_early_dbg
-	    ("Error::: PHY not responding; Busy bit not cleared!! addr:%x, data:%x\n",
+	pr_debug("Error::: PHY not responding; Busy bit not cleared!! addr:%x, data:%x\n",
 	     temp, *data);
 
 	return -EIO;
@@ -156,8 +155,7 @@ int32_t nss_gmac_write_phy_reg(uint32_t *RegBase, uint32_t PhyBase,
 		msleep(100);
 	}
 
-	nss_gmac_early_dbg
-	    ("Error::: PHY not responding; Busy bit not cleared!! addr:data %x:%x",
+	pr_debug("Error::: PHY not responding; Busy bit not cleared!! addr:data %x:%x",
 	     temp, data);
 
 	return -EIO;
@@ -177,7 +175,7 @@ uint16_t nss_gmac_mii_rd_reg(struct nss_gmac_dev *gmacdev, uint32_t phy,
 	uint16_t data = 0;
 
 	if (IS_ERR_OR_NULL(gmacdev->phydev)) {
-		nss_gmac_info(gmacdev, "Error: Reading uninitialized PHY...");
+		netdev_dbg(gmacdev->netdev, "Error: Reading uninitialized PHY...");
 		return 0;
 	}
 
@@ -199,7 +197,7 @@ void nss_gmac_mii_wr_reg(struct nss_gmac_dev *gmacdev, uint32_t phy,
 			 uint32_t reg, uint16_t data)
 {
 	if (IS_ERR_OR_NULL(gmacdev->phydev)) {
-		nss_gmac_info(gmacdev, "Error: Writing uninitialized PHY...");
+		netdev_dbg(gmacdev->netdev, "Error: Writing uninitialized PHY...");
 		return;
 	}
 
@@ -225,7 +223,7 @@ void nss_gmac_reset_phy(struct nss_gmac_dev *gmacdev, uint32_t phyid)
 			    | BMCR_ANENABLE);
 
 	test_and_set_bit(__NSS_GMAC_AUTONEG, &gmacdev->flags);
-	nss_gmac_info(gmacdev, "Phy %u reset OK", phyid);
+	netdev_dbg(gmacdev->netdev, "Phy %u reset OK", phyid);
 }
 
 
@@ -260,7 +258,7 @@ void nss_gmac_reset(struct nss_gmac_dev *gmacdev)
 	netdev = gmacdev->netdev;
 	ctx = gmacdev->ctx;
 
-	nss_gmac_info(gmacdev, "%s: %s resetting...",
+	netdev_dbg(netdev, "%s: %s resetting...",
 		      __func__, netdev->name);
 
 	reset_time = jiffies;
@@ -276,7 +274,7 @@ void nss_gmac_reset(struct nss_gmac_dev *gmacdev)
 	msleep(1000);
 	data = nss_gmac_read_reg((uint32_t *)gmacdev->dma_base, DmaBusMode);
 
-	nss_gmac_info(gmacdev, "GMAC reset completed in %d jiffies; DmaBusMode - 0x%x", (int)(jiffies - reset_time), data);
+	netdev_dbg(netdev, "GMAC reset completed in %d jiffies; DmaBusMode - 0x%x", (int)(jiffies - reset_time), data);
 }
 
 /*
@@ -849,7 +847,7 @@ void nss_gmac_tx_flow_control_disable(struct nss_gmac_dev *gmacdev)
  */
 void nss_gmac_tx_pause_enable(struct nss_gmac_dev *gmacdev)
 {
-	nss_gmac_info(gmacdev, "%s: enable Tx flow control", __func__);
+	netdev_dbg(gmacdev->netdev, "%s: enable Tx flow control", __func__);
 
 	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
 			      GmacFlowControl, GmacTxFlowControl);
@@ -862,7 +860,7 @@ void nss_gmac_tx_pause_enable(struct nss_gmac_dev *gmacdev)
  */
 void nss_gmac_tx_pause_disable(struct nss_gmac_dev *gmacdev)
 {
-	nss_gmac_info(gmacdev, "%s: disable Tx flow control", __func__);
+	netdev_dbg(gmacdev->netdev, "%s: disable Tx flow control", __func__);
 
 	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
 				GmacFlowControl, GmacTxFlowControl);
@@ -877,7 +875,7 @@ void nss_gmac_tx_pause_disable(struct nss_gmac_dev *gmacdev)
  */
 void nss_gmac_rx_pause_enable(struct nss_gmac_dev *gmacdev)
 {
-	nss_gmac_info(gmacdev, "%s: enable Rx flow control", __func__);
+	netdev_dbg(gmacdev->netdev, "%s: enable Rx flow control", __func__);
 
 	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->dma_base, DmaControl,
 				DmaEnHwFlowCtrl
@@ -894,7 +892,7 @@ void nss_gmac_rx_pause_enable(struct nss_gmac_dev *gmacdev)
  */
 void nss_gmac_rx_pause_disable(struct nss_gmac_dev *gmacdev)
 {
-	nss_gmac_info(gmacdev, "%s: disable Rx flow control", __func__);
+	netdev_dbg(gmacdev->netdev, "%s: disable Rx flow control", __func__);
 
 	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->dma_base,
 				DmaControl, DmaEnHwFlowCtrl);
@@ -923,7 +921,7 @@ void nss_gmac_config_flow_control(struct nss_gmac_dev *gmacdev)
 {
 	uint16_t phyreg;
 
-	nss_gmac_info(gmacdev, "%s:", __func__);
+	netdev_dbg(gmacdev->netdev, "%s:", __func__);
 
 	if (gmacdev->pause == 0) {
 		nss_gmac_rx_pause_disable(gmacdev);
@@ -935,7 +933,7 @@ void nss_gmac_config_flow_control(struct nss_gmac_dev *gmacdev)
 
 	if (phyreg & LPA_PAUSE_CAP) {
 		/* link partner can do Tx/Rx flow control */
-		nss_gmac_info(gmacdev,
+		netdev_dbg(gmacdev->netdev,
 			      "%s: Link partner supports Tx/Rx flow control",
 			      __func__);
 
@@ -950,7 +948,7 @@ void nss_gmac_config_flow_control(struct nss_gmac_dev *gmacdev)
 
 	if (phyreg & LPA_PAUSE_ASYM) {
 		/* link partner can do Rx flow control only */
-		nss_gmac_info(gmacdev,
+		netdev_dbg(gmacdev->netdev,
 			      "%s: Link partner supports Rx flow control only",
 			      __func__);
 
@@ -965,7 +963,7 @@ void nss_gmac_config_flow_control(struct nss_gmac_dev *gmacdev)
 	}
 
 	/* link partner does not support Tx/Rx flow control */
-	nss_gmac_info(gmacdev,
+	netdev_dbg(gmacdev->netdev,
 		      "%s: Link partner does not support Tx/Rx flow control",
 		      __func__);
 	nss_gmac_rx_flow_control_disable(gmacdev);
@@ -987,10 +985,10 @@ void nss_gmac_ipc_offload_init(struct nss_gmac_dev *gmacdev)
 		 * DMA drops the packets if error in encapsulated ethernet payload.
 		 */
 		nss_gmac_rx_tcpip_chksum_drop_enable(gmacdev);
-		nss_gmac_info(gmacdev, "%s: enable Rx checksum", __func__);
+		netdev_dbg(gmacdev->netdev, "%s: enable Rx checksum", __func__);
 	} else {
 		nss_gmac_disable_rx_chksum_offload(gmacdev);
-		nss_gmac_info(gmacdev, "%s: disable Rx checksum", __func__);
+		netdev_dbg(gmacdev->netdev, "%s: disable Rx checksum", __func__);
 	}
 }
 
@@ -1128,7 +1126,7 @@ reheck_pcs_mac_status:
 	nss_gmac_check_pcs_status(gmacdev);
 	if (gmacdev->link_state == LINKDOWN) {
 		if (gmacdev->phydev->link) {
-			nss_gmac_warn(gmacdev, "SGMII PCS error. Resetting PHY using MDIO");
+			netdev_dbg(gmacdev->netdev, "SGMII PCS error. Resetting PHY using MDIO");
 			phy_write(gmacdev->phydev, MII_BMCR,
 				  BMCR_RESET | phy_read(gmacdev->phydev, MII_BMCR));
 		}
@@ -1154,7 +1152,7 @@ reheck_pcs_mac_status:
 
 	/* handle autoneg timeout */
 	if (timeout == 0) {
-		nss_gmac_info(gmacdev, "%s: PCS ch %d autoneg timeout", __func__, id);
+		netdev_dbg(gmacdev->netdev, "%s: PCS ch %d autoneg timeout", __func__, id);
 		timeout_count++;
 		if (timeout_count == 2) {
 			gmacdev->link_state = LINKDOWN;
@@ -1164,13 +1162,13 @@ reheck_pcs_mac_status:
 		}
 		goto reheck_pcs_mac_status;
 	}
-	nss_gmac_trace(gmacdev, "%s: PCS ch %d autoneg complete", __func__, id);
+	netdev_dbg(gmacdev->netdev, "%s: PCS ch %d autoneg complete", __func__, id);
 
 	nss_gmac_check_pcs_status(gmacdev);
 
 	if ((gmacdev->link_state == LINKDOWN) || (new_speed != gmacdev->speed)) {
 		gmacdev->link_state = LINKDOWN;
-			nss_gmac_warn(gmacdev, "SGMII PCS error. Resetting PHY using MDIO");
+			netdev_dbg(gmacdev->netdev, "SGMII PCS error. Resetting PHY using MDIO");
 			phy_write(gmacdev->phydev, MII_BMCR,
 				  BMCR_RESET | phy_read(gmacdev->phydev, MII_BMCR));
 		return;
@@ -1210,7 +1208,7 @@ int32_t nss_gmac_check_phy_init(struct nss_gmac_dev *gmacdev)
 			gmacdev->duplex_mode = gmacdev->forced_duplex;
 			return 0;
 		} else {
-			nss_gmac_info(gmacdev, "%s: Invalid forced speed/duplex configuration with link polling disabled", __func__);
+			netdev_dbg(gmacdev->netdev, "%s: Invalid forced speed/duplex configuration with link polling disabled", __func__);
 			return -EIO;
 		}
 	}
@@ -1227,11 +1225,11 @@ int32_t nss_gmac_check_phy_init(struct nss_gmac_dev *gmacdev)
 		|| gmacdev->phy_mii_type == GMAC_INTF_QSGMII) {
 		nss_gmac_check_sgmii_link(gmacdev);
 		if (gmacdev->link_state == LINKDOWN) {
-			nss_gmac_info(gmacdev, "%s: SGMII phy linkup ERROR.", __func__);
+			netdev_dbg(gmacdev->netdev, "%s: SGMII phy linkup ERROR.", __func__);
 			return -EIO;
 		}
 
-		nss_gmac_trace(gmacdev, "%s: SGMII phy linkup OK.", __func__);
+		netdev_dbg(gmacdev->netdev, "%s: SGMII phy linkup OK.", __func__);
 		goto out;
 	}
 
@@ -1243,14 +1241,14 @@ int32_t nss_gmac_check_phy_init(struct nss_gmac_dev *gmacdev)
 
 	for (count = 0; count < DEFAULT_LOOP_VARIABLE; count++) {
 		if (phydev->state == PHY_RUNNING) {
-			nss_gmac_info(gmacdev, "%s: %s Autoneg. complete",
+			netdev_dbg(gmacdev->netdev, "%s: %s Autoneg. complete",
 				      __func__, gmacdev->netdev->name);
 			break;
 		}
 	}
 
 	if (count == DEFAULT_LOOP_VARIABLE) {
-		nss_gmac_info(gmacdev, "%s: %s Timeout waiting for autoneg.",
+		netdev_dbg(gmacdev->netdev, "%s: %s Timeout waiting for autoneg.",
 			      __func__, gmacdev->netdev->name);
 		return -EIO;
 	}
@@ -1282,8 +1280,8 @@ int32_t nss_gmac_check_phy_init(struct nss_gmac_dev *gmacdev)
 	}
 
 out:
-	nss_gmac_msg("%s %sMbps %sDuplex",
-			gmacdev->netdev->name, (gmacdev->speed == SPEED1000) ?
+	netdev_info(gmacdev->netdev, "%sMbps %sDuplex",
+			(gmacdev->speed == SPEED1000) ?
 			"1000" : ((gmacdev->speed == SPEED100) ? "100" : "10"),
 			(gmacdev->duplex_mode == FULLDUPLEX) ? "Full" : "Half");
 
@@ -1395,7 +1393,7 @@ void nss_gmac_set_mac_addr(struct nss_gmac_dev *gmacdev, uint32_t MacHigh,
 {
 	uint32_t data;
 
-	nss_gmac_info(gmacdev, "Set addr %02x:%02x:%02x:%02x:%02x:%02x",
+	netdev_dbg(gmacdev->netdev, "Set addr %02x:%02x:%02x:%02x:%02x:%02x",
 		      MacAddr[0], MacAddr[1], MacAddr[2],
 		      MacAddr[3], MacAddr[4], MacAddr[5]);
 
@@ -1449,7 +1447,7 @@ int32_t nss_gmac_attach(struct nss_gmac_dev *gmacdev,
 	/*Populate the mac and dma base addresses */
 	gmacdev->memres = request_mem_region(regBase, reglen, netdev->name);
 	if (!gmacdev->memres) {
-		nss_gmac_info(gmacdev, "Unable to request resource.");
+		netdev_dbg(netdev, "Unable to request resource.");
 		return -EIO;
 	}
 
@@ -1457,11 +1455,11 @@ int32_t nss_gmac_attach(struct nss_gmac_dev *gmacdev,
 	gmacdev->mac_base = (uint32_t)ioremap_nocache(regBase,
 						      NSS_GMAC_REG_BLOCK_LEN);
 	if (!gmacdev->mac_base) {
-		nss_gmac_info(gmacdev, "ioremap fail.");
+		netdev_dbg(netdev, "ioremap fail.");
 		return -EIO;
 	}
 
-	nss_gmac_info(gmacdev, "ioremap OK. Size 0x%x. regBase 0x%x. mac_base 0x%x.",
+	netdev_dbg(netdev, "ioremap OK. Size 0x%x. regBase 0x%x. mac_base 0x%x.",
 		      NSS_GMAC_REG_BLOCK_LEN, regBase, gmacdev->mac_base);
 
 	gmacdev->dma_base = gmacdev->mac_base + NSS_GMAC_DMABASE;

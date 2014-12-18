@@ -195,7 +195,7 @@ static void nss_gmac_giveup_rx_desc_queue(struct nss_gmac_dev *gmacdev,
 	dma_free_coherent(dev, (sizeof(struct DmaDesc) * gmacdev->rx_desc_count)
 			 , gmacdev->rx_desc, gmacdev->rx_desc_dma);
 
-	nss_gmac_info(gmacdev, "Memory allocated %08x for Rx Desriptors (ring) is given back"
+	netdev_dbg(gmacdev->netdev, "Memory allocated %08x for Rx Desriptors (ring) is given back"
 						, (uint32_t)gmacdev->rx_desc);
 
 	gmacdev->rx_desc = NULL;
@@ -251,7 +251,7 @@ static void nss_gmac_giveup_tx_desc_queue(struct nss_gmac_dev *gmacdev,
 	dma_free_coherent(dev, (sizeof(struct DmaDesc) * gmacdev->tx_desc_count),
 			  gmacdev->tx_desc, gmacdev->tx_desc_dma);
 
-	nss_gmac_info(gmacdev, "Memory allocated %08x for Tx Desriptors (ring) is given back"
+	netdev_dbg(gmacdev->netdev, "Memory allocated %08x for Tx Desriptors (ring) is given back"
 						, (uint32_t)gmacdev->tx_desc);
 
 	gmacdev->tx_desc = NULL;
@@ -338,7 +338,7 @@ static int32_t nss_gmac_linux_set_mac_address(struct net_device *netdev,
 	BUG_ON(gmacdev == NULL);
 	BUG_ON(gmacdev->netdev != netdev);
 
-	nss_gmac_info(gmacdev, "%s: AddrFamily: %d, %0x:%0x:%0x:%0x:%0x:%0x",
+	netdev_dbg(netdev, "%s: AddrFamily: %d, %0x:%0x:%0x:%0x:%0x:%0x",
 		      __func__, addr->sa_family, addr->sa_data[0],
 		      addr->sa_data[1], addr->sa_data[2], addr->sa_data[3],
 		      addr->sa_data[4], addr->sa_data[5]);
@@ -389,24 +389,24 @@ static int32_t nss_gmac_linux_do_ioctl(struct net_device *netdev,
 	BUG_ON(gmacdev == NULL);
 	BUG_ON(gmacdev->netdev != netdev);
 
-	nss_gmac_info(gmacdev, "%s :: on device %s req->unit = %08x req->addr = %08x req->data = %08x cmd = %08x"
+	netdev_dbg(netdev, "%s :: on device %s req->unit = %08x req->addr = %08x req->data = %08x cmd = %08x"
 		, __func__, netdev->name, req->unit, req->addr, req->data, cmd);
 
 	retval = 0;
 	switch (cmd) {
 	case SIOCGMIIPHY:
-		nss_gmac_info(gmacdev, "SIOCGMIIPHY: ");
+		netdev_dbg(netdev, "SIOCGMIIPHY: ");
 		mii_data->phy_id = gmacdev->phy_base;
 		break;
 
 	case SIOCSMIIREG:
-		nss_gmac_info(gmacdev, "SIOCSMIIREG: ");
+		netdev_dbg(netdev, "SIOCSMIIREG: ");
 		nss_gmac_mii_wr_reg(gmacdev, gmacdev->phy_base,
 			      (mii_data->reg_num & 0x1F), mii_data->val_in);
 		break;
 
 	case SIOCGMIIREG:
-		nss_gmac_info(gmacdev, "SIOCGMIIREG: ");
+		netdev_dbg(netdev, "SIOCGMIIREG: ");
 		mii_data->val_out = nss_gmac_mii_rd_reg(gmacdev,
 						 gmacdev->phy_base,
 						 (mii_data->reg_num & 0x1F));
@@ -414,7 +414,7 @@ static int32_t nss_gmac_linux_do_ioctl(struct net_device *netdev,
 
 	default:
 		retval = -EINVAL;
-		nss_gmac_info(gmacdev, "Unsupported ioctl");
+		netdev_dbg(netdev, "Unsupported ioctl");
 		break;
 	}
 
@@ -437,7 +437,7 @@ static void nss_gmac_linux_set_rx_mode(struct net_device *netdev)
 	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 
-	nss_gmac_info(gmacdev, "%s: flags - 0x%x", __func__, netdev->flags);
+	netdev_dbg(netdev, "%s: flags - 0x%x", __func__, netdev->flags);
 
 	/* Check for Promiscuous and All Multicast modes */
 	if (netdev->flags & IFF_PROMISC) {
@@ -608,7 +608,7 @@ static int32_t nss_gmac_do_common_init(struct platform_device *pdev)
 	 */
 	common_device_node = of_find_node_by_name(NULL, NSS_GMAC_COMMON_DEVICE_NODE);
 	if (!common_device_node) {
-		nss_gmac_msg("Cannot find device tree node "NSS_GMAC_COMMON_DEVICE_NODE);
+		pr_info("Cannot find device tree node "NSS_GMAC_COMMON_DEVICE_NODE);
 		ret = -EFAULT;
 		goto nss_gmac_cmn_init_fail;
 	}
@@ -641,29 +641,29 @@ static int32_t nss_gmac_do_common_init(struct platform_device *pdev)
 	ctx.nss_base = (uint8_t *)ioremap_nocache(res_nss_base.start,
 						  resource_size(&res_nss_base));
 	if (!ctx.nss_base) {
-		nss_gmac_early_dbg("Error mapping NSS GMAC registers");
+		pr_info("Error mapping NSS GMAC registers");
 		ret = -EIO;
 		goto nss_gmac_cmn_init_fail;
 	}
-	nss_gmac_early_dbg("%s: NSS base ioremap OK.", __func__);
+	pr_debug("%s: NSS base ioremap OK.", __func__);
 
 	ctx.qsgmii_base = (uint32_t *)ioremap_nocache(res_qsgmii_base.start,
 						      resource_size(&res_qsgmii_base));
 	if (!ctx.qsgmii_base) {
-		nss_gmac_early_dbg("Error mapping QSGMII registers");
+		pr_info("Error mapping QSGMII registers");
 		ret = -EIO;
 		goto nss_gmac_qsgmii_map_err;
 	}
-	nss_gmac_early_dbg("%s: QSGMII base ioremap OK, vaddr = 0x%p", __func__, ctx.qsgmii_base);
+	pr_debug("%s: QSGMII base ioremap OK, vaddr = 0x%p", __func__, ctx.qsgmii_base);
 
 	ctx.clk_ctl_base = (uint32_t *)ioremap_nocache(res_clk_ctl_base.start,
 						       resource_size(&res_clk_ctl_base));
 	if (!ctx.clk_ctl_base) {
-		nss_gmac_early_dbg("Error mapping Clk control registers");
+		pr_info("Error mapping Clk control registers");
 		ret = -EIO;
 		goto nss_gmac_clkctl_map_err;
 	}
-	nss_gmac_early_dbg("%s: Clk control base ioremap OK, vaddr = 0x%p", __func__, ctx.clk_ctl_base);
+	pr_debug("%s: Clk control base ioremap OK, vaddr = 0x%p", __func__, ctx.clk_ctl_base);
 
 	if (nss_gmac_common_init(&ctx) == 0) {
 		ret = 0;
@@ -680,7 +680,7 @@ nss_gmac_qsgmii_map_err:
 	ctx.nss_base = NULL;
 
 nss_gmac_cmn_init_fail:
-	nss_gmac_msg("%s: platform init fail\n", __func__);
+	pr_info("%s: platform init fail\n", __func__);
 
 nss_gmac_cmn_init_ok:
 #ifdef CONFIG_OF
@@ -722,7 +722,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	 */
 	netdev = alloc_etherdev(sizeof(struct nss_gmac_dev));
 	if (!netdev) {
-		nss_gmac_early_dbg("%s: alloc_etherdev() failed", __func__);
+		pr_info("%s: alloc_etherdev() failed", __func__);
 		return -ENOMEM;
 	}
 
@@ -810,7 +810,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	if (nss_gmac_attach(gmacdev, netdev->base_addr,
 			    pdev->resource[0].end - pdev->resource[0].start +
 			    1) < 0) {
-		nss_gmac_info(gmacdev, "attach failed for %s", netdev->name);
+		netdev_dbg(netdev, "attach failed for %s", netdev->name);
 		ret = -EIO;
 		goto nss_gmac_attach_fail;
 	}
@@ -823,21 +823,21 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 
 		prop = of_get_property(np, "mdiobus", NULL);
 		if (!prop) {
-			nss_gmac_info(gmacdev, "cannot get 'mdiobus' property");
+			netdev_dbg(netdev, "cannot get 'mdiobus' property");
 			ret = -EIO;
 			goto mdiobus_init_fail;
 		}
 
 		mdio_node = of_find_node_by_phandle(be32_to_cpup(prop));
 		if (!mdio_node) {
-			nss_gmac_info(gmacdev, "cannot find mdio node by phandle");
+			netdev_dbg(netdev, "cannot find mdio node by phandle");
 			ret = -EIO;
 			goto mdiobus_init_fail;
 		}
 
 		mdio_plat = of_find_device_by_node(mdio_node);
 		if (!mdio_plat) {
-			nss_gmac_info(gmacdev, "cannot find platform device from mdio node");
+			netdev_dbg(netdev, "cannot find platform device from mdio node");
 			of_node_put(mdio_node);
 			ret = -EIO;
 			goto mdiobus_init_fail;
@@ -845,7 +845,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 
 		gmacdev->miibus = dev_get_drvdata(&mdio_plat->dev);
 		if (!gmacdev->miibus) {
-			nss_gmac_info(gmacdev, "cannot get mii bus reference from device data");
+			netdev_dbg(netdev, "cannot get mii bus reference from device data");
 			of_node_put(mdio_node);
 			ret = -EIO;
 			goto mdiobus_init_fail;
@@ -858,28 +858,28 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 
 		miidev = bus_find_device_by_name(&platform_bus_type, NULL, busid);
 		if (!miidev) {
-			nss_gmac_info(gmacdev, "mdio bus '%s' get FAIL.", busid);
+			netdev_dbg(netdev, "mdio bus '%s' get FAIL.", busid);
 			ret = -EIO;
 			goto mdiobus_init_fail;
 		}
 
 		gmacdev->miibus = dev_get_drvdata(miidev);
 		if (!gmacdev->miibus) {
-			nss_gmac_info(gmacdev, "mdio bus '%s' get FAIL.", busid);
+			netdev_dbg(netdev, "mdio bus '%s' get FAIL.", busid);
 			ret = -EIO;
 			goto mdiobus_init_fail;
 		}
 #endif
 
-		nss_gmac_info(gmacdev, "mdio bus '%s' OK.", gmacdev->miibus->id);
+		netdev_dbg(netdev, "mdio bus '%s' OK.", gmacdev->miibus->id);
 
 	} else if (gmacdev->emulation && (gmacdev->phy_mii_type == GMAC_INTF_RGMII)) {
 		if (nss_gmac_init_mdiobus(gmacdev) != 0) {
-			nss_gmac_info(gmacdev, "mdio bus register FAIL for emulation.");
+			netdev_dbg(netdev, "mdio bus register FAIL for emulation.");
 			ret = -EIO;
 			goto mdiobus_init_fail;
 		}
-		nss_gmac_info(gmacdev, "mdio bus '%s' register OK for emulation.", gmacdev->miibus->id);
+		netdev_dbg(netdev, "mdio bus '%s' register OK for emulation.", gmacdev->miibus->id);
 	}
 
 	/*
@@ -889,7 +889,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 		memcpy(netdev->dev_addr, &gmaccfg->mac_addr, ETH_ALEN);
 	} else {
 		random_ether_addr(netdev->dev_addr);
-		nss_gmac_msg("GMAC%d(%p) Invalid MAC@ - using %02x:%02x:%02x:%02x:%02x:%02x",
+		pr_info("GMAC%d(%p) Invalid MAC@ - using %02x:%02x:%02x:%02x:%02x:%02x",
 			gmacdev->macid, gmacdev,
 			*netdev->dev_addr, *netdev->dev_addr+1, *netdev->dev_addr+2,
 			*netdev->dev_addr+3, *netdev->dev_addr+4, *netdev->dev_addr+5);
@@ -927,7 +927,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 				NSS_GMAC_PHY_FIXUP_MASK,
 				&nss_gmac_phy_fixup);
 		if (ret	!= 0) {
-			nss_gmac_info(gmacdev, "PHY fixup register Error.");
+			netdev_dbg(netdev, "PHY fixup register Error.");
 			goto nss_gmac_phy_attach_fail;
 		}
 	}
@@ -943,21 +943,21 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 #endif
 
 		if (IS_ERR_OR_NULL(gmacdev->phydev)) {
-			nss_gmac_info(gmacdev, "PHY %s attach FAIL", phy_id);
+			netdev_dbg(netdev, "PHY %s attach FAIL", phy_id);
 			ret = -EIO;
 			goto nss_gmac_phy_attach_fail;
 		}
 
 		nss_gmac_update_features(&(gmacdev->phydev->supported), &(gmacdev->phydev->advertising));
 		gmacdev->phydev->irq = PHY_POLL;
-		nss_gmac_info(gmacdev, "PHY %s attach OK", phy_id);
+		netdev_dbg(netdev, "PHY %s attach OK", phy_id);
 
 		/* reset corresponding Phy */
 		nss_gmac_reset_phy(gmacdev, gmacdev->phy_base);
 
 		if (gmacdev->phy_mii_type == GMAC_INTF_RGMII) {
 			/* RGMII Tx delay */
-			nss_gmac_info(gmacdev, "%s: Program RGMII Tx delay..... " , __func__);
+			netdev_dbg(netdev, "%s: Program RGMII Tx delay..... " , __func__);
 			mdiobus_write(gmacdev->miibus, gmacdev->phy_base, 0x1D, 0x05);
 			mdiobus_write(gmacdev->miibus, gmacdev->phy_base, 0x1E, 0x100);
 			mdiobus_write(gmacdev->miibus, gmacdev->phy_base, 0x1D, 0x0B);
@@ -965,9 +965,9 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 		}
 
 		/* XXX: Test code to verify if MDIO access is OK. Remove after bringup. */
-		nss_gmac_info(gmacdev, "%s MII_PHYSID1 - 0x%04x", netdev->name,
+		netdev_dbg(netdev, "%s MII_PHYSID1 - 0x%04x", netdev->name,
 		      nss_gmac_mii_rd_reg(gmacdev, gmacdev->phy_base, MII_PHYSID1));
-		nss_gmac_info(gmacdev, "%s MII_PHYSID2 - 0x%04x", netdev->name,
+		netdev_dbg(netdev, "%s MII_PHYSID2 - 0x%04x", netdev->name,
 		      nss_gmac_mii_rd_reg(gmacdev, gmacdev->phy_base, MII_PHYSID2));
 	} else if (gmacdev->phy_base != NSS_GMAC_NO_MDIO_PHY) {
 		/*
@@ -979,7 +979,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 		gmacdev->phydev = phy_attach(netdev, (const char *)phy_id, phyif);
 #endif
 		if (IS_ERR_OR_NULL(gmacdev->phydev)) {
-			nss_gmac_info(gmacdev, "PHY %s attach FAIL", phy_id);
+			netdev_dbg(netdev, "PHY %s attach FAIL", phy_id);
 			ret = -EIO;
 			goto nss_gmac_phy_attach_fail;
 		}
@@ -990,7 +990,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 
 	/* Register the network interface */
 	if (register_netdev(netdev)) {
-		nss_gmac_info(gmacdev, "Error registering netdevice %s",
+		netdev_dbg(netdev, "Error registering netdevice %s",
 			      netdev->name);
 		ret = -EFAULT;
 		goto nss_gmac_reg_fail;
@@ -1003,7 +1003,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	netdev_change_features(netdev);
 	rtnl_unlock();
 
-	nss_gmac_info(gmacdev, "Initialized NSS GMAC%d interface %s: (base = 0x%lx, irq = %d, PhyId = %d, PollLink = %d)"
+	netdev_dbg(netdev, "Initialized NSS GMAC%d interface %s: (base = 0x%lx, irq = %d, PhyId = %d, PollLink = %d)"
 			, gmacdev->macid, netdev->name, netdev->base_addr
 			, netdev->irq, gmacdev->phy_base
 			, test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags));
@@ -1056,7 +1056,7 @@ static int nss_gmac_remove(struct platform_device *pdev)
 
 	gmacdev = ctx.nss_gmac[pdev->id];
 	if (!gmacdev) {
-		nss_gmac_early_dbg("Invalid GMAC");
+		pr_info("Invalid GMAC");
 		return -EINVAL;
 	}
 
@@ -1113,13 +1113,13 @@ int32_t __init nss_gmac_register_driver(void)
 
 	ctx.gmac_workqueue = create_singlethread_workqueue(NSS_GMAC_WORKQUEUE_NAME);
 	if (!ctx.gmac_workqueue) {
-		nss_gmac_msg("%s: cannot create workqueue.\n",
+		pr_info("%s: cannot create workqueue.\n",
 			     __func__);
 		goto link_state_wq_fail;
 	}
 
 	if (platform_driver_register(&nss_gmac_drv) != 0) {
-		nss_gmac_msg("platform drv reg failure\n");
+		pr_info("platform drv reg failure\n");
 		goto drv_register_fail;
 	}
 
@@ -1176,13 +1176,11 @@ void __exit nss_gmac_deregister_driver(void)
  */
 int __init nss_gmac_host_interface_init(void)
 {
-	nss_gmac_msg
-	    ("**********************************************************");
-	nss_gmac_msg("* Driver    :%s", nss_gmac_driver_string);
-	nss_gmac_msg("* Version   :%s", nss_gmac_driver_version);
-	nss_gmac_msg("* Copyright :%s", nss_gmac_copyright);
-	nss_gmac_msg
-	    ("**********************************************************");
+	pr_info("**********************************************************");
+	pr_info("* Driver    :%s", nss_gmac_driver_string);
+	pr_info("* Version   :%s", nss_gmac_driver_version);
+	pr_info("* Copyright :%s", nss_gmac_copyright);
+	pr_info("**********************************************************");
 
 	/* Initialize the Network dependent services */
 	if (nss_gmac_register_driver() != 0)
