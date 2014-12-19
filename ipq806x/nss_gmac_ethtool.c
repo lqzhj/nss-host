@@ -1,17 +1,17 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
  * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
- * AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT
- * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
- * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
- * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
- * PERFORMANCE OF THIS SOFTWARE.
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER
+ * RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT
+ * NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE
+ * USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 /*
  * @file
@@ -163,17 +163,16 @@ static int32_t nss_gmac_to_ethtool_duplex(int32_t duplex)
  * @param[in] pointer to struct net_device.
  * @param[in] string set to get
  */
-static int32_t nss_gmac_get_strset_count(struct net_device *netdev, int32_t sset)
+static int32_t nss_gmac_get_strset_count(struct net_device *netdev,
+					 int32_t sset)
 {
 	switch (sset) {
 	case ETH_SS_STATS:
 		return NSS_GMAC_STATS_LEN;
-		break;
 
 	default:
 		netdev_dbg(netdev, "%s: Invalid string set", __func__);
 		return -EOPNOTSUPP;
-		break;
 	}
 }
 
@@ -217,7 +216,8 @@ static void nss_gmac_get_ethtool_stats(struct net_device *netdev,
 
 	spin_lock_bh(&gmacdev->stats_lock);
 	for (i = 0; i < NSS_GMAC_STATS_LEN; i++) {
-		p = (uint8_t *)&(gmacdev->nss_stats) + gmac_gstrings_stats[i].stat_offset;
+		p = (uint8_t *)&(gmacdev->nss_stats) +
+					gmac_gstrings_stats[i].stat_offset;
 		data[i] = *(uint32_t *)p;
 	}
 	spin_unlock_bh(&gmacdev->stats_lock);
@@ -230,7 +230,8 @@ static void nss_gmac_get_ethtool_stats(struct net_device *netdev,
  * @param[in] pointer to struct net_device.
  * @param[out] pointer to struct ethtool_drvinfo
  */
-static void nss_gmac_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+static void nss_gmac_get_drvinfo(struct net_device *dev,
+						struct ethtool_drvinfo *info)
 {
 	strlcpy(info->driver, nss_gmac_driver_string, DRVINFO_LEN);
 	strlcpy(info->version, nss_gmac_driver_version, DRVINFO_LEN);
@@ -294,7 +295,8 @@ static int nss_gmac_set_pauseparam(struct net_device *netdev,
 	phydev->advertising &= ~(ADVERTISED_Pause | ADVERTISED_Asym_Pause);
 
 	if (gmacdev->pause & FLOW_CTRL_RX)
-		phydev->advertising |= (ADVERTISED_Pause | ADVERTISED_Asym_Pause);
+		phydev->advertising |=
+				(ADVERTISED_Pause | ADVERTISED_Asym_Pause);
 
 	if (gmacdev->pause & FLOW_CTRL_TX)
 		phydev->advertising |= ADVERTISED_Asym_Pause;
@@ -340,7 +342,8 @@ static int nss_gmac_nway_reset(struct net_device *netdev)
  * @param[in] pointer to struct net_device.
  * @param[in] pointer to struct ethtool_wolinfo.
  */
-static void nss_gmac_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
+static void nss_gmac_get_wol(struct net_device *netdev,
+			     struct ethtool_wolinfo *wol)
 {
 	wol->supported = 0;
 	wol->wolopts = 0;
@@ -387,7 +390,9 @@ static int32_t nss_gmac_get_settings(struct net_device *netdev,
 			ecmd->lp_advertising = 0;
 			return 0;
 		} else {
-			/* Non-link polled interfaced must have a forced speed/duplex */
+			/* Non-link polled interfaced must have a forced
+			 * speed/duplex
+			 */
 			return -EIO;
 		}
 	}

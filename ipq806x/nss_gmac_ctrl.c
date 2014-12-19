@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -19,12 +19,12 @@
  * @file
  * This is the network dependent layer to handle network related functionality.
  * This file is tightly coupled to neworking frame work of linux 2.6.xx kernel.
- * The functionality carried out in this file should be treated as an example only
- * if the underlying operating system is not Linux.
+ * The functionality carried out in this file should be treated as an example
+ * only if the underlying operating system is not Linux.
  *
  * @note Many of the functions other than the device specific functions
  * changes for operating system other than Linux 2.6.xx
- *-----------------------------REVISION HISTORY-----------------------------------
+ *----------------------REVISION HISTORY-----------------------------------
  * Qualcomm Atheros     01/Mar/2013			Modified for QCA NSS
  * Ubicom		01/Mar/2010			Modified for Ubicom32
  * Synopsys		01/Aug/2007			Created
@@ -78,73 +78,77 @@ volatile int32_t tx_frame_fragmented;
  * Sample Wake-up frame filter configurations
  */
 uint32_t nss_gmac_wakeup_filter_config0[] = {
-	0x00000000,	/* For Filter0 CRC is not computed may be it is 0x0000     */
-	0x00000000,	/* For Filter1 CRC is not computed may be it is 0x0000     */
-	0x00000000,	/* For Filter2 CRC is not computed may be it is 0x0000     */
+	0x00000000,	/* For Filter0 CRC is not computed may be it is 0x0000*/
+	0x00000000,	/* For Filter1 CRC is not computed may be it is 0x0000*/
+	0x00000000,	/* For Filter2 CRC is not computed may be it is 0x0000*/
 	0x5F5F5F5F,	/* For Filter3 CRC is based on 0,1,2,3,4,6,8,9,10,11,12,
 			   14,16,17,18,19,20,22,24,25,26,27,28,30
-			   bytes from offset                                       */
+			   bytes from offset                                  */
 	0x09000000,	/* Filter 0,1,2 are disabled, Filter3 is enabled and
-			   filtering applies to only multicast packets             */
+			   filtering applies to only multicast packets        */
 	0x1C000000,	/* Filter 0,1,2 (no significance), filter 3 offset is 28
-			   bytes from start of Destination MAC address             */
-	0x00000000,	/* No significance of CRC for Filter0 and Filter1          */
+			   bytes from start of Destination MAC address        */
+	0x00000000,	/* No significance of CRC for Filter0 and Filter1     */
 	0xBDCC0000	/* No significance of CRC for Filter2,
-			   Filter3 CRC is 0xBDCC                                   */
+			   Filter3 CRC is 0xBDCC                              */
 };
 
 uint32_t nss_gmac_wakeup_filter_config1[] = {
-	0x00000000,	/* For Filter0 CRC is not computed may be it is 0x0000     */
-	0x00000000,	/* For Filter1 CRC is not computed may be it is 0x0000     */
+	0x00000000,	/* For Filter0 CRC is not computed may be it is 0x0000*/
+	0x00000000,	/* For Filter1 CRC is not computed may be it is 0x0000*/
 	0x7A7A7A7A,	/* For Filter2 CRC is based on 1,3,4,5,6,9,11,12,13,14,
-			   17,19,20,21,25,27,28,29,30 bytes from offset            */
-	0x00000000,	/* For Filter3 CRC is not computed may be it is 0x0000     */
+			   17,19,20,21,25,27,28,29,30 bytes from offset       */
+	0x00000000,	/* For Filter3 CRC is not computed may be it is 0x0000*/
 	0x00010000,	/* Filter 0,1,3 are disabled, Filter2 is enabled and
-			   filtering applies to only unicast packets               */
+			   filtering applies to only unicast packets          */
 	0x00100000,	/* Filter 0,1,3 (no significance), filter 2 offset is 16
-			   bytes from start of Destination MAC address             */
-	0x00000000,	/* No significance of CRC for Filter0 and Filter1          */
+			   bytes from start of Destination MAC address        */
+	0x00000000,	/* No significance of CRC for Filter0 and Filter1     */
 	0x0000A0FE	/* No significance of CRC for Filter3,
-			   Filter2 CRC is 0xA0FE                                   */
+			   Filter2 CRC is 0xA0FE                              */
 };
 
 uint32_t nss_gmac_wakeup_filter_config2[] = {
-	0x00000000,	/* For Filter0 CRC is not computed may be it is 0x0000     */
+	0x00000000,	/* For Filter0 CRC is not computed may be it is 0x0000*/
 	0x000000FF,	/* For Filter1 CRC is computed on 0,1,2,3,4,5,6,7
-			   bytes from offset                                       */
-	0x00000000,	/* For Filter2 CRC is not computed may be it is 0x0000     */
-	0x00000000,	/* For Filter3 CRC is not computed may be it is 0x0000     */
+			   bytes from offset                                  */
+	0x00000000,	/* For Filter2 CRC is not computed may be it is 0x0000*/
+	0x00000000,	/* For Filter3 CRC is not computed may be it is 0x0000*/
 	0x00000100,	/* Filter 0,2,3 are disabled, Filter 1 is enabled and
-			   filtering applies to only unicast packets               */
-	0x0000DF00,	/* Filter 0,2,3 (no significance), filter 1 offset is 223
-			   bytes from start of Destination MAC address             */
+			   filtering applies to only unicast packets          */
+	0x0000DF00,	/* Filter 0,2,3 (no significance), filter 1 offset is
+			   223 bytes from start of Destination MAC address    */
 	0xDB9E0000,	/* No significance of CRC for Filter0,
-			   Filter1 CRC is 0xDB9E                                   */
-	0x00000000	/* No significance of CRC for Filter2 and Filter3          */
+			   Filter1 CRC is 0xDB9E                              */
+	0x00000000	/* No significance of CRC for Filter2 and Filter3     */
 };
 
 /**
- * The nss_gmac_wakeup_filter_config3[] is a sample configuration for wake up filter.
+ * The nss_gmac_wakeup_filter_config3[] is a sample configuration for wake up
+ * filter.
  * Filter1 is used here
  * Filter1 offset is programmed to 50 (0x32)
- * Filter1 mask is set to 0x000000FF, indicating First 8 bytes are used by the filter
- * Filter1 CRC= 0x7EED this is the CRC computed on data 0x55 0x55 0x55 0x55 0x55 0x55 0x55 0x55
+ * Filter1 mask is set to 0x000000FF, indicating First 8 bytes are used by the
+ * filter
+ * Filter1 CRC= 0x7EED this is the CRC computed on data 0x55 0x55 0x55 0x55 0x55
+ *  0x55 0x55 0x55
  *
- * Refer accompanied software DWC_gmac_crc_example.c for CRC16 generation and how to use the same.
+ * Refer accompanied software DWC_gmac_crc_example.c for CRC16 generation and
+ * how to use the same.
  */
 uint32_t nss_gmac_wakeup_filter_config3[] = {
-	0x00000000,	/* For Filter0 CRC is not computed may be it is 0x0000     */
+	0x00000000,	/* For Filter0 CRC is not computed may be it is 0x0000*/
 	0x000000FF,	/* For Filter1 CRC is computed on 0,1,2,3,4,5,6,7
-			   bytes from offset                                       */
-	0x00000000,	/* For Filter2 CRC is not computed may be it is 0x0000     */
-	0x00000000,	/* For Filter3 CRC is not computed may be it is 0x0000     */
+			   bytes from offset                                  */
+	0x00000000,	/* For Filter2 CRC is not computed may be it is 0x0000*/
+	0x00000000,	/* For Filter3 CRC is not computed may be it is 0x0000*/
 	0x00000100,	/* Filter 0,2,3 are disabled, Filter 1 is enabled and
-			   filtering applies to only unicast packets               */
+			   filtering applies to only unicast packets          */
 	0x00003200,	/* Filter 0,2,3 (no significance), filter 1 offset is 50
-			   bytes from start of Destination MAC address             */
+			   bytes from start of Destination MAC address        */
 	0x7eED0000,	/* No significance of CRC for Filter0,
-			   Filter1 CRC is 0x7EED,                                  */
-	0x00000000	/* No significance of CRC for Filter2 and Filter3          */
+			   Filter1 CRC is 0x7EED,                             */
+	0x00000000	/* No significance of CRC for Filter2 and Filter3     */
 };
 
 /**
@@ -169,11 +173,11 @@ uint32_t nss_gmac_wakeup_filter_config3[] = {
  * This function is invoked when the device is closed.
  */
 static void nss_gmac_giveup_rx_desc_queue(struct nss_gmac_dev *gmacdev,
-					  struct device *dev,
-					  uint32_t desc_mode) __attribute__((unused));
+				struct device *dev,
+				uint32_t desc_mode) __attribute__((unused));
 static void nss_gmac_giveup_rx_desc_queue(struct nss_gmac_dev *gmacdev,
-					  struct device *dev,
-					  uint32_t desc_mode)
+				struct device *dev,
+				uint32_t desc_mode)
 {
 	int32_t i;
 	uint32_t status;
@@ -192,10 +196,10 @@ static void nss_gmac_giveup_rx_desc_queue(struct nss_gmac_dev *gmacdev,
 		}
 	}
 
-	dma_free_coherent(dev, (sizeof(struct DmaDesc) * gmacdev->rx_desc_count)
+	dma_free_coherent(dev, (sizeof(struct dma_desc) * gmacdev->rx_desc_count)
 			 , gmacdev->rx_desc, gmacdev->rx_desc_dma);
 
-	netdev_dbg(gmacdev->netdev, "Memory allocated %08x for Rx Desriptors (ring) is given back"
+	netdev_dbg(gmacdev->netdev, "Memory allocated %08x for Rx Descriptors (ring) is given back"
 						, (uint32_t)gmacdev->rx_desc);
 
 	gmacdev->rx_desc = NULL;
@@ -221,15 +225,15 @@ static void nss_gmac_giveup_rx_desc_queue(struct nss_gmac_dev *gmacdev,
  * @param[in] number of descriptor expected in tx descriptor queue.
  * @param[in] whether descriptors to be created in RING mode or CHAIN mode.
  * @return 0 upon success. Error code upon failure.
- * @note No reference should be made to descriptors once this function is called.
+ * @note No reference should be made to descriptors once this function is called
  * This function is invoked when the device is closed.
  */
 static void nss_gmac_giveup_tx_desc_queue(struct nss_gmac_dev *gmacdev,
-					  struct device *dev,
-					  uint32_t desc_mode) __attribute__((unused));
+				  struct device *dev,
+				  uint32_t desc_mode) __attribute__((unused));
 static void nss_gmac_giveup_tx_desc_queue(struct nss_gmac_dev *gmacdev,
-					  struct device *dev,
-					  uint32_t desc_mode)
+				  struct device *dev,
+				  uint32_t desc_mode)
 {
 	int32_t i;
 	uint32_t status;
@@ -248,10 +252,10 @@ static void nss_gmac_giveup_tx_desc_queue(struct nss_gmac_dev *gmacdev,
 		}
 	}
 
-	dma_free_coherent(dev, (sizeof(struct DmaDesc) * gmacdev->tx_desc_count),
+	dma_free_coherent(dev, (sizeof(struct dma_desc) * gmacdev->tx_desc_count),
 			  gmacdev->tx_desc, gmacdev->tx_desc_dma);
 
-	netdev_dbg(gmacdev->netdev, "Memory allocated %08x for Tx Desriptors (ring) is given back"
+	netdev_dbg(gmacdev->netdev, "Memory allocated %08x for Tx Descriptors (ring) is given back"
 						, (uint32_t)gmacdev->tx_desc);
 
 	gmacdev->tx_desc = NULL;
@@ -306,8 +310,8 @@ void nss_gmac_tx_rx_desc_init(struct nss_gmac_dev *gmacdev)
  * @param[in] pointer to net_device_stats64 structure.
  * @return Returns pointer to net_device_stats64 structure.
  */
-struct rtnl_link_stats64 *nss_gmac_linux_get_stats64(struct net_device *netdev, struct rtnl_link_stats64
-						     *stats)
+struct rtnl_link_stats64 *nss_gmac_linux_get_stats64(struct net_device *netdev,
+						struct rtnl_link_stats64 *stats)
 {
 	struct nss_gmac_dev *gmacdev = NULL;
 
@@ -346,9 +350,9 @@ static int32_t nss_gmac_linux_set_mac_address(struct net_device *netdev,
 	if (!is_valid_ether_addr(addr->sa_data))
 		return -EADDRNOTAVAIL;
 
-	nss_gmac_set_mac_addr(gmacdev, GmacAddr0High, GmacAddr0Low,
+	nss_gmac_set_mac_addr(gmacdev, gmac_addr0_high, gmac_addr0_low,
 			      addr->sa_data);
-	nss_gmac_get_mac_addr(gmacdev, GmacAddr0High, GmacAddr0Low,
+	nss_gmac_get_mac_addr(gmacdev, gmac_addr0_high, gmac_addr0_low,
 			      netdev->dev_addr);
 
 	return 0;
@@ -648,22 +652,24 @@ static int32_t nss_gmac_do_common_init(struct platform_device *pdev)
 	pr_debug("%s: NSS base ioremap OK.", __func__);
 
 	ctx.qsgmii_base = (uint32_t *)ioremap_nocache(res_qsgmii_base.start,
-						      resource_size(&res_qsgmii_base));
+					      resource_size(&res_qsgmii_base));
 	if (!ctx.qsgmii_base) {
 		pr_info("Error mapping QSGMII registers");
 		ret = -EIO;
 		goto nss_gmac_qsgmii_map_err;
 	}
-	pr_debug("%s: QSGMII base ioremap OK, vaddr = 0x%p", __func__, ctx.qsgmii_base);
+	pr_debug("%s: QSGMII base ioremap OK, vaddr = 0x%p",
+						__func__, ctx.qsgmii_base);
 
 	ctx.clk_ctl_base = (uint32_t *)ioremap_nocache(res_clk_ctl_base.start,
-						       resource_size(&res_clk_ctl_base));
+				       resource_size(&res_clk_ctl_base));
 	if (!ctx.clk_ctl_base) {
 		pr_info("Error mapping Clk control registers");
 		ret = -EIO;
 		goto nss_gmac_clkctl_map_err;
 	}
-	pr_debug("%s: Clk control base ioremap OK, vaddr = 0x%p", __func__, ctx.clk_ctl_base);
+	pr_debug("%s: Clk control base ioremap OK, vaddr = 0x%p", __func__,
+							ctx.clk_ctl_base);
 
 	if (nss_gmac_common_init(&ctx) == 0) {
 		ret = 0;
@@ -854,7 +860,8 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 		struct device *miidev;
 		uint8_t busid[MII_BUS_ID_SIZE];
 
-		snprintf(busid, MII_BUS_ID_SIZE, "%s.%d", IPQ806X_MDIO_BUS_NAME, IPQ806X_MDIO_BUS_NUM);
+		snprintf(busid, MII_BUS_ID_SIZE, "%s.%d", IPQ806X_MDIO_BUS_NAME,
+							IPQ806X_MDIO_BUS_NUM);
 
 		miidev = bus_find_device_by_name(&platform_bus_type, NULL, busid);
 		if (!miidev) {
@@ -879,7 +886,8 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 			ret = -EIO;
 			goto mdiobus_init_fail;
 		}
-		netdev_dbg(netdev, "mdio bus '%s' register OK for emulation.", gmacdev->miibus->id);
+		netdev_dbg(netdev, "mdio bus '%s' register OK for emulation.",
+							gmacdev->miibus->id);
 	}
 
 	/*
@@ -891,8 +899,9 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 		random_ether_addr(netdev->dev_addr);
 		pr_info("GMAC%d(%p) Invalid MAC@ - using %02x:%02x:%02x:%02x:%02x:%02x",
 			gmacdev->macid, gmacdev,
-			*netdev->dev_addr, *netdev->dev_addr+1, *netdev->dev_addr+2,
-			*netdev->dev_addr+3, *netdev->dev_addr+4, *netdev->dev_addr+5);
+			*netdev->dev_addr, *netdev->dev_addr+1,
+			*netdev->dev_addr+2, *netdev->dev_addr+3,
+			*netdev->dev_addr+4, *netdev->dev_addr+5);
 	}
 
 	netdev->watchdog_timeo = 5 * HZ;
@@ -948,7 +957,8 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 			goto nss_gmac_phy_attach_fail;
 		}
 
-		nss_gmac_update_features(&(gmacdev->phydev->supported), &(gmacdev->phydev->advertising));
+		nss_gmac_update_features(&(gmacdev->phydev->supported),
+					&(gmacdev->phydev->advertising));
 		gmacdev->phydev->irq = PHY_POLL;
 		netdev_dbg(netdev, "PHY %s attach OK", phy_id);
 
@@ -957,14 +967,15 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 
 		if (gmacdev->phy_mii_type == GMAC_INTF_RGMII) {
 			/* RGMII Tx delay */
-			netdev_dbg(netdev, "%s: Program RGMII Tx delay..... " , __func__);
+			netdev_dbg(netdev, "%s: Program RGMII Tx delay..... ", __func__);
 			mdiobus_write(gmacdev->miibus, gmacdev->phy_base, 0x1D, 0x05);
 			mdiobus_write(gmacdev->miibus, gmacdev->phy_base, 0x1E, 0x100);
 			mdiobus_write(gmacdev->miibus, gmacdev->phy_base, 0x1D, 0x0B);
 			mdiobus_write(gmacdev->miibus, gmacdev->phy_base, 0x1E, 0xBC20);
 		}
 
-		/* XXX: Test code to verify if MDIO access is OK. Remove after bringup. */
+		/* XXX: Test code to verify if MDIO access is OK. Remove after
+		 * bringup. */
 		netdev_dbg(netdev, "%s MII_PHYSID1 - 0x%04x", netdev->name,
 		      nss_gmac_mii_rd_reg(gmacdev, gmacdev->phy_base, MII_PHYSID1));
 		netdev_dbg(netdev, "%s MII_PHYSID2 - 0x%04x", netdev->name,
@@ -974,9 +985,11 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 		 * Issue a phy_attach for the interface connected to a switch
 		 */
 #if (LINUX_VERSION_CODE <= KERNEL_VERSION(3, 8, 0))
-		gmacdev->phydev = phy_attach(netdev, (const char *)phy_id, 0, phyif);
+		gmacdev->phydev = phy_attach(netdev,
+						(const char *)phy_id, 0, phyif);
 #else
-		gmacdev->phydev = phy_attach(netdev, (const char *)phy_id, phyif);
+		gmacdev->phydev = phy_attach(netdev,
+						(const char *)phy_id, phyif);
 #endif
 		if (IS_ERR_OR_NULL(gmacdev->phydev)) {
 			netdev_dbg(netdev, "PHY %s attach FAIL", phy_id);
@@ -1111,7 +1124,8 @@ int32_t __init nss_gmac_register_driver(void)
 {
 	ctx.common_init_done = false;
 
-	ctx.gmac_workqueue = create_singlethread_workqueue(NSS_GMAC_WORKQUEUE_NAME);
+	ctx.gmac_workqueue =
+			create_singlethread_workqueue(NSS_GMAC_WORKQUEUE_NAME);
 	if (!ctx.gmac_workqueue) {
 		pr_info("%s: cannot create workqueue.\n",
 			     __func__);

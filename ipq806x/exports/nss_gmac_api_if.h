@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -46,10 +46,12 @@
 #define NSS_GMAC_MODE1	1	/* gmac mode 1 */
 
 /*
- * NSS GMAC data plane ops, default would be slowpath and can be override by nss-drv
+ * NSS GMAC data plane ops, default would be slowpath and can be override by
+ * nss-drv
  */
 struct nss_gmac_data_plane_ops {
-	int (*open)(void *ctx, uint32_t tx_desc_ring, uint32_t rx_desc_ring, uint32_t mode);
+	int (*open)(void *ctx, uint32_t tx_desc_ring, uint32_t rx_desc_ring,
+							uint32_t mode);
 	int (*close)(void *ctx);
 	int (*link_state)(void *ctx, uint32_t link_state);
 	int (*mac_addr)(void *ctx, uint8_t *addr);
@@ -111,10 +113,13 @@ struct nss_gmac_stats {
 	uint32_t gmac_iterations;	/**< Number of iterations around the GMAC */
 };
 
-extern void nss_gmac_receive(struct net_device *netdev, struct sk_buff *skb, struct napi_struct *napi);
-extern void nss_gmac_event_receive(void *if_ctx, int ev_type, void *os_buf, uint32_t len);
+extern void nss_gmac_receive(struct net_device *netdev, struct sk_buff *skb,
+						struct napi_struct *napi);
+extern void nss_gmac_event_receive(void *if_ctx, int ev_type,
+						void *os_buf, uint32_t len);
 void nss_gmac_start_data_plane(struct net_device *netdev, void *ctx);
-extern int nss_gmac_override_data_plane(struct net_device *netdev, struct nss_gmac_data_plane_ops *dp_ops, void *ctx);
+extern int nss_gmac_override_data_plane(struct net_device *netdev,
+			struct nss_gmac_data_plane_ops *dp_ops, void *ctx);
 extern void nss_gmac_restore_data_plane(struct net_device *netdev);
 extern struct net_device *nss_gmac_get_netdev_by_macid(int macid);
 extern bool nss_gmac_is_in_open_state(struct net_device *netdev);
