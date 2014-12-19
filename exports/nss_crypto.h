@@ -82,6 +82,15 @@ enum nss_crypto_msg_error {
 };
 
 /**
+ * @brief session states
+ */
+enum nss_crypto_session_state {
+	NSS_CRYPTO_SESSION_STATE_NONE = 0,	/**< session state none */
+	NSS_CRYPTO_SESSION_STATE_ACTIVE = 1,	/**< session state is active */
+	NSS_CRYPTO_SESSION_STATE_FREE = 2	/**< session state is free */
+};
+
+/**
  * @brief crypto origin
  */
 enum nss_crypto_buf_origin {
@@ -116,7 +125,8 @@ struct nss_crypto_config_eng {
  * @brief Reset session related state.
  */
 struct nss_crypto_config_session {
-	uint32_t idx;		/**< session idx on which will be reset */
+	uint32_t idx;				/**< session idx on which will be reset */
+	uint32_t state;				/**< session idx state */
 };
 
 /*
