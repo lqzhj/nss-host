@@ -685,24 +685,8 @@ void nss_crypto_reset_session(uint32_t session_idx, enum nss_crypto_session_stat
 	struct nss_cmn_msg *ncm = &nim.cm;
 	struct nss_crypto_config_session *session = &nim.msg.session;
 
-	memset(&nim, 0, sizeof(struct nss_crypto_msg));
-
-	nss_cmn_msg_init(ncm,
-			NSS_CRYPTO_INTERFACE,
-			NSS_CRYPTO_MSG_TYPE_RESET_SESSION,
-			NSS_CRYPTO_MSG_LEN,
-			nss_crypto_process_event,
-			(void *)session_idx);
-
-	session->idx = session_idx;
-
-	/*
-	 * send reset stats config message to NSS crypto
-	 */
-	nss_crypto_tx_msg(nss_drv_hdl, &nim);
-
 	switch (state) {
-	case NSS_CRYPTO_SESSION_STATE_ALLOC:
+	case NSS_CRYPTO_SESSION_STATE_ACTIVE:
 		param.session[session_idx].valid = 1;
 
 		nss_crypto_param_update_session(&param.session[session_idx], session_idx);
@@ -719,4 +703,20 @@ void nss_crypto_reset_session(uint32_t session_idx, enum nss_crypto_session_stat
 
 		return;
 	}
+
+	memset(&nim, 0, sizeof(struct nss_crypto_msg));
+	nss_cmn_msg_init(ncm,
+			NSS_CRYPTO_INTERFACE,
+			NSS_CRYPTO_MSG_TYPE_RESET_SESSION,
+			NSS_CRYPTO_MSG_LEN,
+			nss_crypto_process_event,
+			(void *)session_idx);
+
+	session->idx = session_idx;
+	session->state = state;
+
+	/*
+	 * send reset stats config message to NSS crypto
+	 */
+	nss_crypto_tx_msg(nss_drv_hdl, &nim);
 }

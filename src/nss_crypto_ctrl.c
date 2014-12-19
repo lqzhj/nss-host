@@ -807,7 +807,7 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
 
 	*session_idx = idx;
 
-	nss_crypto_reset_session(idx, NSS_CRYPTO_SESSION_STATE_ALLOC);
+	nss_crypto_reset_session(idx, NSS_CRYPTO_SESSION_STATE_ACTIVE);
 
 	spin_unlock_bh(&ctrl->lock); /* index unlock*/
 
