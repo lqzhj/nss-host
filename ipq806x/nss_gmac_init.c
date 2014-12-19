@@ -429,7 +429,7 @@ out:
  */
 int32_t nss_gmac_common_init(struct nss_gmac_global_ctx *ctx)
 {
-	volatile uint32_t val;
+	uint32_t val;
 
 	spin_lock_init(&ctx->reg_lock);
 

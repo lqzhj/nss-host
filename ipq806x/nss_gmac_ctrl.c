@@ -63,17 +63,6 @@
 /* Global data */
 struct nss_gmac_global_ctx ctx;
 
-#ifdef GMAC_PROFILER
-volatile int32_t int_count;
-volatile int32_t rx_desc_check;
-volatile int32_t rx_frame;
-volatile int32_t rx_poll;
-volatile int32_t tx_desc_check;
-volatile int32_t tx_frame;
-volatile int32_t tx_poll;
-volatile int32_t tx_frame_fragmented;
-#endif /* GMAC_PROFILER */
-
 /**
  * Sample Wake-up frame filter configurations
  */
