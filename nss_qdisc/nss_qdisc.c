@@ -28,9 +28,8 @@
 #include "nss_wred.h"
 
 void *nss_qdisc_ctx;			/* Shaping context for nss_qdisc */
-wait_queue_head_t nss_qdics_wq;			/* Wait queue used to wait on responses from the NSS */
 
-#define NSS_QDISC_COMMAND_TIMEOUT 5*HZ	/* We set 5sec to be the timeout value for responses to */
+#define NSS_QDISC_COMMAND_TIMEOUT 10*HZ	/* We set 10 secs to be the timeout value for responses to */
 					/* come back from the NSS */
 
 /*
@@ -99,11 +98,13 @@ static void nss_qdisc_attach_bshaper_callback(void *app_data, struct nss_if_msg 
 		nss_qdisc_warning("%s: B-shaper attach FAILED - response: %d\n", __func__,
 				nim->cm.error);
 		atomic_set(&nq->state, NSS_QDISC_STATE_FAILED_RESPONSE);
+		wake_up(&nq->wait_queue);
 		return;
 	}
 
 	nss_qdisc_info("%s: B-shaper attach SUCCESS\n", __func__);
 	atomic_set(&nq->state, NSS_QDISC_STATE_READY);
+	wake_up(&nq->wait_queue);
 }
 
 /*
@@ -152,20 +153,28 @@ static int nss_qdisc_attach_bshaper(struct Qdisc *sch, uint32_t if_num)
 		return -1;
 	}
 
-	while (NSS_QDISC_STATE_IDLE == (state = atomic_read(&nq->state))) {
-		yield();
+	/*
+	 * Wait until cleanup operation is complete at which point the state
+	 * shall become non-idle.
+	 */
+	if (!wait_event_timeout(nq->wait_queue, atomic_read(&nq->state) != NSS_QDISC_STATE_IDLE,
+				NSS_QDISC_COMMAND_TIMEOUT)) {
+		nss_qdisc_error("%s: bshaper attach command for %x on interface %u timedout!\n",
+					__func__, nq->qos_tag, if_num);
+		atomic_set(&nq->state, NSS_QDISC_STATE_READY);
+		return -1;
 	}
 
-	if (state == NSS_QDISC_STATE_FAILED_RESPONSE) {
-		nss_qdisc_error("%s: Failed to attach B-shaper %u to interface %u\n",
-				__func__, nq->shaper_id, if_num);
+	state = atomic_read(&nq->state);
+	if (state != NSS_QDISC_STATE_READY) {
+		nss_qdisc_error("%s: Failed to attach B-shaper %u to interface %u - state: %d\n",
+				__func__, nq->shaper_id, if_num, state);
 		atomic_set(&nq->state, NSS_QDISC_STATE_READY);
 		return -1;
 	}
 
 	nss_qdisc_info("%s: Attach of B-shaper %u to interface %u is complete\n",
 			__func__, nq->shaper_id, if_num);
-	atomic_set(&nq->state, NSS_QDISC_STATE_READY);
 	return 0;
 }
 
@@ -182,11 +191,13 @@ static void nss_qdisc_detach_bshaper_callback(void *app_data, struct nss_if_msg 
 		nss_qdisc_error("%s: B-shaper detach FAILED - response: %d\n",
 				__func__, nim->cm.error);
 		atomic_set(&nq->state, NSS_QDISC_STATE_FAILED_RESPONSE);
+		wake_up(&nq->wait_queue);
 		return;
 	}
 
 	nss_qdisc_info("%s: B-shaper detach SUCCESS\n", __func__);
 	atomic_set(&nq->state, NSS_QDISC_STATE_READY);
+	wake_up(&nq->wait_queue);
 }
 
 /*
@@ -231,9 +242,29 @@ static int nss_qdisc_detach_bshaper(struct Qdisc *sch, uint32_t if_num)
 		return -1;
 	}
 
+	/*
+	 * Wait until cleanup operation is complete at which point the state
+	 * shall become non-idle.
+	 */
+	if (!wait_event_timeout(nq->wait_queue, atomic_read(&nq->state) != NSS_QDISC_STATE_IDLE,
+				NSS_QDISC_COMMAND_TIMEOUT)) {
+		nss_qdisc_error("%s: bshaper detach command for %x on interface %u timedout!\n",
+					__func__, nq->qos_tag, if_num);
+		atomic_set(&nq->state, NSS_QDISC_STATE_READY);
+		return -1;
+	}
+
+	state = atomic_read(&nq->state);
+	if (state != NSS_QDISC_STATE_READY) {
+		nss_qdisc_error("%s: Failed to detach B-shaper %u from interface %u - state %d\n",
+				__func__, nq->shaper_id, if_num, state);
+		atomic_set(&nq->state, NSS_QDISC_STATE_READY);
+		return -1;
+	}
+
 	nss_qdisc_info("%s: Detach of B-shaper %u to interface %u is complete.",
 			__func__, nq->shaper_id, if_num);
-	atomic_set(&nq->state, NSS_QDISC_STATE_READY);
+
 	return 0;
 }
 
@@ -343,7 +374,7 @@ nextdev:
 			if (nss_qdisc_detach_bshaper(br_qdisc, br_update.port_list[i]) >= 0) {
 				continue;
 			}
-			nss_qdisc_assert(NULL, "%s: Unable to detach bshaper with shaper-id: %u, "
+			nss_qdisc_error("%s: Unable to detach bshaper with shaper-id: %u, "
 				"from interface if_num: %d\n", __func__, nq->shaper_id,
 				br_update.port_list[i]);
 		}
@@ -360,7 +391,7 @@ nextdev:
 					__func__, br_update.port_list[i], br_dev->name);
 				continue;
 			}
-			nss_qdisc_assert(NULL, "%s: Unable to detach bshaper with shaper-id: %u, "
+			nss_qdisc_error("%s: Unable to detach bshaper with shaper-id: %u, "
 				"from interface if_num: %d\n", __func__, nq->shaper_id,
 				br_update.port_list[i]);
 		}
@@ -386,7 +417,7 @@ static void nss_qdisc_root_cleanup_final(struct nss_qdisc *nq)
 	if (nq->is_bridge) {
 		/*
 		 * Unregister for bouncing to the NSS for bridge shaping
-	 	 */
+		 */
 		nss_qdisc_info("%s: Unregister for bridge bouncing: %p\n", __func__,
 				nq->bounce_context);
 		nss_shaper_unregister_shaper_bounce_bridge(nq->nss_interface_number);
@@ -394,7 +425,7 @@ static void nss_qdisc_root_cleanup_final(struct nss_qdisc *nq)
 		/*
 		 * Unregister the virtual interface we use to act as shaper
 		 * for bridge shaping.
-	 	 */
+		 */
 		nss_qdisc_info("%s: Release root bridge virtual interface: %p\n",
 				__func__, nq->virt_if_ctx);
 	}
@@ -407,7 +438,7 @@ static void nss_qdisc_root_cleanup_final(struct nss_qdisc *nq)
 	if (nq->is_virtual && !nq->is_bridge) {
 		/*
 		 * Unregister for interface bouncing of packets
-	 	 */
+		 */
 		nss_qdisc_info("%s: Unregister for interface bouncing: %p\n",
 				__func__, nq->bounce_context);
 		nss_shaper_unregister_shaper_bounce_interface(nq->nss_interface_number);
@@ -420,9 +451,10 @@ static void nss_qdisc_root_cleanup_final(struct nss_qdisc *nq)
 	nss_shaper_unregister_shaping(nq->nss_shaping_ctx);
 
 	/*
-	 * Now set our final state
+	 * Now set our final state and wake up the caller
 	 */
 	atomic_set(&nq->state, nq->pending_final_state);
+	wake_up(&nq->wait_queue);
 }
 
 /*
@@ -434,7 +466,10 @@ static void nss_qdisc_root_cleanup_shaper_unassign_callback(void *app_data,
 {
 	struct nss_qdisc *nq = (struct nss_qdisc *)app_data;
 	if (nim->cm.response != NSS_CMN_RESPONSE_ACK) {
-		nss_qdisc_assert(NULL, "%s: Root qdisc %p (type %d) shaper unsassign FAILED\n", __func__, nq->qdisc, nq->type);
+		nss_qdisc_error("%s: Root qdisc %p (type %d) shaper unsassign FAILED\n", __func__, nq->qdisc, nq->type);
+		atomic_set(&nq->state, NSS_QDISC_STATE_UNASSIGN_SHAPER_FAIL);
+		wake_up(&nq->wait_queue);
+		return;
 	}
 
 	nss_qdisc_root_cleanup_final(nq);
@@ -455,20 +490,24 @@ static void nss_qdisc_root_cleanup_shaper_unassign(struct nss_qdisc *nq)
 
 	msg_type = nss_qdisc_get_interface_msg(nq->is_bridge, NSS_QDISC_IF_SHAPER_UNASSIGN);
 	nss_qdisc_msg_init(&nim, nq->nss_interface_number, msg_type,
-			sizeof(struct nss_if_msg), 
+			sizeof(struct nss_if_msg),
 			nss_qdisc_root_cleanup_shaper_unassign_callback,
 			nq);
 	nim.msg.shaper_unassign.shaper_id = nq->shaper_id;
 	rc = nss_if_tx_msg(nq->nss_shaping_ctx, &nim);
 
 	if (rc == NSS_TX_SUCCESS) {
+		/*
+		 * Tx successful, simply return.
+		 */
 		return;
 	}
 
 	nss_qdisc_error("%s: Root qdisc %p (type %d): unassign command send failed: "
 		"%d, shaper id: %d\n", __func__, nq->qdisc, nq->type, rc, nq->shaper_id);
 
-	nss_qdisc_root_cleanup_final(nq);
+	atomic_set(&nq->state, NSS_QDISC_STATE_UNASSIGN_SHAPER_SEND_FAIL);
+	wake_up(&nq->wait_queue);
 }
 
 /*
@@ -480,9 +519,12 @@ static void nss_qdisc_root_cleanup_free_node_callback(void *app_data,
 {
 	struct nss_qdisc *nq = (struct nss_qdisc *)app_data;
 	if (nim->cm.response != NSS_CMN_RESPONSE_ACK) {
-		nss_qdisc_assert(NULL, "%s: Root qdisc %p (type %d) free FAILED response "
-				"type: %d\n", __func__, nq->qdisc, nq->type,
-				nim->msg.shaper_configure.config.response_type);
+		nss_qdisc_error("%s: Root qdisc %p (type %d) free FAILED response "
+					"type: %d\n", __func__, nq->qdisc, nq->type,
+					nim->msg.shaper_configure.config.response_type);
+		atomic_set(&nq->state, NSS_QDISC_STATE_NODE_FREE_FAIL);
+		wake_up(&nq->wait_queue);
+		return;
 	}
 
 	nss_qdisc_info("%s: Root qdisc %p (type %d) free SUCCESS - response "
@@ -518,6 +560,9 @@ static void nss_qdisc_root_cleanup_free_node(struct nss_qdisc *nq)
 	rc = nss_if_tx_msg(nq->nss_shaping_ctx, &nim);
 
 	if (rc == NSS_TX_SUCCESS) {
+		/*
+		 * Tx successful, simply return.
+		 */
 		return;
 	}
 
@@ -525,10 +570,8 @@ static void nss_qdisc_root_cleanup_free_node(struct nss_qdisc *nq)
 		"failed: %d, qos tag: %x\n", __func__, nq->qdisc, nq->type,
 		rc, nq->qos_tag);
 
-	/*
-	 * Move onto unassigning the shaper instead
-	 */
-	nss_qdisc_root_cleanup_shaper_unassign(nq);
+	atomic_set(&nq->state, NSS_QDISC_STATE_NODE_FREE_SEND_FAIL);
+	wake_up(&nq->wait_queue);
 }
 
 /*
@@ -541,7 +584,7 @@ static void nss_qdisc_root_init_root_assign_callback(void *app_data,
 	struct nss_qdisc *nq = (struct nss_qdisc *)app_data;
 
 	if (nim->cm.response != NSS_CMN_RESPONSE_ACK) {
-		nss_qdisc_error("%s: Root assign FAILED for qdisc %p (type %d), "
+		nss_qdisc_warning("%s: Root assign FAILED for qdisc %p (type %d), "
 			"response type: %d\n", __func__, nq->qdisc, nq->type,
 			nim->msg.shaper_configure.config.response_type);
 		nq->pending_final_state = NSS_QDISC_STATE_ROOT_SET_FAIL;
@@ -552,6 +595,7 @@ static void nss_qdisc_root_init_root_assign_callback(void *app_data,
 	nss_qdisc_info("%s: Qdisc %p (type %d): set as root is done. Response - %d"
 			, __func__, nq->qdisc, nq->type, nim->msg.shaper_configure.config.response_type);
 	atomic_set(&nq->state, NSS_QDISC_STATE_READY);
+	wake_up(&nq->wait_queue);
 }
 
 /*
@@ -598,7 +642,7 @@ static void nss_qdisc_root_init_alloc_node_callback(void *app_data,
 		return;
 	}
 
-	nss_qdisc_error("%s: Root assign send command failed: %d\n",
+	nss_qdisc_warning("%s: Root assign send command failed: %d\n",
 			__func__, rc);
 
 	nq->pending_final_state = NSS_QDISC_STATE_ROOT_SET_SEND_FAIL;
@@ -630,16 +674,11 @@ static void nss_qdisc_root_init_shaper_assign_callback(void *app_data,
 	if (nim->cm.type != NSS_IF_ISHAPER_ASSIGN && nim->cm.type != NSS_IF_BSHAPER_ASSIGN) {
 		nss_qdisc_error("%s: Qdisc %x (type %d): shaper assign callback received garbage: %d\n",
 			__func__, nq->qos_tag, nq->type, nim->cm.type);
-		/*
-		 * Unable to assign a shaper, perform cleanup from final stage
-		 */
-		nq->pending_final_state = NSS_QDISC_STATE_SHAPER_ASSIGN_FAILED;
-		nss_qdisc_root_cleanup_final(nq);
 		return;
-	} else {
-		nss_qdisc_info("%s: Qdisc %x (type %d): shaper assign callback received sane message: %d\n",
-			__func__, nq->qos_tag, nq->type, nim->cm.type);
 	}
+
+	nss_qdisc_info("%s: Qdisc %x (type %d): shaper assign callback received sane message: %d\n",
+		__func__, nq->qos_tag, nq->type, nim->cm.type);
 
 	/*
 	 * Shaper has been allocated and assigned
@@ -667,7 +706,7 @@ static void nss_qdisc_root_init_shaper_assign_callback(void *app_data,
 	/*
 	 * Unable to send alloc node command, cleanup from unassigning the shaper
 	 */
-	nss_qdisc_error("%s: Qdisc %p (type %d) create command failed: %d\n",
+	nss_qdisc_warning("%s: Qdisc %p (type %d) create command failed: %d\n",
 			__func__, nq->qdisc, nq->type, rc);
 
 	nq->pending_final_state = NSS_QDISC_STATE_NODE_ALLOC_SEND_FAIL;
@@ -695,6 +734,7 @@ static void nss_qdisc_child_cleanup_final(struct nss_qdisc *nq)
 	 * Now set our final state
 	 */
 	atomic_set(&nq->state, nq->pending_final_state);
+	wake_up(&nq->wait_queue);
 }
 
 
@@ -708,8 +748,10 @@ static void nss_qdisc_child_cleanup_free_node_callback(void *app_data,
 	struct nss_qdisc *nq = (struct nss_qdisc *)app_data;
 
 	if (nim->cm.response != NSS_CMN_RESPONSE_ACK) {
-		nss_qdisc_info("%s: Qdisc %p (type %d qos_tag %x): child free FAILED response type: %d\n",
+		nss_qdisc_error("%s: Qdisc %p (type %d qos_tag %x): child free FAILED response type: %d\n",
 			__func__, nq->qdisc, nq->type, nq->qos_tag, nim->msg.shaper_configure.config.response_type);
+		atomic_set(&nq->state, NSS_QDISC_STATE_NODE_FREE_FAIL);
+		wake_up(&nq->wait_queue);
 		return;
 	}
 
@@ -754,10 +796,8 @@ static void nss_qdisc_child_cleanup_free_node(struct nss_qdisc *nq)
 			"failed: %d, qos tag: %x\n", __func__, nq->qdisc, nq->type,
 			rc, nq->qos_tag);
 
-	/*
-	 * Perform final cleanup
-	 */
-	nss_qdisc_child_cleanup_final(nq);
+	atomic_set(&nq->state, NSS_QDISC_STATE_NODE_FREE_SEND_FAIL);
+	wake_up(&nq->wait_queue);
 }
 
 /*
@@ -786,6 +826,7 @@ static void nss_qdisc_child_init_alloc_node_callback(void *app_data, struct nss_
 			"created as a child node\n",__func__, nq->qdisc, nq->type);
 
 	atomic_set(&nq->state, NSS_QDISC_STATE_READY);
+	wake_up(&nq->wait_queue);
 }
 
 /*
@@ -1093,11 +1134,13 @@ static void nss_qdisc_set_default_callback(void *app_data,
 		nss_qdisc_error("%s: Qdisc %p (type %d): shaper node set default FAILED, response type: %d\n",
 			__func__, nq->qdisc, nq->type, nim->msg.shaper_configure.config.response_type);
 		atomic_set(&nq->state, NSS_QDISC_STATE_FAILED_RESPONSE);
+		wake_up(&nq->wait_queue);
 		return;
 	}
 
 	nss_qdisc_info("%s: Qdisc %p (type %d): attach complete\n", __func__, nq->qdisc, nq->type);
 	atomic_set(&nq->state, NSS_QDISC_STATE_READY);
+	wake_up(&nq->wait_queue);
 }
 
 /*
@@ -1147,11 +1190,15 @@ int nss_qdisc_set_default(struct nss_qdisc *nq)
 	 * Wait until cleanup operation is complete at which point the state
 	 * shall become non-idle.
 	 */
-	while (NSS_QDISC_STATE_IDLE == (state = atomic_read(&nq->state))) {
-		yield();
+	if (!wait_event_timeout(nq->wait_queue, atomic_read(&nq->state) != NSS_QDISC_STATE_IDLE,
+				NSS_QDISC_COMMAND_TIMEOUT)) {
+		nss_qdisc_error("set_default for qdisc %x timedout!\n", nq->qos_tag);
+		atomic_set(&nq->state, NSS_QDISC_STATE_READY);
+		return -1;
 	}
 
-	if (state == NSS_QDISC_STATE_FAILED_RESPONSE) {
+	state = atomic_read(&nq->state);
+	if (state != NSS_QDISC_STATE_READY) {
 		nss_qdisc_error("%s: Qdisc %p (type %d): failed to default "
 			"State: %d\n", __func__, nq->qdisc, nq->type, state);
 		atomic_set(&nq->state, NSS_QDISC_STATE_READY);
@@ -1177,6 +1224,7 @@ static void nss_qdisc_node_attach_callback(void *app_data,
 			"type: %d\n", __func__, nq->qdisc, nq->type,
 			nim->msg.shaper_configure.config.response_type);
 		atomic_set(&nq->state, NSS_QDISC_STATE_FAILED_RESPONSE);
+		wake_up(&nq->wait_queue);
 		return;
 	}
 
@@ -1184,6 +1232,7 @@ static void nss_qdisc_node_attach_callback(void *app_data,
 			nq->type, nq->qdisc);
 
 	atomic_set(&nq->state, NSS_QDISC_STATE_READY);
+	wake_up(&nq->wait_queue);
 }
 
 /*
@@ -1232,17 +1281,24 @@ int nss_qdisc_node_attach(struct nss_qdisc *nq, struct nss_qdisc *nq_child,
 	 * Wait until cleanup operation is complete at which point the state
 	 * shall become non-idle.
 	 */
-	while (NSS_QDISC_STATE_IDLE == (state = atomic_read(&nq->state))) {
-		yield();
+	if (!wait_event_timeout(nq->wait_queue, atomic_read(&nq->state) != NSS_QDISC_STATE_IDLE,
+				NSS_QDISC_COMMAND_TIMEOUT)) {
+		nss_qdisc_error("attach for qdisc %x timedout!\n", nq->qos_tag);
+		atomic_set(&nq->state, NSS_QDISC_STATE_READY);
+		return -1;
 	}
 
-	if (state == NSS_QDISC_STATE_FAILED_RESPONSE) {
+	state = atomic_read(&nq->state);
+	if (state != NSS_QDISC_STATE_READY) {
 		nss_qdisc_error("%s: Qdisc %p (type %d) failed to attach child "
 			"node, State: %d\n", __func__, nq->qdisc, nq->type, state);
 		atomic_set(&nq->state, NSS_QDISC_STATE_READY);
 		return -1;
 	}
 
+	/*
+	 * Save the parent node (helps in debugging)
+	 */
 	spin_lock_bh(&nq_child->lock);
 	nq_child->parent = nq;
 	spin_unlock_bh(&nq_child->lock);
@@ -1266,6 +1322,7 @@ static void nss_qdisc_node_detach_callback(void *app_data,
 			"type: %d\n", __func__, nq->qdisc, nq->type,
 			nim->msg.shaper_configure.config.response_type);
 		atomic_set(&nq->state, NSS_QDISC_STATE_FAILED_RESPONSE);
+		wake_up(&nq->wait_queue);
 		return;
 	}
 
@@ -1273,6 +1330,7 @@ static void nss_qdisc_node_detach_callback(void *app_data,
 			__func__, nq->qdisc, nq->type);
 
 	atomic_set(&nq->state, NSS_QDISC_STATE_READY);
+	wake_up(&nq->wait_queue);
 }
 
 /*
@@ -1317,13 +1375,18 @@ int nss_qdisc_node_detach(struct nss_qdisc *nq, struct nss_qdisc *nq_child,
 	}
 
 	/*
-	 * Wait until cleanup operation is complete at which point the state shall become non-idle.
+	 * Wait until cleanup operation is complete at which point the state
+	 * shall become non-idle.
 	 */
-	while (NSS_QDISC_STATE_IDLE == (state = atomic_read(&nq->state))) {
-		yield();
+	if (!wait_event_timeout(nq->wait_queue, atomic_read(&nq->state) != NSS_QDISC_STATE_IDLE,
+				NSS_QDISC_COMMAND_TIMEOUT)) {
+		nss_qdisc_error("detach for qdisc %x timedout!\n", nq->qos_tag);
+		atomic_set(&nq->state, NSS_QDISC_STATE_READY);
+		return -1;
 	}
 
-	if (state == NSS_QDISC_STATE_FAILED_RESPONSE) {
+	state = atomic_read(&nq->state);
+	if (state != NSS_QDISC_STATE_READY) {
 		nss_qdisc_error("%s: Qdisc %p (type %d): failed to detach child node, "
 				"State: %d\n", __func__, nq->qdisc, nq->type, state);
 		atomic_set(&nq->state, NSS_QDISC_STATE_READY);
@@ -1353,12 +1416,14 @@ static void nss_qdisc_configure_callback(void *app_data,
 			"response type: %d\n", __func__, nq->qdisc, nq->type,
 			nim->msg.shaper_configure.config.response_type);
 		atomic_set(&nq->state, NSS_QDISC_STATE_FAILED_RESPONSE);
+		wake_up(&nq->wait_queue);
 		return;
 	}
 
 	nss_qdisc_info("%s: Qdisc %p (type %d): configuration complete\n",
 			__func__, nq->qdisc, nq->type);
 	atomic_set(&nq->state, NSS_QDISC_STATE_READY);
+	wake_up(&nq->wait_queue);
 }
 
 /*
@@ -1406,11 +1471,15 @@ int nss_qdisc_configure(struct nss_qdisc *nq,
 	 * Wait until cleanup operation is complete at which point the state
 	 * shall become non-idle.
 	 */
-	while (NSS_QDISC_STATE_IDLE == (state = atomic_read(&nq->state))) {
-		yield();
+	if (!wait_event_timeout(nq->wait_queue, atomic_read(&nq->state) != NSS_QDISC_STATE_IDLE,
+				NSS_QDISC_COMMAND_TIMEOUT)) {
+		nss_qdisc_error("configure for qdisc %x timedout!\n", nq->qos_tag);
+		atomic_set(&nq->state, NSS_QDISC_STATE_READY);
+		return -1;
 	}
 
-	if (state == NSS_QDISC_STATE_FAILED_RESPONSE) {
+	state = atomic_read(&nq->state);
+	if (state != NSS_QDISC_STATE_READY) {
 		nss_qdisc_error("%s: Qdisc %p (type %d): failed to configure shaper "
 			"node: State: %d\n", __func__, nq->qdisc, nq->type, state);
 		atomic_set(&nq->state, NSS_QDISC_STATE_READY);
@@ -1446,7 +1515,8 @@ void nss_qdisc_destroy(struct nss_qdisc *nq)
 	/*
 	 * How we begin to tidy up depends on whether we are root or child
 	 */
-	nq->pending_final_state = NSS_QDISC_STATE_IDLE;
+	nq->pending_final_state = NSS_QDISC_STATE_READY;
+	atomic_set(&nq->state, NSS_QDISC_STATE_IDLE);
 	if (nq->is_root) {
 
 		/*
@@ -1470,10 +1540,17 @@ void nss_qdisc_destroy(struct nss_qdisc *nq)
 
 	/*
 	 * Wait until cleanup operation is complete at which point the state
-	 * shall become idle.
+	 * shall become non-idle.
 	 */
-	while (NSS_QDISC_STATE_IDLE != (state = atomic_read(&nq->state))) {
-		yield();
+	if (!wait_event_timeout(nq->wait_queue, atomic_read(&nq->state) != NSS_QDISC_STATE_IDLE,
+				NSS_QDISC_COMMAND_TIMEOUT)) {
+		nss_qdisc_error("destroy command for %x timedout!\n", nq->qos_tag);
+	}
+
+	state = atomic_read(&nq->state);
+	if (state != NSS_QDISC_STATE_READY) {
+		nss_qdisc_error("%s: clean up for nss qdisc %x failed with "
+					"status %d\n", __func__, nq->qos_tag, state);
 	}
 
 	if (nq->destroy_virtual_interface) {
@@ -1514,6 +1591,11 @@ int nss_qdisc_init(struct Qdisc *sch, struct nss_qdisc *nq, nss_shaper_node_type
 	 */
 	spin_lock_init(&nq->bounce_protection_lock);
 	spin_lock_init(&nq->lock);
+
+	/*
+	 * Initialize the wait queue
+	 */
+	init_waitqueue_head(&nq->wait_queue);
 
 	/*
 	 * Record our qdisc and type in the private region for handy use
@@ -1665,9 +1747,13 @@ int nss_qdisc_init(struct Qdisc *sch, struct nss_qdisc *nq, nss_shaper_node_type
 		/*
 		 * Wait until init operation is complete.
 		 */
-		while (NSS_QDISC_STATE_IDLE == (state = atomic_read(&nq->state))) {
-			yield();
+		if (!wait_event_timeout(nq->wait_queue, atomic_read(&nq->state) != NSS_QDISC_STATE_IDLE,
+					NSS_QDISC_COMMAND_TIMEOUT)) {
+			nss_qdisc_error("init for qdisc %x timedout!\n", nq->qos_tag);
+			return -1;
 		}
+
+		state = atomic_read(&nq->state);
 		nss_qdisc_info("%s: Qdisc %p (type %d): initialised with state: %d\n",
 					__func__, nq->qdisc, nq->type, state);
 
@@ -1811,11 +1897,13 @@ int nss_qdisc_init(struct Qdisc *sch, struct nss_qdisc *nq, nss_shaper_node_type
 	/*
 	 * Wait until init operation is complete.
 	 */
-	nss_qdisc_info("%s: Qdisc %p (type %d): Waiting on response from NSS for "
-			"shaper assign message\n", __func__, nq->qdisc, nq->type);
-	while (NSS_QDISC_STATE_IDLE == (state = atomic_read(&nq->state))) {
-		yield();
+	if (!wait_event_timeout(nq->wait_queue, atomic_read(&nq->state) != NSS_QDISC_STATE_IDLE,
+				NSS_QDISC_COMMAND_TIMEOUT)) {
+		nss_qdisc_error("init for qdisc %x timedout!\n", nq->qos_tag);
+		return -1;
 	}
+
+	state = atomic_read(&nq->state);
 	nss_qdisc_info("%s: Qdisc %p (type %d): is initialised with state: %d\n",
 			__func__, nq->qdisc, nq->type, state);
 
@@ -1887,6 +1975,7 @@ static void nss_qdisc_basic_stats_callback(void *app_data,
 			"response: type: %d\n", __func__, qdisc, nq->type,
 			nim->msg.shaper_configure.config.response_type);
 		atomic_sub(1, &nq->pending_stat_requests);
+		wake_up(&nq->wait_queue);
 		return;
 	}
 
@@ -1939,7 +2028,7 @@ static void nss_qdisc_basic_stats_callback(void *app_data,
 	 */
 	if (atomic_read(refcnt) == 0) {
 		atomic_sub(1, &nq->pending_stat_requests);
-		wake_up(&nss_qdics_wq);
+		wake_up(&nq->wait_queue);
 		return;
 	}
 
@@ -2029,7 +2118,7 @@ void nss_qdisc_stop_basic_stats_polling(struct nss_qdisc *nq)
 	 * The timer has already fired, which means we have a pending stat response.
 	 * We will have to wait until we have received the pending response.
 	 */
-	if (!wait_event_timeout(nss_qdics_wq, atomic_read(&nq->pending_stat_requests) == 0,
+	if (!wait_event_timeout(nq->wait_queue, atomic_read(&nq->pending_stat_requests) == 0,
 				NSS_QDISC_COMMAND_TIMEOUT)) {
 		nss_qdisc_error("Stats request command for %x timedout!\n", nq->qos_tag);
 	}
@@ -2128,11 +2217,6 @@ static int __init nss_qdisc_module_init(void)
 #endif
 	nss_qdisc_info("Module initializing");
 	nss_qdisc_ctx = nss_shaper_register_shaping();
-
-	/*
-	 * Initialize the wait queue node
-	 */
-	init_waitqueue_head(&nss_qdics_wq);
 
 	ret = register_qdisc(&nss_pfifo_qdisc_ops);
 	if (ret != 0)

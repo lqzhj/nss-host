@@ -62,7 +62,6 @@
  */
 #define NSS_QDISC_STATE_IDLE 0
 #define NSS_QDISC_STATE_READY 1
-#define NSS_QDISC_STATE_BUSY 2
 
 #define NSS_QDISC_STATE_INIT_FAILED -1
 #define NSS_QDISC_STATE_ASSIGN_SHAPER_SEND_FAIL -2
@@ -76,6 +75,10 @@
 #define NSS_QDISC_STATE_CHILD_ALLOC_SEND_FAIL -10
 #define NSS_QDISC_STATE_NODE_ALLOC_FAIL_CHILD -11
 #define NSS_QDISC_STATE_FAILED_RESPONSE -12
+#define NSS_QDISC_STATE_UNASSIGN_SHAPER_SEND_FAIL -13
+#define NSS_QDISC_STATE_UNASSIGN_SHAPER_FAIL -14
+#define NSS_QDISC_STATE_NODE_FREE_FAIL -15
+#define NSS_QDISC_STATE_NODE_FREE_SEND_FAIL -16
 
 #define NSS_QDISC_BRIDGE_PORT_MAX 100
 
@@ -148,6 +151,7 @@ struct nss_qdisc {
 						/* Latest stats obtained */
 	struct hlist_head *hash;		/* Pointer to hash table */
 	struct hlist_node hnode;		/* Node for participating in a hlist */
+	wait_queue_head_t wait_queue;		/* Wait queue used to wait on responses from the NSS */
 	spinlock_t lock;			/* Lock to protect the nss qdisc structure */
 };
 
