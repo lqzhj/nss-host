@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2015 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -31,6 +31,9 @@ enum nss_dynamic_interface_type {
 	NSS_DYNAMIC_INTERFACE_TYPE_CAPWAP = 2,		/* CAPWAP Interface type */
 	NSS_DYNAMIC_INTERFACE_TYPE_TUN6RD = 3,		/* TUN6RD Interface type */
 	NSS_DYNAMIC_INTERFACE_TYPE_802_3_REDIR = 4,	/* 802.3 redirect Interface type */
+	NSS_DYNAMIC_INTERFACE_TYPE_RADIO_0 = 5,		/* WIFI radio type0 */
+	NSS_DYNAMIC_INTERFACE_TYPE_RADIO_1 = 6,		/* WIFI radio type1 */
+	NSS_DYNAMIC_INTERFACE_TYPE_RADIO_2 = 7,		/* WIFI radio type2 */
 	NSS_DYNAMIC_INTERFACE_TYPE_MAX
 };
 
