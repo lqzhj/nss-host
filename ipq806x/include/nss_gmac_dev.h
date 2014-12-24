@@ -899,25 +899,25 @@ Similarly
 DmaTxBaseAddr     = 0x0010,  CSR4 - Transmit Descriptor list base address
 DmaTxBaseAddr is the pointer to the first Rx Descriptors.
 The Descriptor format in Little endian with a 32 bit Data bus is as shown below.
-                  --------------------------------------------------------------------------
-    RDES0	  |OWN (31)| Status                                                        |
-		  --------------------------------------------------------------------------
-    RDES1	  | Ctrl | Res | Byte Count Buffer 2 | Ctrl | Res | Byte Count Buffer 1    |
-		  --------------------------------------------------------------------------
-    RDES2	  |  Buffer 1 Address                                                      |
-		  --------------------------------------------------------------------------
-    RDES3	  |  Buffer 2 Address / Next Descriptor Address                            |
-		  --------------------------------------------------------------------------
+		--------------------------------------------------------------------------
+    RDES0	|OWN (31)| Status							 |
+		--------------------------------------------------------------------------
+    RDES1	| Ctrl | Res | Byte Count Buffer 2 | Ctrl | Res | Byte Count Buffer 1    |
+		--------------------------------------------------------------------------
+    RDES2	|  Buffer 1 Address                                                      |
+		--------------------------------------------------------------------------
+    RDES3	|  Buffer 2 Address / Next Descriptor Address                            |
+		--------------------------------------------------------------------------
 
-                  --------------------------------------------------------------------------
-    TDES0	  |OWN (31)| Ctrl | Res | Ctrl | Res | Status                              |
-		  --------------------------------------------------------------------------
-    TDES1	  | Res | Byte Count Buffer 2 | Res |         Byte Count Buffer 1          |
-		  --------------------------------------------------------------------------
-    TDES2	  |  Buffer 1 Address                                                      |
-		  --------------------------------------------------------------------------
-    TDES3         |  Buffer 2 Address / Next Descriptor Address                            |
-		  --------------------------------------------------------------------------
+		--------------------------------------------------------------------------
+    TDES0	|OWN (31)| Ctrl | Res | Ctrl | Res | Status                              |
+		--------------------------------------------------------------------------
+    TDES1	| Res | Byte Count Buffer 2 | Res |         Byte Count Buffer 1          |
+		--------------------------------------------------------------------------
+    TDES2	|  Buffer 1 Address                                                      |
+		--------------------------------------------------------------------------
+    TDES3       |  Buffer 2 Address / Next Descriptor Address                            |
+		--------------------------------------------------------------------------
 
 */
 
@@ -1553,45 +1553,35 @@ enum GmacTSStatusReg {
  * @param[in] variable number of arguments for format string.
  *
  */
-#define nss_gmac_msg(msg, args...)							\
-			do{								\
-				printk("nss_gmac: " msg "\n", ##args);			\
-			}while(0)
 
-#if (NSS_GMAC_DEBUG_LEVEL >= 1)
-#define nss_gmac_warn(gmacdev, msg, args...)						\
-			do{								\
-				printk("nss_gmac: GMAC%d(%p)" msg "\n", 		\
-					gmacdev->macid, gmacdev, ##args);		\
-			}while(0)
 
-#define nss_gmac_early_dbg(msg, args...)						\
-			do{								\
-				printk("nss_gmac: " msg "\n", ##args);			\
-			}while(0)
+#define nss_gmac_msg(msg, args...) printk("nss_gmac: " msg "\n", ##args)
+
+#if (NSS_GMAC_DEBUG_LEVEL < 1)
+#define nss_gmac_warn(gmacdev, msg, args...)
+#define nss_gmac_early_dbg(msg, args...)
 #else
-#define nss_gmac_warn(gmacdev,  msg, args...)	do{	}while(0)
-#define nss_gmac_early_dbg(msg, args...)	do{	}while(0)
+#define nss_gmac_warn(gmacdev, msg, args...)				\
+		printk(KERN_WARNING "nss_gmac: GMAC%d(%p) "msg, 	\
+				gmacdev->macid, gmacdev, ##args)
+#define nss_gmac_early_dbg(msg, args...)				\
+		printk(KERN_WARNING "nss_gmac:"msg, ##args)
 #endif
 
-#if (NSS_GMAC_DEBUG_LEVEL >= 2)
-#define nss_gmac_info(gmacdev, msg, args...)						\
-			do{								\
-				printk("nss_gmac: GMAC%d(%p)" msg "\n", 		\
-					gmacdev->macid, gmacdev, ##args);		\
-			}while(0)
+#if (NSS_GMAC_DEBUG_LEVEL < 2)
+#define nss_gmac_info(gmacdev, msg, args...)
 #else
-#define nss_gmac_info(gmacdev,  msg, args...)	do{	}while(0)
+#define nss_gmac_info(gmacdev, msg, args...)				\
+		printk(KERN_INFO "nss_gmac: GMAC%d(%p) "msg,		\
+				gmacdev->macid, gmacdev, ##args)
 #endif
 
-#if (NSS_GMAC_DEBUG_LEVEL >= 3)
-#define nss_gmac_trace(gmacdev, msg, args...)						\
-			do{								\
-				printk("nss_gmac: GMAC%d(%p)" msg "\n", 		\
-					gmacdev->macid, gmacdev, ##args);		\
-			}while(0)
+#if (NSS_GMAC_DEBUG_LEVEL < 3)
+#define nss_gmac_trace(gmacdev, msg, args...)
 #else
-#define nss_gmac_trace(gmacdev,  msg, args...)	do{	}while(0)
+#define nss_gmac_trace(gmacdev, msg, args...)				\
+		printk(KERN_DEBUG "nss_gmac: GMAC%d(%p) "msg,		\
+		gmacdev->macid, gmacdev, ##args)
 #endif
 
 /**********************************************************
@@ -1680,7 +1670,7 @@ void nss_gmac_rx_tcpip_chksum_drop_disable(nss_gmac_dev *gmacdev);
 static inline uint32_t nss_gmac_is_rx_checksum_error(nss_gmac_dev *gmacdev,
 						     uint32_t status)
 {
-	return (status & (DescRxChkBit7 | DescRxChkBit5 | DescRxChkBit0));
+	return status & (DescRxChkBit7 | DescRxChkBit5 | DescRxChkBit0);
 }
 
 /**
@@ -1695,7 +1685,7 @@ static inline bool nss_gmac_is_tx_ipv4header_checksum_error(nss_gmac_dev *
 							    gmacdev,
 							    uint32_t status)
 {
-	return ((status & DescTxIpv4ChkError) == DescTxIpv4ChkError);
+	return (status & DescTxIpv4ChkError) == DescTxIpv4ChkError;
 }
 
 /**
@@ -1709,7 +1699,7 @@ static inline bool nss_gmac_is_tx_ipv4header_checksum_error(nss_gmac_dev *
 static inline bool nss_gmac_is_tx_payload_checksum_error(nss_gmac_dev *gmacdev,
 							 uint32_t status)
 {
-	return ((status & DescTxPayChkError) == DescTxPayChkError);
+	return (status & DescTxPayChkError) == DescTxPayChkError;
 }
 
 /**
@@ -1786,7 +1776,7 @@ static uint32_t __inline__ nss_gmac_read_reg(uint32_t *regbase,
 
 	spin_lock(&ctx.reg_lock);
 	addr = (uint32_t)regbase + regoffset;
-	data = readl((unsigned char *)addr);
+	data = readl_relaxed((unsigned char *)addr);
 	spin_unlock(&ctx.reg_lock);
 
 	return data;
@@ -1808,7 +1798,7 @@ static void __inline__ nss_gmac_write_reg(uint32_t *regbase,
 
 	spin_lock(&ctx.reg_lock);
 	addr = (uint32_t)regbase + regoffset;
-	writel(regdata, (unsigned char *)addr);
+	writel_relaxed(regdata, (unsigned char *)addr);
 	spin_unlock(&ctx.reg_lock);
 }
 
@@ -1864,7 +1854,7 @@ static bool __inline__ nss_gmac_check_reg_bits(uint32_t *regbase,
 
 	data = bitpos & nss_gmac_read_reg(regbase, regoffset);
 
-	return (data != 0);
+	return data != 0;
 }
 
 int32_t nss_gmac_set_mdc_clk_div(nss_gmac_dev *gmacdev, uint32_t clk_div_val);
@@ -2063,7 +2053,7 @@ bool nss_gmac_is_sa_filter_failed(DmaDesc *desc);
  */
 static inline bool nss_gmac_is_desc_owned_by_dma(DmaDesc *desc)
 {
-	return ((desc->status & DescOwnByDma) == DescOwnByDma);
+	return (desc->status & DescOwnByDma) == DescOwnByDma;
 }
 
 
@@ -2075,7 +2065,7 @@ static inline bool nss_gmac_is_desc_owned_by_dma(DmaDesc *desc)
  */
 static inline uint32_t nss_gmac_get_rx_desc_frame_length(uint32_t status)
 {
-	return ((status & DescFrameLengthMask) >> DescFrameLengthShift);
+	return (status & DescFrameLengthMask) >> DescFrameLengthShift;
 }
 
 
@@ -2088,7 +2078,7 @@ static inline uint32_t nss_gmac_get_rx_desc_frame_length(uint32_t status)
  */
 static inline bool nss_gmac_is_desc_valid(uint32_t status)
 {
-	return ((status & DescError) == 0);
+	return (status & DescError) == 0;
 }
 
 
@@ -2102,7 +2092,7 @@ static inline bool nss_gmac_is_desc_valid(uint32_t status)
 static inline bool nss_gmac_is_desc_empty(DmaDesc *desc)
 {
 	/* if both the buffer1 length and buffer2 length are zero desc is empty */
-	return ((desc->length & DescSize1Mask) == 0);
+	return (desc->length & DescSize1Mask) == 0;
 }
 
 
@@ -2114,8 +2104,8 @@ static inline bool nss_gmac_is_desc_empty(DmaDesc *desc)
  */
 static inline bool nss_gmac_is_rx_desc_valid(uint32_t status)
 {
-	return ((status & (DescError | DescRxFirst | DescRxLast)) ==
-		(DescRxFirst | DescRxLast));
+	return (status & (DescError | DescRxFirst | DescRxLast)) ==
+		(DescRxFirst | DescRxLast);
 }
 
 bool nss_gmac_is_tx_aborted(uint32_t status);
@@ -2134,12 +2124,12 @@ bool nss_gmac_is_tx_lc_error(uint32_t status);
  */
 static inline uint32_t nss_gmac_get_tx_collision_count(uint32_t status)
 {
-	return ((status & DescTxCollMask) >> DescTxCollShift);
+	return (status & DescTxCollMask) >> DescTxCollShift;
 }
 
 static inline uint32_t nss_gmac_is_exc_tx_collisions(uint32_t status)
 {
-	return ((status & DescTxExcCollisions) == DescTxExcCollisions);
+	return (status & DescTxExcCollisions) == DescTxExcCollisions;
 }
 
 bool nss_gmac_is_rx_frame_damaged(uint32_t status);
@@ -2159,7 +2149,7 @@ bool nss_gmac_is_rx_frame_length_errors(uint32_t status);
 static inline bool nss_gmac_is_last_rx_desc(nss_gmac_dev *gmacdev,
 					    DmaDesc *desc)
 {
-	return (unlikely((desc->length & RxDescEndOfRing) != 0));
+	return unlikely((desc->length & RxDescEndOfRing) != 0);
 }
 
 
@@ -2173,7 +2163,7 @@ static inline bool nss_gmac_is_last_rx_desc(nss_gmac_dev *gmacdev,
 static inline bool nss_gmac_is_last_tx_desc(nss_gmac_dev *gmacdev,
 					    DmaDesc *desc)
 {
-	return (unlikely((desc->status & TxDescEndOfRing) != 0));
+	return unlikely((desc->status & TxDescEndOfRing) != 0);
 }
 
 
@@ -2491,7 +2481,7 @@ static inline uint32_t nss_gmac_get_interrupt_type(nss_gmac_dev *gmacdev)
  */
 static inline uint32_t nss_gmac_get_interrupt_mask(nss_gmac_dev *gmacdev)
 {
-	return (nss_gmac_read_reg((uint32_t *)gmacdev->dma_base, DmaInterrupt));
+	return nss_gmac_read_reg((uint32_t *)gmacdev->dma_base, DmaInterrupt);
 }
 
 
@@ -2614,7 +2604,7 @@ void nss_gmac_disable_dma_rx(nss_gmac_dev *gmacdev);
 static inline bool nss_gmac_is_ext_status(nss_gmac_dev *gmacdev,
 					  uint32_t status)
 {
-	return ((status & DescRxEXTsts) != 0);
+	return (status & DescRxEXTsts) != 0;
 }
 
 
@@ -2629,7 +2619,7 @@ static inline bool nss_gmac_is_ext_status(nss_gmac_dev *gmacdev,
 static inline bool nss_gmac_ES_is_IP_header_error(nss_gmac_dev *gmacdev,
 						  uint32_t ext_status)
 {
-	return ((ext_status & DescRxIpHeaderError) != 0);
+	return (ext_status & DescRxIpHeaderError) != 0;
 }
 
 
@@ -2643,7 +2633,7 @@ static inline bool nss_gmac_ES_is_IP_header_error(nss_gmac_dev *gmacdev,
 static inline bool nss_gmac_ES_is_rx_checksum_bypassed(nss_gmac_dev *gmacdev,
 						       uint32_t ext_status)
 {
-	return ((ext_status & DescRxChkSumBypass) != 0);
+	return (ext_status & DescRxChkSumBypass) != 0;
 }
 
 
@@ -2658,7 +2648,7 @@ static inline bool nss_gmac_ES_is_rx_checksum_bypassed(nss_gmac_dev *gmacdev,
 static inline bool nss_gmac_ES_is_IP_payload_error(nss_gmac_dev *gmacdev,
 						   uint32_t ext_status)
 {
-	return ((ext_status & DescRxIpPayloadError) != 0);
+	return (ext_status & DescRxIpPayloadError) != 0;
 }
 
 /*******************PMT APIs***************************************/

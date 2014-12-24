@@ -104,7 +104,7 @@ int32_t nss_gmac_mdiobus_reset(struct mii_bus *bus)
 	gmacdev = (nss_gmac_dev *)bus->priv;
 	gmacdev->mdc_clk_div = MDC_CLK_DIV;
 	nss_gmac_info(gmacdev, "%s: GMAC%d MDC Clk div set to - 0x%x",
-		      __FUNCTION__, gmacdev->macid, gmacdev->mdc_clk_div);
+		      __func__, gmacdev->macid, gmacdev->mdc_clk_div);
 
 	return 0;
 }
@@ -140,13 +140,13 @@ int32_t nss_gmac_init_mdiobus(nss_gmac_dev *gmacdev)
 
 	if (mdiobus_register(miibus) != 0) {
 		mdiobus_free(miibus);
-		nss_gmac_info(gmacdev, "%s: mdiobus_reg failed", __FUNCTION__);
+		nss_gmac_info(gmacdev, "%s: mdiobus_reg failed", __func__);
 		return -EIO;
 	}
 
 	phydev = miibus->phy_map[gmacdev->phy_base];
 	if (!phydev) {
-		nss_gmac_info(gmacdev, "%s: No phy device", __FUNCTION__);
+		nss_gmac_info(gmacdev, "%s: No phy device", __func__);
 		mdiobus_unregister(miibus);
 		mdiobus_free(miibus);
 		return -ENODEV;
