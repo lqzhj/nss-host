@@ -145,7 +145,7 @@ int32_t nss_gmac_read_phy_reg(uint32_t *RegBase, uint32_t PhyBase,
 			return 0;
 
 		}
-		mdelay(100);
+		msleep(100);
 	}
 
 	nss_gmac_early_dbg
@@ -191,7 +191,7 @@ int32_t nss_gmac_write_phy_reg(uint32_t *RegBase, uint32_t PhyBase,
 		if (!(temp & GmiiBusy)) {
 			return 0;
 		}
-		mdelay(100);
+		msleep(100);
 	}
 
 	nss_gmac_early_dbg
@@ -335,17 +335,16 @@ void nss_gmac_reset(struct nss_gmac_dev *gmacdev)
 	nss_gmac_write_reg((uint32_t *)gmacdev->dma_base,
 			   DmaBusMode, DmaResetOn);
 	do {
-		mdelay(DEFAULT_LOOP_VARIABLE);
+		msleep(DEFAULT_LOOP_VARIABLE);
 		data =
 		    nss_gmac_read_reg((uint32_t *)gmacdev->dma_base,
 				      DmaBusMode);
 	} while (data & DmaResetOn);
 
-	mdelay(1000);
+	msleep(1000);
 	data = nss_gmac_read_reg((uint32_t *)gmacdev->dma_base, DmaBusMode);
 
-	nss_gmac_info(gmacdev, "GMAC reset completed in %d jiffies; "
-		      "DmaBusMode - 0x%x", (int)(jiffies - reset_time), data);
+	nss_gmac_info(gmacdev, "GMAC reset completed in %d jiffies; DmaBusMode - 0x%x", (int)(jiffies - reset_time), data);
 }
 
 /*
@@ -735,8 +734,8 @@ void nss_gmac_back_off_limit(struct nss_gmac_dev *gmacdev, uint32_t value)
  * GMAC issues a Frame Abort Status, along with the excessive
  * deferral error bit set in the transmit frame status when transmit
  * state machine is deferred for more than
- * 	- 24,288 bit times in 10/100Mbps mode
- * 	- 155,680 bit times in 1000Mbps mode or Jumbo frame
+ *	- 24,288 bit times in 10/100Mbps mode
+ *	- 155,680 bit times in 1000Mbps mode or Jumbo frame
  *	mode in 10/100Mbps operation.
  * @param[in] pointer to nss_gmac_dev.
  * @return returns void.
@@ -1146,13 +1145,13 @@ void nss_gmac_rx_flow_control_disable(struct nss_gmac_dev *gmacdev)
 void nss_gmac_tx_flow_control_enable(struct nss_gmac_dev *gmacdev)
 {
 	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacFlowControl, GmacTxFlowControl);
+			GmacFlowControl, GmacTxFlowControl);
 }
 
 /*
  * Tx flow control disable.
  * When Disabled
- * 	- In full duplex GMAC will not transmit any pause frames.
+ *	- In full duplex GMAC will not transmit any pause frames.
  *	- In Half duplex GMAC disables the back pressure feature.
  * @param[in] pointer to nss_gmac_dev.
  * @return void.
@@ -1160,7 +1159,7 @@ void nss_gmac_tx_flow_control_enable(struct nss_gmac_dev *gmacdev)
 void nss_gmac_tx_flow_control_disable(struct nss_gmac_dev *gmacdev)
 {
 	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacFlowControl, GmacTxFlowControl);
+			GmacFlowControl, GmacTxFlowControl);
 }
 
 
@@ -1476,7 +1475,7 @@ reheck_pcs_mac_status:
 	reg = nss_gmac_read_reg(qsgmii_base, PCS_ALL_CH_STAT);
 	while (!(reg & PCS_CHn_AUTONEG_COMPLETE(id)) && timeout > 0) {
 		timeout--;
-		mdelay(10);
+		usleep_range(10000, 12000);
 		reg = nss_gmac_read_reg(qsgmii_base, PCS_ALL_CH_STAT);
 	}
 
@@ -1520,7 +1519,7 @@ reheck_pcs_mac_status:
  * It reads PHY registers to retrieve current speed and duplexity settings.
  * @param[in] pointer to nss_gmac_dev.
  * @return 0 on success. If successful, it updates gmacdev->speed and
- * 	   gmacdev->duplex_mode with current speed and duplex mode.
+ *	   gmacdev->duplex_mode with current speed and duplex mode.
  */
 int32_t nss_gmac_check_phy_init(struct nss_gmac_dev *gmacdev)
 {
@@ -1657,8 +1656,7 @@ int32_t nss_gmac_ath_phy_mmd_wr(struct phy_device *phydev, uint32_t mmd_dev_addr
  * @phydev[in] pointer to struct phy_device
  * @mmd_dev_addr[in] MMD device address
  * @reg[in] register offset
- * @return -EINVAL on failure.
- * 	   Register value on success.
+ * @return -EINVAL on failure. Register value on success.
  */
 int32_t nss_gmac_ath_phy_mmd_rd(struct phy_device *phydev,
 			uint32_t mmd_dev_addr, uint32_t reg)
@@ -1794,8 +1792,7 @@ int32_t nss_gmac_attach(struct nss_gmac_dev *gmacdev,
 		return -EIO;
 	}
 
-	nss_gmac_info(gmacdev, "ioremap OK. Size 0x%x. "
-		      "regBase 0x%x. mac_base 0x%x.",
+	nss_gmac_info(gmacdev, "ioremap OK. Size 0x%x. regBase 0x%x. mac_base 0x%x.",
 		      NSS_GMAC_REG_BLOCK_LEN, regBase, gmacdev->mac_base);
 
 	gmacdev->dma_base = gmacdev->mac_base + NSS_GMAC_DMABASE;
@@ -2312,7 +2309,7 @@ void nss_gmac_write_wakeup_frame_register(struct nss_gmac_dev *gmacdev,
 
 	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
 			      GmacPmtCtrlStatus, GmacPmtFrmFilterPtrReset);
-	mdelay(10);
+	usleep_range(10000, 12000);
 	for (i = 0; i < WAKEUP_REG_LENGTH; i++) {
 		nss_gmac_write_reg((uint32_t *)gmacdev->mac_base,
 				   GmacWakeupAddr, *(filter_contents + i));

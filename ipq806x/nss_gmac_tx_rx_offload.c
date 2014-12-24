@@ -6,12 +6,12 @@
  * copyright notice and this permission notice appear in all copies.
  *
  * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
- * AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT
- * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
- * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
- * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
- * PERFORMANCE OF THIS SOFTWARE.
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER
+ * RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT
+ * NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE
+ * USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 /*
  * @file
@@ -22,8 +22,8 @@
  *
  * @note Many of the functions other than the device specific functions
  *  changes for operating system other than Linux 2.6.xx
- *-----------------------------REVISION HISTORY----------------------------------
- * Qualcomm Atheros    		15/Feb/2013			Created
+ *-----------------------------REVISION HISTORY---------------------------------
+ * Qualcomm Atheros		15/Feb/2013			Created
  */
 
 #include <linux/version.h>
@@ -189,7 +189,7 @@ static void nss_gmac_stats_receive(struct nss_gmac_dev *gmacdev,
 
 	spin_unlock(&gmacdev->stats_lock);
 }
-
+EXPORT_SYMBOL(nss_gmac_receive);
 
 /**
  * NSS Driver interface APIs
@@ -250,7 +250,7 @@ void nss_gmac_event_receive(void *if_ctx, int ev_type,
 		break;
 	}
 }
-
+EXPORT_SYMBOL(nss_gmac_event_receive);
 
 /**
  * @brief Notify linkup event to NSS
@@ -650,6 +650,7 @@ bool nss_gmac_is_in_open_state(struct net_device *netdev)
 	}
 	return false;
 }
+EXPORT_SYMBOL(nss_gmac_is_in_open_state);
 
 /*
  * nss_gmac_register_offload()
@@ -686,7 +687,14 @@ int nss_gmac_override_data_plane(struct net_device *netdev,
 
 	return NSS_GMAC_SUCCESS;
 }
+EXPORT_SYMBOL(nss_gmac_override_data_plane);
 
+/*
+ * nss_gmac_restore_data_plane()
+ *	Data plane to inform netdev it is ready to start
+ * @param[netdev] net_device context
+ * @param[ctx] context of the data plane
+ */
 void nss_gmac_start_data_plane(struct net_device *netdev, void *ctx)
 {
 	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
@@ -701,6 +709,8 @@ void nss_gmac_start_data_plane(struct net_device *netdev, void *ctx)
 		queue_delayed_work(global_ctx->gmac_workqueue, &gmacdev->gmacwork, NSS_GMAC_LINK_CHECK_TIME);
 	}
 }
+EXPORT_SYMBOL(nss_gmac_start_data_plane);
+
 /*
  * gmac_unregister_nss_if()
  *
@@ -717,8 +727,9 @@ void nss_gmac_restore_data_plane(struct net_device *netdev)
 		nss_gmac_linux_close(netdev);
 	}
 	gmacdev->data_plane_ctx = netdev;
-	gmacdev->data_plane_ops = &nss_gmac_slowpath_ops ;
+	gmacdev->data_plane_ops = &nss_gmac_slowpath_ops;
 }
+EXPORT_SYMBOL(nss_gmac_restore_data_plane);
 
 /*
  * nss_gmac_get_netdev_by_macid()
@@ -732,6 +743,7 @@ struct net_device *nss_gmac_get_netdev_by_macid(int macid)
 	}
 	return gmacdev->netdev;
 }
+EXPORT_SYMBOL(nss_gmac_get_netdev_by_macid);
 
 /*
  * nss_gmac_open_work()
@@ -744,11 +756,3 @@ void nss_gmac_open_work(struct work_struct *work)
 	nss_gmac_info(gmacdev, "Do the network up in delayed queue %s\n", gmacdev->netdev->name);
 	nss_gmac_linux_open(gmacdev->netdev);
 }
-
-EXPORT_SYMBOL(nss_gmac_is_in_open_state);
-EXPORT_SYMBOL(nss_gmac_start_data_plane);
-EXPORT_SYMBOL(nss_gmac_override_data_plane);
-EXPORT_SYMBOL(nss_gmac_restore_data_plane);
-EXPORT_SYMBOL(nss_gmac_receive);
-EXPORT_SYMBOL(nss_gmac_event_receive);
-EXPORT_SYMBOL(nss_gmac_get_netdev_by_macid);
