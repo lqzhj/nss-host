@@ -55,9 +55,9 @@ static int32_t nss_gmac_mdiobus_read(struct mii_bus *bus, int32_t phy_id, int32_
 {
 	int32_t status;
 	uint16_t data;
-	nss_gmac_dev *gmacdev;
+	struct nss_gmac_dev *gmacdev;
 
-	gmacdev = (nss_gmac_dev *)bus->priv;
+	gmacdev = (struct nss_gmac_dev *)bus->priv;
 
 	status = nss_gmac_read_phy_reg((uint32_t *)gmacdev->mac_base,
 					phy_id, regnum,
@@ -81,9 +81,9 @@ static int32_t nss_gmac_mdiobus_read(struct mii_bus *bus, int32_t phy_id, int32_
  */
 static int32_t nss_gmac_mdiobus_write(struct mii_bus *bus, int32_t phy_id, int32_t regnum, uint16_t val)
 {
-	nss_gmac_dev *gmacdev;
+	struct nss_gmac_dev *gmacdev;
 
-	gmacdev = (nss_gmac_dev *)bus->priv;
+	gmacdev = (struct nss_gmac_dev *)bus->priv;
 
 	nss_gmac_write_phy_reg((uint32_t *)gmacdev->mac_base, phy_id,
 				regnum, val, gmacdev->mdc_clk_div);
@@ -99,9 +99,9 @@ static int32_t nss_gmac_mdiobus_write(struct mii_bus *bus, int32_t phy_id, int32
  */
 int32_t nss_gmac_mdiobus_reset(struct mii_bus *bus)
 {
-	nss_gmac_dev *gmacdev;
+	struct nss_gmac_dev *gmacdev;
 
-	gmacdev = (nss_gmac_dev *)bus->priv;
+	gmacdev = (struct nss_gmac_dev *)bus->priv;
 	gmacdev->mdc_clk_div = MDC_CLK_DIV;
 	nss_gmac_info(gmacdev, "%s: GMAC%d MDC Clk div set to - 0x%x",
 		      __func__, gmacdev->macid, gmacdev->mdc_clk_div);
@@ -115,7 +115,7 @@ int32_t nss_gmac_mdiobus_reset(struct mii_bus *bus)
  * @param[in] pointer to nss_gmac_dev
  * @return 0 on Success
  */
-int32_t nss_gmac_init_mdiobus(nss_gmac_dev *gmacdev)
+int32_t nss_gmac_init_mdiobus(struct nss_gmac_dev *gmacdev)
 {
 	struct mii_bus *miibus = NULL;
 	struct phy_device *phydev = NULL;
@@ -176,7 +176,7 @@ int32_t nss_gmac_init_mdiobus(nss_gmac_dev *gmacdev)
  * @param[in] pointer to nss_gmac_dev
  * @return void
  */
-void nss_gmac_deinit_mdiobus(nss_gmac_dev *gmacdev)
+void nss_gmac_deinit_mdiobus(struct nss_gmac_dev *gmacdev)
 {
 	mdiobus_unregister(gmacdev->miibus);
 	mdiobus_free(gmacdev->miibus);

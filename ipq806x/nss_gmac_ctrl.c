@@ -153,7 +153,7 @@ uint32_t nss_gmac_wakeup_filter_config3[] = {
  * @param[in] pointer to nss_gmac_dev.
  * @return void
  */
-void nss_gmac_linux_powerdown_mac(nss_gmac_dev *gmacdev)
+void nss_gmac_linux_powerdown_mac(struct nss_gmac_dev *gmacdev)
 {
 	nss_gmac_info(gmacdev, "Put the GMAC to power down mode...");
 
@@ -205,7 +205,7 @@ void nss_gmac_linux_powerdown_mac(nss_gmac_dev *gmacdev)
  * @param[in] pointer to nss_gmac_dev.
  * @return void
  */
-void nss_gmac_linux_powerup_mac(nss_gmac_dev *gmacdev)
+void nss_gmac_linux_powerup_mac(struct nss_gmac_dev *gmacdev)
 {
 	/* Let ISR know that MAC is out of power down now */
 	gmacdev->gmac_power_down = 0;
@@ -255,17 +255,17 @@ void nss_gmac_linux_powerup_mac(nss_gmac_dev *gmacdev)
  * Should continue further only if the number of descriptors in the
  * chain meets the requirements.
  */
-static int32_t nss_gmac_setup_tx_desc_queue(nss_gmac_dev *gmacdev,
+static int32_t nss_gmac_setup_tx_desc_queue(struct nss_gmac_dev *gmacdev,
 					    struct device *dev,
 					    uint32_t no_of_desc,
 					    uint32_t desc_mode) __attribute__((unused));
-static int32_t nss_gmac_setup_tx_desc_queue(nss_gmac_dev *gmacdev,
+static int32_t nss_gmac_setup_tx_desc_queue(struct nss_gmac_dev *gmacdev,
 					    struct device *dev,
 					    uint32_t no_of_desc,
 					    uint32_t desc_mode)
 {
 	int32_t i;
-	DmaDesc *first_desc = NULL;
+	struct DmaDesc *first_desc = NULL;
 	dma_addr_t dma_addr;
 	gmacdev->tx_desc_count = 0;
 
@@ -275,9 +275,9 @@ static int32_t nss_gmac_setup_tx_desc_queue(nss_gmac_dev *gmacdev,
 	nss_gmac_info(gmacdev,
 		      "Total size of memory required for Tx Descriptors "
 		      "in Ring Mode = 0x%08x",
-		      (uint32_t) ((sizeof(DmaDesc) * no_of_desc)));
+		      (uint32_t) ((sizeof(struct DmaDesc) * no_of_desc)));
 
-	first_desc = dma_alloc_coherent(dev, sizeof(DmaDesc) * no_of_desc,
+	first_desc = dma_alloc_coherent(dev, sizeof(struct DmaDesc) * no_of_desc,
 					&dma_addr, GFP_KERNEL);
 	if (first_desc == NULL) {
 		nss_gmac_info(gmacdev,
@@ -332,17 +332,17 @@ static int32_t nss_gmac_setup_tx_desc_queue(nss_gmac_dev *gmacdev,
  * Should continue further only if the number of descriptors in the
  * chain meets the requirements.
  */
-static int32_t nss_gmac_setup_rx_desc_queue(nss_gmac_dev *gmacdev,
+static int32_t nss_gmac_setup_rx_desc_queue(struct nss_gmac_dev *gmacdev,
 					    struct device *dev,
 					    uint32_t no_of_desc,
 					    uint32_t desc_mode) __attribute__((unused));
-static int32_t nss_gmac_setup_rx_desc_queue(nss_gmac_dev *gmacdev,
+static int32_t nss_gmac_setup_rx_desc_queue(struct nss_gmac_dev *gmacdev,
 					    struct device *dev,
 					    uint32_t no_of_desc,
 					    uint32_t desc_mode)
 {
 	int32_t i;
-	DmaDesc *first_desc = NULL;
+	struct DmaDesc *first_desc = NULL;
 	dma_addr_t dma_addr;
 	gmacdev->rx_desc_count = 0;
 
@@ -351,9 +351,9 @@ static int32_t nss_gmac_setup_rx_desc_queue(nss_gmac_dev *gmacdev,
 
 	nss_gmac_info(gmacdev, "total size of memory required for "
 		      "Rx Descriptors in Ring Mode = 0x%08x",
-		      (uint32_t) ((sizeof(DmaDesc) * no_of_desc)));
+		      (uint32_t) ((sizeof(struct DmaDesc) * no_of_desc)));
 
-	first_desc = dma_alloc_coherent(dev, sizeof(DmaDesc) * no_of_desc,
+	first_desc = dma_alloc_coherent(dev, sizeof(struct DmaDesc) * no_of_desc,
 					&dma_addr, GFP_KERNEL);
 	if (first_desc == NULL) {
 		nss_gmac_info(gmacdev,
@@ -405,10 +405,10 @@ static int32_t nss_gmac_setup_rx_desc_queue(nss_gmac_dev *gmacdev,
  * @note No referece should be made to descriptors once this function is called.
  * This function is invoked when the device is closed.
  */
-static void nss_gmac_giveup_rx_desc_queue(nss_gmac_dev *gmacdev,
+static void nss_gmac_giveup_rx_desc_queue(struct nss_gmac_dev *gmacdev,
 					  struct device *dev,
 					  uint32_t desc_mode) __attribute__((unused));
-static void nss_gmac_giveup_rx_desc_queue(nss_gmac_dev *gmacdev,
+static void nss_gmac_giveup_rx_desc_queue(struct nss_gmac_dev *gmacdev,
 					  struct device *dev,
 					  uint32_t desc_mode)
 {
@@ -429,8 +429,8 @@ static void nss_gmac_giveup_rx_desc_queue(nss_gmac_dev *gmacdev,
 		}
 	}
 
-	dma_free_coherent(dev, (sizeof(DmaDesc) * gmacdev->rx_desc_count),
-			  gmacdev->rx_desc, gmacdev->rx_desc_dma);
+	dma_free_coherent(dev, (sizeof(struct DmaDesc) * gmacdev->rx_desc_count)
+			 , gmacdev->rx_desc, gmacdev->rx_desc_dma);
 
 	nss_gmac_info(gmacdev,
 		      "Memory allocated %08x for Rx Desriptors (ring) "
@@ -462,10 +462,10 @@ static void nss_gmac_giveup_rx_desc_queue(nss_gmac_dev *gmacdev,
  * @note No reference should be made to descriptors once this function is called.
  * This function is invoked when the device is closed.
  */
-static void nss_gmac_giveup_tx_desc_queue(nss_gmac_dev *gmacdev,
+static void nss_gmac_giveup_tx_desc_queue(struct nss_gmac_dev *gmacdev,
 					  struct device *dev,
 					  uint32_t desc_mode) __attribute__((unused));
-static void nss_gmac_giveup_tx_desc_queue(nss_gmac_dev *gmacdev,
+static void nss_gmac_giveup_tx_desc_queue(struct nss_gmac_dev *gmacdev,
 					  struct device *dev,
 					  uint32_t desc_mode)
 {
@@ -486,7 +486,7 @@ static void nss_gmac_giveup_tx_desc_queue(nss_gmac_dev *gmacdev,
 		}
 	}
 
-	dma_free_coherent(dev, (sizeof(DmaDesc) * gmacdev->tx_desc_count),
+	dma_free_coherent(dev, (sizeof(struct DmaDesc) * gmacdev->tx_desc_count),
 			  gmacdev->tx_desc, gmacdev->tx_desc_dma);
 
 	nss_gmac_info(gmacdev,
@@ -503,7 +503,7 @@ static void nss_gmac_giveup_tx_desc_queue(nss_gmac_dev *gmacdev,
  * @param[in] pointer to nss_gmac_dev
  * @return void
  */
-void nss_gmac_tx_rx_desc_init(nss_gmac_dev *gmacdev)
+void nss_gmac_tx_rx_desc_init(struct nss_gmac_dev *gmacdev)
 {
 	int32_t i;
 
@@ -548,9 +548,9 @@ void nss_gmac_tx_rx_desc_init(nss_gmac_dev *gmacdev)
 struct rtnl_link_stats64 *nss_gmac_linux_get_stats64(struct net_device *netdev, struct rtnl_link_stats64
 						     *stats)
 {
-	nss_gmac_dev *gmacdev = NULL;
+	struct nss_gmac_dev *gmacdev = NULL;
 
-	gmacdev = (nss_gmac_dev *)netdev_priv(netdev);
+	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 
 	spin_lock_bh(&gmacdev->stats_lock);
@@ -570,10 +570,10 @@ struct rtnl_link_stats64 *nss_gmac_linux_get_stats64(struct net_device *netdev, 
 static int32_t nss_gmac_linux_set_mac_address(struct net_device *netdev,
 					      void *macaddr)
 {
-	nss_gmac_dev *gmacdev = NULL;
+	struct nss_gmac_dev *gmacdev = NULL;
 	struct sockaddr *addr = (struct sockaddr *)macaddr;
 
-	gmacdev = (nss_gmac_dev *)netdev_priv(netdev);
+	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 	BUG_ON(gmacdev->netdev != netdev);
 
@@ -609,7 +609,7 @@ static int32_t nss_gmac_linux_do_ioctl(struct net_device *netdev,
 				       struct ifreq *ifr, int32_t cmd)
 {
 	int32_t retval;
-	nss_gmac_dev *gmacdev = NULL;
+	struct nss_gmac_dev *gmacdev = NULL;
 	struct mii_ioctl_data *mii_data = if_mii(ifr);
 
 	struct ifr_data_struct {
@@ -625,7 +625,7 @@ static int32_t nss_gmac_linux_do_ioctl(struct net_device *netdev,
 
 	req = (struct ifr_data_struct *)ifr->ifr_data;
 
-	gmacdev = (nss_gmac_dev *)netdev_priv(netdev);
+	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 	BUG_ON(gmacdev->netdev != netdev);
 
@@ -674,9 +674,9 @@ static int32_t nss_gmac_linux_do_ioctl(struct net_device *netdev,
  */
 static void nss_gmac_linux_set_rx_mode(struct net_device *netdev)
 {
-	nss_gmac_dev *gmacdev = NULL;
+	struct nss_gmac_dev *gmacdev = NULL;
 
-	gmacdev = (nss_gmac_dev *)netdev_priv(netdev);
+	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 
 	nss_gmac_info(gmacdev, "%s: flags - 0x%x", __func__, netdev->flags);
@@ -705,10 +705,10 @@ static void nss_gmac_linux_set_rx_mode(struct net_device *netdev)
 static int32_t nss_gmac_set_features(struct net_device *netdev,
 					       netdev_features_t features)
 {
-	nss_gmac_dev *gmacdev = NULL;
+	struct nss_gmac_dev *gmacdev = NULL;
 	netdev_features_t changed;
 
-	gmacdev = (nss_gmac_dev *)netdev_priv(netdev);
+	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 
 	changed = features ^ netdev->features;
@@ -804,7 +804,7 @@ static int32_t nss_gmac_of_get_pdata(struct device_node *np,
 				     struct msm_nss_gmac_platform_data *gmaccfg)
 {
 	uint8_t *maddr = NULL;
-	nss_gmac_dev *gmacdev = NULL;
+	struct nss_gmac_dev *gmacdev = NULL;
 	struct resource memres_devtree = {0};
 
 	gmacdev = netdev_priv(netdev);
@@ -953,7 +953,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 {
 	struct net_device *netdev = NULL;
 	struct msm_nss_gmac_platform_data *gmaccfg = NULL;
-	nss_gmac_dev *gmacdev = NULL;
+	struct nss_gmac_dev *gmacdev = NULL;
 	int32_t ret = 0;
 	phy_interface_t phyif = 0;
 	uint8_t phy_id[MII_BUS_ID_SIZE + 3];
@@ -970,14 +970,14 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	 * the private structure. This is mandatory as a 32 byte allignment
 	 * is required for the private data structure.
 	 */
-	netdev = alloc_etherdev(sizeof(nss_gmac_dev));
+	netdev = alloc_etherdev(sizeof(struct nss_gmac_dev));
 	if (!netdev) {
 		nss_gmac_early_dbg("%s: alloc_etherdev() failed", __func__);
 		return -ENOMEM;
 	}
 
 	gmacdev = netdev_priv(netdev);
-	memset((void *)gmacdev, 0, sizeof(nss_gmac_dev));
+	memset((void *)gmacdev, 0, sizeof(struct nss_gmac_dev));
 
 	spin_lock_init(&gmacdev->stats_lock);
 	spin_lock_init(&gmacdev->slock);
@@ -1306,7 +1306,7 @@ nss_gmac_attach_fail:
 static int nss_gmac_remove(struct platform_device *pdev)
 {
 	struct net_device *netdev = NULL;
-	nss_gmac_dev *gmacdev = NULL;
+	struct nss_gmac_dev *gmacdev = NULL;
 
 	gmacdev = ctx.nss_gmac[pdev->id];
 	if (!gmacdev) {
@@ -1395,7 +1395,7 @@ link_state_wq_fail:
 void nss_gmac_exit_network_interfaces(void)
 {
 	uint32_t i;
-	nss_gmac_dev *gmacdev;
+	struct nss_gmac_dev *gmacdev;
 
 	for (i = 0; i < NSS_MAX_GMACS; i++) {
 		gmacdev = ctx.nss_gmac[i];

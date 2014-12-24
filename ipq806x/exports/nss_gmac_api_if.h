@@ -30,39 +30,31 @@
 /*
  * NSS GMAC event type
  */
-typedef enum {
-	NSS_GMAC_EVENT_STATS,
-	NSS_GMAC_EVENT_OTHER,
-	NSS_GMAC_EVENT_MAX
-} nss_gmac_event_t;
+#define NSS_GMAC_EVENT_STATS	0
+#define NSS_GMAC_EVENT_OTHER	1
 
 /*
  * NSS GMAC status
  */
-typedef enum {
-	NSS_GMAC_SUCCESS = 0,	/* Success */
-	NSS_GMAC_FAILURE,	/* Failure */
-} nss_gmac_status_t;
+#define NSS_GMAC_SUCCESS	0	/* Success */
+#define NSS_GMAC_FAILURE	1	/* Failure */
 
 /*
  * NSS GMAC mode
  */
-enum nss_gmac_mode {
-	NSS_GMAC_MODE0,		/* gmac mode 0 */
-	NSS_GMAC_MODE1,		/* gmac mode 1 */
-	NSS_GMAC_MODE_MAX,	/* must be at last */
-};
+#define NSS_GMAC_MODE0	0	/* gmac mode 0 */
+#define NSS_GMAC_MODE1	1	/* gmac mode 1 */
 
 /*
  * NSS GMAC data plane ops, default would be slowpath and can be override by nss-drv
  */
 struct nss_gmac_data_plane_ops {
-	nss_gmac_status_t (*open)(void *ctx, uint32_t tx_desc_ring, uint32_t rx_desc_ring, uint32_t mode);
-	nss_gmac_status_t (*close)(void *ctx);
-	nss_gmac_status_t (*link_state)(void *ctx, uint32_t link_state);
-	nss_gmac_status_t (*mac_addr)(void *ctx, uint8_t *addr);
-	nss_gmac_status_t (*change_mtu)(void *ctx, uint32_t mtu);
-	nss_gmac_status_t (*xmit)(void *ctx, struct sk_buff *os_buf);
+	int (*open)(void *ctx, uint32_t tx_desc_ring, uint32_t rx_desc_ring, uint32_t mode);
+	int (*close)(void *ctx);
+	int (*link_state)(void *ctx, uint32_t link_state);
+	int (*mac_addr)(void *ctx, uint8_t *addr);
+	int (*change_mtu)(void *ctx, uint32_t mtu);
+	int (*xmit)(void *ctx, struct sk_buff *os_buf);
 };
 
 /*
@@ -120,7 +112,7 @@ struct nss_gmac_stats {
 };
 
 extern void nss_gmac_receive(struct net_device *netdev, struct sk_buff *skb, struct napi_struct *napi);
-extern void nss_gmac_event_receive(void *if_ctx, nss_gmac_event_t ev_type, void *os_buf, uint32_t len);
+extern void nss_gmac_event_receive(void *if_ctx, int ev_type, void *os_buf, uint32_t len);
 void nss_gmac_start_data_plane(struct net_device *netdev, void *ctx);
 extern int nss_gmac_override_data_plane(struct net_device *netdev, struct nss_gmac_data_plane_ops *dp_ops, void *ctx);
 extern void nss_gmac_restore_data_plane(struct net_device *netdev);

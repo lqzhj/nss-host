@@ -53,7 +53,7 @@ static BLOCKING_NOTIFIER_HEAD(nss_gmac_notifier_list);
  * @param[in] nss_gmac_dev *
  * @return void
  */
-void nss_gmac_spare_ctl(nss_gmac_dev *gmacdev)
+void nss_gmac_spare_ctl(struct nss_gmac_dev *gmacdev)
 {
 	uint32_t val;
 	uint32_t count;
@@ -102,9 +102,9 @@ void nss_gmac_spare_ctl(nss_gmac_dev *gmacdev)
  * @param[in] nss_gmac_dev *
  * @return void
  */
-static void nss_gmac_rumi_qsgmii_init(nss_gmac_dev *gmacdev)
+static void nss_gmac_rumi_qsgmii_init(struct nss_gmac_dev *gmacdev)
 {
-	nss_gmac_dev *gmac1_dev;
+	struct nss_gmac_dev *gmac1_dev;
 	uint16_t phy_reg_val;
 	uint32_t *qsgmii_base;
 	uint8_t *nss_base;
@@ -179,7 +179,7 @@ static void nss_gmac_rumi_qsgmii_init(nss_gmac_dev *gmacdev)
  * @param[in] nss_gmac_dev *
  * @return void
  */
-void nss_gmac_qsgmii_dev_init(nss_gmac_dev *gmacdev)
+void nss_gmac_qsgmii_dev_init(struct nss_gmac_dev *gmacdev)
 {
 	uint32_t val = 0;
 	uint32_t id = gmacdev->macid;
@@ -493,7 +493,7 @@ void nss_gmac_common_deinit(struct nss_gmac_global_ctx *ctx)
  * @param[in] nss_gmac_dev *
  * @return returns QSGMII clock divider value.
  */
-static uint32_t clk_div_qsgmii(nss_gmac_dev *gmacdev)
+static uint32_t clk_div_qsgmii(struct nss_gmac_dev *gmacdev)
 {
 	uint32_t div;
 
@@ -523,7 +523,7 @@ static uint32_t clk_div_qsgmii(nss_gmac_dev *gmacdev)
  * @param[in] nss_gmac_dev *
  * @return returns SGMII clock divider value.
  */
-static uint32_t clk_div_sgmii(nss_gmac_dev *gmacdev)
+static uint32_t clk_div_sgmii(struct nss_gmac_dev *gmacdev)
 {
 	uint32_t div;
 
@@ -553,7 +553,7 @@ static uint32_t clk_div_sgmii(nss_gmac_dev *gmacdev)
  * @param[in] nss_gmac_dev *
  * @return returns RGMII clock divider value.
  */
-static uint32_t clk_div_rgmii(nss_gmac_dev *gmacdev)
+static uint32_t clk_div_rgmii(struct nss_gmac_dev *gmacdev)
 {
 	uint32_t div;
 
@@ -583,7 +583,7 @@ static uint32_t clk_div_rgmii(nss_gmac_dev *gmacdev)
  * @param[in] nss_gmac_dev *
  * @return returns PCS speed values.
  */
-static uint32_t get_pcs_speed(nss_gmac_dev *gmacdev)
+static uint32_t get_pcs_speed(struct nss_gmac_dev *gmacdev)
 {
 	uint32_t speed;
 
@@ -612,7 +612,7 @@ static uint32_t get_pcs_speed(nss_gmac_dev *gmacdev)
  * @param[in] nss_gmac_dev *
  * @return returns 0 on success.
  */
-int32_t nss_gmac_dev_set_speed(nss_gmac_dev *gmacdev)
+int32_t nss_gmac_dev_set_speed(struct nss_gmac_dev *gmacdev)
 {
 	uint32_t val = 0;
 	uint32_t id = gmacdev->macid;
@@ -704,7 +704,7 @@ int32_t nss_gmac_dev_set_speed(nss_gmac_dev *gmacdev)
  * @param[in] nss_gmac_dev *
  * @return void
  */
-void nss_gmac_dev_init(nss_gmac_dev *gmacdev)
+void nss_gmac_dev_init(struct nss_gmac_dev *gmacdev)
 {
 	uint32_t val = 0;
 	uint32_t div = 0;
@@ -933,7 +933,7 @@ static void nss_gmac_ifg_reset(uint32_t gmac_id)
  */
 static void nss_gmac_link_status_set(uint32_t gmac_id, uint32_t link_state)
 {
-	nss_gmac_dev *gmac_dev = NULL;
+	struct nss_gmac_dev *gmac_dev = NULL;
 
 	gmac_dev = ctx.nss_gmac[gmac_id];
 	if (gmac_dev == NULL)
@@ -961,7 +961,7 @@ void nss_macsec_bypass_en_set(uint32_t gmac_id, bool enable)
 {
 	uint32_t val = 0;
 	uint32_t *nss_base = (uint32_t *)ctx.nss_base;
-	nss_gmac_dev *gmac_dev = NULL;
+	struct nss_gmac_dev *gmac_dev = NULL;
 	uint32_t link_reset_flag = 0;
 	struct nss_gmac_speed_ctx gmac_speed_ctx = {0, 0};
 
@@ -1023,7 +1023,7 @@ EXPORT_SYMBOL(nss_macsec_bypass_en_set);
 void nss_macsec_pre_exit(void)
 {
 	uint32_t *nss_base = (uint32_t *)ctx.nss_base;
-	nss_gmac_dev *gmac_dev = NULL;
+	struct nss_gmac_dev *gmac_dev = NULL;
 	uint32_t gmac_id = 0;
 	uint32_t link_reset_flag = 0;
 
