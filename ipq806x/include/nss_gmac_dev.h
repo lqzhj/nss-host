@@ -152,6 +152,7 @@ struct nss_gmac_dev {
 	uint32_t version;	/* Gmac Revision version                      */
 	uint32_t emulation;	/* Running on emulation platform	      */
 	unsigned long int flags;/* status flags				      */
+	uint32_t drv_flags;	/* Driver specific feature flags		*/
 
 	dma_addr_t tx_desc_dma;	/* Dma-able address of first tx descriptor
 				   either in ring or chain mode, this is used
@@ -284,6 +285,17 @@ enum nss_gmac_state {
 	__NSS_GMAC_TXPAUSE,
 	__NSS_GMAC_LINKPOLL,	/* Poll link status			      */
 };
+
+/**
+ * @brief Driver specific feature flags (nss_gmac_dev->drv_flags).
+ * These flags are to be used with
+ * {get/set}_priv_flags ethtool operations.
+ */
+enum nss_gmac_priv_flags {
+	__NSS_GMAC_PRIV_FLAG_LINKPOLL,
+	__NSS_GMAC_PRIV_FLAG_MAX,
+};
+#define NSS_GMAC_PRIV_FLAG(x)	(1 << __NSS_GMAC_PRIV_FLAG_ ## x)
 
 enum mii_link_status {
 	LINKDOWN = 0,

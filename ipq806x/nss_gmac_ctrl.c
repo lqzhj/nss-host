@@ -759,8 +759,10 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	if (ctx.socver == 0)
 		ctx.socver = gmaccfg->socver;
 
-	if (gmaccfg->poll_required)
+	if (gmaccfg->poll_required) {
 		test_and_set_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags);
+		gmacdev->drv_flags |= NSS_GMAC_PRIV_FLAG(LINKPOLL);
+	}
 
 	switch (gmaccfg->forced_speed) {
 	case SPEED_10:
