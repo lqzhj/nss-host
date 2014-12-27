@@ -48,9 +48,8 @@ int32_t nss_gmac_check_link(struct nss_gmac_dev *gmacdev)
 {
 	struct phy_device *phydev = gmacdev->phydev;
 
-	if (!test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
+	if (!test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags))
 		return LINKUP;
-	}
 
 	if (gmacdev->emulation && (gmacdev->phy_mii_type == GMAC_INTF_SGMII
 			|| gmacdev->phy_mii_type == GMAC_INTF_QSGMII)) {
@@ -59,9 +58,8 @@ int32_t nss_gmac_check_link(struct nss_gmac_dev *gmacdev)
 
 	genphy_read_status(phydev);
 
-	if (phydev->link) {
+	if (phydev->link)
 		return LINKUP;
-	}
 
 	return LINKDOWN;
 }
@@ -188,9 +186,8 @@ int32_t nss_gmac_write_phy_reg(uint32_t *RegBase, uint32_t PhyBase,
 	for (loop_variable = 0; loop_variable
 	     < DEFAULT_LOOP_VARIABLE; loop_variable++) {
 		temp = nss_gmac_read_reg(RegBase, GmacGmiiAddr);
-		if (!(temp & GmiiBusy)) {
+		if (!(temp & GmiiBusy))
 			return 0;
-		}
 		msleep(100);
 	}
 
@@ -263,11 +260,10 @@ int32_t nss_gmac_phy_loopback(struct nss_gmac_dev *gmacdev, bool loopback)
 
 	bmcr = nss_gmac_mii_rd_reg(gmacdev, gmacdev->phy_base, MII_BMCR);
 
-	if (loopback) {
+	if (loopback)
 		bmcr |= BMCR_LOOPBACK;
-	} else {
+	else
 		bmcr &= ~BMCR_LOOPBACK;
-	}
 
 	nss_gmac_mii_wr_reg(gmacdev, gmacdev->phy_base, MII_BMCR, bmcr);
 
@@ -283,9 +279,8 @@ int32_t nss_gmac_phy_loopback(struct nss_gmac_dev *gmacdev, bool loopback)
  */
 void nss_gmac_reset_phy(struct nss_gmac_dev *gmacdev, uint32_t phyid)
 {
-	if (gmacdev->emulation && (gmacdev->phy_mii_type != GMAC_INTF_RGMII)) {
+	if (gmacdev->emulation && (gmacdev->phy_mii_type != GMAC_INTF_RGMII))
 		return;
-	}
 
 	nss_gmac_mii_wr_reg(gmacdev, phyid, MII_BMCR, BMCR_RESET);
 	nss_gmac_mii_wr_reg(gmacdev, phyid, MII_BMCR,
@@ -1260,13 +1255,11 @@ void nss_gmac_config_flow_control(struct nss_gmac_dev *gmacdev)
 			      "%s: Link partner supports Tx/Rx flow control",
 			      __func__);
 
-		if (gmacdev->pause & FLOW_CTRL_RX) {
+		if (gmacdev->pause & FLOW_CTRL_RX)
 			nss_gmac_rx_pause_enable(gmacdev);
-		}
 
-		if (gmacdev->pause & FLOW_CTRL_TX) {
+		if (gmacdev->pause & FLOW_CTRL_TX)
 			nss_gmac_tx_pause_enable(gmacdev);
-		}
 
 		return;
 	}
@@ -1281,9 +1274,8 @@ void nss_gmac_config_flow_control(struct nss_gmac_dev *gmacdev)
 		 * partner cannot process pause frames
 		 */
 		nss_gmac_rx_pause_disable(gmacdev);
-		if (gmacdev->pause & FLOW_CTRL_TX) {
+		if (gmacdev->pause & FLOW_CTRL_TX)
 			nss_gmac_tx_pause_enable(gmacdev);
-		}
 
 		return;
 	}
@@ -1333,11 +1325,10 @@ void nss_gmac_mac_init(struct nss_gmac_dev *gmacdev)
 	nss_gmac_frame_burst_enable(gmacdev);
 	nss_gmac_loopback_off(gmacdev);
 
-	if (gmacdev->speed == SPEED1000) {
+	if (gmacdev->speed == SPEED1000)
 		nss_gmac_select_gmii(gmacdev);
-	} else {
+	else
 		nss_gmac_select_mii(gmacdev);
-	}
 
 	if (gmacdev->duplex_mode == FULLDUPLEX) {
 		nss_gmac_set_full_duplex(gmacdev);
@@ -1396,18 +1387,16 @@ static void nss_gmac_check_pcs_status(struct nss_gmac_dev *gmacdev)
 
 	/* confirm link is up in PCS_QSGMII_MAC_STATUS register */
 	reg = nss_gmac_read_reg(qsgmii_base, PCS_QSGMII_MAC_STAT);
-	if (!(reg & PCS_MAC_STAT_CHn_LINK(id))) {
+	if (!(reg & PCS_MAC_STAT_CHn_LINK(id)))
 		return;
-	}
 
 	gmacdev->link_state = LINKUP;
 
 	/* save duplexity */
-	if (reg & PCS_MAC_STAT_CHn_DUPLEX(id)) {
+	if (reg & PCS_MAC_STAT_CHn_DUPLEX(id))
 		gmacdev->duplex_mode = FULLDUPLEX;
-	} else {
+	else
 		gmacdev->duplex_mode = HALFDUPLEX;
-	}
 
 	/* save speed */
 	switch (PCS_MAC_STAT_CHn_SPEED(id, reg)) {
@@ -1638,9 +1627,8 @@ out:
 int32_t nss_gmac_ath_phy_mmd_wr(struct phy_device *phydev, uint32_t mmd_dev_addr,
 			uint32_t reg, uint16_t val)
 {
-	if (IS_ERR_OR_NULL(phydev)) {
+	if (IS_ERR_OR_NULL(phydev))
 		return -EINVAL;
-	}
 
 	phy_write(phydev, ATH_MII_MMD_ACCESS_CTRL, mmd_dev_addr);
 	phy_write(phydev, ATH_MII_MMD_ACCESS_ADDR_DATA, reg);
@@ -1661,9 +1649,8 @@ int32_t nss_gmac_ath_phy_mmd_wr(struct phy_device *phydev, uint32_t mmd_dev_addr
 int32_t nss_gmac_ath_phy_mmd_rd(struct phy_device *phydev,
 			uint32_t mmd_dev_addr, uint32_t reg)
 {
-	if (IS_ERR_OR_NULL(phydev)) {
+	if (IS_ERR_OR_NULL(phydev))
 		return -EINVAL;
-	}
 
 	phy_write(phydev, ATH_MII_MMD_ACCESS_CTRL, mmd_dev_addr);
 	phy_write(phydev, ATH_MII_MMD_ACCESS_ADDR_DATA, reg);
@@ -1681,9 +1668,8 @@ int32_t nss_gmac_ath_phy_disable_smart_802az(struct phy_device *phydev)
 {
 	uint16_t val = 0;
 
-	if (IS_ERR_OR_NULL(phydev)) {
+	if (IS_ERR_OR_NULL(phydev))
 		return -EINVAL;
-	}
 
 	val = nss_gmac_ath_phy_mmd_rd(phydev, ATH_MMD_DEVADDR_3, ath_mmd_smart_eee_ctrl_3);
 	val &= ~ath_mmd_smart_eee_ctrl3_lpi_en;
@@ -1701,9 +1687,8 @@ int32_t nss_gmac_ath_phy_disable_802az(struct phy_device *phydev)
 {
 	uint16_t val = 0;
 
-	if (IS_ERR_OR_NULL(phydev)) {
+	if (IS_ERR_OR_NULL(phydev))
 		return -EINVAL;
-	}
 
 	val = nss_gmac_ath_phy_mmd_rd(phydev, ATH_MMD_DEVADDR_7, ath_mmd_eee_adv);
 	val &= ~(ath_mmd_eee_adv_100BT | ath_mmd_eee_adv_1000BT);
@@ -2049,21 +2034,17 @@ void nss_gmac_get_desc_data(struct DmaDesc *desc,
 	 * The first time, we map the descriptor as DMA_TO_DEVICE.
 	 * Then we only wait for changes from device, so we use DMA_FROM_DEVICE.
 	 */
-	if (Status != 0) {
+	if (Status != 0)
 		*Status = desc->status;
-	}
 
-	if (Buffer1 != 0) {
+	if (Buffer1 != 0)
 		*Buffer1 = desc->buffer1;
-	}
 
-	if (Length1 != 0) {
+	if (Length1 != 0)
 		*Length1 = (desc->length & DescSize1Mask) >> DescSize1Shift;
-	}
 
-	if (Data1 != 0) {
+	if (Data1 != 0)
 		*Data1 = desc->data1;
-	}
 }
 
 /*
@@ -2123,9 +2104,8 @@ void nss_gmac_take_desc_ownership_rx(struct nss_gmac_dev *gmacdev)
 	int32_t i;
 	struct DmaDesc *desc;
 	desc = gmacdev->rx_desc;
-	for (i = 0; i < gmacdev->rx_desc_count; i++) {
+	for (i = 0; i < gmacdev->rx_desc_count; i++)
 		nss_gmac_take_desc_ownership(desc + i);
-	}
 }
 
 /*
@@ -2144,9 +2124,8 @@ void nss_gmac_take_desc_ownership_tx(struct nss_gmac_dev *gmacdev)
 	int32_t i;
 	struct DmaDesc *desc;
 	desc = gmacdev->tx_desc;
-	for (i = 0; i < gmacdev->tx_desc_count; i++) {
+	for (i = 0; i < gmacdev->tx_desc_count; i++)
 		nss_gmac_take_desc_ownership(desc + i);
-	}
 }
 
 /*
