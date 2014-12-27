@@ -65,41 +65,6 @@ int32_t nss_gmac_check_link(struct nss_gmac_dev *gmacdev)
 }
 
 /*
- * Function to set the MDC clock for mdio transactiona
- * @param[in] pointer to device structure.
- * @param[in] clk divider value.
- * @return Reuturns 0 on success else return the error value.
- */
-int32_t nss_gmac_set_mdc_clk_div(struct nss_gmac_dev *gmacdev, uint32_t clk_div_val)
-{
-	uint32_t orig_data;
-
-	/* set the mdc clock to the user defined value */
-	orig_data =
-	    nss_gmac_read_reg((uint32_t *)gmacdev->mac_base, GmacGmiiAddr);
-	orig_data &= (~GmiiCsrClkMask);
-	orig_data |= clk_div_val;
-	nss_gmac_write_reg((uint32_t *)gmacdev->mac_base, GmacGmiiAddr,
-			   orig_data);
-
-	return 0;
-}
-
-/*
- * Returns the current MDC divider value programmed in the ip.
- * @param[in] pointer to device structure.
- * @param[in] clk divider value.
- * @return Returns the MDC divider value read.
- */
-uint32_t nss_gmac_get_mdc_clk_div(struct nss_gmac_dev *gmacdev)
-{
-	uint32_t data;
-	data = nss_gmac_read_reg((uint32_t *)gmacdev->mac_base, GmacGmiiAddr);
-	data &= GmiiCsrClkMask;
-	return data;
-}
-
-/*
  * Function to read the Phy register. The access to phy register
  * is a slow process as the data is moved accross MDI/MDO interface
  * Caller is required to call this function in an SMP safe manner.
@@ -243,34 +208,6 @@ void nss_gmac_mii_wr_reg(struct nss_gmac_dev *gmacdev, uint32_t phy,
 	return;
 }
 
-
-
-/*
- * Function to configure the phy in loopback mode.
- * @param[in] pointer to nss_gmac_dev.
- * @param[in] enable or disable the loopback.
- * @return 0 on success else return the error status.
- * @note Don't get confused with mac loop-back nss_gmac_loopback_on(nss_gmac_dev *)
- * and nss_gmac_loopback_off(nss_gmac_dev *)functions.
- * @return 0 on success.
- */
-int32_t nss_gmac_phy_loopback(struct nss_gmac_dev *gmacdev, bool loopback)
-{
-	uint32_t bmcr = 0;
-
-	bmcr = nss_gmac_mii_rd_reg(gmacdev, gmacdev->phy_base, MII_BMCR);
-
-	if (loopback)
-		bmcr |= BMCR_LOOPBACK;
-	else
-		bmcr &= ~BMCR_LOOPBACK;
-
-	nss_gmac_mii_wr_reg(gmacdev, gmacdev->phy_base, MII_BMCR, bmcr);
-
-	return 0;
-}
-
-
 /**
  * @brief Reset the Phy specified by phyid
  * @param[in] pointer to nss_gmac_dev.
@@ -406,19 +343,6 @@ void nss_gmac_wd_enable(struct nss_gmac_dev *gmacdev)
 }
 
 /*
- * Disable the watchdog timer on the receiver.
- * When disabled, Gmac disabled watchdog timer, and can receive frames up to
- * 16,384 bytes.
- * @param[in] pointer to nss_gmac_dev.
- * @return returns void.
- */
-void nss_gmac_wd_disable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacConfig, GmacWatchdog);
-}
-
-/*
  * Enables the Jabber frame support.
  * When enabled, GMAC disabled the jabber timer, and can transfer
  * 16,384 byte frames.
@@ -432,20 +356,6 @@ void nss_gmac_jab_enable(struct nss_gmac_dev *gmacdev)
 }
 
 /*
- * Disables the Jabber frame support.
- * When disabled, GMAC enables jabber timer.
- * It cuts of transmitter if application sends more than 2048
- * bytes of data (10240 if Jumbo frame enabled).
- * @param[in] pointer to nss_gmac_dev.
- * @return returns void.
- */
-void nss_gmac_jab_disable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacConfig, GmacJabber);
-}
-
-/*
  * Enables Frame bursting (Only in Half Duplex Mode).
  * When enabled, GMAC allows frame bursting in GMII Half Duplex mode.
  * Reserved in 10/100 and Full-Duplex configurations.
@@ -456,18 +366,6 @@ void nss_gmac_frame_burst_enable(struct nss_gmac_dev *gmacdev)
 {
 	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
 			      GmacConfig, GmacFrameBurst);
-}
-
-/*
- * Disables Frame bursting.
- * When Disabled, frame bursting is not supported.
- * @param[in] pointer to nss_gmac_dev.
- * @return returns void.
- */
-void nss_gmac_frame_burst_disable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacConfig, GmacFrameBurst);
 }
 
 /*
@@ -607,20 +505,6 @@ void nss_gmac_rx_own_disable(struct nss_gmac_dev *gmacdev)
 }
 
 /*
- * Sets the GMAC in loopback mode.
- * When on GMAC operates in loop-back mode at GMII/MII.
- * @param[in] pointer to nss_gmac_dev.
- * @return returns void.
- * @note (G)MII Receive clock is required for loopback to work properly,
- * as transmit clock is not looped back internally.
- */
-void nss_gmac_loopback_on(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacConfig, GmacLoopback);
-}
-
-/*
  * Sets the GMAC in Normal mode.
  * @param[in] pointer to nss_gmac_dev.
  * @return returns void.
@@ -683,20 +567,6 @@ void nss_gmac_retry_disable(struct nss_gmac_dev *gmacdev)
 }
 
 /*
- * GMAC strips the Pad/FCS field of incoming frames.
- * This is true only if the length field value is less than or equal to
- * 1500 bytes. All received frames with length field greater than or equal to
- * 1501 bytes are passed to the application without stripping the Pad/FCS field.
- * @param[in] pointer to nss_gmac_dev.
- * @return returns void.
- */
-void nss_gmac_pad_crc_strip_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacConfig, GmacPadCrcStrip);
-}
-
-/*
  * GMAC doesnot strips the Pad/FCS field of incoming frames.
  * GMAC will pass all the incoming frames to Host unmodified.
  * @param[in] pointer to nss_gmac_dev.
@@ -722,26 +592,6 @@ void nss_gmac_back_off_limit(struct nss_gmac_dev *gmacdev, uint32_t value)
 	data &= (~GmacBackoffLimit);
 	data |= value;
 	nss_gmac_write_reg((uint32_t *)gmacdev->mac_base, GmacConfig, data);
-}
-
-/*
- * Enables the Deferral check in GMAC (Only in Half Duplex mode)
- * GMAC issues a Frame Abort Status, along with the excessive
- * deferral error bit set in the transmit frame status when transmit
- * state machine is deferred for more than
- *	- 24,288 bit times in 10/100Mbps mode
- *	- 155,680 bit times in 1000Mbps mode or Jumbo frame
- *	mode in 10/100Mbps operation.
- * @param[in] pointer to nss_gmac_dev.
- * @return returns void.
- * @note Deferral begins when transmitter is ready to transmit,
- * but is prevented because  of
- * an active CRS (carrier sense)
- */
-void nss_gmac_deferral_check_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacConfig, GmacDeferralCheck);
 }
 
 /*
@@ -820,83 +670,6 @@ void nss_gmac_frame_filter_enable(struct nss_gmac_dev *gmacdev)
 }
 
 /*
- * Disables reception of all the frames to application.
- * GMAC passes only those received frames to application which
- * pass SA/DA address filtering.
- * @param[in] pointer to nss_gmac_dev.
- * @return void.
- */
-void nss_gmac_frame_filter_disable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacFrameFilter, GmacFilter);
-}
-
-/*
- * Populates the Hash High register with the data supplied.
- * This function is called when the Hash filtering is to be enabled.
- * @param[in] pointer to nss_gmac_dev.
- * @param[in] data to be written to hash table high register.
- * @return void.
- */
-void nss_gmac_write_hash_table_high(struct nss_gmac_dev *gmacdev, uint32_t data)
-{
-	nss_gmac_write_reg((uint32_t *)gmacdev->mac_base, GmacHashHigh, data);
-}
-
-/*
- * Populates the Hash Low register with the data supplied.
- * This function is called when the Hash filtering is to be enabled.
- * @param[in] pointer to nss_gmac_dev.
- * @param[in] data to be written to hash table low register.
- * @return void.
- */
-void nss_gmac_write_hash_table_low(struct nss_gmac_dev *gmacdev, uint32_t data)
-{
-	nss_gmac_write_reg((uint32_t *)gmacdev->mac_base, GmacHashLow, data);
-}
-
-/*
- * Enables Hash or Perfect filter (only if Hash filter is enabled in H/W).
- * Only frames matching either perfect filtering or Hash Filtering as per HMC and HUC
- * configuration are sent to application.
- * @param[in] pointer to nss_gmac_dev.
- * @return void.
- */
-void nss_gmac_hash_perfect_filter_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacFrameFilter, GmacHashPerfectFilter);
-}
-
-/*
- * Enables only Hash(only if Hash filter is enabled in H/W).
- * Only frames matching Hash Filtering as per HMC and HUC
- * configuration are sent to application.
- * @param[in] pointer to nss_gmac_dev.
- * @return void.
- */
-void nss_gmac_Hash_filter_only_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacFrameFilter, GmacHashPerfectFilter);
-}
-
-/*
- * Enables Source address filtering.
- * When enabled source address filtering is performed. Only frames matching SA filtering are passed  to application with
- * SAMatch bit of RxStatus is set. GMAC drops failed frames.
- * @param[in] pointer to nss_gmac_dev.
- * @return void.
- * @note This function is overriden by nss_gmac_frame_filter_disable(nss_gmac_dev *)
- */
-void nss_gmac_src_addr_filter_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacFrameFilter, GmacSrcAddrFilter);
-}
-
-/*
  * Disables Source address filtering.
  * When disabled GMAC forwards the received frames with updated
  * SAMatch bit in RxStatus.
@@ -907,17 +680,6 @@ void nss_gmac_src_addr_filter_disable(struct nss_gmac_dev *gmacdev)
 {
 	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
 				GmacFrameFilter, GmacSrcAddrFilter);
-}
-
-/*
- * Enables Inverse Destination address filtering.
- * @param[in] pointer to nss_gmac_dev.
- * @return void.
- */
-void nss_gmac_dst_addr_filter_inverse(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacFrameFilter, GmacDestAddrFilterInv);
 }
 
 /*
@@ -964,18 +726,6 @@ void nss_gmac_broadcast_enable(struct nss_gmac_dev *gmacdev)
 }
 
 /*
- * Disable Broadcast frames.
- * When disabled Address filtering module filters all incoming broadcast frames.
- * @param[in] pointer to nss_gmac_dev.
- * @return void.
- */
-void nss_gmac_broadcast_disable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacFrameFilter, GmacBroadcast);
-}
-
-/*
  * Enables Multicast frames.
  * When enabled all multicast frames are passed.
  * @param[in] pointer to nss_gmac_dev.
@@ -997,19 +747,6 @@ void nss_gmac_multicast_disable(struct nss_gmac_dev *gmacdev)
 {
 	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
 				GmacFrameFilter, GmacMulticastFilter);
-}
-
-/*
- * Enables multicast hash filtering.
- * When enabled GMAC performs teh destination address filtering according
- * to the hash table.
- * @param[in] pointer to nss_gmac_dev.
- * @return void.
- */
-void nss_gmac_multicast_hash_filter_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacFrameFilter, GmacMcastHashFilter);
 }
 
 /*
@@ -1052,19 +789,6 @@ void nss_gmac_promisc_disable(struct nss_gmac_dev *gmacdev)
 }
 
 /*
- * Enables unicast hash filtering.
- * When enabled GMAC performs the destination address filtering of
- * unicast frames according to the hash table.
- * @param[in] pointer to nss_gmac_dev.
- * @return void.
- */
-void nss_gmac_unicast_hash_filter_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacFrameFilter, GmacUcastHashFilter);
-}
-
-/*
  * Disables multicast hash filtering.
  * When disabled GMAC performs perfect destination address filtering for unicast frames, it compares
  * DA field with the value programmed in DA register.
@@ -1080,19 +804,6 @@ void nss_gmac_unicast_hash_filter_disable(struct nss_gmac_dev *gmacdev)
 /*Flow control configuration functions*/
 
 /*
- * Enables detection of pause frames with stations unicast address.
- * When enabled GMAC detects the pause frames with stations unicast address in addition to the
- * detection of pause frames with unique multicast address.
- * @param[in] pointer to nss_gmac_dev.
- * @return void.
- */
-void nss_gmac_unicast_pause_frame_detect_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacFlowControl, GmacUnicastPauseFrame);
-}
-
-/*
  * Disables detection of pause frames with stations unicast address.
  * When disabled GMAC only detects with the unique multicast address (802.3x).
  * @param[in] pointer to nss_gmac_dev.
@@ -1105,18 +816,6 @@ void nss_gmac_unicast_pause_frame_detect_disable(struct nss_gmac_dev *gmacdev)
 }
 
 /*
- * Rx flow control enable.
- * When Enabled GMAC will decode the rx pause frame and disable the tx for a specified time.
- * @param[in] pointer to nss_gmac_dev.
- * @return void.
- */
-void nss_gmac_rx_flow_control_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacFlowControl, GmacRxFlowControl);
-}
-
-/*
  * Rx flow control disable.
  * When disabled GMAC will not decode pause frame.
  * @param[in] pointer to nss_gmac_dev.
@@ -1126,21 +825,6 @@ void nss_gmac_rx_flow_control_disable(struct nss_gmac_dev *gmacdev)
 {
 	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
 				GmacFlowControl, GmacRxFlowControl);
-}
-
-/*
- * Tx flow control enable.
- * When Enabled
- * - In full duplex GMAC enables flow control operation to
- *   transmit pause frames.
- * - In Half duplex GMAC enables the back pressure operation
- * @param[in] pointer to nss_gmac_dev.
- * @return void.
- */
-void nss_gmac_tx_flow_control_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			GmacFlowControl, GmacTxFlowControl);
 }
 
 /*
@@ -2156,258 +1840,7 @@ void nss_gmac_disable_dma_rx(struct nss_gmac_dev *gmacdev)
 	nss_gmac_write_reg((uint32_t *)gmacdev->dma_base, DmaControl, data);
 }
 
-/*******************PMT APIs***********************/
-
-/*
- * Enables the assertion of PMT interrupt.
- * This enables the assertion of PMT interrupt due to
- * Magic Pkt or Wakeup frame reception.
- * @param[in] pointer to nss_gmac_dev.
- * @return returns void.
- */
-void nss_gmac_pmt_int_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacInterruptMask, GmacPmtIntMask);
-}
-
-/*
- * Disables the assertion of PMT interrupt.
- * This disables the assertion of PMT interrupt due to
- * Magic Pkt or Wakeup frame reception.
- * @param[in] pointer to nss_gmac_dev.
- * @return returns void.
- */
-void nss_gmac_pmt_int_disable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacInterruptMask, GmacPmtIntMask);
-}
-
-/*
- * Enables the power down mode of GMAC.
- * This function puts the Gmac in power down mode.
- * @param[in] pointer to nss_gmac_dev.
- * @return returns void.
- */
-void nss_gmac_power_down_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacPmtCtrlStatus, GmacPmtPowerDown);
-}
-
-/*
- * Disables the powerd down setting of GMAC.
- * If the driver wants to bring up the GMAC from powerdown mode,
- * even though the magic packet or the wake up frames received from the
- * network, this function should be called.
- * @param[in] pointer to nss_gmac_dev.
- * @return returns void.
- */
-void nss_gmac_power_down_disable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacPmtCtrlStatus, GmacPmtPowerDown);
-}
-
-/*
- * Enables GMAC to look for Magic packet.
- * @param[in] pointer to nss_gmac_dev.
- * @return returns void.
- */
-void nss_gmac_magic_packet_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacPmtCtrlStatus, GmacPmtMagicPktEnable);
-}
-
-/*
- * Enables GMAC to look for wake up frame.
- * Wake up frame is defined by the user.
- * @param[in] pointer to nss_gmac_dev.
- * @return returns void.
- */
-void nss_gmac_wakeup_frame_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacPmtCtrlStatus, GmacPmtWakeupFrameEnable);
-}
-
-/*
- * Enables wake-up frame filter to handle unicast packets.
- * @param[in] pointer to nss_gmac_dev.
- * @return returns void.
- */
-void nss_gmac_pmt_unicast_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacPmtCtrlStatus, GmacPmtGlobalUnicast);
-}
-
-/*
- * Checks whether the packet received is a magic packet?.
- * @param[in] pointer to nss_gmac_dev.
- * @return returns True if magic packet received else returns false.
- */
-bool nss_gmac_is_magic_packet_received(struct nss_gmac_dev *gmacdev)
-{
-	uint32_t data;
-	data = nss_gmac_read_reg((uint32_t *)gmacdev->mac_base,
-				 GmacPmtCtrlStatus);
-	return (data & GmacPmtMagicPktReceived) == GmacPmtMagicPktReceived;
-}
-
-/*
- * Checks whether the packet received is a wakeup frame?.
- * @param[in] pointer to nss_gmac_dev.
- * @return returns true if wakeup frame received else returns false.
- */
-bool nss_gmac_is_wakeup_frame_received(struct nss_gmac_dev *gmacdev)
-{
-	uint32_t data;
-	data = nss_gmac_read_reg((uint32_t *)gmacdev->mac_base,
-				 GmacPmtCtrlStatus);
-	return (data & GmacPmtWakeupFrameReceived)
-		== GmacPmtWakeupFrameReceived;
-}
-
-/*
- * Populates the remote wakeup frame registers.
- * Consecutive 8 writes to GmacWakeupAddr writes the wakeup frame
- * filter registers.
- * Before commensing a new write, frame filter pointer is reset to 0x0000.
- * A small delay is introduced to allow frame filter pointer reset operation.
- * @param[in] pointer to nss_gmac_dev.
- * @param[in] pointer to frame filter contents array.
- * @return returns void.
- */
-void nss_gmac_write_wakeup_frame_register(struct nss_gmac_dev *gmacdev,
-					  uint32_t *filter_contents)
-{
-	int32_t i;
-
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacPmtCtrlStatus, GmacPmtFrmFilterPtrReset);
-	usleep_range(10000, 12000);
-	for (i = 0; i < WAKEUP_REG_LENGTH; i++) {
-		nss_gmac_write_reg((uint32_t *)gmacdev->mac_base,
-				   GmacWakeupAddr, *(filter_contents + i));
-	}
-}
-
-/*******************PMT APIs****************************/
-
 /*******************MMC APIs****************************/
-
-/*
- * Freezes the MMC counters.
- * This function call freezes the MMC counters. None of the MMC counters
- *  are updated due to any tx or rx frames until nss_gmac_mmc_counters_resume
- * is called.
- * @param[in] pointer to nss_gmac_dev.
- * @return returns void.
- */
-void nss_gmac_mmc_counters_stop(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacMmcCntrl, GmacMmcCounterFreeze);
-}
-
-/*
- * Resumes the MMC counter updation.
- * @param[in] pointer to nss_gmac_dev.
- * @return returns void.
- */
-void nss_gmac_mmc_counters_resume(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacMmcCntrl, GmacMmcCounterFreeze);
-}
-
-/*
- * Configures the MMC in Self clearing mode.
- * Programs MMC interface so that counters are cleared when the
- * counters are read.
- * @param[in] pointer to nss_gmac_dev.
- * @return returns void.
- */
-void nss_gmac_mmc_counters_set_selfclear(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacMmcCntrl, GmacMmcCounterResetOnRead);
-}
-
-/*
- * Configures the MMC in non-Self clearing mode.
- * Programs MMC interface so that counters are cleared when the
- * counters are read.
- * @param[in] pointer to nss_gmac_dev.
- * @return returns void.
- */
-void nss_gmac_mmc_counters_reset_selfclear(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacMmcCntrl, GmacMmcCounterResetOnRead);
-}
-
-/*
- * Configures the MMC to stop rollover.
- * Programs MMC interface so that counters will not rollover
- * after reaching maximum value.
- * @param[in] pointer to nss_gmac_dev.
- * @return returns void.
- */
-void nss_gmac_mmc_counters_disable_rollover(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacMmcCntrl, GmacMmcCounterStopRollover);
-}
-
-/*
- * Configures the MMC to rollover.
- * Programs MMC interface so that counters will rollover after
- * reaching maximum value.
- * @param[in] pointer to nss_gmac_dev.
- * @return returns void.
- */
-void nss_gmac_mmc_counters_enable_rollover(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacMmcCntrl, GmacMmcCounterStopRollover);
-}
-
-/*
- * Read the MMC Counter.
- * @param[in] pointer to nss_gmac_dev.
- * @param[in] the counter to be read.
- * @return returns the read count value.
- */
-uint32_t nss_gmac_read_mmc_counter(struct nss_gmac_dev *gmacdev, uint32_t counter)
-{
-	return nss_gmac_read_reg((uint32_t *)gmacdev->mac_base, counter);
-}
-
-/*
- * Read the MMC Rx interrupt status.
- * @param[in] pointer to nss_gmac_dev.
- * @return returns the Rx interrupt status.
- */
-uint32_t nss_gmac_read_mmc_rx_int_status(struct nss_gmac_dev *gmacdev)
-{
-	return nss_gmac_read_reg
-		((uint32_t *)gmacdev->mac_base, GmacMmcIntrRx);
-}
-
-/*
- * Read the MMC Tx interrupt status.
- * @param[in] pointer to nss_gmac_dev.
- * @return returns the Tx interrupt status.
- */
-uint32_t nss_gmac_read_mmc_tx_int_status(struct nss_gmac_dev *gmacdev)
-{
-	return nss_gmac_read_reg
-		((uint32_t *)gmacdev->mac_base, GmacMmcIntrTx);
-}
 
 /*
  * Disable the MMC Tx interrupt.
@@ -2420,19 +1853,6 @@ void nss_gmac_disable_mmc_tx_interrupt(struct nss_gmac_dev *gmacdev, uint32_t ma
 {
 	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
 			      GmacMmcIntrMaskTx, mask);
-}
-
-/*
- * Enable the MMC Tx interrupt.
- * The MMC tx interrupts are enabled as per the mask specified.
- * @param[in] pointer to nss_gmac_dev.
- * @param[in] tx interrupt bit mask for which interrupts needs to be enabled.
- * @return returns void.
- */
-void nss_gmac_enable_mmc_tx_interrupt(struct nss_gmac_dev *gmacdev, uint32_t mask)
-{
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacMmcIntrMaskTx, mask);
 }
 
 /*
@@ -2449,19 +1869,6 @@ void nss_gmac_disable_mmc_rx_interrupt(struct nss_gmac_dev *gmacdev, uint32_t ma
 }
 
 /*
- * Enable the MMC Rx interrupt.
- * The MMC rx interrupts are enabled as per the mask specified.
- * @param[in] pointer to nss_gmac_dev.
- * @param[in] rx interrupt bit mask for which interrupts needs to be enabled.
- * @return returns void.
- */
-void nss_gmac_enable_mmc_rx_interrupt(struct nss_gmac_dev *gmacdev, uint32_t mask)
-{
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacMmcIntrMaskRx, mask);
-}
-
-/*
  * Disable the MMC ipc rx checksum offload interrupt.
  * The MMC ipc rx checksum offload interrupts are masked out as
  * per the mask specified.
@@ -2475,22 +1882,6 @@ void nss_gmac_disable_mmc_ipc_rx_interrupt(struct nss_gmac_dev *gmacdev,
 	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
 			      GmacMmcRxIpcIntrMask, mask);
 }
-
-/*
- * Enable the MMC ipc rx checksum offload interrupt.
- * The MMC ipc rx checksum offload interrupts are enabled as
- * per the mask specified.
- * @param[in] pointer to nss_gmac_dev.
- * @param[in] rx interrupt bit mask for which interrupts needs to be enabled.
- * @return returns void.
- */
-void nss_gmac_enable_mmc_ipc_rx_interrupt(struct nss_gmac_dev *gmacdev, uint32_t mask)
-{
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacMmcRxIpcIntrMask, mask);
-}
-
-/*******************MMC APIs*************************/
 
 /************Ip checksum offloading APIs*************/
 
@@ -2550,541 +1941,3 @@ void nss_gmac_rx_tcpip_chksum_drop_disable(struct nss_gmac_dev *gmacdev)
 }
 
 /*******************Ip checksum offloading APIs**********************/
-
-/*******************IEEE 1588 Timestamping API***********************/
-
-/*
- * This function enables the timestamping. This enables the timestamping
- * for transmit and receive frames. When disabled timestamp is not added
- * to tx and receive frames and timestamp generator is suspended.
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacTSControl, GmacTSENA);
-}
-
-/*
- * This function disables the timestamping.
- * When disabled timestamp is not added to tx and receive
- * frames and timestamp generator is suspended.
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_disable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacTSControl, GmacTSENA);
-}
-
-/*
- * Enable the interrupt to get timestamping interrupt.
- * This enables the host to get the interrupt when (1) system time
- * is greater or equal to the target time high and low register or
- * (2) there is a overflow in th esecond register.
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_int_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacInterruptMask, GmacTSIntMask);
-}
-
-/*
- * Disable the interrupt to get timestamping interrupt.
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_int_disable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacInterruptMask, GmacTSIntMask);
-}
-
-/*
- * Enable MAC address for PTP frame filtering.
- * When enabled, uses MAC address (apart from MAC address 0)
- * to filter the PTP frames when
- * PTP is sent directly over Ethernet.
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_mac_addr_filt_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacTSControl, GmacTSENMACADDR);
-}
-
-/*
- * Disables MAC address for PTP frame filtering.
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_mac_addr_filt_disable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacTSControl, GmacTSENMACADDR);
-}
-
-/*
- * Selet the type of clock mode for PTP.
- * Please note to use one of the follwoing as the clk_type argument.
- * GmacTSOrdClk		= 0x00000000,	00=> Ordinary clock
- * GmacTSBouClk		= 0x00010000,	01=> Boundary clock
- * GmacTSEtoEClk	= 0x00020000,	10=> End-to-End transparent clock
- * GmacTSPtoPClk	= 0x00030000,	11=> P-to-P transparent clock
- * @param[in] pointer to nss_gmac_dev
- * @param[in] uint32_t value representing one of the above clk value
- * @return returns void
- */
-void nss_gmac_ts_set_clk_type(struct nss_gmac_dev *gmacdev, uint32_t clk_type)
-{
-	uint32_t clkval;
-	clkval =
-	    nss_gmac_read_reg((uint32_t *)gmacdev->mac_base, GmacTSControl);
-
-	clkval = clkval | clk_type;
-	nss_gmac_write_reg((uint32_t *)gmacdev->mac_base, GmacTSControl,
-			   clkval);
-}
-
-/*
- * Enable Snapshot for messages relevant to Master.
- * When enabled, snapshot is taken for messages relevant to master
- * mode only, else snapshot is taken for messages relevant to slave node.
- * Valid only for Ordinary clock and Boundary clock
- * Reserved when "Advanced Time Stamp" is not selected
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_master_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacTSControl, GmacTSMSTRENA);
-}
-
-/*
- * Disable Snapshot for messages relevant to Master.
- * When disabled, snapshot is taken for messages relevant
- * to slave node.
- * Valid only for Ordinary clock and Boundary clock
- * Reserved when "Advanced Time Stamp" is not selected
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_master_disable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacTSControl, GmacTSMSTRENA);
-}
-
-/*
- * Enable Snapshot for Event messages.
- * When enabled, snapshot is taken for event messages only
- * (SYNC, Delay_Req, Pdelay_Req or Pdelay_Resp). When disabled, snapshot
- * is taken for all messages except Announce, Management and Signaling.
- * Reserved when "Advanced Time Stamp" is not selected
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_event_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacTSControl, GmacTSEVNTENA);
-}
-
-/*
- * Disable Snapshot for Event messages.
- * When disabled, snapshot is taken for all messages except Announce,
- * Management and Signaling. Reserved when "Advanced Time Stamp"
- * is not selected.
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_event_disable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacTSControl, GmacTSEVNTENA);
-}
-
-/*
- * Enable time stamp snapshot for IPV4 frames.
- * When enabled, time stamp snapshot is taken for IPV4 frames
- * Reserved when "Advanced Time Stamp" is not selected
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_ipv4_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacTSControl, GmacTSIPV4ENA);
-}
-
-/*
- * Disable time stamp snapshot for IPV4 frames.
- * When disabled, time stamp snapshot is not taken for IPV4 frames
- * Reserved when "Advanced Time Stamp" is not selected
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- * ***** Only for "Advanced Time Stamp"
- */
-void nss_gmac_ts_ipv4_disable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacTSControl, GmacTSIPV4ENA);
-}
-
-/*
- * Enable time stamp snapshot for IPV6 frames.
- * When enabled, time stamp snapshot is taken for IPV6 frames
- * Reserved when "Advanced Time Stamp" is not selected
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_ipv6_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacTSControl, GmacTSIPV6ENA);
-}
-
-/*
- * Disable time stamp snapshot for IPV6 frames.
- * When disabled, time stamp snapshot is not taken for IPV6 frames
- * Reserved when "Advanced Time Stamp" is not selected
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_ipv6_disable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacTSControl, GmacTSIPV6ENA);
-}
-
-/*
- * Enable time stamp snapshot for PTP over Ethernet frames.
- * When enabled, time stamp snapshot is taken for PTP over Ethernet frames
- * Reserved when "Advanced Time Stamp" is not selected
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_ptp_over_ethernet_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacTSControl, GmacTSIPENA);
-}
-
-/*
- * Disable time stamp snapshot for PTP over Ethernet frames.
- * When disabled, time stamp snapshot is not taken for PTP over Ethernet frames
- * Reserved when "Advanced Time Stamp" is not selected
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_ptp_over_ethernet_disable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacTSControl, GmacTSIPENA);
-}
-
-/*
- * Snoop PTP packet for version 2 format
- * When set the PTP packets are snooped using the version 2 format.
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_pkt_snoop_ver2(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacTSControl, GmacTSVER2ENA);
-}
-
-/*
- * Snoop PTP packet for version 2 format
- * When set the PTP packets are snooped using the version 2 format.
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_pkt_snoop_ver1(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacTSControl, GmacTSVER2ENA);
-}
-
-/*
- * Timestamp digital rollover
- * When set the timestamp low register rolls over after 0x3B9A_C9FF value.
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_digital_rollover_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacTSControl, GmacTSCTRLSSR);
-}
-
-/*
- * Timestamp binary rollover
- * When set the timestamp low register rolls over after 0x7FFF_FFFF value.
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_binary_rollover_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacTSControl, GmacTSCTRLSSR);
-}
-
-/*
- * Enable Time Stamp for All frames
- * When set the timestamp snap shot is enabled for all frames
- * received by the core. Reserved when "Advanced Time Stamp" is not selected.
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_all_frames_enable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacTSControl, GmacTSENALL);
-}
-
-/*
- * Disable Time Stamp for All frames
- * When reset the timestamp snap shot is not enabled for all
- * frames received by the core. Reserved when "Advanced Time Stamp"
- * is not selected.
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_all_frames_disable(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacTSControl, GmacTSENALL);
-}
-
-/*
- * Addend Register Update
- * This function loads the contents of Time stamp addend register
- * with the supplied 32 value. This is reserved function when only
- * coarse correction option is selected.
- * @param[in] pointer to nss_gmac_dev
- * @param[in] 32 bit addend value
- * @return returns 0 for Success or else Failure
- */
-int32_t nss_gmac_ts_addend_update(struct nss_gmac_dev *gmacdev, uint32_t addend_value)
-{
-	uint32_t loop_variable;
-
-	/* Load the addend_value in to Addend register */
-	nss_gmac_write_reg((uint32_t *)gmacdev->mac_base,
-			   GmacTSAddend, addend_value);
-
-	for (loop_variable = 0;
-	     loop_variable < DEFAULT_LOOP_VARIABLE; loop_variable++) {
-		/* Wait till the busy bit gets cleared */
-		if (!((nss_gmac_read_reg((uint32_t *)gmacdev->mac_base,
-					 GmacTSControl)) & GmacTSADDREG)) {
-			nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-					      GmacTSControl, GmacTSADDREG);
-			return 0;
-
-		}
-		udelay(DEFAULT_DELAY_VARIABLE);
-	}
-
-	nss_gmac_info(gmacdev,
-		      "Error::: The TSADDREG bit is not getting cleared !!!!!!\n");
-	return -EIO;
-}
-
-/*
- * time stamp Update
- * This function updates (adds/subtracts) with the value specified
- * in the Timestamp High Update and Timestamp Low Update register.
- * @param[in] pointer to nss_gmac_dev
- * @param[in] Timestamp High Update value
- * @param[in] Timestamp Low Update value
- * @return returns 0 for Success or else Failure
- */
-int32_t nss_gmac_ts_timestamp_update(struct nss_gmac_dev *gmacdev,
-				     uint32_t high_value, uint32_t low_value)
-{
-	uint32_t loop_variable;
-
-	nss_gmac_write_reg((uint32_t *)gmacdev->mac_base,
-			   GmacTSHighUpdate, high_value);
-
-	nss_gmac_write_reg((uint32_t *)gmacdev->mac_base,
-			   GmacTSLowUpdate, low_value);
-
-	for (loop_variable = 0;
-	     loop_variable < DEFAULT_LOOP_VARIABLE; loop_variable++) {
-		if (!((nss_gmac_read_reg((uint32_t *)gmacdev->mac_base,
-					 GmacTSControl)) & GmacTSUPDT)) {
-			nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-					      GmacTSControl, GmacTSUPDT);
-			return 0;
-
-		}
-		udelay(DEFAULT_DELAY_VARIABLE);
-	}
-
-	nss_gmac_info(gmacdev,
-		      "Error::: The TSADDREG bit is not getting cleared !!!!!!\n");
-	return -EIO;
-}
-
-/*
- * time stamp Initialize
- * This function Loads/Initializes the value specified in
- * the Timestamp High Update and Timestamp Low Update register.
- * @param[in] pointer to nss_gmac_dev
- * @param[in] Timestamp High Load value
- * @param[in] Timestamp Low Load value
- * @return returns 0 for Success or else Failure
- */
-int32_t nss_gmac_ts_timestamp_init(struct nss_gmac_dev *gmacdev,
-				   uint32_t high_value, uint32_t low_value)
-{
-	uint32_t loop_variable;
-
-	nss_gmac_write_reg((uint32_t *)gmacdev->mac_base,
-			   GmacTSHighUpdate, high_value);
-
-	nss_gmac_write_reg((uint32_t *)gmacdev->mac_base,
-			   GmacTSLowUpdate, low_value);
-
-	for (loop_variable = 0;
-	     loop_variable < DEFAULT_LOOP_VARIABLE; loop_variable++) {
-		if (!((nss_gmac_read_reg((uint32_t *)gmacdev->mac_base,
-					 GmacTSControl)) & GmacTSINT)) {
-			nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-					      GmacTSControl, GmacTSINT);
-			return 0;
-
-		}
-		udelay(DEFAULT_DELAY_VARIABLE);
-	}
-
-	nss_gmac_info(gmacdev,
-		      "Error::: The TSADDREG bit is not getting cleared !!!!!!\n");
-	return -EIO;
-}
-
-/*
- * Time Stamp Update Coarse
- * When reset the timestamp update is done using coarse method.
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_coarse_update(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_clear_reg_bits((uint32_t *)gmacdev->mac_base,
-				GmacTSControl, GmacTSCFUPDT);
-}
-
-/*
- * Time Stamp Update Fine
- * When reset the timestamp update is done using Fine method.
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_fine_update(struct nss_gmac_dev *gmacdev)
-{
-	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
-			      GmacTSControl, GmacTSCFUPDT);
-}
-
-/*
- * Load the Sub Second Increment value in to Sub Second increment register
- * @param[in] pointer to nss_gmac_dev
- * @return returns void
- */
-void nss_gmac_ts_subsecond_init(struct nss_gmac_dev *gmacdev,
-				uint32_t sub_sec_inc_value)
-{
-	nss_gmac_write_reg((uint32_t *)gmacdev->mac_base,
-			   GmacTSSubSecIncr,
-			   (sub_sec_inc_value & GmacSSINCMsk));
-}
-
-/*
- * Reads the time stamp contents in to the respective pointers
- * These registers are readonly.
- * This function returns the 48 bit time stamp assuming Version 2
- * timestamp with higher word is selected.
- * @param[in] pointer to nss_gmac_dev
- * @param[in] pointer to hold 16 higher bit second register contents
- * @param[in] pointer to hold 32 bit second register contents
- * @param[in] pointer to hold 32 bit subnanosecond register contents
- * @return returns void
- * @note Please note that since the atomic access to the
- * timestamp registers is not possible, the contents read may
- * be different from the actual time stamp.
- */
-void nss_gmac_ts_read_timestamp(struct nss_gmac_dev *gmacdev,
-				uint16_t *higher_sec_val, uint32_t *sec_val,
-				uint32_t *sub_sec_val)
-{
-	*higher_sec_val =
-	    (uint16_t)(nss_gmac_read_reg
-			((uint32_t *)gmacdev->mac_base,
-			 GmacTSHighWord) & GmacTSHighWordMask);
-
-	*sec_val = nss_gmac_read_reg((uint32_t *)gmacdev->mac_base, GmacTSHigh);
-
-	*sub_sec_val = nss_gmac_read_reg((uint32_t *)gmacdev->mac_base,
-					 GmacTSLow);
-}
-
-/*
- * Reads the time stamp higher sec value to respective pointers
- * @param[in] pointer to nss_gmac_dev
- * @param[in] pointer to hold 16 higher bit second register contents
- * @return returns void
- */
-void nss_gmac_ts_read_timestamp_higher_val(struct nss_gmac_dev *gmacdev,
-					   uint16_t *higher_sec_val)
-{
-	*higher_sec_val =
-	    (uint16_t)(nss_gmac_read_reg
-			((uint32_t *)gmacdev->mac_base,
-			 GmacTSHighWord) & GmacTSHighWordMask);
-}
-
-/*
- * Load the Target time stamp registers
- * This function Loads the target time stamp registers with the values provided.
- * @param[in] pointer to nss_gmac_dev
- * @param[in] target Timestamp High value
- * @param[in] target Timestamp Low  value
- * @return void
- */
-void nss_gmac_ts_load_target_timestamp(struct nss_gmac_dev *gmacdev,
-				       uint32_t sec_val, uint32_t sub_sec_val)
-{
-	nss_gmac_write_reg((uint32_t *)gmacdev->mac_base,
-			   GmacTSTargetTimeHigh, sec_val);
-	nss_gmac_write_reg((uint32_t *)gmacdev->mac_base,
-			   GmacTSTargetTimeLow, sub_sec_val);
-}
-
-/*
- * Reads the Target time stamp registers
- * This function Loads the target time stamp registers with the values proviced
- * @param[in] pointer to nss_gmac_dev
- * @param[in] pointer to hold target Timestamp High value
- * @param[in] pointer to hold target Timestamp Low  value
- * @return void
- */
-void nss_gmac_ts_read_target_timestamp(struct nss_gmac_dev *gmacdev,
-				       uint32_t *sec_val,
-				       uint32_t *sub_sec_val)
-{
-	*sec_val = nss_gmac_read_reg((uint32_t *)gmacdev->mac_base,
-				     GmacTSTargetTimeHigh);
-	*sub_sec_val = nss_gmac_read_reg((uint32_t *)gmacdev->mac_base,
-					 GmacTSTargetTimeLow);
-}
