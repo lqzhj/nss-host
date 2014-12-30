@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014 - 2015, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -305,7 +305,7 @@ static void nss_ipv6_conn_cfg_callback(void *app_data, struct nss_ipv6_msg *nim)
 		 * Error, hence we are not updating the nss_ipv4_conn_cfg
 		 * Restore the current_value to its previous state
 		 */
-		i6cfgp.response = FAILURE;
+		i6cfgp.response = NSS_FAILURE;
 		complete(&i6cfgp.complete);
 		return;
 	}
@@ -315,7 +315,7 @@ static void nss_ipv6_conn_cfg_callback(void *app_data, struct nss_ipv6_msg *nim)
 	 * saved at the sysctl handler.
 	 */
 	nss_info("IPv6 connection configuration success: %d\n", nim->cm.error);
-	i6cfgp.response = SUCCESS;
+	i6cfgp.response = NSS_SUCCESS;
 	complete(&i6cfgp.complete);
 }
 
@@ -331,7 +331,7 @@ static int nss_ipv6_conn_cfg_handler(ctl_table *ctl, int write, void __user *buf
 	struct nss_ipv6_msg nim;
 	struct nss_ipv6_rule_conn_cfg_msg *nirccm;
 	nss_tx_status_t nss_tx_status;
-	int ret = FAILURE;
+	int ret = NSS_FAILURE;
 	uint32_t sum_of_conn;
 
 	/*
@@ -374,7 +374,7 @@ static int nss_ipv6_conn_cfg_handler(ctl_table *ctl, int write, void __user *buf
 		 */
 		nss_ipv6_conn_cfg = i6cfgp.current_value;
 		up(&i6cfgp.sem);
-		return FAILURE;
+		return NSS_FAILURE;
 	}
 
 
@@ -397,7 +397,7 @@ static int nss_ipv6_conn_cfg_handler(ctl_table *ctl, int write, void __user *buf
 		 */
 		nss_ipv6_conn_cfg = i6cfgp.current_value;
 		up(&i6cfgp.sem);
-		return FAILURE;
+		return NSS_FAILURE;
 	}
 
 	/*
@@ -412,7 +412,7 @@ static int nss_ipv6_conn_cfg_handler(ctl_table *ctl, int write, void __user *buf
 		 */
 		nss_ipv6_conn_cfg = i6cfgp.current_value;
 		up(&i6cfgp.sem);
-		return FAILURE;
+		return NSS_FAILURE;
 	}
 
 	/*
@@ -420,17 +420,17 @@ static int nss_ipv6_conn_cfg_handler(ctl_table *ctl, int write, void __user *buf
 	 * If ACK: Callback function will update nss_ipv4_conn_cfg with
 	 * i6cfgp.num_conn_valid, which holds the user input
 	 */
-	if (FAILURE == i6cfgp.response) {
+	if (NSS_FAILURE == i6cfgp.response) {
 		/*
 		 * Restore the current_value to its previous state
 		 */
 		nss_ipv6_conn_cfg = i6cfgp.current_value;
 		up(&i6cfgp.sem);
-		return FAILURE;
+		return NSS_FAILURE;
 	}
 
 	up(&i6cfgp.sem);
-	return SUCCESS;
+	return NSS_SUCCESS;
 }
 
 static ctl_table nss_ipv6_table[] = {

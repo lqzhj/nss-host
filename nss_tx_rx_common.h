@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -92,11 +92,5 @@ extern void nss_sjack_register_handler(void);
  */
 extern void nss_if_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm,
 		__attribute__((unused))void *app_data);
-
-/*
- * nss_n2h_tx()
- * 	API to enable/disable Host RPS support in NSS
- */
-extern nss_tx_status_t nss_n2h_tx(struct nss_ctx_instance *nss_ctx, uint32_t enable_rps);
 
 #endif /* __NSS_TX_RX_COMMON_H */

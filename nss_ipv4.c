@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -306,7 +306,7 @@ static void nss_ipv4_conn_cfg_callback(void *app_data, struct nss_ipv4_msg *nim)
 		 * Error, hence we are not updating the nss_ipv4_conn_cfg
 		 * Restore the current_value to its previous state
 		 */
-		i4cfgp.response = FAILURE;
+		i4cfgp.response = NSS_FAILURE;
 		complete(&i4cfgp.complete);
 		return;
 	}
@@ -316,7 +316,7 @@ static void nss_ipv4_conn_cfg_callback(void *app_data, struct nss_ipv4_msg *nim)
 	 * saved at the sysctl handler.
 	 */
 	nss_info("IPv4 connection configuration success: %d\n", nim->cm.error);
-	i4cfgp.response = SUCCESS;
+	i4cfgp.response = NSS_SUCCESS;
 	complete(&i4cfgp.complete);
 }
 
@@ -331,7 +331,7 @@ static int nss_ipv4_conn_cfg_handler(ctl_table *ctl, int write, void __user *buf
 	struct nss_ipv4_msg nim;
 	struct nss_ipv4_rule_conn_cfg_msg *nirccm;
 	nss_tx_status_t nss_tx_status;
-	int ret = FAILURE;
+	int ret = NSS_FAILURE;
 	uint32_t sum_of_conn;
 
 	/*
@@ -376,7 +376,7 @@ static int nss_ipv4_conn_cfg_handler(ctl_table *ctl, int write, void __user *buf
 		 */
 		nss_ipv4_conn_cfg = i4cfgp.current_value;
 		up(&i4cfgp.sem);
-		return FAILURE;
+		return NSS_FAILURE;
 	}
 
 	nss_info("%p: IPv4 supported connections: %d\n", nss_ctx, nss_ipv4_conn_cfg);
@@ -398,7 +398,7 @@ static int nss_ipv4_conn_cfg_handler(ctl_table *ctl, int write, void __user *buf
 		 */
 		nss_ipv4_conn_cfg = i4cfgp.current_value;
 		up(&i4cfgp.sem);
-		return FAILURE;
+		return NSS_FAILURE;
 	}
 
 	/*
@@ -413,7 +413,7 @@ static int nss_ipv4_conn_cfg_handler(ctl_table *ctl, int write, void __user *buf
 		 */
 		nss_ipv4_conn_cfg = i4cfgp.current_value;
 		up(&i4cfgp.sem);
-		return FAILURE;
+		return NSS_FAILURE;
 	}
 
 	/*
@@ -421,18 +421,18 @@ static int nss_ipv4_conn_cfg_handler(ctl_table *ctl, int write, void __user *buf
 	 * If ACK: Callback function will update nss_ipv4_conn_cfg with
 	 * i4cfgp.num_conn_valid, which holds the user input
 	 */
-	if (FAILURE == i4cfgp.response) {
+	if (NSS_FAILURE == i4cfgp.response) {
 
 		/*
 		 * Restore the current_value to its previous state
 		 */
 		nss_ipv4_conn_cfg = i4cfgp.current_value;
 		up(&i4cfgp.sem);
-		return FAILURE;
+		return NSS_FAILURE;
 	}
 
 	up(&i4cfgp.sem);
-	return SUCCESS;
+	return NSS_SUCCESS;
 }
 
 static ctl_table nss_ipv4_table[] = {

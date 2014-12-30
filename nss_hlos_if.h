@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -28,15 +28,9 @@
 #define NSS_MAX_TOTAL_NUM_CONN_IPV4_IPV6	8196		/**< MAX Connection shared between IPv4 and IPv6 */
 #define NSS_CONN_CFG_TIMEOUT			6000		/**< 6 sec timeout for connection cfg message */
 
-/*
- * Variables used for sysctl updates.
- */
-extern int nss_ipv4_conn_cfg;
-extern int nss_ipv6_conn_cfg;
-
 enum {
-	SUCCESS = 0,
-	FAILURE = 1,
+	NSS_SUCCESS = 0,
+	NSS_FAILURE = 1,
 };
 
 /*
@@ -48,7 +42,6 @@ struct nss_conn_cfg_pvt {
 	int current_value;			/* valid entry */
 	int response;				/* Response from FW */
 };
-
 
 /*
  * Request/Response types
@@ -141,68 +134,6 @@ struct nss_c2c_msg {
 /*
  * General statistics messages
  */
-
-/*
- * Request/Response types
- */
-enum nss_n2h_metadata_types {
-	NSS_RX_METADATA_TYPE_N2H_STATS_SYNC=0,
-	NSS_TX_METADATA_TYPE_N2H_RPS_CFG,
-	NSS_METADATA_TYPE_N2H_MAX,
-};
-
-struct nss_n2h_rps {
-	uint32_t enable; /* Enable NSS RPS */
-};
-
-/*
- * NSS Pbuf mgr stats
- */
-struct nss_n2h_pbuf_mgr_stats {
-	uint32_t pbuf_alloc_fails;		/* Pbuf ocm alloc fail */
-	uint32_t pbuf_free_count;		/* Pbuf ocm free count */
-	uint32_t pbuf_total_count;		/* Pbuf ocm total count */
-};
-
-/*
- * The NSS N2H statistics sync structure.
- */
-struct nss_n2h_stats_sync {
-	struct nss_cmn_node_stats node_stats;
-					/* Common node stats for N2H */
-	uint32_t queue_dropped;		/* Number of packets dropped because the PE queue is too full */
-	uint32_t total_ticks;		/* Total clock ticks spend inside the PE */
-	uint32_t worst_case_ticks;	/* Worst case iteration of the PE in ticks */
-	uint32_t iterations;		/* Number of iterations around the PE */
-
-	struct nss_n2h_pbuf_mgr_stats pbuf_ocm_stats;
-					/* Pbuf OCM Stats */
-	struct nss_n2h_pbuf_mgr_stats pbuf_default_stats;
-					/* Pbuf Default Stats */
-
-	uint32_t payload_alloc_fails;	/* Number of payload alloc failures */
-
-	uint32_t h2n_ctrl_pkts;		/* Control packets received from HLOS */
-	uint32_t h2n_ctrl_bytes;	/* Control bytes received from HLOS */
-	uint32_t n2h_ctrl_pkts;		/* Control packets sent to HLOS */
-	uint32_t n2h_ctrl_bytes;	/* Control bytes sent to HLOS */
-
-	uint32_t h2n_data_pkts;		/* Data packets received from HLOS */
-	uint32_t h2n_data_bytes;	/* Data bytes received from HLOS */
-	uint32_t n2h_data_pkts;		/* Data packets sent to HLOS */
-	uint32_t n2h_data_bytes;	/* Data bytes sent to HLOS */
-};
-
-/*
- * Message structure to send/receive phys i/f commands
- */
-struct nss_n2h_msg {
-	struct nss_cmn_msg cm;			/* Message Header */
-	union {
-		struct nss_n2h_stats_sync stats_sync;	/* Message: N2H stats sync */
-		struct nss_n2h_rps rps_cfg; 		/* Message: RPS configuration */
-	} msg;
-};
 
 /*
  * IPv4 reasm node stats
