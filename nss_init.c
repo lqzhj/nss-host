@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013 - 2015, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -1437,6 +1437,11 @@ static void __exit nss_cleanup(void)
 
 	if (nss_dev_header)
 		unregister_sysctl_table(nss_dev_header);
+
+	/*
+	 * Unregister n2h specific sysctl
+	 */
+	nss_n2h_empty_pool_buf_unregister_sysctl();
 
 	/*
 	 * Unregister ipv4/6 specific sysctl
