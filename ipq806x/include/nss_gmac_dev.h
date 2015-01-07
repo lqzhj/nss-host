@@ -118,19 +118,19 @@ static const uint8_t nss_gmac_copyright[] =
  * RX DESC4 contains the extended status information.
  */
 struct dma_desc {
-	volatile uint32_t status;	/* Status                             */
-	volatile uint32_t length;	/* Buffer 1  and Buffer 2 length      */
-	volatile uint32_t buffer1;	/* Network Buffer 1 pointer (Dma-able)*/
-	volatile uint32_t data1;	/* This holds virtual address of
-					   buffer1, not used by DMA	      */
+	uint32_t status;	/* Status                             */
+	uint32_t length;	/* Buffer 1  and Buffer 2 length      */
+	uint32_t buffer1;	/* Network Buffer 1 pointer (Dma-able)*/
+	uint32_t data1;		/* This holds virtual address of
+				   buffer1, not used by DMA	      */
 
 	/* This data below is used only by driver */
-	volatile uint32_t extstatus;	/* Extended status of a Rx Descriptor */
-	volatile uint32_t reserved1;	/* Reserved word                      */
-	volatile uint32_t timestamplow;	/* Lower 32 bits of the 64
-					   bit timestamp value                */
-	volatile uint32_t timestamphigh;	/* Higher 32 bits of the 64
-						   bit timestamp value        */
+	uint32_t extstatus;	/* Extended status of a Rx Descriptor */
+	uint32_t reserved1;	/* Reserved word                      */
+	uint32_t timestamplow;	/* Lower 32 bits of the 64
+				   bit timestamp value                */
+	uint32_t timestamphigh;	/* Higher 32 bits of the 64
+					   bit timestamp value        */
 };
 
 enum desc_mode {
@@ -151,7 +151,7 @@ struct nss_gmac_dev {
 	uint32_t macid;		/* Sequence number of Mac on the platform     */
 	uint32_t version;	/* Gmac Revision version                      */
 	uint32_t emulation;	/* Running on emulation platform	      */
-	volatile unsigned long int flags;	/* status flags		      */
+	unsigned long int flags;/* status flags				      */
 
 	dma_addr_t tx_desc_dma;	/* Dma-able address of first tx descriptor
 				   either in ring or chain mode, this is used
@@ -1840,6 +1840,11 @@ static inline struct dma_desc *nss_gmac_set_tx_qptr(struct nss_gmac_dev *gmacdev
 	if (likely(offload_needed))
 		nss_gmac_tx_checksum_offload_tcp_pseudo(gmacdev, txdesc);
 
+	/*
+	 * Ensure all write completed before setting own by dma bit so when gmac
+	 * HW takeover this descriptor, all the fields are filled correctly
+	 */
+	wmb();
 	txdesc->status |= set_dma;
 
 	gmacdev->tx_next = (txnext + 1) & (gmacdev->tx_desc_count - 1);
@@ -1898,6 +1903,11 @@ static inline int32_t nss_gmac_set_rx_qptr(struct nss_gmac_dev *gmacdev,
 	rxdesc->timestamplow = 0;
 	rxdesc->timestamphigh = 0;
 
+	/*
+	 * Ensure all write completed before setting own by dma bit so when gmac
+	 * HW takeover this descriptor, all the fields are filled correctly
+	 */
+	wmb();
 	rxdesc->status = desc_own_by_dma;
 
 	gmacdev->rx_next = (rxnext + 1) & (gmacdev->rx_desc_count - 1);

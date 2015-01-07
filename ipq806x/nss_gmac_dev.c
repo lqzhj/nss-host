@@ -82,7 +82,7 @@ int32_t nss_gmac_read_phy_reg(uint32_t *reg_base, uint32_t phy_base,
 {
 	uint32_t addr = 0;
 	uint32_t loop_variable;
-	volatile uint32_t temp;
+	uint32_t temp;
 
 	addr = ((phy_base << gmii_dev_shift) & gmii_dev_mask)
 	    | (((uint32_t)reg_offset << gmii_reg_shift) & gmii_reg_mask)
@@ -134,7 +134,7 @@ int32_t nss_gmac_write_phy_reg(uint32_t *reg_base, uint32_t phy_base,
 {
 	uint32_t addr = 0;
 	uint32_t loop_variable;
-	volatile uint32_t temp;
+	uint32_t temp;
 
 	/* write the data in to gmac_gmii_data register of GMAC ip */
 	nss_gmac_write_reg(reg_base, gmac_gmii_data, data);
