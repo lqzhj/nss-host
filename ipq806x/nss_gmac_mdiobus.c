@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -51,7 +51,8 @@ static int32_t phy_irq[PHY_MAX_ADDR];
  * @param[in] Register number
  * @return Contents of MDIO register
  */
-static int32_t nss_gmac_mdiobus_read(struct mii_bus *bus, int32_t phy_id, int32_t regnum)
+static int32_t nss_gmac_mdiobus_read(struct mii_bus *bus, int32_t phy_id,
+							int32_t regnum)
 {
 	int32_t status;
 	uint16_t data;
@@ -75,10 +76,11 @@ static int32_t nss_gmac_mdiobus_read(struct mii_bus *bus, int32_t phy_id, int32_
  * @param[in] pointer to struct mii_bus
  * @param[in] Phy MDIO address
  * @param[in] Register number
- * @param[in] Value to wirte
+ * @param[in] Value to write
  * @return 0 on Success
  */
-static int32_t nss_gmac_mdiobus_write(struct mii_bus *bus, int32_t phy_id, int32_t regnum, uint16_t val)
+static int32_t nss_gmac_mdiobus_write(struct mii_bus *bus, int32_t phy_id,
+						int32_t regnum, uint16_t val)
 {
 	struct nss_gmac_dev *gmacdev;
 
