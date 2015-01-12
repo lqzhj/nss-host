@@ -541,15 +541,13 @@ static int32_t nss_gmac_set_priv_flags(struct net_device *netdev, u32 flags)
 			return -EOPNOTSUPP;
 		}
 
-		if (IS_ERR_OR_NULL(phydev)) {
+		if (IS_ERR(phydev))
 			return -EINVAL;
-		}
 
 		if (flags & NSS_GMAC_PRIV_FLAG(LINKPOLL)) {
 			gmacdev->drv_flags |= NSS_GMAC_PRIV_FLAG(LINKPOLL);
-			if (phydev->autoneg == AUTONEG_ENABLE) {
+			if (phydev->autoneg == AUTONEG_ENABLE)
 				genphy_restart_aneg(phydev);
-			}
 		} else {
 			gmacdev->drv_flags &= ~NSS_GMAC_PRIV_FLAG(LINKPOLL);
 		}

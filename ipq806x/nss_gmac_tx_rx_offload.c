@@ -789,7 +789,7 @@ void nss_gmac_adjust_link(struct net_device *netdev)
 void nss_gmac_start_up(struct nss_gmac_dev *gmacdev)
 {
 	if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
-		if (!IS_ERR_OR_NULL(gmacdev->phydev)) {
+		if (!IS_ERR(gmacdev->phydev)) {
 			netdev_dbg(gmacdev->netdev, "%s: start phy 0x%x",
 					__func__, gmacdev->phydev->phy_id);
 			phy_start(gmacdev->phydev);
@@ -982,7 +982,7 @@ int nss_gmac_linux_close(struct net_device *netdev)
 	nss_gmac_disable_interrupt_all(gmacdev);
 	gmacdev->data_plane_ops->link_state(gmacdev->data_plane_ctx, 0);
 
-	if (!IS_ERR_OR_NULL(gmacdev->phydev))
+	if (!IS_ERR(gmacdev->phydev))
 		phy_stop(gmacdev->phydev);
 
 	test_and_clear_bit(__NSS_GMAC_UP, &gmacdev->flags);

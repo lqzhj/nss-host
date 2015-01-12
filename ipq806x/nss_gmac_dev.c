@@ -174,7 +174,7 @@ uint16_t nss_gmac_mii_rd_reg(struct nss_gmac_dev *gmacdev, uint32_t phy,
 {
 	uint16_t data = 0;
 
-	if (IS_ERR_OR_NULL(gmacdev->phydev)) {
+	if (IS_ERR(gmacdev->phydev)) {
 		netdev_dbg(gmacdev->netdev, "Error: Reading uninitialized PHY...");
 		return 0;
 	}
@@ -196,7 +196,7 @@ uint16_t nss_gmac_mii_rd_reg(struct nss_gmac_dev *gmacdev, uint32_t phy,
 void nss_gmac_mii_wr_reg(struct nss_gmac_dev *gmacdev, uint32_t phy,
 			 uint32_t reg, uint16_t data)
 {
-	if (IS_ERR_OR_NULL(gmacdev->phydev))
+	if (IS_ERR(gmacdev->phydev))
 		netdev_dbg(gmacdev->netdev, "Error: Writing uninitialized PHY...");
 	else
 		phy_write(gmacdev->phydev, reg, data);
@@ -1321,7 +1321,7 @@ out:
 int32_t nss_gmac_ath_phy_mmd_wr(struct phy_device *phydev,
 			uint32_t mmd_dev_addr, uint32_t reg, uint16_t val)
 {
-	if (IS_ERR_OR_NULL(phydev))
+	if (IS_ERR(phydev))
 		return -EINVAL;
 
 	phy_write(phydev, ATH_MII_MMD_ACCESS_CTRL, mmd_dev_addr);
@@ -1343,7 +1343,7 @@ int32_t nss_gmac_ath_phy_mmd_wr(struct phy_device *phydev,
 int32_t nss_gmac_ath_phy_mmd_rd(struct phy_device *phydev,
 			uint32_t mmd_dev_addr, uint32_t reg)
 {
-	if (IS_ERR_OR_NULL(phydev))
+	if (IS_ERR(phydev))
 		return -EINVAL;
 
 	phy_write(phydev, ATH_MII_MMD_ACCESS_CTRL, mmd_dev_addr);
@@ -1362,7 +1362,7 @@ int32_t nss_gmac_ath_phy_disable_smart_802az(struct phy_device *phydev)
 {
 	uint16_t val = 0;
 
-	if (IS_ERR_OR_NULL(phydev))
+	if (IS_ERR(phydev))
 		return -EINVAL;
 
 	val = nss_gmac_ath_phy_mmd_rd(phydev, ATH_MMD_DEVADDR_3,
@@ -1383,7 +1383,7 @@ int32_t nss_gmac_ath_phy_disable_802az(struct phy_device *phydev)
 {
 	uint16_t val = 0;
 
-	if (IS_ERR_OR_NULL(phydev))
+	if (IS_ERR(phydev))
 		return -EINVAL;
 
 	val = nss_gmac_ath_phy_mmd_rd(phydev, ATH_MMD_DEVADDR_7,
