@@ -98,7 +98,15 @@ static const struct nss_gmac_ethtool_stats gmac_gstrings_stats[] = {
 	{"gmac_iterations", NSS_GMAC_STAT(gmac_iterations)},
 };
 
+/**
+ * @brief Array of strings describing private flag names
+ */
+static const char *gmac_strings_priv_flags[] = {
+	"linkpoll",
+};
+
 #define NSS_GMAC_STATS_LEN	ARRAY_SIZE(gmac_gstrings_stats)
+#define NSS_GMAC_PRIV_FLAGS_LEN	ARRAY_SIZE(gmac_strings_priv_flags)
 
 
 /*
@@ -170,6 +178,10 @@ static int32_t nss_gmac_get_strset_count(struct net_device *netdev,
 	case ETH_SS_STATS:
 		return NSS_GMAC_STATS_LEN;
 
+	case ETH_SS_PRIV_FLAGS:
+		return NSS_GMAC_PRIV_FLAGS_LEN;
+		break;
+
 	default:
 		netdev_dbg(netdev, "%s: Invalid string set", __func__);
 		return -EOPNOTSUPP;
@@ -196,6 +208,15 @@ static void nss_gmac_get_strings(struct net_device *netdev, uint32_t stringset,
 				ETH_GSTRING_LEN);
 			p += ETH_GSTRING_LEN;
 		}
+		break;
+
+	case ETH_SS_PRIV_FLAGS:
+		for (i = 0; i < NSS_GMAC_PRIV_FLAGS_LEN; i++) {
+			memcpy(p, gmac_strings_priv_flags[i],
+				ETH_GSTRING_LEN);
+			p += ETH_GSTRING_LEN;
+		}
+
 		break;
 	}
 }
@@ -236,6 +257,7 @@ static void nss_gmac_get_drvinfo(struct net_device *dev,
 	strlcpy(info->driver, nss_gmac_driver_string, DRVINFO_LEN);
 	strlcpy(info->version, nss_gmac_driver_version, DRVINFO_LEN);
 	strlcpy(info->bus_info, "NSS", ETHTOOL_BUSINFO_LEN);
+	info->n_priv_flags = __NSS_GMAC_PRIV_FLAG_MAX;
 }
 
 
@@ -466,11 +488,13 @@ static int32_t nss_gmac_set_settings(struct net_device *netdev,
 	BUG_ON(gmacdev == NULL);
 
 	/*
-	 * If the speed for this GMAC is forced, do not proceed with the
-	 * changes below. This would be true for GMACs connected to switch
-	 * and interfaces that do not use a PHY.
+	 * If the speed for this GMAC is forced, and link polling
+	 * is disabled by platform, do not proceed with the
+	 * changes below. This would be true for GMACs connected
+	 * to switch and interfaces that do not use a PHY.
 	 */
-	if (gmacdev->forced_speed != SPEED_UNKNOWN)
+	if ((gmacdev->forced_speed != SPEED_UNKNOWN)
+	    && (!test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)))
 		return -EPERM;
 
 	phydev = gmacdev->phydev;
@@ -495,6 +519,55 @@ static int32_t nss_gmac_set_settings(struct net_device *netdev,
 	return 0;
 }
 
+/**
+ * @brief Set driver specific flags
+ * @param[in] pointer to struct net_device.
+ * @param[in] flags to set.
+ */
+static int32_t nss_gmac_set_priv_flags(struct net_device *netdev, u32 flags)
+{
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
+	struct phy_device *phydev = gmacdev->phydev;
+	uint32_t changed = flags ^ gmacdev->drv_flags;
+
+	if (changed & NSS_GMAC_PRIV_FLAG(LINKPOLL)) {
+
+		if (!test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
+			/*
+			 * Platform has disabled Link polling. Do not enable
+			 * link polling via driver specific flags. This conditon
+			 * is typically true for GMACs connected to a switch.
+			 */
+			return -EOPNOTSUPP;
+		}
+
+		if (IS_ERR_OR_NULL(phydev)) {
+			return -EINVAL;
+		}
+
+		if (flags & NSS_GMAC_PRIV_FLAG(LINKPOLL)) {
+			gmacdev->drv_flags |= NSS_GMAC_PRIV_FLAG(LINKPOLL);
+			if (phydev->autoneg == AUTONEG_ENABLE) {
+				genphy_restart_aneg(phydev);
+			}
+		} else {
+			gmacdev->drv_flags &= ~NSS_GMAC_PRIV_FLAG(LINKPOLL);
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * @brief Get driver specific flags
+ * @param[in] pointer to struct net_device.
+ */
+static uint32_t nss_gmac_get_priv_flags(struct net_device *netdev)
+{
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
+
+	return (uint32_t)gmacdev->drv_flags;
+}
 
 /**
  * Ethtool operations
@@ -512,6 +585,8 @@ struct ethtool_ops nss_gmac_ethtool_ops = {
 	.get_strings = &nss_gmac_get_strings,
 	.get_sset_count = &nss_gmac_get_strset_count,
 	.get_ethtool_stats = &nss_gmac_get_ethtool_stats,
+	.get_priv_flags = nss_gmac_get_priv_flags,
+	.set_priv_flags = nss_gmac_set_priv_flags,
 };
 
 

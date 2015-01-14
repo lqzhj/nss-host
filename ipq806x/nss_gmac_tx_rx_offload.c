@@ -774,8 +774,15 @@ void nss_gmac_adjust_link(struct net_device *netdev)
 	mutex_lock(&gmacdev->link_mutex);
 	if (status == LINKUP && gmacdev->link_state == LINKDOWN)
 		nss_gmac_linkup(gmacdev);
-	else if (status == LINKDOWN && gmacdev->link_state == LINKUP)
-		nss_gmac_linkdown(gmacdev);
+	else if (status == LINKDOWN && gmacdev->link_state == LINKUP) {
+		/*
+		 * Process a link down notification only if
+		 * link polling is enabled via private flags.
+		 */
+		if (gmacdev->drv_flags & NSS_GMAC_PRIV_FLAG(LINKPOLL)) {
+			nss_gmac_linkdown(gmacdev);
+		}
+	}
 	mutex_unlock(&gmacdev->link_mutex);
 }
 
