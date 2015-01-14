@@ -193,7 +193,7 @@ void nss_gmac_qsgmii_dev_init(struct nss_gmac_dev *gmacdev)
 	if (gmacdev->emulation)
 		nss_gmac_rumi_qsgmii_init(gmacdev);
 
-	if (gmacdev->phy_mii_type == GMAC_INTF_SGMII) {
+	if (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_SGMII) {
 		switch (gmacdev->macid) {
 		case 1:
 			if (SOCINFO_VERSION_MAJOR(gmacdev->ctx->socver) < 2) {
@@ -269,8 +269,8 @@ void nss_gmac_qsgmii_dev_init(struct nss_gmac_dev *gmacdev)
 
 	/* Enable clk for GMACn */
 	val = 0;
-	if ((gmacdev->phy_mii_type == GMAC_INTF_SGMII)
-			|| (gmacdev->phy_mii_type == GMAC_INTF_QSGMII)) {
+	if ((gmacdev->phy_mii_type == PHY_INTERFACE_MODE_SGMII)
+		|| (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_QSGMII)) {
 		val |= GMACn_QSGMII_RX_CLK(id) | GMACn_QSGMII_TX_CLK(id);
 	}
 
@@ -648,15 +648,15 @@ int32_t nss_gmac_dev_set_speed(struct nss_gmac_dev *gmacdev)
 	struct nss_gmac_speed_ctx gmac_speed_ctx = {0, 0};
 
 	switch (gmacdev->phy_mii_type) {
-	case GMAC_INTF_RGMII:
+	case PHY_INTERFACE_MODE_RGMII:
 		div = clk_div_rgmii(gmacdev);
 		break;
 
-	case GMAC_INTF_SGMII:
+	case PHY_INTERFACE_MODE_SGMII:
 		div = clk_div_sgmii(gmacdev);
 		break;
 
-	case GMAC_INTF_QSGMII:
+	case PHY_INTERFACE_MODE_QSGMII:
 		div = clk_div_qsgmii(gmacdev);
 		break;
 
@@ -667,7 +667,7 @@ int32_t nss_gmac_dev_set_speed(struct nss_gmac_dev *gmacdev)
 
 	/* Force speed control signal if link polling is disabled */
 	if (!test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
-		if (gmacdev->phy_mii_type == GMAC_INTF_SGMII) {
+		if (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_SGMII) {
 			pcs_speed = get_pcs_speed(gmacdev);
 			nss_gmac_set_reg_bits(qsgmii_base, PCS_ALL_CH_CTL,
 						PCS_CHn_FORCE_SPEED(id));
@@ -680,7 +680,7 @@ int32_t nss_gmac_dev_set_speed(struct nss_gmac_dev *gmacdev)
 
 	clk = 0;
 	/* Disable GMACn Tx/Rx clk */
-	if (gmacdev->phy_mii_type == GMAC_INTF_RGMII)
+	if (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_RGMII)
 		clk |= GMACn_RGMII_RX_CLK(id) | GMACn_RGMII_TX_CLK(id);
 	else
 		clk |= GMACn_GMII_RX_CLK(id) | GMACn_GMII_TX_CLK(id);
@@ -699,8 +699,8 @@ int32_t nss_gmac_dev_set_speed(struct nss_gmac_dev *gmacdev)
 	netdev_dbg(gmacdev->netdev, "%s:NSS_ETH_CLK_DIV0(0x%x) - 0x%x",
 		      __func__, NSS_ETH_CLK_DIV0, val);
 
-	if (gmacdev->phy_mii_type == GMAC_INTF_SGMII
-	    || gmacdev->phy_mii_type == GMAC_INTF_QSGMII) {
+	if (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_SGMII
+	    || gmacdev->phy_mii_type == PHY_INTERFACE_MODE_QSGMII) {
 		nss_gmac_clear_reg_bits(qsgmii_base, PCS_MODE_CTL,
 					PCS_MODE_CTL_CHn_AUTONEG_EN(id));
 
@@ -829,7 +829,7 @@ void nss_gmac_dev_init(struct nss_gmac_dev *gmacdev)
 	 * signal (CSYSREQ)
 	 */
 	val = GMAC_IFG_CTL(GMAC_IFG) | GMAC_IFG_LIMIT(GMAC_IFG) | GMAC_CSYS_REQ;
-	if (gmacdev->phy_mii_type == GMAC_INTF_RGMII)
+	if (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_RGMII)
 		val |= GMAC_PHY_RGMII;
 	else
 		val &= ~GMAC_PHY_RGMII;
@@ -855,15 +855,15 @@ void nss_gmac_dev_init(struct nss_gmac_dev *gmacdev)
 	/* Configure clock dividers for 1000Mbps default */
 	gmacdev->speed = SPEED1000;
 	switch (gmacdev->phy_mii_type) {
-	case GMAC_INTF_RGMII:
+	case PHY_INTERFACE_MODE_RGMII:
 		div = clk_div_rgmii(gmacdev);
 		break;
 
-	case GMAC_INTF_SGMII:
+	case PHY_INTERFACE_MODE_SGMII:
 		div = clk_div_sgmii(gmacdev);
 		break;
 
-	case GMAC_INTF_QSGMII:
+	case PHY_INTERFACE_MODE_QSGMII:
 		div = clk_div_qsgmii(gmacdev);
 		break;
 	}
@@ -879,17 +879,17 @@ void nss_gmac_dev_init(struct nss_gmac_dev *gmacdev)
 	/* Select Tx/Rx CLK source */
 	val = 0;
 	if (id == 0 || id == 1) {
-		if (gmacdev->phy_mii_type == GMAC_INTF_RGMII)
+		if (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_RGMII)
 			val |= (1 << id);
 	} else {
-		if (gmacdev->phy_mii_type == GMAC_INTF_SGMII)
+		if (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_SGMII)
 			val |= (1 << id);
 	}
 	nss_gmac_set_reg_bits(nss_base, NSS_ETH_CLK_SRC_CTL, val);
 
 	/* Enable xGMII clk for GMACn */
 	val = 0;
-	if (gmacdev->phy_mii_type == GMAC_INTF_RGMII)
+	if (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_RGMII)
 		val |= GMACn_RGMII_RX_CLK(id) | GMACn_RGMII_TX_CLK(id);
 	else
 		val |= GMACn_GMII_RX_CLK(id) | GMACn_GMII_TX_CLK(id);
@@ -900,8 +900,8 @@ void nss_gmac_dev_init(struct nss_gmac_dev *gmacdev)
 	val |= GMACn_PTP_CLK(id);
 	nss_gmac_set_reg_bits(nss_base, NSS_ETH_CLK_GATE_CTL, val);
 
-	if ((gmacdev->phy_mii_type == GMAC_INTF_SGMII)
-	     || (gmacdev->phy_mii_type == GMAC_INTF_QSGMII)) {
+	if ((gmacdev->phy_mii_type == PHY_INTERFACE_MODE_SGMII)
+	     || (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_QSGMII)) {
 		nss_gmac_qsgmii_dev_init(gmacdev);
 		netdev_dbg(gmacdev->netdev, "SGMII Specific Init for GMAC%d Done!", id);
 	}
