@@ -844,6 +844,12 @@ extern void nss_wq_function( struct work_struct *work);
 extern uint32_t nss_core_register_handler(uint32_t interface, nss_core_rx_callback_t cb, void *app_data);
 extern uint32_t nss_core_unregister_handler(uint32_t interface);
 
+static inline uint32_t nss_core_get_max_buf_size(struct nss_ctx_instance *nss_ctx)
+{
+	return nss_ctx->max_buf_size;
+}
+
+
 /*
  * APIs provided by nss_tx_rx.c
  */

@@ -354,6 +354,15 @@ extern nss_tx_status_t nss_capwap_notify_unregister(struct nss_ctx_instance *ctx
 extern struct nss_ctx_instance *nss_capwap_get_ctx(void);
 
 /**
+ * @brief Gets NSS max_buf_size
+ *
+ * @param NSS context
+ *
+ * @return ctx->max_buf_size.
+ */
+extern uint32_t nss_capwap_get_max_buf_size(struct nss_ctx_instance *nss_ctx);
+
+/**
  * @brief Return per-tunnel statistics
  *
  * @param interface numbe

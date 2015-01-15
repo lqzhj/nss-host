@@ -552,6 +552,16 @@ struct nss_ctx_instance *nss_capwap_get_ctx()
 EXPORT_SYMBOL(nss_capwap_get_ctx);
 
 /*
+ * nss_capwap_get_max_buf_size()
+ *	Return a CAPWAP NSS max_buf_size.
+ */
+uint32_t nss_capwap_get_max_buf_size(struct nss_ctx_instance *nss_ctx)
+{
+	return nss_core_get_max_buf_size(nss_ctx);
+}
+EXPORT_SYMBOL(nss_capwap_get_max_buf_size);
+
+/*
  * nss_capwap_init()
  *	Initializes CAPWAP. Gets called from nss_init.c
  */
