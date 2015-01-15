@@ -295,18 +295,25 @@ enum nss_stats_ipv6 {
  */
 enum nss_stats_drv {
 	NSS_STATS_DRV_NBUF_ALLOC_FAILS = 0,	/* NBUF allocation errors */
-	NSS_STATS_DRV_TX_QUEUE_FULL_0,	/* Tx queue full for Core 0*/
-	NSS_STATS_DRV_TX_QUEUE_FULL_1,	/* Tx queue full for Core 1*/
-	NSS_STATS_DRV_TX_EMPTY,		/* H2N Empty buffers */
-	NSS_STATS_DRV_TX_PACKET,	/* H2N Data packets */
-	NSS_STATS_DRV_TX_CMD_REQ,	/* H2N Control packets */
-	NSS_STATS_DRV_TX_CRYPTO_REQ,	/* H2N Crypto requests */
-	NSS_STATS_DRV_RX_EMPTY,		/* N2H Empty buffers */
-	NSS_STATS_DRV_RX_PACKET,	/* N2H Data packets */
-	NSS_STATS_DRV_RX_CMD_RESP,	/* N2H Command responses */
-	NSS_STATS_DRV_RX_STATUS,	/* N2H Status packets */
-	NSS_STATS_DRV_RX_CRYPTO_RESP,	/* N2H Crypto responses */
-	NSS_STATS_DRV_RX_VIRTUAL,	/* N2H Virtual packets */
+	NSS_STATS_DRV_TX_QUEUE_FULL_0,		/* Tx queue full for Core 0*/
+	NSS_STATS_DRV_TX_QUEUE_FULL_1,		/* Tx queue full for Core 1*/
+	NSS_STATS_DRV_TX_EMPTY,			/* H2N Empty buffers */
+	NSS_STATS_DRV_TX_PACKET,		/* H2N Data packets */
+	NSS_STATS_DRV_TX_CMD_REQ,		/* H2N Control packets */
+	NSS_STATS_DRV_TX_CRYPTO_REQ,		/* H2N Crypto requests */
+	NSS_STATS_DRV_RX_EMPTY,			/* N2H Empty buffers */
+	NSS_STATS_DRV_RX_PACKET,		/* N2H Data packets */
+	NSS_STATS_DRV_RX_CMD_RESP,		/* N2H Command responses */
+	NSS_STATS_DRV_RX_STATUS,		/* N2H Status packets */
+	NSS_STATS_DRV_RX_CRYPTO_RESP,		/* N2H Crypto responses */
+	NSS_STATS_DRV_RX_VIRTUAL,		/* N2H Virtual packets */
+	NSS_STATS_DRV_TX_SIMPLE,		/* H2N Simple SKB Packets */
+	NSS_STATS_DRV_TX_NR_FRAGS,		/* H2N NR Frags SKB Packets */
+	NSS_STATS_DRV_TX_FRAGLIST,		/* H2N Fraglist SKB Packets */
+	NSS_STATS_DRV_RX_SIMPLE,		/* N2H Simple SKB Packets */
+	NSS_STATS_DRV_RX_NR_FRAGS,		/* N2H NR Frags SKB Packets */
+	NSS_STATS_DRV_RX_SKB_FRAGLIST,		/* N2H Fraglist SKB Packets */
+	NSS_STATS_DRV_RX_BAD_DESCRIPTOR,	/* N2H Bad descriptor reads */
 	NSS_STATS_DRV_MAX,
 };
 

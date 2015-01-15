@@ -153,7 +153,14 @@ static int8_t *nss_stats_str_drv[NSS_STATS_DRV_MAX] = {
 	"rx_buffers_cmd_resp",
 	"rx_buffers_status_sync",
 	"rx_buffers_crypto",
-	"rx_buffers_virtual"
+	"rx_buffers_virtual",
+	"tx_skb_simple",
+	"tx_skb_nr_frags",
+	"tx_skb_fraglist",
+	"rx_skb_simple",
+	"rx_skb_nr_frags",
+	"rx_skb_fraglist",
+	"rx_bad_desciptor"
 };
 
 /*
