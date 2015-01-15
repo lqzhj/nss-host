@@ -355,6 +355,13 @@ enum exception_events_ipv4 {
 	NSS_EXCEPTION_EVENT_IPV4_DESTROY,				/**<  NSS Exception event: IPv4 Destroy */
 	NSS_EXCEPTION_EVENT_IPV4_FRAG_DF_SET,				/**<  NSS Exception event: IPv4 fragmentation needed, but DF set */
 	NSS_EXCEPTION_EVENT_IPV4_FRAG_FAIL,				/**<  NSS Exception event: IPv4 fragmentation failure */
+	NSS_EXCEPTION_EVENT_IPV4_ICMP_IPV4_UDPLITE_HEADER_INCOMPLETE,	/**<  NSS Exception event: ICMP IPv4 UDPLite header incomplete */
+	NSS_EXCEPTION_EVENT_IPV4_UDPLITE_HEADER_INCOMPLETE,		/**<  NSS Exception event: UDPLite protocol header incomplete */
+	NSS_EXCEPTION_EVENT_IPV4_UDPLITE_NO_ICME,			/**<  NSS Exception event: UDPLite protocol no IPv6 connection match entry */
+	NSS_EXCEPTION_EVENT_IPV4_UDPLITE_IP_OPTION,			/**<  NSS Exception event: UDPLite protocol no ip option */
+	NSS_EXCEPTION_EVENT_IPV4_UDPLITE_IP_FRAGMENT,			/**<  NSS Exception event: UDPLite protocol no ip fragment */
+	NSS_EXCEPTION_EVENT_IPV4_UDPLITE_SMALL_TTL,			/**<  NSS Exception event: UDPLite protocol small ttl */
+	NSS_EXCEPTION_EVENT_IPV4_UDPLITE_NEEDS_FRAGMENTATION,		/**<  NSS Exception event: UDPLite protocol needs fragmentation */
 	NSS_EXCEPTION_EVENT_IPV4_MAX					/**<  IPv4 exception events max type number */
 };
 

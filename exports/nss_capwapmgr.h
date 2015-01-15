@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -99,6 +99,8 @@ typedef enum {
 	NSS_CAPWAPMGR_FAILURE_INVALID_L3_PROTO,
 	NSS_CAPWAPMGR_FAILURE_INVALID_UDP_PROTO,
 	NSS_CAPWAPMGR_FAILURE_INVALID_VERSION,
+	NSS_CAPWAPMGR_FAILURE_IP_DESTROY_RULE,
+	NSS_CAPWAPMGR_FAILURE_CAPWAP_DESTROY_RULE,
 } nss_capwapmgr_status_t;
 
 /**
@@ -111,7 +113,7 @@ typedef enum {
 extern struct net_device *nss_capwapmgr_netdev_create(void);
 
 /**
- * @brief Creates a CAPWAP tunnel
+ * @brief Creates a IPv4 CAPWAP tunnel
  *
  * @param netdevice
  * @param tunnel_id
@@ -122,6 +124,19 @@ extern struct net_device *nss_capwapmgr_netdev_create(void);
  */
 extern nss_capwapmgr_status_t nss_capwapmgr_ipv4_tunnel_create(struct net_device *dev, uint8_t tunnel_id,
 			struct nss_ipv4_create *ip_rule, struct nss_capwap_rule_msg *capwap_rule);
+
+/**
+ * @brief Creates a IPv6 CAPWAP tunnel
+ *
+ * @param netdevice
+ * @param tunnel_id
+ * @param IPv6 rule structure
+ * @param CAPWAP rule structure
+ *
+ * @return nss_capwapmgr_status_t
+ */
+extern nss_capwapmgr_status_t nss_capwapmgr_ipv6_tunnel_create(struct net_device *dev, uint8_t tunnel_id,
+			struct nss_ipv6_create *ip_rule, struct nss_capwap_rule_msg *capwap_rule);
 
 /**
  * @brief Enable a CAPWAP tunnel
