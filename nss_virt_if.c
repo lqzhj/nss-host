@@ -217,7 +217,6 @@ struct nss_ctx_instance *nss_virt_if_register(uint32_t if_num,
 {
 	struct nss_ctx_instance *nss_ctx = NULL;
 	uint32_t ret;
-	uint32_t features = 0;
 
 	/*
 	 * Register handler for dynamically allocated virtual interface on NSS with nss core.
@@ -240,7 +239,7 @@ struct nss_ctx_instance *nss_virt_if_register(uint32_t if_num,
 	nss_top_main.subsys_dp_register[if_num].ndev = netdev;
 	nss_top_main.subsys_dp_register[if_num].cb = data_callback;
 	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
-	nss_top_main.subsys_dp_register[if_num].features = features;
+	nss_top_main.subsys_dp_register[if_num].features = (uint32_t)netdev->features;
 
 	nss_top_main.if_rx_msg_callback[if_num] = msg_callback;
 
