@@ -942,7 +942,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 					      &nss_gmac_adjust_link, phyif);
 #endif
 
-		if (IS_ERR_OR_NULL(gmacdev->phydev)) {
+		if (IS_ERR(gmacdev->phydev)) {
 			netdev_dbg(netdev, "PHY %s attach FAIL", phy_id);
 			ret = -EIO;
 			goto nss_gmac_phy_attach_fail;
@@ -982,11 +982,14 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 		gmacdev->phydev = phy_attach(netdev,
 						(const char *)phy_id, phyif);
 #endif
-		if (IS_ERR_OR_NULL(gmacdev->phydev)) {
+		if (IS_ERR(gmacdev->phydev)) {
 			netdev_dbg(netdev, "PHY %s attach FAIL", phy_id);
 			ret = -EIO;
 			goto nss_gmac_phy_attach_fail;
 		}
+	} else {
+		/* no phy was connected or attached */
+		gmacdev->phydev = ERR_PTR(-ENODEV);
 	}
 
 	test_and_set_bit(__NSS_GMAC_RXCSUM, &gmacdev->flags);
@@ -1023,7 +1026,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 nss_gmac_reg_fail:
 	unregister_netdev(gmacdev->netdev);
 
-	if (!IS_ERR_OR_NULL(gmacdev->phydev)) {
+	if (!IS_ERR(gmacdev->phydev)) {
 		phy_disconnect(gmacdev->phydev);
 		gmacdev->phydev = NULL;
 	}
@@ -1066,7 +1069,7 @@ static int nss_gmac_remove(struct platform_device *pdev)
 
 	netdev = gmacdev->netdev;
 
-	if (!IS_ERR_OR_NULL(gmacdev->phydev)) {
+	if (!IS_ERR(gmacdev->phydev)) {
 		phy_disconnect(gmacdev->phydev);
 		gmacdev->phydev = NULL;
 	}
