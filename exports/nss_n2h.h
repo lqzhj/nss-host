@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014 - 2015, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -81,6 +81,7 @@ struct nss_n2h_stats_sync {
 					/* Pbuf Default Stats */
 
 	uint32_t payload_alloc_fails;	/* Number of payload alloc failures */
+	uint32_t payload_free_count;	/* Number of payload alloc failures */
 
 	uint32_t h2n_ctrl_pkts;		/* Control packets received from HLOS */
 	uint32_t h2n_ctrl_bytes;	/* Control bytes received from HLOS */

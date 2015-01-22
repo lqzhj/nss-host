@@ -115,6 +115,7 @@ static int8_t *nss_stats_str_n2h[NSS_STATS_N2H_MAX] = {
 	"pbuf_default_free_count",
 	"pbuf_default_total_count",
 	"payload_fails",
+	"payload_free_count",
 	"h2n_control_packets",
 	"h2n_control_bytes",
 	"n2h_control_packets",

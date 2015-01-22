@@ -408,8 +408,8 @@ enum nss_stats_n2h {
 	NSS_STATS_N2H_PBUF_DEFAULT_FREE_COUNT,	/* Number of pbuf default free count */
 	NSS_STATS_N2H_PBUF_DEFAULT_TOTAL_COUNT,	/* Number of pbuf default total count */
 
-	NSS_STATS_N2H_PAYLOAD_ALLOC_FAILS,
-					/* Number of pbuf allocations that have failed because there were no free payloads */
+	NSS_STATS_N2H_PAYLOAD_ALLOC_FAILS,	/* Number of pbuf allocations that have failed because there were no free payloads */
+	NSS_STATS_N2H_PAYLOAD_FREE_COUNT,	/* Number of free payloads that exist */
 
 	NSS_STATS_N2H_H2N_CONTROL_PACKETS,	/* Control packets received from HLOS */
 	NSS_STATS_N2H_H2N_CONTROL_BYTES,	/* Control bytes received from HLOS */
