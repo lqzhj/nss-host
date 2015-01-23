@@ -1747,12 +1747,6 @@ static inline int32_t nss_core_send_buffer_fraglist(struct nss_ctx_instance *nss
 	}
 
 	/*
-	 * The firmware send's empty buffers as singleton buffers.
-	 * Make sure we treat frag_list buffers as singelton.
-	 */
-	skb_frag_list_init(nbuf);
-
-	/*
 	 * Update bit flag for last descriptor. The discard flag shall
 	 * be set for all fragments except the the last one.
 	 */
