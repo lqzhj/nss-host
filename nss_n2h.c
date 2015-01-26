@@ -84,6 +84,7 @@ static void nss_n2h_stats_sync(struct nss_ctx_instance *nss_ctx, struct nss_n2h_
 	 * payload mgr stats
 	 */
 	nss_ctx->stats_n2h[NSS_STATS_N2H_PAYLOAD_ALLOC_FAILS] += nnss->payload_alloc_fails;
+	nss_ctx->stats_n2h[NSS_STATS_N2H_PAYLOAD_FREE_COUNT] = nnss->payload_free_count;
 
 	/*
 	 * Host <=> NSS control traffic stats
