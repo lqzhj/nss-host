@@ -58,7 +58,7 @@ qca-nss-drv-objs += \
 
 PM_SUPPORT := 0
 
-ccflags-y += -I$(obj)/nss_hal/include -I$(obj)/exports -DNSS_DEBUG_LEVEL=0 -DNSS_EMPTY_BUFFER_SIZE=1792 -DNSS_PKT_STATS_ENABLED=1
+ccflags-y += -I$(obj)/nss_hal/include -I$(obj)/exports -DNSS_DEBUG_LEVEL=0 -DNSS_EMPTY_BUFFER_SIZE=1792 -DNSS_PKT_STATS_ENABLED=0
 ccflags-y += -DNSS_PM_DEBUG_LEVEL=0
 
 ifneq ($(findstring 3.4, $(KERNELVERSION)),)

@@ -91,6 +91,7 @@
 #define NSS_PKT_STATS_DECREMENT(nss_ctx, x) nss_pkt_stats_decrement((nss_ctx), (x))
 #else
 #define NSS_PKT_STATS_INCREMENT(nss_ctx, x)
+#define NSS_PKT_STATS_DECREMENT(nss_ctx, x)
 #endif
 
 /*
