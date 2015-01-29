@@ -19,9 +19,9 @@ ccflags-y += -DNSS_IPSECMGR_DEBUG_LEVEL=3
 endif
 
 obj-y+= profiler/
+obj-y+= nss_qdisc/
 
 ifneq ($(findstring 3.4, $(KERNELVERSION)),)
-obj-y+= nss_qdisc/
 obj-y+= capwapmgr/
 endif
 
