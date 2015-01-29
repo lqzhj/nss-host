@@ -51,8 +51,8 @@ int32_t nss_gmac_check_link(struct nss_gmac_dev *gmacdev)
 	if (!test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags))
 		return LINKUP;
 
-	if (gmacdev->emulation && (gmacdev->phy_mii_type == GMAC_INTF_SGMII
-			|| gmacdev->phy_mii_type == GMAC_INTF_QSGMII)) {
+	if (gmacdev->emulation && (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_SGMII
+			|| gmacdev->phy_mii_type == PHY_INTERFACE_MODE_QSGMII)) {
 		return LINKUP;
 	}
 
@@ -210,7 +210,7 @@ void nss_gmac_mii_wr_reg(struct nss_gmac_dev *gmacdev, uint32_t phy,
  */
 void nss_gmac_reset_phy(struct nss_gmac_dev *gmacdev, uint32_t phyid)
 {
-	if (gmacdev->emulation && (gmacdev->phy_mii_type != GMAC_INTF_RGMII))
+	if (gmacdev->emulation && (gmacdev->phy_mii_type != PHY_INTERFACE_MODE_RGMII))
 		return;
 
 	nss_gmac_mii_wr_reg(gmacdev, phyid, MII_BMCR, BMCR_RESET);
@@ -1223,16 +1223,16 @@ int32_t nss_gmac_check_phy_init(struct nss_gmac_dev *gmacdev)
 		}
 	}
 
-	if (gmacdev->emulation && (gmacdev->phy_mii_type == GMAC_INTF_SGMII
-			|| gmacdev->phy_mii_type == GMAC_INTF_QSGMII)) {
+	if (gmacdev->emulation && (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_SGMII
+			|| gmacdev->phy_mii_type == PHY_INTERFACE_MODE_QSGMII)) {
 		/* Emulation build, Q/SGMII interface. Returning 100Mbps FD */
 		gmacdev->speed = SPEED100;
 		gmacdev->duplex_mode = FULLDUPLEX;
 		goto out;
 	}
 
-	if (gmacdev->phy_mii_type == GMAC_INTF_SGMII
-		|| gmacdev->phy_mii_type == GMAC_INTF_QSGMII) {
+	if (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_SGMII
+		|| gmacdev->phy_mii_type == PHY_INTERFACE_MODE_QSGMII) {
 		nss_gmac_check_sgmii_link(gmacdev);
 		if (gmacdev->link_state == LINKDOWN) {
 			netdev_dbg(gmacdev->netdev, "%s: SGMII phy linkup ERROR."

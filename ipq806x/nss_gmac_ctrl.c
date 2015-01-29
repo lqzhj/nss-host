@@ -557,18 +557,22 @@ static int32_t nss_gmac_of_get_pdata(struct device_node *np,
 
 	if (of_property_read_u32(np, "qcom,id", &gmacdev->macid)
 		|| of_property_read_u32(np, "qcom,emulation", &gmaccfg->emulation)
-		|| of_property_read_u32(np, "qcom,phy_mii_type", &gmaccfg->phy_mii_type)
 		|| of_property_read_u32(np, "qcom,phy_mdio_addr", &gmaccfg->phy_mdio_addr)
 		|| of_property_read_u32(np, "qcom,rgmii_delay", &gmaccfg->rgmii_delay)
 		|| of_property_read_u32(np, "qcom,poll_required", &gmaccfg->poll_required)
 		|| of_property_read_u32(np, "qcom,forced_speed", &gmaccfg->forced_speed)
 		|| of_property_read_u32(np, "qcom,forced_duplex", &gmaccfg->forced_duplex)
-		|| of_property_read_u32(np, "qcom,irq", &netdev->irq)
 		|| of_property_read_u32(np, "qcom,socver", &gmaccfg->socver)) {
 		pr_err("%s: error reading critical device node properties\n", np->name);
 		return -EFAULT;
 	}
 
+	gmaccfg->phy_mii_type = of_get_phy_mode(np);
+	netdev->irq = irq_of_parse_and_map(np, 0);
+	if (netdev->irq == NO_IRQ) {
+		pr_err("%s: Can't map interrupt\n", np->name);
+		return -EFAULT;
+	}
 	maddr = (uint8_t *)of_get_mac_address(np);
 	if (maddr)
 		memcpy(gmaccfg->mac_addr, maddr, ETH_ALEN);
@@ -871,7 +875,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 
 		netdev_dbg(netdev, "mdio bus '%s' OK.", gmacdev->miibus->id);
 
-	} else if (gmacdev->emulation && (gmacdev->phy_mii_type == GMAC_INTF_RGMII)) {
+	} else if (gmacdev->emulation && (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_RGMII)) {
 		if (nss_gmac_init_mdiobus(gmacdev) != 0) {
 			netdev_dbg(netdev, "mdio bus register FAIL for emulation.");
 			ret = -EIO;
@@ -902,19 +906,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	/* Initialize workqueue */
 	INIT_DELAYED_WORK(&gmacdev->gmacwork, nss_gmac_open_work);
 
-	switch (gmacdev->phy_mii_type) {
-	case GMAC_INTF_RGMII:
-		phyif = PHY_INTERFACE_MODE_RGMII;
-		break;
-
-	case GMAC_INTF_SGMII:
-		phyif = PHY_INTERFACE_MODE_SGMII;
-		break;
-
-	case GMAC_INTF_QSGMII:
-		phyif = PHY_INTERFACE_MODE_SGMII;
-		break;
-	}
+	phyif = gmacdev->phy_mii_type;
 
 	/* create a phyid using MDIO bus id and MDIO bus address of phy */
 	snprintf(phy_id, MII_BUS_ID_SIZE + 3, PHY_ID_FMT,
@@ -956,7 +948,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 		/* reset corresponding Phy */
 		nss_gmac_reset_phy(gmacdev, gmacdev->phy_base);
 
-		if (gmacdev->phy_mii_type == GMAC_INTF_RGMII) {
+		if (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_RGMII) {
 			/* RGMII Tx delay */
 			netdev_dbg(netdev, "%s: Program RGMII Tx delay..... ", __func__);
 			mdiobus_write(gmacdev->miibus, gmacdev->phy_base, 0x1D, 0x05);
@@ -1086,10 +1078,7 @@ static int nss_gmac_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id nss_gmac_dt_ids[] = {
-	{ .compatible =  "qcom,nss-gmac0" },
-	{ .compatible =  "qcom,nss-gmac1" },
-	{ .compatible =  "qcom,nss-gmac2" },
-	{ .compatible =  "qcom,nss-gmac3" },
+	{ .compatible =  "qcom,nss-gmac" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, nss_gmac_dt_ids);

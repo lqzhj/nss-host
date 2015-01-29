@@ -153,19 +153,7 @@ int32_t nss_gmac_init_mdiobus(struct nss_gmac_dev *gmacdev)
 		return -ENODEV;
 	}
 
-	switch (gmacdev->phy_mii_type) {
-	case GMAC_INTF_RGMII:
-		phydev->interface = PHY_INTERFACE_MODE_RGMII;
-		break;
-
-	case GMAC_INTF_SGMII:
-		phydev->interface = PHY_INTERFACE_MODE_SGMII;
-		break;
-
-	case GMAC_INTF_QSGMII:
-		phydev->interface = PHY_INTERFACE_MODE_SGMII;
-		break;
-	}
+	phydev->interface = gmacdev->phy_mii_type;
 
 	gmacdev->miibus = miibus;
 	return 0;
