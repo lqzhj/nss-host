@@ -83,7 +83,6 @@ int nss_macsec_reg_read(unsigned int dev_id, unsigned int reg_addr,
 			unsigned int *pvalue)
 {
 	if(macsec_ctx.macsec_base[dev_id] == NULL) {
-		printk("macsec[%d] doesn't exist, thus read operation is not permitted!\n", dev_id);
 		return -1;
 	}
 
@@ -97,7 +96,6 @@ int nss_macsec_reg_write(unsigned int dev_id, unsigned int reg_addr,
 			 unsigned int pvalue)
 {
 	if(macsec_ctx.macsec_base[dev_id] == NULL) {
-		printk("macsec[%d] doesn't exist, thus write operation is not permitted!\n", dev_id);
 		return -1;
 	}
 	writel(pvalue,
