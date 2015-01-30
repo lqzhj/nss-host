@@ -36,6 +36,10 @@
 #include <asm/cacheflush.h>
 #include <asm/io.h>
 
+#ifdef CONFIG_MDIO
+#include <linux/mdio.h>
+#endif
+
 #ifdef CONFIG_OF
 #include <msm_nss_gmac.h>
 #else
@@ -240,6 +244,10 @@ struct nss_gmac_dev {
 	struct mii_bus *miibus;		/* MDIO bus associated with this GMAC */
 	struct nss_gmac_data_plane_ops *data_plane_ops;
 					/* ops to send messages to nss-drv    */
+					/* ops to send messages to nss-drv	*/
+#ifdef CONFIG_MDIO
+	struct mdio_if_info mdio_ctl;   /* Generic support for MDIO */
+#endif
 };
 
 

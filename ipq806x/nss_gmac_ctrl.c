@@ -347,6 +347,85 @@ static int32_t nss_gmac_linux_set_mac_address(struct net_device *netdev,
 	return 0;
 }
 
+#ifdef CONFIG_MDIO
+/**
+ * @brief Function to read a PHY device register over a MDIO bus
+ * @param[in] pointer to net_device structure.
+ * @param[in] PHY Address of phy device over MDIO bus
+ * @param[in] PHY device MMD to be read
+ * @param[in] PHY device register address
+ * @return Returns the value read from PHY device register
+ */
+static int nss_gmac_mdio_mii_ioctl_read(struct net_device *netdev, int phy_addr, int mmd, uint16_t addr)
+{
+	struct nss_gmac_dev *gmacdev = NULL;
+	uint16_t val_out = 0;
+	uint32_t reg = 0;
+
+	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
+
+	if (!gmacdev)
+		return -EIO;
+
+	/*
+	 * Check MMD is none to confirm if the
+	 * request is a MDIO clause-22
+	 */
+	if (MDIO_DEVAD_NONE == mmd) {
+		val_out = mdiobus_read(gmacdev->miibus, phy_addr, addr);
+		return val_out;
+	}
+
+	/*
+	 *  Prepare a MDIO clause-45 command
+	 */
+	reg = MII_ADDR_C45 | mmd << 16 | addr;
+	netdev_dbg(netdev, "%s: PHY addr 0x%x, Reg val 0x%x\n", __func__, phy_addr, reg);
+	val_out = mdiobus_read(gmacdev->miibus, phy_addr, reg);
+
+	return val_out;
+}
+
+/**
+ * @brief Function to write into a PHY device register over a MDIO bus
+ * @param[in] pointer to net_device structure.
+ * @param[in] PHY Address of phy device over MDIO bus
+ * @param[in] PHY device MMD to be read
+ * @param[in] PHY device register address
+ * @param[in] data to write into the PHY device register
+ * @return Returns 0 on success Error code on failure.
+ */
+static int nss_gmac_mdio_mii_ioctl_write(struct net_device *netdev, int phy_addr, int mmd,
+				uint16_t addr, uint16_t value)
+{
+	struct nss_gmac_dev *gmacdev = NULL;
+	int err = 0;
+	uint32_t reg = 0;
+
+	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
+
+	if (!gmacdev)
+		return -EIO;
+
+	/*
+	 * Check MMD is none to confirm if the
+	 * request is a MDIO clause-22
+	 */
+	if (MDIO_DEVAD_NONE == mmd) {
+		err = mdiobus_write(gmacdev->miibus, phy_addr, reg, value);
+		return err;
+	}
+
+	/*
+	 *  Prepare a MDIO clause-45 command
+	 */
+	reg = MII_ADDR_C45 | mmd << 16 | addr;
+	netdev_dbg(netdev, "%s: PHY addr 0x%x, Reg val 0x%x, Data 0x%x \n", __func__, phy_addr, reg, value);
+	err = mdiobus_write(gmacdev->miibus, phy_addr, reg, value);
+
+	return err;
+}
+#endif
 
 /**
  * @brief IOCTL interface.
@@ -361,57 +440,29 @@ static int32_t nss_gmac_linux_set_mac_address(struct net_device *netdev,
 static int32_t nss_gmac_linux_do_ioctl(struct net_device *netdev,
 				       struct ifreq *ifr, int32_t cmd)
 {
-	int32_t retval;
+	int ret = -EINVAL;
 	struct nss_gmac_dev *gmacdev = NULL;
 	struct mii_ioctl_data *mii_data = if_mii(ifr);
-
-	struct ifr_data_struct {
-		uint32_t unit;
-		uint32_t addr;
-		uint32_t data;
-	} *req;
 
 	if (netdev == NULL)
 		return -EINVAL;
 	if (ifr == NULL)
 		return -EINVAL;
 
-	req = (struct ifr_data_struct *)ifr->ifr_data;
-
 	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 	BUG_ON(gmacdev->netdev != netdev);
+	netdev_dbg(netdev, "PHY addr 0x%x, Reg num 0x%x, Val_in 0x%x, Val_out 0x%x\n",
+			mii_data->phy_id, mii_data->reg_num, mii_data->val_in, mii_data->val_out);
 
-	netdev_dbg(netdev, "%s :: on device %s req->unit = %08x req->addr = %08x req->data = %08x cmd = %08x\n"
-		, __func__, netdev->name, req->unit, req->addr, req->data, cmd);
-
-	retval = 0;
-	switch (cmd) {
-	case SIOCGMIIPHY:
-		netdev_dbg(netdev, "SIOCGMIIPHY: \n");
-		mii_data->phy_id = gmacdev->phy_base;
-		break;
-
-	case SIOCSMIIREG:
-		netdev_dbg(netdev, "SIOCSMIIREG: \n");
-		nss_gmac_mii_wr_reg(gmacdev, gmacdev->phy_base,
-			      (mii_data->reg_num & 0x1F), mii_data->val_in);
-		break;
-
-	case SIOCGMIIREG:
-		netdev_dbg(netdev, "SIOCGMIIREG: \n");
-		mii_data->val_out = nss_gmac_mii_rd_reg(gmacdev,
-						 gmacdev->phy_base,
-						 (mii_data->reg_num & 0x1F));
-		break;
-
-	default:
-		retval = -EINVAL;
-		netdev_dbg(netdev, "Unsupported ioctl\n");
-		break;
-	}
-
-	return retval;
+#ifdef CONFIG_MDIO
+	/*
+	 * Handle both MDIO C45/C22 ioctl requests
+	 */
+	if (gmacdev->phy_base != NSS_GMAC_NO_MDIO_PHY)
+		ret = mdio_mii_ioctl(&gmacdev->mdio_ctl, mii_data, cmd);
+#endif
+	return ret;
 }
 
 
@@ -983,6 +1034,22 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 			, gmacdev->macid, netdev->name, netdev->base_addr
 			, netdev->irq, gmacdev->phy_base
 			, test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags));
+
+#ifdef CONFIG_MDIO
+	/* Set ethernet Controler MDIO properties */
+	if (gmacdev->phy_base != NSS_GMAC_NO_MDIO_PHY) {
+		gmacdev->mdio_ctl.prtad = gmacdev->phy_base;
+		gmacdev->mdio_ctl.mmds = gmaccfg->mmds_mask;
+		if (gmaccfg->mmds_mask)
+			gmacdev->mdio_ctl.mode_support = MDIO_SUPPORTS_C45;
+		else
+			gmacdev->mdio_ctl.mode_support = MDIO_SUPPORTS_C22;
+
+		gmacdev->mdio_ctl.dev = gmacdev->netdev;
+		gmacdev->mdio_ctl.mdio_read = nss_gmac_mdio_mii_ioctl_read;
+		gmacdev->mdio_ctl.mdio_write = nss_gmac_mdio_mii_ioctl_write;
+	}
+#endif
 
 #ifdef CONFIG_OF
 	if (pdev->dev.of_node) {
