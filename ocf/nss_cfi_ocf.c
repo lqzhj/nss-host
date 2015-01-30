@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014,2015 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -127,27 +127,53 @@ static int32_t nss_cfi_ocf_decrypt_trap(struct sk_buff *skb, uint32_t session_id
 }
 
 /*
- * Returns the type of buffer sent by OCF
+ * Returns true if given skb can be processed by crypto
  */
-static void nss_cfi_ocf_get_data_len(int flags, caddr_t buf, uint32_t ilen, uint8_t **data, uint32_t *len)
+static bool nss_cfi_ocf_chk_skb_valid(struct sk_buff *skb)
+{
+	uint32_t tail_room = 0;
+
+	/* Skb fragmentation support unimplemented */
+	if (skb_shinfo(skb)->nr_frags || skb_has_frag_list(skb)) {
+		nss_cfi_err("SKB has fragments, crypto cannot process these buffers\n");
+		return false;
+	}
+
+	/*
+	 * Check if the data buffer has enough tailroom to accomodate the crypto information
+	 */
+	tail_room = skb_tailroom(skb);
+	if (tail_room < NSS_CRYPTO_BUF_TAILROOM ) {
+		nss_cfi_err("Buffer has insufficient tail room :%d required: %d\n",
+						tail_room, NSS_CRYPTO_BUF_TAILROOM);
+		return false;
+	}
+
+	return true;
+}
+
+/*
+ * Returns success if cfi can handle the type of buffer sent by OCF
+ */
+static bool nss_cfi_ocf_get_buf(struct cryptop *crp, uint8_t **data, uint32_t *len)
 {
 	struct sk_buff *skb = NULL;
 
 	/* IOV buffer type support unimplemented */
-	nss_cfi_assert(!(flags & CRYPTO_F_IOV));
+	nss_cfi_assert(!(crp->crp_flags & CRYPTO_F_IOV));
 
-	if (flags & CRYPTO_F_SKBUF) {
-		skb = (struct sk_buff *)buf;
-		/* Skb fragmentation support unimplemented */
-		nss_cfi_assert(!(skb_shinfo(skb)->nr_frags));
-
+	if (crp->crp_flags & CRYPTO_F_SKBUF) {
+		skb = (struct sk_buff *)crp->crp_buf;
 		*data = skb->data;
 		*len = skb->len;
 
-	} else {
-		*data = buf;
-		*len  = ilen;
+		return nss_cfi_ocf_chk_skb_valid(skb);
 	}
+
+	*data = crp->crp_buf;
+	*len  = crp->crp_ilen;
+
+	return true;
 }
 
 /*
@@ -306,7 +332,7 @@ static void nss_cfi_ocf_process_done(struct nss_crypto_buf *buf)
 
 	crp = (struct cryptop *)buf->cb_ctx;
 
-	if ((req_type & NSS_CRYPTO_REQ_TYPE_DECRYPT) == NSS_CRYPTO_REQ_TYPE_DECRYPT) {
+	if (((req_type & NSS_CRYPTO_REQ_TYPE_DECRYPT) == NSS_CRYPTO_REQ_TYPE_DECRYPT) && (crp->crp_flags & CRYPTO_F_SKBUF)) {
 		g_cfi_ocf.decrypt_fn((struct sk_buff *)crp->crp_buf, &gbl_crypto_info[buf->session_idx]);
 	}
 
@@ -410,6 +436,15 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 		return 0;
 	}
 
+	if (nss_cfi_ocf_get_buf(crp, &data, &len) == false) {
+		nss_cfi_dbg("not able to get buffer parameters\n");
+
+		crp->crp_etype = ENOENT;
+		crypto_done(crp);
+
+		return 0;
+	}
+
 	/*
 	 *  Allocate nss_crypto_buffer
 	 */
@@ -429,7 +464,6 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 	buf->cb_fn = nss_cfi_ocf_process_done;
 	buf->session_idx = NSS_CFI_OCF_SESSION(crp->crp_sid);
 
-	nss_cfi_ocf_get_data_len(crp->crp_flags, crp->crp_buf, crp->crp_ilen, &data, &len);
 	memset(&params, 0, sizeof(struct nss_crypto_params));
 
 	if (cip_crd) {
@@ -472,7 +506,7 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 	/*
 	 * If packet is for encryption call the registered trap function
 	 */
-	if (cip_crd->crd_flags & CRD_F_ENCRYPT) {
+	if ((cip_crd->crd_flags & CRD_F_ENCRYPT) && (crp->crp_flags & CRYPTO_F_SKBUF)) {
 		sc->encrypt_fn((struct sk_buff *)crp->crp_buf, &gbl_crypto_info[buf->session_idx]);
 	}
 
