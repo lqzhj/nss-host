@@ -280,8 +280,11 @@ void nss_gmac_qsgmii_dev_init(struct nss_gmac_dev *gmacdev)
 	netdev_dbg(gmacdev->netdev, "%s: NSS_QSGMII_CLK_CTL(0x%x) - 0x%x",
 		      __func__, NSS_QSGMII_CLK_CTL, val);
 
-	/* Enable autonegotiation between PCS and PHY */
-	if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
+	/*
+	 * Enable autonegotiation between PCS and PHY if speed is
+	 * not forced for this interface
+	 */
+	if (gmacdev->forced_speed == SPEED_UNKNOWN) {
 		nss_gmac_clear_reg_bits(qsgmii_base, PCS_ALL_CH_CTL,
 					PCS_CHn_SPEED_MASK(gmacdev->macid));
 		nss_gmac_clear_reg_bits(qsgmii_base, PCS_ALL_CH_CTL,
@@ -523,15 +526,15 @@ static uint32_t clk_div_qsgmii(struct nss_gmac_dev *gmacdev)
 	uint32_t div;
 
 	switch (gmacdev->speed) {
-	case SPEED1000:
+	case SPEED_1000:
 		div = QSGMII_CLK_DIV_1000;
 		break;
 
-	case SPEED100:
+	case SPEED_100:
 		div = QSGMII_CLK_DIV_100;
 		break;
 
-	case SPEED10:
+	case SPEED_10:
 		div = QSGMII_CLK_DIV_10;
 		break;
 
@@ -553,15 +556,15 @@ static uint32_t clk_div_sgmii(struct nss_gmac_dev *gmacdev)
 	uint32_t div;
 
 	switch (gmacdev->speed) {
-	case SPEED1000:
+	case SPEED_1000:
 		div = SGMII_CLK_DIV_1000;
 		break;
 
-	case SPEED100:
+	case SPEED_100:
 		div = SGMII_CLK_DIV_100;
 		break;
 
-	case SPEED10:
+	case SPEED_10:
 		div = SGMII_CLK_DIV_10;
 		break;
 
@@ -583,15 +586,15 @@ static uint32_t clk_div_rgmii(struct nss_gmac_dev *gmacdev)
 	uint32_t div;
 
 	switch (gmacdev->speed) {
-	case SPEED1000:
+	case SPEED_1000:
 		div = RGMII_CLK_DIV_1000;
 		break;
 
-	case SPEED100:
+	case SPEED_100:
 		div = RGMII_CLK_DIV_100;
 		break;
 
-	case SPEED10:
+	case SPEED_10:
 		div = RGMII_CLK_DIV_10;
 		break;
 
@@ -613,15 +616,15 @@ static uint32_t get_pcs_speed(struct nss_gmac_dev *gmacdev)
 	uint32_t speed;
 
 	switch (gmacdev->speed) {
-	case SPEED1000:
+	case SPEED_1000:
 		speed = PCS_CH_SPEED_1000;
 		break;
 
-	case SPEED100:
+	case SPEED_100:
 		speed = PCS_CH_SPEED_100;
 		break;
 
-	case SPEED10:
+	case SPEED_10:
 		speed = PCS_CH_SPEED_10;
 		break;
 
@@ -646,6 +649,7 @@ int32_t nss_gmac_dev_set_speed(struct nss_gmac_dev *gmacdev)
 	uint32_t *nss_base = (uint32_t *)(gmacdev->ctx->nss_base);
 	uint32_t *qsgmii_base = (uint32_t *)(gmacdev->ctx->qsgmii_base);
 	struct nss_gmac_speed_ctx gmac_speed_ctx = {0, 0};
+	int force_speed = 0;
 
 	switch (gmacdev->phy_mii_type) {
 	case PHY_INTERFACE_MODE_RGMII:
@@ -665,9 +669,15 @@ int32_t nss_gmac_dev_set_speed(struct nss_gmac_dev *gmacdev)
 		return -EINVAL;
 	}
 
-	/* Force speed control signal if link polling is disabled */
-	if (!test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
-		if (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_SGMII) {
+	if (gmacdev->forced_speed != SPEED_UNKNOWN)
+		force_speed = 1;
+
+	/*
+	 * Set SGMII force speed control signal if necessary
+	 */
+	if (((gmacdev->phy_mii_type == PHY_INTERFACE_MODE_SGMII) ||
+			(gmacdev->phy_mii_type == PHY_INTERFACE_MODE_QSGMII))
+			&& (force_speed == 1)) {
 			pcs_speed = get_pcs_speed(gmacdev);
 			nss_gmac_set_reg_bits(qsgmii_base, PCS_ALL_CH_CTL,
 						PCS_CHn_FORCE_SPEED(id));
@@ -675,7 +685,6 @@ int32_t nss_gmac_dev_set_speed(struct nss_gmac_dev *gmacdev)
 						PCS_CHn_SPEED_MASK(id));
 			nss_gmac_set_reg_bits(qsgmii_base, PCS_ALL_CH_CTL,
 						PCS_CHn_SPEED(id, pcs_speed));
-		}
 	}
 
 	clk = 0;
@@ -704,8 +713,11 @@ int32_t nss_gmac_dev_set_speed(struct nss_gmac_dev *gmacdev)
 		nss_gmac_clear_reg_bits(qsgmii_base, PCS_MODE_CTL,
 					PCS_MODE_CTL_CHn_AUTONEG_EN(id));
 
-		/* Enable autonegotiation from MII register of PHY */
-		if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
+		/*
+		 * Enable autonegotiation from MII register of PHY
+		 * if the speed is not forced
+		 */
+		if (!force_speed) {
 			nss_gmac_set_reg_bits(qsgmii_base, PCS_MODE_CTL,
 					      PCS_MODE_CTL_CHn_AUTONEG_EN(id));
 		}
@@ -853,7 +865,7 @@ void nss_gmac_dev_init(struct nss_gmac_dev *gmacdev)
 	nss_gmac_clear_reg_bits(ctx->clk_ctl_base, GMAC_COREn_RESET(id), 0x1);
 
 	/* Configure clock dividers for 1000Mbps default */
-	gmacdev->speed = SPEED1000;
+	gmacdev->speed = SPEED_1000;
 	switch (gmacdev->phy_mii_type) {
 	case PHY_INTERFACE_MODE_RGMII:
 		div = clk_div_rgmii(gmacdev);

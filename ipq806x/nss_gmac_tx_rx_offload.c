@@ -660,9 +660,9 @@ static void nss_notify_linkup(struct nss_gmac_dev *gmacdev)
 		return;
 
 	link = 0x1;
-	if (gmacdev->speed == SPEED1000)
+	if (gmacdev->speed == SPEED_1000)
 		link |= 0x4;
-	else if (gmacdev->speed == SPEED100)
+	else if (gmacdev->speed == SPEED_100)
 		link |= 0x2;
 
 	gmacdev->data_plane_ops->link_state(gmacdev->data_plane_ctx, link);
@@ -917,8 +917,8 @@ int nss_gmac_linux_open(struct net_device *netdev)
 	 */
 	nss_gmac_disable_interrupt_all(gmacdev);
 
-	gmacdev->speed = SPEED100;
-	gmacdev->duplex_mode = FULLDUPLEX;
+	gmacdev->speed = SPEED_100;
+	gmacdev->duplex_mode = DUPLEX_FULL;
 
 	/**
 	 * Lets read the version of ip in to device structure

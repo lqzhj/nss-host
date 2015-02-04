@@ -56,8 +56,6 @@ int32_t nss_gmac_check_link(struct nss_gmac_dev *gmacdev)
 		return LINKUP;
 	}
 
-	genphy_read_status(phydev);
-
 	if (phydev->link)
 		return LINKUP;
 
@@ -469,7 +467,7 @@ void nss_gmac_select_mii(struct nss_gmac_dev *gmacdev)
 	nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
 			      gmac_config, gmac_mii_gmii);
 
-	if (gmacdev->speed == SPEED100) {
+	if (gmacdev->speed == SPEED_100) {
 		nss_gmac_set_reg_bits((uint32_t *)gmacdev->mac_base,
 				      gmac_config, gmac_fe_speed100);
 		return;
@@ -1014,12 +1012,12 @@ void nss_gmac_mac_init(struct nss_gmac_dev *gmacdev)
 	nss_gmac_frame_burst_enable(gmacdev);
 	nss_gmac_loopback_off(gmacdev);
 
-	if (gmacdev->speed == SPEED1000)
+	if (gmacdev->speed == SPEED_1000)
 		nss_gmac_select_gmii(gmacdev);
 	else
 		nss_gmac_select_mii(gmacdev);
 
-	if (gmacdev->duplex_mode == FULLDUPLEX) {
+	if (gmacdev->duplex_mode == DUPLEX_FULL) {
 		nss_gmac_set_full_duplex(gmacdev);
 		nss_gmac_rx_own_enable(gmacdev);
 		nss_gmac_retry_disable(gmacdev);
@@ -1083,22 +1081,22 @@ static void nss_gmac_check_pcs_status(struct nss_gmac_dev *gmacdev)
 
 	/* save duplexity */
 	if (reg & PCS_MAC_STAT_CHn_DUPLEX(id))
-		gmacdev->duplex_mode = FULLDUPLEX;
+		gmacdev->duplex_mode = DUPLEX_FULL;
 	else
-		gmacdev->duplex_mode = HALFDUPLEX;
+		gmacdev->duplex_mode = DUPLEX_HALF;
 
 	/* save speed */
 	switch (PCS_MAC_STAT_CHn_SPEED(id, reg)) {
 	case 0:
-		gmacdev->speed = SPEED10;
+		gmacdev->speed = SPEED_10;
 		break;
 
 	case 1:
-		gmacdev->speed = SPEED100;
+		gmacdev->speed = SPEED_100;
 		break;
 
 	case 2:
-		gmacdev->speed = SPEED1000;
+		gmacdev->speed = SPEED_1000;
 		break;
 	}
 }
@@ -1204,33 +1202,53 @@ reheck_pcs_mac_status:
 int32_t nss_gmac_check_phy_init(struct nss_gmac_dev *gmacdev)
 {
 	struct phy_device *phydev = NULL;
-	int32_t count;
+	uint32_t phy_link_speed;
+	uint32_t phy_link_duplex;
 
 	/*
-	 * If link polling is disabled, we need to use the forced speed
-	 * and duplex configured for the interface.
+	 * We cannot have link polling off without forced speed configured!
 	 */
 	if (!test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)
-					&& !gmacdev->emulation) {
-		if (gmacdev->forced_speed != SPEED_UNKNOWN) {
-			gmacdev->speed = gmacdev->forced_speed;
-			gmacdev->duplex_mode = gmacdev->forced_duplex;
-			return 0;
-		} else {
-			netdev_dbg(gmacdev->netdev, "%s: Invalid forced speed/duplex configuration with link polling disabled"
-								, __func__);
-			return -EIO;
+		&& (gmacdev->forced_speed == SPEED_UNKNOWN)) {
+		netdev_dbg(gmacdev->netdev,
+				"%s: Forced link speed not configured when link polling disabled",
+				__func__);
+		return -EIO;
+	}
+
+	/*
+	 * First read the PHY speed/duplex if link polling
+	 * is enabled
+	 */
+	if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
+		phydev = gmacdev->phydev;
+		if (gmacdev->phydev->is_c45 == false) {
+			/*
+			 * Read the speed/duplex for standard C22 PHYs
+			 */
+			genphy_read_status(phydev);
 		}
 	}
 
-	if (gmacdev->emulation && (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_SGMII
-			|| gmacdev->phy_mii_type == PHY_INTERFACE_MODE_QSGMII)) {
-		/* Emulation build, Q/SGMII interface. Returning 100Mbps FD */
-		gmacdev->speed = SPEED100;
-		gmacdev->duplex_mode = FULLDUPLEX;
+	/*
+	 * Now find the GMAC speed. Check if we have a forced speed
+	 * and duplex configured for the GMAC.
+	 */
+	if (gmacdev->forced_speed != SPEED_UNKNOWN) {
+		/*
+		 * Set the GMAC speed as configured
+		 */
+		gmacdev->speed = gmacdev->forced_speed;
+		gmacdev->duplex_mode = gmacdev->forced_duplex;
+
 		goto out;
 	}
 
+
+	/*
+	 * Get the GMAC speed from the SGMII PCS for SGMII/QSGMII
+	 * interfaces
+	 */
 	if (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_SGMII
 		|| gmacdev->phy_mii_type == PHY_INTERFACE_MODE_QSGMII) {
 		nss_gmac_check_sgmii_link(gmacdev);
@@ -1246,66 +1264,30 @@ int32_t nss_gmac_check_phy_init(struct nss_gmac_dev *gmacdev)
 	}
 
 	/*
-	 * Read the link status from the PHY for RGMII interfaces
-	 * with link polling enabled.
+	 * Get the GMAC speed from the PHY for RGMII
+	 * interfaces
 	 */
-	phydev = gmacdev->phydev;
-
-	for (count = 0; count < DEFAULT_LOOP_VARIABLE; count++) {
-		if (phydev->state == PHY_RUNNING) {
-			netdev_dbg(gmacdev->netdev, "%s: %s Autoneg. complete",
-				      __func__, gmacdev->netdev->name);
-			break;
-		}
-	}
-
-	if (count == DEFAULT_LOOP_VARIABLE) {
-		netdev_dbg(gmacdev->netdev, "%s: %s Timeout waiting for autoneg.",
-			      __func__, gmacdev->netdev->name);
-		return -EIO;
-	}
-
-	genphy_read_status(phydev);
-
-	switch (phydev->speed) {
-	case SPEED_10:
-		gmacdev->speed = SPEED10;
-		break;
-
-	case SPEED_100:
-		gmacdev->speed = SPEED100;
-		break;
-
-	case SPEED_1000:
-		gmacdev->speed = SPEED1000;
-		break;
-	}
-
-	switch (phydev->duplex) {
-	case DUPLEX_HALF:
-		gmacdev->duplex_mode = HALFDUPLEX;
-		break;
-
-	case DUPLEX_FULL:
-		gmacdev->duplex_mode = FULLDUPLEX;
-		break;
-	}
+	gmacdev->speed = phydev->speed;
+	gmacdev->duplex_mode = phydev->duplex;
 
 out:
-	netdev_info(gmacdev->netdev, "%sMbps %sDuplex",
-			(gmacdev->speed == SPEED1000) ?
-			"1000" : ((gmacdev->speed == SPEED100) ? "100" : "10"),
-			(gmacdev->duplex_mode == FULLDUPLEX) ? "Full" : "Half");
 
 	/*
-	 * We may want to force speed and duplex settings even after link
-	 * polling. This may be for a GMAC connected to a switch where the
-	 * parameters of link between GAMC and switch are forced.
+	 * If link polling is on, print the link speed from PHY
+	 * Otherwise the link speed must have been forced, so
+	 * print the GMAC (xMII) forced speed
 	 */
-	if (gmacdev->forced_speed != SPEED_UNKNOWN) {
-		gmacdev->speed = gmacdev->forced_speed;
-		gmacdev->duplex_mode = gmacdev->forced_duplex;
+	if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
+		phy_link_speed = phydev->speed;
+		phy_link_duplex = phydev->duplex;
+	} else {
+		phy_link_speed = gmacdev->speed;
+		phy_link_duplex = gmacdev->duplex_mode;
 	}
+
+	netdev_info(gmacdev->netdev,
+			"%d Mbps %s Duplex",
+			phy_link_speed, (phy_link_duplex == DUPLEX_FULL) ? "Full" : "Half");
 
 	return 0;
 }

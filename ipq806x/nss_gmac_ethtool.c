@@ -108,64 +108,6 @@ static const char *gmac_strings_priv_flags[] = {
 #define NSS_GMAC_STATS_LEN	ARRAY_SIZE(gmac_gstrings_stats)
 #define NSS_GMAC_PRIV_FLAGS_LEN	ARRAY_SIZE(gmac_strings_priv_flags)
 
-
-/*
- * Convert NSS GMAC speed id to ethtool id.
- * @param[in] nss gmac specific speed
- * @return Returns ethtool speed
- */
-static int32_t nss_gmac_to_ethtool_speed(int32_t speed)
-{
-	int32_t ret;
-
-	switch (speed) {
-	case SPEED10:
-		ret = SPEED_10;
-		break;
-
-	case SPEED100:
-		ret = SPEED_100;
-		break;
-
-	case SPEED1000:
-		ret = SPEED_1000;
-		break;
-
-	default:
-		ret = SPEED_UNKNOWN;
-		break;
-	}
-
-	return ret;
-}
-
-/*
- * Convert NSS GMAC duplex id to ethtool id.
- * @param[in] nss gmac specific duplex value
- * @return Returns ethtool duplex value
- */
-static int32_t nss_gmac_to_ethtool_duplex(int32_t duplex)
-{
-	int32_t ret;
-
-	switch (duplex) {
-	case HALFDUPLEX:
-		ret = DUPLEX_HALF;
-		break;
-
-	case FULLDUPLEX:
-		ret = DUPLEX_FULL;
-		break;
-
-	default:
-		ret = DUPLEX_UNKNOWN;
-		break;
-	}
-
-	return ret;
-}
-
-
 /**
  * @brief Get number of strings that describe requested objects.
  * @param[in] pointer to struct net_device.
@@ -395,9 +337,6 @@ static int32_t nss_gmac_get_settings(struct net_device *netdev,
 	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 
-	/* Populate supported capabilities */
-	ecmd->supported = NSS_GMAC_SUPPORTED_FEATURES;
-
 	/*
 	 * If the speed/duplex for this GMAC is forced and we are not
 	 * polling for link state changes, return the values as specified by
@@ -406,8 +345,8 @@ static int32_t nss_gmac_get_settings(struct net_device *netdev,
 	 */
 	if (!test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
 		if (gmacdev->forced_speed != SPEED_UNKNOWN) {
-			ethtool_cmd_speed_set(ecmd, nss_gmac_to_ethtool_speed(gmacdev->forced_speed));
-			ecmd->duplex = nss_gmac_to_ethtool_duplex(gmacdev->forced_duplex);
+			ethtool_cmd_speed_set(ecmd, gmacdev->forced_speed);
+			ecmd->duplex = gmacdev->forced_duplex;
 			ecmd->mdio_support = 0;
 			ecmd->lp_advertising = 0;
 			return 0;
@@ -422,26 +361,37 @@ static int32_t nss_gmac_get_settings(struct net_device *netdev,
 	phydev = gmacdev->phydev;
 
 	/* update PHY status */
-	if (genphy_read_status(phydev) != 0)
-		return -EIO;
+	if (phydev->is_c45 == true) {
+		ecmd->mdio_support = ETH_MDIO_SUPPORTS_C45;
+	} else {
+		if (genphy_read_status(phydev) != 0) {
+			return -EIO;
+		}
+		ecmd->mdio_support = ETH_MDIO_SUPPORTS_C22;
+	}
 
 	/* Populate capabilities advertised by self */
 	ecmd->advertising = phydev->advertising;
 
 	ecmd->autoneg = phydev->autoneg;
-	ethtool_cmd_speed_set(ecmd, phydev->speed);
-	ecmd->duplex = phydev->duplex;
 
 	if (gmacdev->link_state == LINKDOWN) {
 		ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
 		ecmd->duplex = DUPLEX_UNKNOWN;
+	} else {
+		ethtool_cmd_speed_set(ecmd, phydev->speed);
+		ecmd->duplex = phydev->duplex;
 	}
 
 	ecmd->port = PORT_TP;
 	ecmd->phy_address = gmacdev->phy_base;
 	ecmd->transceiver = XCVR_EXTERNAL;
 
-	ecmd->mdio_support = ETH_MDIO_SUPPORTS_C22;
+	/* Populate supported capabilities */
+	ecmd->supported = phydev->supported;
+
+	if (phydev->is_c45 == true)
+		return 0;
 
 	/* Populate capabilities advertised by link partner */
 	phyreg = nss_gmac_mii_rd_reg(gmacdev, gmacdev->phy_base, MII_LPA);

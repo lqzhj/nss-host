@@ -302,17 +302,6 @@ enum mii_link_status {
 	LINKUP = 1,
 };
 
-enum mii_duplex_mode {
-	HALFDUPLEX = 1,
-	FULLDUPLEX = 2,
-};
-
-enum mii_link_speed {
-	SPEED10 = 1,
-	SPEED100 = 2,
-	SPEED1000 = 3,
-};
-
 enum mii_loop_back {
 	NOLOOPBACK = 0,
 	LOOPBACK = 1,
