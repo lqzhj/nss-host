@@ -56,16 +56,16 @@
 #define GMAC_CLK_ROOT_ENA		0x00000002
 #define GMAC_CLK_LOW_PWR_ENA		0x00000004
 
-/* GMAC_COREn_CLK_SRC[0,1]_MD register bits (Assuming 133MHz) */
-#define GMAC_CORE_CLK_M		0x32
+/* GMAC_COREn_CLK_SRC[0,1]_MD register bits (Assuming 266MHz) */
+#define GMAC_CORE_CLK_M		0x7f
 #define GMAC_CORE_CLK_D		0		/* NOT(2*D) value */
 #define GMAC_CORE_CLK_M_SHIFT	16
 #define GMAC_CORE_CLK_D_SHIFT	0
 #define GMAC_CORE_CLK_M_VAL	(GMAC_CORE_CLK_M << GMAC_CORE_CLK_M_SHIFT)
 #define GMAC_CORE_CLK_D_VAL	(GMAC_CORE_CLK_D << GMAC_CORE_CLK_D_SHIFT)
 
-/* GMAC_COREn_CLK_SRC[0,1]_NS register bits (Assuming 133MHz) */
-#define GMAC_CORE_CLK_N		0x4		/* NOT(N-M) value N=301	      */
+/* GMAC_COREn_CLK_SRC[0,1]_NS register bits (Assuming 266MHz) */
+#define GMAC_CORE_CLK_N		0		/* NOT(N-M) value N=301	      */
 #define GMAC_CORE_CLK_N_SHIFT	16
 #define GMAC_CORE_CLK_N_VAL	(GMAC_CORE_CLK_N << GMAC_CORE_CLK_N_SHIFT)
 #define GMAC_CORE_CLK_MNCNTR_EN		0x00000100	/* Enable M/N counter */
