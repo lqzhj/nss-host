@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2015 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -77,6 +77,18 @@
 #define NSS_QDISC_STATE_FAILED_RESPONSE -12
 
 #define NSS_QDISC_BRIDGE_PORT_MAX 100
+
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3,8,0))
+#define nss_qdisc_hlist_for_each_entry(tpos, pos, head, member) hlist_for_each_entry(tpos, pos, head, member)
+#define nss_qdisc_hlist_for_each_entry_safe(tpos, pos, n, head, member) hlist_for_each_entry_safe(tpos, pos, n, head, member)
+#define nss_qdisc_get_dev_master(dev) (dev->master)
+#define nss_qdisc_get_dev(ptr) (struct net_device *)ptr
+#else
+#define nss_qdisc_hlist_for_each_entry(tpos, pos, head, member) hlist_for_each_entry(tpos, head, member)
+#define nss_qdisc_hlist_for_each_entry_safe(tpos, pos, n, head, member) hlist_for_each_entry_safe(tpos, n, head, member)
+#define nss_qdisc_get_dev_master(dev) netdev_master_upper_dev_get(dev)
+#define nss_qdisc_get_dev(ptr) netdev_notifier_info_to_dev(ptr)
+#endif
 
 
 struct nss_qdisc {

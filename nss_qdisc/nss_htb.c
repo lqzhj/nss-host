@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2015 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -328,7 +328,7 @@ failure:
  */
 static void nss_htb_destroy_class(struct Qdisc *sch, struct nss_htb_class_data *cl)
 {
-	struct nss_htb_sched_data *q __attribute__((unused)) = qdisc_priv(sch);
+	struct nss_htb_sched_data *q __maybe_unused = qdisc_priv(sch);
 	struct nss_if_msg nim;
 	struct nss_qdisc *nq_child;
 
@@ -606,11 +606,10 @@ static int nss_htb_dump_class(struct Qdisc *sch, unsigned long arg, struct sk_bu
 
 	opts = nla_nest_start(skb, TCA_OPTIONS);
 
-	if (opts == NULL) {
+	if (opts == NULL || nla_put(skb, TCA_NSSHTB_CLASS_PARMS, sizeof(qopt), &qopt)) {
 		goto nla_put_failure;
 	}
 
-	NLA_PUT(skb, TCA_NSSHTB_CLASS_PARMS, sizeof(qopt), &qopt);
 	return nla_nest_end(skb, opts);
 
 nla_put_failure:
@@ -643,7 +642,7 @@ static int nss_htb_dump_class_stats(struct Qdisc *sch, unsigned long arg, struct
 static void nss_htb_walk(struct Qdisc *sch, struct qdisc_walker *arg)
 {
 	struct nss_htb_sched_data *q = qdisc_priv(sch);
-	struct hlist_node *n;
+	struct hlist_node *n __maybe_unused;
 	struct nss_htb_class_data *cl;
 	unsigned int i;
 
@@ -653,7 +652,7 @@ static void nss_htb_walk(struct Qdisc *sch, struct qdisc_walker *arg)
 		return;
 
 	for (i = 0; i < q->clhash.hashsize; i++) {
-		hlist_for_each_entry(cl, n, &q->clhash.hash[i],
+		nss_qdisc_hlist_for_each_entry(cl, n, &q->clhash.hash[i],
 				sch_common.hnode) {
 			if (arg->count < arg->skip) {
 				arg->count++;
@@ -759,11 +758,11 @@ static void nss_htb_reset_qdisc(struct Qdisc *sch)
 {
 	struct nss_htb_sched_data *q = qdisc_priv(sch);
 	struct nss_htb_class_data *cl;
-	struct hlist_node *n;
+	struct hlist_node *n __maybe_unused;
 	unsigned int i;
 
 	for (i = 0; i < q->clhash.hashsize; i++) {
-		hlist_for_each_entry(cl, n, &q->clhash.hash[i], sch_common.hnode)
+		nss_qdisc_hlist_for_each_entry(cl, n, &q->clhash.hash[i], sch_common.hnode)
 			nss_htb_reset_class(cl);
 	}
 
@@ -778,7 +777,8 @@ static void nss_htb_reset_qdisc(struct Qdisc *sch)
 static void nss_htb_destroy_qdisc(struct Qdisc *sch)
 {
 	struct nss_htb_sched_data *q = qdisc_priv(sch);
-	struct hlist_node *n, *next;
+	struct hlist_node *n __maybe_unused;
+	struct hlist_node *next;
 	struct nss_htb_class_data *cl;
 	unsigned int i;
 
@@ -786,7 +786,7 @@ static void nss_htb_destroy_qdisc(struct Qdisc *sch)
 	 * Destroy all the classes before the root qdisc is destroyed.
 	 */
 	for (i = 0; i < q->clhash.hashsize; i++) {
-		hlist_for_each_entry_safe(cl, n, next, &q->clhash.hash[i], sch_common.hnode) {
+		nss_qdisc_hlist_for_each_entry_safe(cl, n, next, &q->clhash.hash[i], sch_common.hnode) {
 
 			/*
 			 * If this is the root class, we dont have to destroy it. This will be taken
@@ -836,16 +836,14 @@ static int nss_htb_dump_qdisc(struct Qdisc *sch, struct sk_buff *skb)
 	struct nlattr *nest;
 
 	nss_qdisc_trace("%s: dumping htb qdisc %x\n", __func__, sch->handle);
+	qopt.r2q = q->r2q;
 
 	nest = nla_nest_start(skb, TCA_OPTIONS);
-	if (nest == NULL) {
+	if (nest == NULL || nla_put(skb, TCA_NSSHTB_QDISC_PARMS, sizeof(qopt), &qopt)) {
 		goto nla_put_failure;
 	}
 
-	qopt.r2q = q->r2q;
-	NLA_PUT(skb, TCA_NSSHTB_QDISC_PARMS, sizeof(qopt), &qopt);
 	nla_nest_end(skb, nest);
-
 	return skb->len;
 
  nla_put_failure:

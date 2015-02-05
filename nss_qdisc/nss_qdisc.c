@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2015 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -2008,10 +2008,11 @@ static void nss_qdisc_get_stats_timer_callback(unsigned long int data)
 	if (rc != NSS_TX_SUCCESS) {
 		nss_qdisc_error("%s: %p: basic stats get failed to send\n",
 				__func__, nq->qdisc);
-	/*
-	 * Schedule the timer once again for re-trying. Since this is a
-	 * re-try we schedule it 100ms from now, instead of a whole second.
-	 */
+
+		/*
+		 * Schedule the timer once again for re-trying. Since this is a
+		 * re-try we schedule it 100ms from now, instead of a whole second.
+		 */
 		nq->stats_get_timer.expires = jiffies + HZ/10;
 		add_timer(&nq->stats_get_timer);
 	}
@@ -2066,10 +2067,16 @@ void nss_qdisc_stop_basic_stats_polling(struct nss_qdisc *nq)
 static int nss_qdisc_if_event_cb(struct notifier_block *unused,
 					unsigned long event, void *ptr)
 {
-	struct net_device *dev = (struct net_device *)ptr;
+	struct net_device *dev;
 	struct net_device *br;
 	struct Qdisc *br_qdisc;
 	int if_num, br_num;
+
+	dev = nss_qdisc_get_dev(ptr);
+	if (!dev) {
+		nss_qdisc_warning("Received event %lu on NULL interface\n", event);
+		return NOTIFY_DONE;
+	}
 
 	switch (event) {
 	case NETDEV_BR_JOIN:
@@ -2078,7 +2085,7 @@ static int nss_qdisc_if_event_cb(struct notifier_block *unused,
 	case NETDEV_BR_LEAVE:
 		nss_qdisc_info("Reveived NETDEV_BR_LEAVE on interface %s\n",
 				dev->name);
-		br = dev->master;
+		br = nss_qdisc_get_dev_master(dev);
 		if_num = nss_cmn_get_interface_number(nss_qdisc_ctx, dev);
 
 		if (br == NULL || br->priv_flags != IFF_EBRIDGE) {

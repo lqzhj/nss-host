@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2015 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -167,15 +167,16 @@ static int nss_prio_dump(struct Qdisc *sch, struct sk_buff *skb)
 {
 	struct nss_prio_sched_data *q = qdisc_priv(sch);
 	struct nlattr *opts = NULL;
-	struct tc_nssprio_qopt qopt; 
+	struct tc_nssprio_qopt qopt;
 
 	nss_qdisc_info("Nssprio dumping");
 	qopt.bands = q->bands;
 
 	opts = nla_nest_start(skb, TCA_OPTIONS);
-	if (opts == NULL)
+	if (opts == NULL || nla_put(skb, TCA_NSSPRIO_PARMS, sizeof(qopt), &qopt)) {
 		goto nla_put_failure;
-	NLA_PUT(skb, TCA_NSSPRIO_PARMS, sizeof(qopt), &qopt);
+	}
+
 	return nla_nest_end(skb, opts);
 
 nla_put_failure:
