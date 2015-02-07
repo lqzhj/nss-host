@@ -16,8 +16,11 @@
 
 #include "nss_qdisc.h"
 
+/*
+ * nss_bf class instance structure
+ */
 struct nss_bf_class_data {
-	struct nss_qdisc nq;		/* Base class used by nss_qdisc */
+	struct nss_qdisc nq;			/* Base class used by nss_qdisc */
 	struct Qdisc_class_common cl_common;	/* Common class structure */
 	u32 rate;				/* Allowed bandwidth for this class */
 	u32 burst;				/* Allowed burst for this class */
@@ -26,13 +29,20 @@ struct nss_bf_class_data {
 	struct Qdisc *qdisc;			/* Pointer to child qdisc */
 };
 
+/*
+ * nss_bf qdisc instance structure
+ */
 struct nss_bf_sched_data {
-	struct nss_qdisc nq;		/* Base class used by nss_qdisc */
+	struct nss_qdisc nq;			/* Base class used by nss_qdisc */
 	u16 defcls;				/* default class id */
 	struct nss_bf_class_data root;		/* root class */
 	struct Qdisc_class_hash clhash;		/* class hash */
 };
 
+/*
+ * nss_bf_find_class()
+ *	Returns a pointer to class if classid matches with a class under this qdisc.
+ */
 static inline struct nss_bf_class_data *nss_bf_find_class(u32 classid,
 							struct Qdisc *sch)
 {
@@ -46,10 +56,17 @@ static inline struct nss_bf_class_data *nss_bf_find_class(u32 classid,
 	return container_of(clc, struct nss_bf_class_data, cl_common);
 }
 
+/*
+ * nss_bf_policy structure
+ */
 static const struct nla_policy nss_bf_policy[TCA_NSSBF_MAX + 1] = {
 	[TCA_NSSBF_CLASS_PARMS] = { .len = sizeof(struct tc_nssbf_class_qopt) },
 };
 
+/*
+ * nss_bf_change_class()
+ *	Configures a new class.
+ */
 static int nss_bf_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
 		  struct nlattr **tca, unsigned long *arg)
 {
@@ -63,15 +80,15 @@ static int nss_bf_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
 	struct net_device *dev = qdisc_dev(sch);
 
 	nss_qdisc_info("%s: Changing bf class %u\n", __func__, classid);
-        if (opt == NULL)
-                return -EINVAL;
+	if (opt == NULL)
+		return -EINVAL;
 
-        err = nla_parse_nested(na, TCA_NSSBF_MAX, opt, nss_bf_policy);
-        if (err < 0)
-                return err;
+	err = nla_parse_nested(na, TCA_NSSBF_MAX, opt, nss_bf_policy);
+	if (err < 0)
+		return err;
 
-        if (na[TCA_NSSBF_CLASS_PARMS] == NULL)
-                return -EINVAL;
+	if (na[TCA_NSSBF_CLASS_PARMS] == NULL)
+		return -EINVAL;
 
 	/*
 	 * If class with a given classid is not found, we allocate a new one
@@ -206,6 +223,10 @@ static int nss_bf_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
 	return 0;
 }
 
+/*
+ * nss_bf_destroy_class()
+ *	Detaches all child nodes and destroys the class.
+ */
 static void nss_bf_destroy_class(struct Qdisc *sch, struct nss_bf_class_data *cl)
 {
 	struct nss_bf_sched_data *q = qdisc_priv(sch);
@@ -260,6 +281,10 @@ static void nss_bf_destroy_class(struct Qdisc *sch, struct nss_bf_class_data *cl
 	kfree(cl);
 }
 
+/*
+ * nss_bf_delete_class()
+ *	Detaches a class from operation, but does not destroy it.
+ */
 static int nss_bf_delete_class(struct Qdisc *sch, unsigned long arg)
 {
 	struct nss_bf_sched_data *q = qdisc_priv(sch);
@@ -298,6 +323,10 @@ static int nss_bf_delete_class(struct Qdisc *sch, unsigned long arg)
 	return 0;
 }
 
+/*
+ * nss_bf_graft_class()
+ *	Replaces the qdisc attached to the provided class.
+ */
 static int nss_bf_graft_class(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
 								 struct Qdisc **old)
 {
@@ -362,6 +391,10 @@ static int nss_bf_graft_class(struct Qdisc *sch, unsigned long arg, struct Qdisc
 	return 0;
 }
 
+/*
+ * nss_bf_leaf_class()
+ *	Returns pointer to qdisc if leaf class.
+ */
 static struct Qdisc *nss_bf_leaf_class(struct Qdisc *sch, unsigned long arg)
 {
 	struct nss_bf_class_data *cl = (struct nss_bf_class_data *)arg;
@@ -374,6 +407,10 @@ static struct Qdisc *nss_bf_leaf_class(struct Qdisc *sch, unsigned long arg)
 	return cl->qdisc;
 }
 
+/*
+ * nss_bf_qlen_notify()
+ *	We dont maintain a live set of stats in linux, so this function is not implemented.
+ */
 static void nss_bf_qlen_notify(struct Qdisc *sch, unsigned long arg)
 {
 	nss_qdisc_info("bf qlen notify %p\n", sch);
@@ -383,6 +420,10 @@ static void nss_bf_qlen_notify(struct Qdisc *sch, unsigned long arg)
 	 */
 }
 
+/*
+ * nss_bf_get_class()
+ *	Fetches the class pointer if provided the classid.
+ */
 static unsigned long nss_bf_get_class(struct Qdisc *sch, u32 classid)
 {
 	struct nss_bf_class_data *cl = nss_bf_find_class(classid, sch);
@@ -395,6 +436,10 @@ static unsigned long nss_bf_get_class(struct Qdisc *sch, u32 classid)
 	return (unsigned long)cl;
 }
 
+/*
+ * nss_bf_put_class()
+ *	Reduces reference count for this class.
+ */
 static void nss_bf_put_class(struct Qdisc *sch, unsigned long arg)
 {
 	struct nss_bf_class_data *cl = (struct nss_bf_class_data *)arg;
@@ -409,6 +454,10 @@ static void nss_bf_put_class(struct Qdisc *sch, unsigned long arg)
 	}
 }
 
+/*
+ * nss_bf_dump_class()
+ *	Dumps all configurable parameters pertaining to this class.
+ */
 static int nss_bf_dump_class(struct Qdisc *sch, unsigned long arg, struct sk_buff *skb,
 		struct tcmsg *tcm)
 {
@@ -443,6 +492,10 @@ nla_put_failure:
 	return -EMSGSIZE;
 }
 
+/*
+ * nss_bf_dump_class_stats()
+ *	Dumps class statistics.
+ */
 static int nss_bf_dump_class_stats(struct Qdisc *sch, unsigned long arg, struct gnet_dump *d)
 {
 	struct nss_qdisc *nq = (struct nss_qdisc *)arg;
@@ -455,6 +508,10 @@ static int nss_bf_dump_class_stats(struct Qdisc *sch, unsigned long arg, struct 
 	return 0;
 }
 
+/*
+ * nss_bf_walk()
+ *	Used to walk the tree.
+ */
 static void nss_bf_walk(struct Qdisc *sch, struct qdisc_walker *arg)
 {
 	struct nss_bf_sched_data *q = qdisc_priv(sch);
@@ -482,71 +539,66 @@ static void nss_bf_walk(struct Qdisc *sch, struct qdisc_walker *arg)
 	}
 }
 
-static int nss_bf_init_qdisc(struct Qdisc *sch, struct nlattr *opt)
-{
-	struct nss_bf_sched_data *q = qdisc_priv(sch);
-	struct tc_nssbf_qopt *qopt;
-	int err;
-
-	nss_qdisc_info("Init bf qdisc %p\n", sch);
-	if (opt == NULL || nla_len(opt) < sizeof(*qopt))
-		return -EINVAL;
-	qopt = nla_data(opt);
-
-	q->defcls = qopt->defcls;
-	err = qdisc_class_hash_init(&q->clhash);
-	if (err < 0)
-		return err;
-
-	q->root.cl_common.classid = sch->handle;
-	q->root.qdisc = &noop_qdisc;
-
-	qdisc_class_hash_insert(&q->clhash, &q->root.cl_common);
-	qdisc_class_hash_grow(sch, &q->clhash);
-
-	/*
-	 * Initialize the NSSBF shaper in NSS
-	 */
-	if (nss_qdisc_init(sch, &q->nq, NSS_SHAPER_NODE_TYPE_BF, 0) < 0)
-		return -EINVAL;
-
-	nss_qdisc_info("Nssbf initialized - handle %x parent %x\n", sch->handle, sch->parent);
-
-	/*
-	 * Start the stats polling timer
-	 */
-	nss_qdisc_start_basic_stats_polling(&q->nq);
-
-	return 0;
-}
-
+/*
+ * nss_bf_change_qdisc()
+ *	Can be used to configure a nssbf qdisc.
+ */
 static int nss_bf_change_qdisc(struct Qdisc *sch, struct nlattr *opt)
 {
 	struct nss_bf_sched_data *q = qdisc_priv(sch);
 	struct tc_nssbf_qopt *qopt;
 
 	/*
-	 * NSSBF does not care about the defcls, so we dont send down any
-	 * configuration parameter.
+	 * Since nssbf can be created with no arguments, opt might be NULL
+	 * (depending on the kernel version). This is still a valid create
+	 * request.
 	 */
-	nss_qdisc_info("Changing bf qdisc %p\n", sch);
-	if (opt == NULL || nla_len(opt) < sizeof(*qopt))
-		return -EINVAL;
-	qopt = nla_data(opt);
+	if (opt == NULL) {
 
+		/*
+		 * If no parameter is passed, set it to 0 and continue
+		 * creating the qdisc.
+		 */
+		sch_tree_lock(sch);
+		q->defcls = 0;
+		sch_tree_unlock(sch);
+		return 0;
+	}
+
+	/*
+	 * If it is not NULL, check if the size of message is valid.
+	 */
+	if (nla_len(opt) < sizeof(*qopt)) {
+		nss_qdisc_warning("Invalid message length: size %d expected >= %u\n", nla_len(opt), sizeof(*qopt));
+		return -EINVAL;
+	}
+	qopt = nla_data(opt);
 	sch_tree_lock(sch);
 	q->defcls = qopt->defcls;
 	sch_tree_unlock(sch);
 
+	/*
+	 * This information is unused in the NSS. So we do not send
+	 * a configuration message down.
+	 */
+
 	return 0;
 }
 
+/*
+ * nss_bf_reset_class()
+ *	Resets child qdisc of class to be reset.
+ */
 static void nss_bf_reset_class(struct nss_bf_class_data *cl)
 {
 	nss_qdisc_reset(cl->qdisc);
 	nss_qdisc_info("Nssbf class resetted %p\n", cl->qdisc);
 }
 
+/*
+ * nss_bf_reset_qdisc()
+ *	Resets nssbf qdisc and its classes.
+ */
 static void nss_bf_reset_qdisc(struct Qdisc *sch)
 {
 	struct nss_bf_sched_data *q = qdisc_priv(sch);
@@ -563,6 +615,10 @@ static void nss_bf_reset_qdisc(struct Qdisc *sch)
 	nss_qdisc_info("Nssbf qdisc resetted %p\n", sch);
 }
 
+/*
+ * nss_bf_destroy_qdisc()
+ *	Call to destroy a nssbf qdisc and its associated classes.
+ */
 static void nss_bf_destroy_qdisc(struct Qdisc *sch)
 {
 	struct nss_bf_sched_data *q = qdisc_priv(sch);
@@ -629,6 +685,55 @@ static void nss_bf_destroy_qdisc(struct Qdisc *sch)
 	nss_qdisc_info("Nssbf destroyed %p\n", sch);
 }
 
+/*
+ * nss_bf_init_qdisc()
+ *	Initializes the nssbf qdisc.
+ */
+static int nss_bf_init_qdisc(struct Qdisc *sch, struct nlattr *opt)
+{
+	struct nss_bf_sched_data *q = qdisc_priv(sch);
+	int err;
+
+	nss_qdisc_info("Init bf qdisc %p\n", sch);
+
+	err = qdisc_class_hash_init(&q->clhash);
+	if (err < 0)
+		return err;
+
+	q->root.cl_common.classid = sch->handle;
+	q->root.qdisc = &noop_qdisc;
+
+	qdisc_class_hash_insert(&q->clhash, &q->root.cl_common);
+	qdisc_class_hash_grow(sch, &q->clhash);
+
+	/*
+	 * Initialize the NSSBF shaper in NSS
+	 */
+	if (nss_qdisc_init(sch, &q->nq, NSS_SHAPER_NODE_TYPE_BF, 0) < 0)
+		return -EINVAL;
+
+	nss_qdisc_info("Nssbf initialized - handle %x parent %x\n", sch->handle, sch->parent);
+
+	/*
+	 * Tune nss_bf parameters.
+	 */
+	if (nss_bf_change_qdisc(sch, opt) < 0) {
+		nss_qdisc_destroy(&q->nq);
+		return -EINVAL;
+	}
+
+	/*
+	 * Start the stats polling timer
+	 */
+	nss_qdisc_start_basic_stats_polling(&q->nq);
+
+	return 0;
+}
+
+/*
+ * nss_bf_dump_qdisc()
+ *	Dumps nssbf qdisc's configurable parameters.
+ */
 static int nss_bf_dump_qdisc(struct Qdisc *sch, struct sk_buff *skb)
 {
 	struct nss_bf_sched_data *q = qdisc_priv(sch);
@@ -652,22 +757,39 @@ static int nss_bf_dump_qdisc(struct Qdisc *sch, struct sk_buff *skb)
 	return -1;
 }
 
+/*
+ * nss_bf_enqueue()
+ *	Enqueues a skb to nssbf qdisc.
+ */
 static int nss_bf_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 {
 	return nss_qdisc_enqueue(skb, sch);
 }
 
+/*
+ * nss_bf_dequeue()
+ *	Dequeues a skb to nssbf qdisc.
+ */
 static struct sk_buff *nss_bf_dequeue(struct Qdisc *sch)
 {
 	return nss_qdisc_dequeue(sch);
 }
 
+/*
+ * nss_bf_drop()
+ *	Drops a single skb from linux queue, if not empty.
+ *
+ * Does not drop packets that are queued in the NSS.
+ */
 static unsigned int nss_bf_drop(struct Qdisc *sch)
 {
 	printk("In bf drop\n");
 	return nss_qdisc_drop(sch);
 }
 
+/*
+ * Registration structure for nssbf class
+ */
 const struct Qdisc_class_ops nss_bf_class_ops = {
 	.change		= nss_bf_change_class,
 	.delete		= nss_bf_delete_class,
@@ -681,6 +803,9 @@ const struct Qdisc_class_ops nss_bf_class_ops = {
 	.walk		= nss_bf_walk
 };
 
+/*
+ * Registration structure for nssbf qdisc
+ */
 struct Qdisc_ops nss_bf_qdisc_ops __read_mostly = {
 	.id		= "nssbf",
 	.init		= nss_bf_init_qdisc,
@@ -696,4 +821,3 @@ struct Qdisc_ops nss_bf_qdisc_ops __read_mostly = {
 	.priv_size	= sizeof(struct nss_bf_sched_data),
 	.owner		= THIS_MODULE
 };
-
