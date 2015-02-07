@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -20,7 +20,7 @@
  */
 
 #include "nss_tx_rx_common.h"
-#include <linux/ppp_channel.h>
+#include <linux/if_pppox.h>
 
 /*
  * nss_pppoe_tx()
@@ -223,7 +223,7 @@ static void nss_pppoe_destroy_connection_rule(void *ctx, uint16_t pppoe_session_
 static void nss_pppoe_rule_create_success(struct nss_ctx_instance *nss_ctx, struct nss_pppoe_rule_create_success_msg *pcs)
 {
 #if (NSS_PPP_SUPPORT == 1)
-	struct net_device *ppp_dev = ppp_session_to_netdev(pcs->pppoe_session_id, pcs->pppoe_remote_mac);
+	struct net_device *ppp_dev = pppoe_get_and_hold_netdev_from_session_info(pcs->pppoe_session_id, pcs->pppoe_remote_mac);
 
 	if (!ppp_dev) {
 		nss_warning("%p: There is not any PPP devices with SID: %x remote MAC: %x:%x:%x:%x:%x:%x", nss_ctx, pcs->pppoe_session_id,
