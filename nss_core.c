@@ -1101,6 +1101,7 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 	struct nss_ctx_instance *nss_ctx = int_ctx->nss_ctx;
 	struct nss_if_mem_map *if_map = (struct nss_if_mem_map *)(nss_ctx->vmap);
 	uint16_t max_buf_size = (uint16_t) nss_ctx->max_buf_size;
+	uint16_t payload_len;
 	int32_t i;
 
 	nss_assert((cause == NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFERS_SOS) || (cause == NSS_REGS_N2H_INTR_STATUS_TX_UNBLOCKED));
@@ -1266,8 +1267,9 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 				/*
 				 * Map the skb
 				 */
-				buffer = dma_map_single(NULL, nbuf->head, max_buf_size, DMA_FROM_DEVICE);
-				desc->buffer_len = max_buf_size;
+				payload_len = max_buf_size + NET_SKB_PAD;
+				buffer = dma_map_single(NULL, nbuf->head, payload_len, DMA_FROM_DEVICE);
+				desc->buffer_len = payload_len;
 				desc->payload_offs = (uint16_t) (nbuf->data - nbuf->head);
 			}
 
