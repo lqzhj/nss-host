@@ -768,36 +768,13 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 		gmacdev->drv_flags |= NSS_GMAC_PRIV_FLAG(LINKPOLL);
 	}
 
-	switch (gmaccfg->forced_speed) {
-	case SPEED_10:
-		gmacdev->forced_speed = SPEED10;
-		break;
-
-	case SPEED_100:
-		gmacdev->forced_speed = SPEED100;
-		break;
-
-	case SPEED_1000:
-		gmacdev->forced_speed = SPEED1000;
-		break;
-
-	default:
+	if ((gmaccfg->forced_speed != SPEED_10) && (gmaccfg->forced_speed != SPEED_100)
+			&& (gmaccfg->forced_speed != SPEED_1000)) {
 		gmacdev->forced_speed = SPEED_UNKNOWN;
-		break;
-	}
-
-	switch (gmaccfg->forced_duplex) {
-	case DUPLEX_HALF:
-		gmacdev->forced_duplex = HALFDUPLEX;
-		break;
-
-	case DUPLEX_FULL:
-		gmacdev->forced_duplex = FULLDUPLEX;
-		break;
-
-	default:
 		gmacdev->forced_duplex = DUPLEX_UNKNOWN;
-		break;
+	} else {
+		gmacdev->forced_speed = gmaccfg->forced_speed;
+		gmacdev->forced_duplex = gmaccfg->forced_duplex;
 	}
 
 	/* save global context within each GMAC context */
