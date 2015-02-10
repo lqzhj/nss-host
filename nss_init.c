@@ -1380,6 +1380,11 @@ static int __init nss_init(void)
 	nss_ipv4_register_sysctl();
 	nss_ipv6_register_sysctl();
 
+	/*
+	 * Registering sysctl for n2h empty pool buffer.
+	 */
+	nss_n2h_empty_pool_buf_register_sysctl();
+
 #ifdef CONFIG_DEBUG_KMEMLEAK
 	/*
 	 * If the system is under kmemleak debugging, track our

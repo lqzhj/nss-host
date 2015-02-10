@@ -588,10 +588,7 @@ void nss_n2h_register_handler()
 	nss_n2h_notify_register(NSS_CORE_0, NULL, NULL);
 	nss_n2h_notify_register(NSS_CORE_1, NULL, NULL);
 
-	/*
-	 * Registering sysctl for n2h empty pool buffer.
-	 */
-	nss_n2h_empty_pool_buf_register_sysctl();
 }
 
 EXPORT_SYMBOL(nss_n2h_notify_register);
+EXPORT_SYMBOL(nss_n2h_empty_pool_buf_register_sysctl);
