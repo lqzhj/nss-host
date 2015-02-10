@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014 - 2015, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -222,6 +222,49 @@ static void nss_phys_if_callback(void *app_data, struct nss_phys_if_msg *nim)
 
 	phif.response = NSS_TX_SUCCESS;
 	complete(&phif.complete);
+}
+
+/*
+ * nss_phys_if_get_mtu_sz
+ * 	Get the mtu size needed based on current max mtu value
+ */
+static uint16_t nss_phys_if_get_mtu_sz(struct nss_ctx_instance *nss_ctx)
+{
+	int32_t i;
+	uint16_t mtu_sz = NSS_GMAC_NORMAL_FRAME_MTU;
+	uint16_t max_mtu;
+
+        /*
+	 * Loop through MTU values of all Physical
+	 * interfaces and get the maximum one of all
+	 */
+	max_mtu = nss_ctx->phys_if_mtu[0];
+	for (i = 1; i < NSS_MAX_PHYSICAL_INTERFACES; i++) {
+		if (max_mtu < nss_ctx->phys_if_mtu[i]) {
+			max_mtu = nss_ctx->phys_if_mtu[i];
+		}
+	}
+
+	/*
+	 * GMACs support 3 Modes
+	 * Normal Mode Payloads upto 1522 Bytes ( 1500 + 14 + 4(Vlan) + 4(CRC))
+	 * Mini Jumbo Mode Payloads upto 2000 Bytes (1978 + 14 + 4(Vlan) + 4 (CRC))
+	 * Full Jumbo Mode payloads upto 9622 Bytes (9600 + 14 + 4(Vlan) + 4 (CRC))
+	 */
+
+	/*
+	 * The configured MTU value on a physical interface shall fall
+	 * into one of these cases. Finding the Needed MTU size that is required
+	 * for GMAC to successfully receive the frame.
+	 */
+	if (max_mtu <= NSS_GMAC_NORMAL_FRAME_MTU) {
+		mtu_sz = NSS_GMAC_NORMAL_FRAME_MTU;
+	} else if (max_mtu <= NSS_GMAC_MINI_JUMBO_FRAME_MTU) {
+		mtu_sz = NSS_GMAC_MINI_JUMBO_FRAME_MTU;
+	} else if (max_mtu <= NSS_GMAC_FULL_JUMBO_FRAME_MTU) {
+		mtu_sz = NSS_GMAC_FULL_JUMBO_FRAME_MTU;
+	}
+	return mtu_sz;
 }
 
 /*
@@ -528,42 +571,53 @@ nss_tx_status_t nss_phys_if_change_mtu(struct nss_ctx_instance *nss_ctx, uint32_
 {
 	struct nss_phys_if_msg nim;
 	struct nss_if_mtu_change *nimc;
-	int32_t i;
-	uint16_t max_mtu;
+	uint16_t mtu_sz;
+	nss_tx_status_t status;
 
 	NSS_VERIFY_CTX_MAGIC(nss_ctx);
 	nss_info("%p: Phys If Change MTU, id:%d, mtu=%d\n", nss_ctx, if_num, mtu);
+
+	if (mtu > NSS_GMAC_FULL_JUMBO_FRAME_MTU) {
+		nss_info("%p: MTU larger than FULL_JUMBO_FRAME(%d)", nss_ctx, NSS_GMAC_FULL_JUMBO_FRAME_MTU);
+		return NSS_TX_FAILURE;
+	}
+
 	nss_cmn_msg_init(&nim.cm, if_num, NSS_TX_METADATA_TYPE_INTERFACE_MTU_CHANGE,
 			sizeof(struct nss_if_mtu_change), nss_phys_if_callback, NULL);
 
 	nimc = &nim.msg.if_msg.mtu_change;
 	nimc->min_buf_size = (uint16_t)mtu + NSS_NBUF_ETH_EXTRA;
 
+	status = nss_phys_if_msg_sync(nss_ctx, &nim);
+	if (status != NSS_TX_SUCCESS) {
+		return status;
+	}
+
 	/*
-	 * TODO: If we want to maintain this in the long run, we will need to place
-	 * this in the ack side of the MTU_CHANGE request.
+	 * Update the mtu and max_buf_size accordingly
 	 */
 	nss_ctx->phys_if_mtu[if_num] = (uint16_t)mtu;
-	max_mtu = nss_ctx->phys_if_mtu[0];
-	for (i = 1; i < NSS_MAX_PHYSICAL_INTERFACES; i++) {
-		if (max_mtu < nss_ctx->phys_if_mtu[i]) {
-			max_mtu = nss_ctx->phys_if_mtu[i];
+
+	mtu_sz = nss_phys_if_get_mtu_sz(nss_ctx);
+
+	nss_ctx->max_buf_size = ((mtu_sz + ETH_HLEN + SMP_CACHE_BYTES - 1) & ~(SMP_CACHE_BYTES - 1)) + NSS_NBUF_PAD_EXTRA;
+
+	nss_info("Current mtu:%u mtu_sz:%u max_buf_size:%d\n", mtu, mtu_sz, nss_ctx->max_buf_size);
+
+	if (mtu_sz > nss_ctx->nss_top->prev_mtu_sz) {
+
+		/* If crypto is enabled on platform
+		 * Send the flush payloads message
+		 */
+		if (nss_ctx->nss_top->crypto_enabled) {
+			if (nss_n2h_flush_payloads(nss_ctx) != NSS_TX_SUCCESS) {
+				nss_info("Unable to send flush payloads command to NSS\n");
+			}
 		}
 	}
+	nss_ctx->nss_top->prev_mtu_sz = mtu_sz;
 
-	if (max_mtu <= NSS_GMAC_NORMAL_FRAME_MTU) {
-		max_mtu = NSS_GMAC_NORMAL_FRAME_MTU;
-	} else if (max_mtu <= NSS_GMAC_MINI_JUMBO_FRAME_MTU) {
-		max_mtu = NSS_GMAC_MINI_JUMBO_FRAME_MTU;
-	} else if (max_mtu <= NSS_GMAC_FULL_JUMBO_FRAME_MTU) {
-		max_mtu = NSS_GMAC_FULL_JUMBO_FRAME_MTU;
-	} else {
-		nss_info("%p: MTU larger than FULL_JUMBO_FRAME(%d)", nss_ctx, NSS_GMAC_FULL_JUMBO_FRAME_MTU);
-		return NSS_TX_FAILURE;
-	}
-	nss_ctx->max_buf_size = ((max_mtu + ETH_HLEN + SMP_CACHE_BYTES - 1) & ~(SMP_CACHE_BYTES - 1)) + NSS_NBUF_PAD_EXTRA;
-
-	return nss_phys_if_msg_sync(nss_ctx, &nim);
+	return status;
 }
 
 /**

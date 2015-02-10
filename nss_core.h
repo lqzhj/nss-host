@@ -689,6 +689,9 @@ struct nss_top_instance {
 	bool nss_hal_common_init_done;
 #endif
 
+	uint16_t prev_mtu_sz;		/* mtu sz needed as of now */
+	uint16_t crypto_enabled;	/* check if crypto is enabled on the platform */
+
 	/*
 	 * TODO: Review and update following fields
 	 */
