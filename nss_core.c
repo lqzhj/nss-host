@@ -1603,8 +1603,6 @@ static inline int32_t nss_core_send_buffer_simple_skb(struct nss_ctx_instance *n
 	return 1;
 }
 
-//Note to Thomas:  Linux has support for atomic_inc() on a 64 bit value.  Hint, use iot
-
 /*
  * nss_core_send_buffer_nr_frags()
  *	Sends frags array (NETIF_F_SG) to NSS FW
@@ -1885,21 +1883,8 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	 * They will NOT be transmitted by the NSS.
 	 */
 	if (skb_is_gso(nbuf) && !is_bounce) {
-
 		mss = skb_shinfo(nbuf)->gso_size;
 		flags |= H2N_BIT_FLAG_SEGMENTATION_ENABLE;
-		if (skb_shinfo(nbuf)->gso_type & SKB_GSO_TCPV4) {
-			flags |= H2N_BIT_FLAG_SEGMENT_TSO;
-		} else if (skb_shinfo(nbuf)->gso_type & SKB_GSO_TCPV6) {
-			flags |= H2N_BIT_FLAG_SEGMENT_TSO6;
-		} else if (skb_shinfo(nbuf)->gso_type & SKB_GSO_UDP) {
-			flags |= H2N_BIT_FLAG_SEGMENT_UFO;
-		} else {
-			/*
-			 * Invalid segmentation type
-			 */
-			nss_assert(0);
-		}
 	}
 
 	/*
