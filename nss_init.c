@@ -583,6 +583,7 @@ static int nss_probe(struct platform_device *nss_dev)
 	}
 
 	if (npd->crypto_enabled == NSS_FEATURE_ENABLED) {
+		nss_top->crypto_enabled = 1;
 		nss_top->crypto_handler_id = nss_dev->id;
 		nss_crypto_register_handler();
 	}
@@ -1438,6 +1439,11 @@ static int __init nss_init(void)
 		nss_warning("Error registering with PM driver");
 	}
 #endif
+
+	/*
+	 * Initialize mtu size needed as start
+	 */
+	nss_top_main.prev_mtu_sz = NSS_GMAC_NORMAL_FRAME_MTU;
 
 	/*
 	 * Register platform_driver

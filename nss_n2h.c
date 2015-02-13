@@ -134,6 +134,10 @@ static void nss_n2h_interface_handler(struct nss_ctx_instance *nss_ctx, struct n
 		nss_info("%p: empty pool buf cfg response from FW", nss_ctx);
 		break;
 
+	case NSS_TX_METADATA_TYPE_N2H_FLUSH_PAYLOADS:
+		nss_info("%p: flush payloads cmd response from FW", nss_ctx);
+		break;
+
 	case NSS_RX_METADATA_TYPE_N2H_STATS_SYNC:
 		nss_n2h_stats_sync(nss_ctx, &nnm->msg.stats_sync);
 		break;
@@ -313,6 +317,40 @@ static int nss_n2h_set_empty_pool_buf(ctl_table *ctl, int write, void __user *bu
 
 	up(&nss_n2h_nepbcfgp[core_num].sem);
 	return NSS_SUCCESS;
+}
+
+/*
+ * nss_n2h_flush_payloads()
+ * 	Sends a command down to NSS for flushing all payloads
+ */
+nss_tx_status_t nss_n2h_flush_payloads(struct nss_ctx_instance *nss_ctx)
+{
+	struct nss_n2h_msg nnm;
+	struct nss_n2h_flush_payloads *nnflshpl;
+	nss_tx_status_t nss_tx_status;
+
+	nnflshpl = &nnm.msg.flush_payloads;
+
+	/*
+	 * TODO: No additional information sent in message
+	 * as of now. Need to initialize message content accordingly
+	 * if needed.
+	 */
+	nss_n2h_msg_init(&nnm, NSS_N2H_INTERFACE,
+			NSS_TX_METADATA_TYPE_N2H_FLUSH_PAYLOADS,
+			sizeof(struct nss_n2h_flush_payloads),
+			NULL,
+			NULL);
+
+	nss_tx_status = nss_n2h_tx_msg(nss_ctx, &nnm);
+	if (nss_tx_status != NSS_TX_SUCCESS) {
+		nss_warning("%p: failed to send flush payloads command to NSS\n",
+				nss_ctx);
+
+		return NSS_TX_FAILURE;
+	}
+
+	return NSS_TX_SUCCESS;
 }
 
 /*

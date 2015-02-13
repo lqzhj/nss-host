@@ -44,6 +44,7 @@ enum nss_n2h_metadata_types {
 	NSS_RX_METADATA_TYPE_N2H_STATS_SYNC=0,
 	NSS_TX_METADATA_TYPE_N2H_RPS_CFG,
 	NSS_TX_METADATA_TYPE_N2H_EMPTY_POOL_BUF_CFG,
+	NSS_TX_METADATA_TYPE_N2H_FLUSH_PAYLOADS,
 	NSS_METADATA_TYPE_N2H_MAX,
 };
 
@@ -53,6 +54,10 @@ struct nss_n2h_rps {
 
 struct nss_n2h_empty_pool_buf {
 	uint32_t pool_size; /* Empty pool buf size */
+};
+
+struct nss_n2h_flush_payloads {
+	uint32_t flag;	/* place holder */
 };
 
 /*
@@ -104,6 +109,8 @@ struct nss_n2h_msg {
 		struct nss_n2h_rps rps_cfg; 		/* Message: RPS configuration */
 		struct nss_n2h_empty_pool_buf empty_pool_buf_cfg;
 							/* Message: empty pool buf configuration */
+		struct nss_n2h_flush_payloads flush_payloads;
+							/* Message: flush payloads present in NSS */
 	} msg;
 };
 
@@ -135,6 +142,12 @@ extern void nss_n2h_empty_pool_buf_register_sysctl(void);
  *	API to unregister sysctl for empty pool buffer in n2h.
  */
 extern void nss_n2h_empty_pool_buf_unregister_sysctl(void);
+
+/*
+ * nss_n2h_flush_payloads()
+ *	API to send flush payloads message to NSS
+ */
+extern nss_tx_status_t nss_n2h_flush_payloads(struct nss_ctx_instance *nss_ctx);
 
 /*
  * nss_n2h_msg_init()
