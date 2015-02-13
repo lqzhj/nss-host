@@ -668,54 +668,6 @@ static void nss_htb_walk(struct Qdisc *sch, struct qdisc_walker *arg)
 }
 
 /*
- * nss_htb_init_qdisc()
- *	Initializes the htb qdisc.
- */
-static int nss_htb_init_qdisc(struct Qdisc *sch, struct nlattr *opt)
-{
-	struct nss_htb_sched_data *q = qdisc_priv(sch);
-	struct tc_nsshtb_qopt *qopt;
-	int err;
-
-	nss_qdisc_trace("%s: initializing htb qdisc %x\n", __func__, sch->handle);
-
-	if (opt == NULL || nla_len(opt) < sizeof(*qopt)) {
-		nss_qdisc_error("%s: error in input parameter for htb qdisc %x\n",
-					__func__, sch->handle);
-		return -EINVAL;
-	}
-
-	qopt = nla_data(opt);
-
-	sch_tree_lock(sch);
-	q->r2q = qopt->r2q;
-	sch_tree_unlock(sch);
-
-	err = qdisc_class_hash_init(&q->clhash);
-	if (err < 0) {
-		nss_qdisc_error("%s: hash init failed for htb qdisc %x", __func__, sch->handle);
-		return err;
-	}
-
-	/*
-	 * Initialize the NSSHTB shaper in NSS
-	 */
-	if (nss_qdisc_init(sch, &q->nq, NSS_SHAPER_NODE_TYPE_HTB, 0) < 0) {
-		nss_qdisc_error("%s: failed to initialize htb qdisc %x in nss", __func__, sch->handle);
-		return -EINVAL;
-	}
-
-	nss_qdisc_info("%s: htb qdisc initialized with handle %x\n", __func__, sch->handle);
-
-	/*
-	 * Start the stats polling timer
-	 */
-	nss_qdisc_start_basic_stats_polling(&q->nq);
-
-	return 0;
-}
-
-/*
  * nss_htb_change_qdisc()
  *	Can be used to configure a htb qdisc.
  */
@@ -724,18 +676,40 @@ static int nss_htb_change_qdisc(struct Qdisc *sch, struct nlattr *opt)
 	struct nss_htb_sched_data *q = qdisc_priv(sch);
 	struct tc_nsshtb_qopt *qopt;
 
-	nss_qdisc_trace("%s: configuring htb qdisc %x\n", __func__, sch->handle);
-	if (opt == NULL || nla_len(opt) < sizeof(*qopt)) {
-		nss_qdisc_error("%s: error in configuration parameter for qdisc %x\n",
-					__func__, sch->handle);
-		return -EINVAL;
+	/*
+	 * Since nsshtb can be created with no arguments, opt might be NULL
+	 * (depending on the kernel version). This is still a valid create
+	 * request.
+	 */
+	if (opt == NULL) {
+
+		/*
+		 * If no parameter is passed, set it to 0 and continue
+		 * creating the qdisc.
+		 */
+		sch_tree_lock(sch);
+		q->r2q = 0;
+		sch_tree_unlock(sch);
+		return 0;
 	}
 
+	/*
+	 * If it is not NULL, check if the size of message is valid.
+	 */
+	if (nla_len(opt) < sizeof(*qopt)) {
+		nss_qdisc_warning("Invalid message length: size %d expected >= %u\n", nla_len(opt), sizeof(*qopt));
+		return -EINVAL;
+	}
 	qopt = nla_data(opt);
 
 	sch_tree_lock(sch);
 	q->r2q = qopt->r2q;
 	sch_tree_unlock(sch);
+
+	/*
+	 * The r2q parameter is not needed in the firmware. So we do not
+	 * send down a configuration message.
+	 */
 
 	return 0;
 }
@@ -825,6 +799,49 @@ static void nss_htb_destroy_qdisc(struct Qdisc *sch)
 }
 
 /*
+ * nss_htb_init_qdisc()
+ *	Initializes the htb qdisc.
+ */
+static int nss_htb_init_qdisc(struct Qdisc *sch, struct nlattr *opt)
+{
+	struct nss_htb_sched_data *q = qdisc_priv(sch);
+	int err;
+
+	nss_qdisc_trace("%s: initializing htb qdisc %x\n", __func__, sch->handle);
+
+	err = qdisc_class_hash_init(&q->clhash);
+	if (err < 0) {
+		nss_qdisc_error("%s: hash init failed for htb qdisc %x", __func__, sch->handle);
+		return err;
+	}
+
+	/*
+	 * Initialize the NSSHTB shaper in NSS
+	 */
+	if (nss_qdisc_init(sch, &q->nq, NSS_SHAPER_NODE_TYPE_HTB, 0) < 0) {
+		nss_qdisc_error("%s: failed to initialize htb qdisc %x in nss", __func__, sch->handle);
+		return -EINVAL;
+	}
+
+	nss_qdisc_info("%s: htb qdisc initialized with handle %x\n", __func__, sch->handle);
+
+	/*
+	 * Tune HTB parameters
+	 */
+	if (nss_htb_change_qdisc(sch, opt) < 0) {
+		nss_qdisc_destroy(&q->nq);
+		return -EINVAL;
+	}
+
+	/*
+	 * Start the stats polling timer
+	 */
+	nss_qdisc_start_basic_stats_polling(&q->nq);
+
+	return 0;
+}
+
+/*
  * nss_htb_dump_qdisc()
  *	Dumps htb qdisc's configurable parameters.
  */
@@ -871,7 +888,7 @@ static struct sk_buff *nss_htb_dequeue(struct Qdisc *sch)
 
 /*
  * nss_htb_drop()
- *	Drops a single sbk from linux queue, if not empty.
+ *	Drops a single skb from linux queue, if not empty.
  *
  * Does not drop packets that are queued in the NSS.
  */

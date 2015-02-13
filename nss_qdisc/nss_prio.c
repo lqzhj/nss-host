@@ -16,38 +16,67 @@
 
 #include "nss_qdisc.h"
 
+/*
+ * nssprio qdisc instance structure
+ */
 struct nss_prio_sched_data {
-	struct nss_qdisc nq;	/* Common base class for all nss qdiscs */
+	struct nss_qdisc nq;		/* Common base class for all nss qdiscs */
 	int bands;			/* Number of priority bands to use */
 	struct Qdisc *queues[TCA_NSSPRIO_MAX_BANDS];
 					/* Array of child qdisc holder */
 };
 
+/*
+ * nss_prio_enqueue()
+ *	Enqueues a skb to nssprio qdisc.
+ */
 static int nss_prio_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 {
 	return nss_qdisc_enqueue(skb, sch);
 }
 
+/*
+ * nss_prio_dequeue()
+ *	Dequeues a skb to nssprio qdisc.
+ */
 static struct sk_buff *nss_prio_dequeue(struct Qdisc *sch)
 {
 	return nss_qdisc_dequeue(sch);
 }
 
+/*
+ * nss_prio_drop()
+ *	Drops a single skb from linux queue, if not empty.
+ *
+ * Does not drop packets that are queued in the NSS.
+ */
 static unsigned int nss_prio_drop(struct Qdisc *sch)
 {
 	return nss_qdisc_drop(sch);
 }
 
+/*
+ * nss_prio_peek()
+ *	Peeks the first packet in queue for this qdisc.
+ */
 static struct sk_buff *nss_prio_peek(struct Qdisc *sch)
 {
 	return nss_qdisc_peek(sch);
 }
 
+/*
+ * nss_prio_reset()
+ *	Reset the nssprio qdisc
+ */
 static void nss_prio_reset(struct Qdisc *sch)
 {
 	return nss_qdisc_reset(sch);
 }
 
+/*
+ * nss_prio_destroy()
+ *	Destroy the nssprio qdisc
+ */
 static void nss_prio_destroy(struct Qdisc *sch)
 {
 	struct nss_prio_sched_data *q = qdisc_priv(sch);
@@ -95,10 +124,17 @@ static void nss_prio_destroy(struct Qdisc *sch)
 	nss_qdisc_destroy(&q->nq);
 }
 
+/*
+ * nssprio policy structure
+ */
 static const struct nla_policy nss_prio_policy[TCA_NSSPRIO_MAX + 1] = {
 	[TCA_NSSPRIO_PARMS] = { .len = sizeof(struct tc_nssprio_qopt) },
 };
 
+/*
+ * nss_prio_change()
+ *	Function call to configure the nssprio parameters
+ */
 static int nss_prio_change(struct Qdisc *sch, struct nlattr *opt)
 {
 	struct nss_prio_sched_data *q;
@@ -108,8 +144,20 @@ static int nss_prio_change(struct Qdisc *sch, struct nlattr *opt)
 
 	q = qdisc_priv(sch);
 
+	/*
+	 * Since nssprio can be created with no arguments, opt might be NULL
+	 * (depending on the kernel version). This is still a valid create
+	 * request.
+	 */
 	if (opt == NULL) {
-		return -EINVAL;
+
+		/*
+		 * If no parameter is passed, set it to the default value.
+		 */
+		sch_tree_lock(sch);
+		q->bands = TCA_NSSPRIO_MAX_BANDS;
+		sch_tree_unlock(sch);
+		return 0;
 	}
 
 	err = nla_parse_nested(na, TCA_NSSPRIO_MAX, opt, nss_prio_policy);
@@ -127,24 +175,32 @@ static int nss_prio_change(struct Qdisc *sch, struct nlattr *opt)
 		return -EINVAL;
 	}
 
+	sch_tree_lock(sch);
 	q->bands = qopt->bands;
+	sch_tree_unlock(sch);
 	nss_qdisc_info("Bands = %u\n", qopt->bands);
+
+	/*
+	 * We do not pass on this information to NSS since
+	 * it not required for operation of prio. This parameter
+	 * is needed only for the proxy operation.
+	 */
 
 	return 0;
 }
 
+/*
+ * nss_prio_init()
+ *	Initializes the nssprio qdisc
+ */
 static int nss_prio_init(struct Qdisc *sch, struct nlattr *opt)
 {
 	struct nss_prio_sched_data *q = qdisc_priv(sch);
 	int i;
 
-	if (opt == NULL)
-		return -EINVAL;
-
 	for (i = 0; i < TCA_NSSPRIO_MAX_BANDS; i++)
 		q->queues[i] = &noop_qdisc;
 
-	q->bands = 0;
 	if (nss_qdisc_init(sch, &q->nq, NSS_SHAPER_NODE_TYPE_PRIO, 0) < 0)
 		return -EINVAL;
 
@@ -163,6 +219,10 @@ static int nss_prio_init(struct Qdisc *sch, struct nlattr *opt)
 	return 0;
 }
 
+/*
+ * nss_prio_dump()
+ *	Dump the parameters of nssprio
+ */
 static int nss_prio_dump(struct Qdisc *sch, struct sk_buff *skb)
 {
 	struct nss_prio_sched_data *q = qdisc_priv(sch);
@@ -184,6 +244,10 @@ nla_put_failure:
 	return -EMSGSIZE;
 }
 
+/*
+ * nss_prio_graft()
+ *	Replaces existing child qdisc with the new qdisc that is passed.
+ */
 static int nss_prio_graft(struct Qdisc *sch, unsigned long arg,
 				struct Qdisc *new, struct Qdisc **old)
 {
@@ -235,6 +299,10 @@ static int nss_prio_graft(struct Qdisc *sch, unsigned long arg,
 	return 0;
 }
 
+/*
+ * nss_prio_leaf_class()
+ *	Returns pointer to qdisc if leaf class.
+ */
 static struct Qdisc *nss_prio_leaf(struct Qdisc *sch, unsigned long arg)
 {
 	struct nss_prio_sched_data *q = qdisc_priv(sch);
@@ -248,6 +316,10 @@ static struct Qdisc *nss_prio_leaf(struct Qdisc *sch, unsigned long arg)
 	return q->queues[band];
 }
 
+/*
+ * nss_prio_get()
+ *	Returns the band if provided the classid.
+ */
 static unsigned long nss_prio_get(struct Qdisc *sch, u32 classid)
 {
 	struct nss_prio_sched_data *q = qdisc_priv(sch);
@@ -261,11 +333,19 @@ static unsigned long nss_prio_get(struct Qdisc *sch, u32 classid)
 	return band;
 }
 
+/*
+ * nss_prio_put()
+ *	Unused API.
+ */
 static void nss_prio_put(struct Qdisc *sch, unsigned long arg)
 {
-	nss_qdisc_info("Inside prio get\n");
+	nss_qdisc_info("Inside prio put\n");
 }
 
+/*
+ * nss_prio_walk()
+ *	Walks the priority band.
+ */
 static void nss_prio_walk(struct Qdisc *sch, struct qdisc_walker *arg)
 {
 	struct nss_prio_sched_data *q = qdisc_priv(sch);
@@ -288,6 +368,10 @@ static void nss_prio_walk(struct Qdisc *sch, struct qdisc_walker *arg)
 	nss_qdisc_info("Nssprio walk called\n");
 }
 
+/*
+ * nss_prio_dump_class()
+ * 	Dumps all configurable parameters pertaining to this class.
+ */
 static int nss_prio_dump_class(struct Qdisc *sch, unsigned long cl,
 			     struct sk_buff *skb, struct tcmsg *tcm)
 {
@@ -300,6 +384,10 @@ static int nss_prio_dump_class(struct Qdisc *sch, unsigned long cl,
 	return 0;
 }
 
+/*
+ * nss_prio_dump_class_stats()
+ *	Dumps class statistics.
+ */
 static int nss_prio_dump_class_stats(struct Qdisc *sch, unsigned long cl,
 			     	    struct gnet_dump *d)
 {
@@ -316,6 +404,9 @@ static int nss_prio_dump_class_stats(struct Qdisc *sch, unsigned long cl,
 	return 0;
 }
 
+/*
+ * Registration structure for nssprio class
+ */
 const struct Qdisc_class_ops nss_prio_class_ops = {
 	.graft		=	nss_prio_graft,
 	.leaf		=	nss_prio_leaf,
@@ -326,6 +417,9 @@ const struct Qdisc_class_ops nss_prio_class_ops = {
 	.dump_stats	=	nss_prio_dump_class_stats,
 };
 
+/*
+ * Registration structure for nssprio qdisc
+ */
 struct Qdisc_ops nss_prio_qdisc_ops __read_mostly = {
 	.next		=	NULL,
 	.id		=	"nssprio",
@@ -342,4 +436,3 @@ struct Qdisc_ops nss_prio_qdisc_ops __read_mostly = {
 	.dump		=	nss_prio_dump,
 	.owner		=	THIS_MODULE,
 };
-
