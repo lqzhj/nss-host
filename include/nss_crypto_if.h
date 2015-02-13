@@ -28,6 +28,8 @@
 #define NSS_CRYPTO_MAX_CACHED_IDXS	4	/**< Max supported sessions */
 #define NSS_CRYPTO_BAM_PP		4 	/**< BAM Pipe Pairs */
 #define NSS_CRYPTO_MAX_NAME		64	/**< Max supported name size */
+#define NSS_CRYPTO_BUF_TAILROOM		128	/**< Tailroom required for crypto */
+
 /**
  * @brief Crypto status for all nss_crypto_XXX api's
  */
