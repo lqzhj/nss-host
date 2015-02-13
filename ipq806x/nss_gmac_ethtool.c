@@ -125,7 +125,7 @@ static int32_t nss_gmac_get_strset_count(struct net_device *netdev,
 		break;
 
 	default:
-		netdev_dbg(netdev, "%s: Invalid string set", __func__);
+		netdev_dbg(netdev, "%s: Invalid string set\n", __func__);
 		return -EOPNOTSUPP;
 	}
 }
