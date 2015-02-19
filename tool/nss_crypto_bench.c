@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -48,9 +48,13 @@
 #define CRYPTO_BENCH_PRN_LVL_INFO	2
 #define CRYPTO_BENCH_PRN_LVL_ERR	1
 
+#define CRYPTO_BENCH_OK		0
+#define CRYPTO_BENCH_NOT_OK	-1
+
+
 #define CRYPTO_BENCH_ASSERT(expr) do { \
 	if (!(expr)) {	\
-		printk("Assertion at - %d, %s\n", __LINE__, #expr); \
+		printk("Operation failed - %d, %s\n", __LINE__, #expr); \
 		panic("system is going down\n"); \
 	} \
 } while(0)
@@ -67,7 +71,7 @@
 
 static DECLARE_WAIT_QUEUE_HEAD(tx_comp);
 static DECLARE_WAIT_QUEUE_HEAD(tx_start);
-static struct task_struct *tx_thread;
+static struct task_struct *tx_thread = NULL;
 
 static struct timeval init_time;
 static struct timeval comp_time;
@@ -464,7 +468,8 @@ static void crypto_bench_init_param(enum crypto_bench_type type)
 		break;
 
 	default:
-		CRYPTO_BENCH_ASSERT(type < TYPE_MAX);
+		crypto_bench_error("Invalid command passed\n");
+		break;
 	}
 
 }
@@ -473,7 +478,6 @@ static void crypto_bench_flush(void)
 {
 	struct crypto_op *op;
 	int i = 0;
-
 	prep = 0;
 
 	memcpy(&param, &def_param, sizeof(struct crypto_bench_param));
@@ -488,7 +492,6 @@ static void crypto_bench_flush(void)
 		kmem_cache_free(crypto_op_zone, op);
 	}
 
-
 	for (i = 0; i < NSS_CRYPTO_MAX_IDXS; i++) {
 
 		if (crypto_sid[i] < 0) {
@@ -501,8 +504,9 @@ static void crypto_bench_flush(void)
 	}
 
 
-	kthread_stop(tx_thread);
-
+	if (tx_thread != NULL) {
+		kthread_stop(tx_thread);
+	}
 	param.num_loops = 0;
 }
 
@@ -521,7 +525,7 @@ static int32_t crypto_bench_prep_op(void)
 	int i = 0;
 
 	if (prep) {
-		return -1;
+		return CRYPTO_BENCH_NOT_OK;
 	}
 
 	prep = 1;
@@ -600,13 +604,16 @@ static int32_t crypto_bench_prep_op(void)
 
 
 	if ((c_key.algo == NSS_CRYPTO_CIPHER_NONE) && (a_key.algo == NSS_CRYPTO_AUTH_NONE)) {
-		return -1;
+		return CRYPTO_BENCH_NOT_OK;
 	}
 
 	for (i = 0; i < NSS_CRYPTO_MAX_IDXS; i++) {
 		status = nss_crypto_session_alloc(crypto_hdl, &c_key, &a_key, &crypto_sid[i]);
 
-		CRYPTO_BENCH_ASSERT(status == NSS_CRYPTO_STATUS_OK);
+		if (status != NSS_CRYPTO_STATUS_OK) {
+			crypto_bench_error("UNABLE TO ALLOCATE CRYPTO SESSION\n");
+			return CRYPTO_BENCH_NOT_OK;
+		}
 		nss_crypto_session_update(crypto_hdl, crypto_sid[i], &crypto_params);
 	}
 
@@ -619,7 +626,10 @@ static int32_t crypto_bench_prep_op(void)
 	for (i = 0; i < param.num_reqs; i++) {
 
 		op = kmem_cache_alloc(crypto_op_zone, GFP_KERNEL);
-		CRYPTO_BENCH_ASSERT(op != NULL);
+		if (op == NULL) {
+			crypto_bench_error("UNABLE TO ALLOCATE SLAB MEMORY\n");
+			return CRYPTO_BENCH_NOT_OK;
+		}
 
 		memset(op, 0x0, sizeof(struct crypto_op));
 
@@ -635,7 +645,7 @@ static int32_t crypto_bench_prep_op(void)
 			crypto_bench_error("unable to allocate payload after - %d allocs\n", i);
 			crypto_bench_flush();
 			kmem_cache_free(crypto_op_zone, op);
-			return -1;
+			return CRYPTO_BENCH_NOT_OK;
 		}
 		op->payload_len = op->data_len + param.bam_align + CRYPTO_BENCH_RESULTS_SZ;
 		op->data_vaddr = (uint8_t *)crypto_bench_align((uint32_t)op->payload, param.bam_align);
@@ -644,6 +654,7 @@ static int32_t crypto_bench_prep_op(void)
 		op->hash_offset = op->data_len;
 
 		memcpy(op->data_vaddr + op->iv_offset, cipher_iv, NSS_CRYPTO_MAX_IVLEN_AES);
+
 		memcpy(op->data_vaddr + op->cipher_skip, data_ptr, op->cipher_len);
 
 		list_add_tail(&op->node, &op_head);
@@ -653,15 +664,18 @@ static int32_t crypto_bench_prep_op(void)
 
 	kthread_bind(tx_thread, param.cpu_id);
 
-	return 0;
+	return CRYPTO_BENCH_OK;
 }
 
-static void crypto_bench_prep_buf(struct crypto_op *op)
+static int32_t crypto_bench_prep_buf(struct crypto_op *op)
 {
 	struct nss_crypto_buf *buf;
 
 	buf = nss_crypto_buf_alloc(crypto_hdl);
-	CRYPTO_BENCH_ASSERT(buf != NULL);
+	if (buf == NULL) {
+		crypto_bench_error("UNABLE TO ALLOCATE CRYPTO BUFFER\n");
+		return CRYPTO_BENCH_NOT_OK;
+	}
 
 	buf->cb_ctx = (uint32_t)op;
 	buf->cb_fn = crypto_bench_done;
@@ -682,6 +696,8 @@ static void crypto_bench_prep_buf(struct crypto_op *op)
 	buf->auth_len = op->auth_len;
 
 	op->buf = buf;
+
+	return CRYPTO_BENCH_OK;
 }
 
 void crypto_bench_mcmp(void)
@@ -728,7 +744,6 @@ static int crypto_bench_tx(void *arg)
 	param.avg_mbps = 0;
 
 	for (;;) {
-
 		/* Nothing to do */
 		wait_event_interruptible(tx_start, (param.num_loops > 0) || kthread_should_stop());
 
@@ -751,11 +766,11 @@ static int crypto_bench_tx(void *arg)
 
 			op = list_entry(ptr, struct crypto_op, node);
 
-			crypto_bench_prep_buf(op);
-
-			status = nss_crypto_transform_payload(crypto_hdl, op->buf);
-			if (status != NSS_CRYPTO_STATUS_OK) {
-				crypto_bench_error("unable to enqueue\n");
+			if (crypto_bench_prep_buf(op) == CRYPTO_BENCH_OK) {
+				status = nss_crypto_transform_payload(crypto_hdl, op->buf);
+				if (status != NSS_CRYPTO_STATUS_OK) {
+					crypto_bench_error("unable to enqueue\n");
+				}
 			}
 		}
 
@@ -831,23 +846,25 @@ static ssize_t crypto_bench_cmd_read(struct file *fp, char __user *ubuf, size_t 
 static ssize_t crypto_bench_cmd_write(struct file *fp, const char __user *ubuf, size_t cnt, loff_t *pos)
 {
 	uint8_t buf[64] = {0};
-
+	static int32_t status = CRYPTO_BENCH_OK;
 
 	cnt = simple_write_to_buffer(buf, sizeof(buf), pos, ubuf, cnt);
 
 	if (!strncmp(buf, "start", strlen("start"))) {	/* start */
-		wake_up_process(tx_thread);
+		if (status == CRYPTO_BENCH_OK) {
+			wake_up_process(tx_thread);
+		}
 	} else if (!strncmp(buf, "flush", strlen("flush"))) {	/* flush */
 		crypto_bench_flush();
 	} else if (!strncmp(buf, "bench", strlen("bench"))) {	/* bench */
 		crypto_bench_init_param(TYPE_BENCH);
-		crypto_bench_prep_op();
+		status = crypto_bench_prep_op();
 	} else if (!strncmp(buf, "mcmp", strlen("mcmp"))) {	/* mcmp */
 		crypto_bench_init_param(TYPE_MCMP);
-		crypto_bench_prep_op();
+		status = crypto_bench_prep_op();
 	} else if (!strncmp(buf, "cal", strlen("cal"))) {	/* mcmp */
 		crypto_bench_init_param(TYPE_CAL);
-		crypto_bench_prep_op();
+		status = crypto_bench_prep_op();
 	} else {
 		crypto_bench_error("<bench>: invalid cmd\n");
 	}
