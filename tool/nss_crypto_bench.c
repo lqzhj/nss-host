@@ -609,7 +609,6 @@ static int32_t crypto_bench_prep_op(void)
 
 	for (i = 0; i < NSS_CRYPTO_MAX_IDXS; i++) {
 		status = nss_crypto_session_alloc(crypto_hdl, &c_key, &a_key, &crypto_sid[i]);
-
 		if (status != NSS_CRYPTO_STATUS_OK) {
 			crypto_bench_error("UNABLE TO ALLOCATE CRYPTO SESSION\n");
 			return CRYPTO_BENCH_NOT_OK;
@@ -766,11 +765,13 @@ static int crypto_bench_tx(void *arg)
 
 			op = list_entry(ptr, struct crypto_op, node);
 
-			if (crypto_bench_prep_buf(op) == CRYPTO_BENCH_OK) {
-				status = nss_crypto_transform_payload(crypto_hdl, op->buf);
-				if (status != NSS_CRYPTO_STATUS_OK) {
-					crypto_bench_error("unable to enqueue\n");
-				}
+			if (crypto_bench_prep_buf(op) != CRYPTO_BENCH_OK) {
+				continue;
+			}
+
+			status = nss_crypto_transform_payload(crypto_hdl, op->buf);
+			if (status != NSS_CRYPTO_STATUS_OK) {
+				crypto_bench_error("unable to enqueue\n");
 			}
 		}
 
@@ -867,6 +868,10 @@ static ssize_t crypto_bench_cmd_write(struct file *fp, const char __user *ubuf, 
 		status = crypto_bench_prep_op();
 	} else {
 		crypto_bench_error("<bench>: invalid cmd\n");
+	}
+
+	if (status == CRYPTO_BENCH_NOT_OK) {
+		crypto_bench_flush();
 	}
 
 	return cnt;
