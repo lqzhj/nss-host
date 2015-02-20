@@ -213,7 +213,9 @@ static int8_t *nss_stats_str_eth_rx[NSS_STATS_ETH_RX_MAX] = {
  *	Interface stats strings for unknown exceptions
  */
 static int8_t *nss_stats_str_if_exception_eth_rx[NSS_EXCEPTION_EVENT_ETH_RX_MAX] = {
-	"UNKNOWN_L3_PROTOCOL"
+	"UNKNOWN_L3_PROTOCOL",
+	"ETH_HDR_MISSING",
+	"VLAN_MISSING"
 };
 
 /*
