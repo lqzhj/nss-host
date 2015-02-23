@@ -129,7 +129,7 @@ extern nss_tx_status_t nss_n2h_tx_msg(struct nss_ctx_instance *nss_ctx, struct n
  * nss_n2h_tx()
  * 	API to enable/disable Host RPS support in NSS
  */
-extern nss_tx_status_t nss_n2h_tx(struct nss_ctx_instance *nss_ctx, uint32_t enable_rps);
+extern nss_tx_status_t nss_n2h_rps_cfg(struct nss_ctx_instance *nss_ctx, int enable_rps);
 
 /*
  * nss_n2h_empty_pool_buf_register_sysctl()
@@ -155,7 +155,7 @@ extern nss_tx_status_t nss_n2h_flush_payloads(struct nss_ctx_instance *nss_ctx);
  */
 typedef void (*nss_n2h_msg_callback_t)(void *app_data, struct nss_n2h_msg *msg);
 extern void nss_n2h_msg_init(struct nss_n2h_msg *nim, uint16_t if_num, uint32_t type, uint32_t len,
-			nss_n2h_msg_callback_t *cb, void *app_data);
+			nss_n2h_msg_callback_t cb, void *app_data);
 
 extern struct nss_ctx_instance *nss_ipv4_notify_register(nss_ipv4_msg_callback_t cb, void *app_data);
 #endif // __NSS_N2H_H

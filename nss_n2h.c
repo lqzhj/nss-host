@@ -41,6 +41,7 @@ struct nss_n2h_registered_data {
 
 static struct nss_n2h_cfg_pvt nss_n2h_nepbcfgp[NSS_MAX_CORES];
 static struct nss_n2h_registered_data nss_n2h_rd[NSS_MAX_CORES];
+static struct nss_n2h_cfg_pvt nss_n2h_rcp;
 
 /*
  * nss_n2h_stats_sync()
@@ -109,7 +110,9 @@ static void nss_n2h_stats_sync(struct nss_ctx_instance *nss_ctx, struct nss_n2h_
  * nss_n2h_interface_handler()
  *	Handle NSS -> HLOS messages for N2H node
  */
-static void nss_n2h_interface_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm, __attribute__((unused))void *app_data)
+static void nss_n2h_interface_handler(struct nss_ctx_instance *nss_ctx,
+					struct nss_cmn_msg *ncm,
+					__attribute__((unused))void *app_data)
 {
 	struct nss_n2h_msg *nnm = (struct nss_n2h_msg *)ncm;
 	nss_n2h_msg_callback_t cb;
@@ -126,7 +129,6 @@ static void nss_n2h_interface_handler(struct nss_ctx_instance *nss_ctx, struct n
 
 	switch (nnm->cm.type) {
 	case NSS_TX_METADATA_TYPE_N2H_RPS_CFG:
-		nss_ctx->n2h_rps_en = nnm->msg.rps_cfg.enable;
 		nss_info("NSS N2H rps_en %d \n",nnm->msg.rps_cfg.enable);
 		break;
 
@@ -177,6 +179,33 @@ static void nss_n2h_interface_handler(struct nss_ctx_instance *nss_ctx, struct n
 	 */
 	cb = (nss_n2h_msg_callback_t)ncm->cb;
 	cb((void *)ncm->app_data, nnm);
+}
+
+/*
+ * nss_n2h_rps_cfg_callback()
+ *	call back function for rps configuration
+ */
+static void nss_n2h_rps_cfg_callback(void *app_data, struct nss_n2h_msg *nnm)
+{
+	struct nss_ctx_instance *nss_ctx =  (struct nss_ctx_instance *)app_data;
+	if (nnm->cm.response != NSS_CMN_RESPONSE_ACK) {
+
+		/*
+		 * Error, hence we are not updating the nss_n2h_empty_pool_buf
+		 * Restore the current_value to its previous state
+		 */
+		nss_n2h_rcp.response = NSS_FAILURE;
+		complete(&nss_n2h_rcp.complete);
+		nss_warning("%p: RPS configuration failed : %d\n", nss_ctx,
+								   nnm->cm.error);
+		return;
+	}
+
+	nss_info("%p: RPS configuration succeeded: %d\n", nss_ctx,
+							   nnm->cm.error);
+	nss_ctx->n2h_rps_en = nnm->msg.rps_cfg.enable;
+	nss_n2h_rcp.response = NSS_SUCCESS;
+	complete(&nss_n2h_rcp.complete);
 }
 
 /*
@@ -266,7 +295,7 @@ static int nss_n2h_set_empty_pool_buf(ctl_table *ctl, int write, void __user *bu
 	nss_n2h_msg_init(&nnm, NSS_N2H_INTERFACE,
 			NSS_TX_METADATA_TYPE_N2H_EMPTY_POOL_BUF_CFG,
 			sizeof(struct nss_n2h_empty_pool_buf),
-			(nss_n2h_msg_callback_t *)nss_n2h_empty_pool_buf_cfg_callback,
+			nss_n2h_empty_pool_buf_cfg_callback,
 			(void *)core_num);
 
 	nnepbcm = &nnm.msg.empty_pool_buf_cfg;
@@ -377,6 +406,59 @@ static int nss_n2h_empty_pool_buf_cfg_core0_handler(ctl_table *ctl,
 					NSS_CORE_0, &nss_n2h_empty_pool_buf_cfg[NSS_CORE_0]);
 }
 
+/*
+ * nss_n2h_rps_cfg()
+ *	Send Message to NSS to enable RPS.
+ */
+nss_tx_status_t nss_n2h_rps_cfg(struct nss_ctx_instance *nss_ctx, int enable_rps)
+{
+	struct nss_n2h_msg nnm;
+	struct nss_n2h_rps *rps_cfg;
+	nss_tx_status_t nss_tx_status;
+	int ret;
+
+	down(&nss_n2h_rcp.sem);
+	nss_n2h_msg_init(&nnm, NSS_N2H_INTERFACE, NSS_TX_METADATA_TYPE_N2H_RPS_CFG,
+			sizeof(struct nss_n2h_rps),
+			nss_n2h_rps_cfg_callback,
+			(void *)nss_ctx);
+
+	rps_cfg = &nnm.msg.rps_cfg;
+	rps_cfg->enable = enable_rps;
+
+	nss_tx_status = nss_n2h_tx_msg(nss_ctx, &nnm);
+
+	if (nss_tx_status != NSS_TX_SUCCESS) {
+		nss_warning("%p: nss_tx error setting rps\n", nss_ctx);
+
+		up(&nss_n2h_rcp.sem);
+		return NSS_FAILURE;
+	}
+
+	/*
+	 * Blocking call, wait till we get ACK for this msg.
+	 */
+	ret = wait_for_completion_timeout(&nss_n2h_rcp.complete, msecs_to_jiffies(NSS_CONN_CFG_TIMEOUT));
+	if (ret == 0) {
+		nss_warning("%p: Waiting for ack timed out\n", nss_ctx);
+		up(&nss_n2h_rcp.sem);
+		return NSS_FAILURE;
+	}
+
+	/*
+	 * ACK/NACK received from NSS FW
+	 * If ACK: Callback function will update nss_n2h_empty_pool_buf with
+	 * nss_n2h_nepbcfgp.num_conn_valid, which holds the user input
+	 */
+	if (NSS_FAILURE == nss_n2h_rcp.response) {
+		up(&nss_n2h_rcp.sem);
+		return NSS_FAILURE;
+	}
+
+	up(&nss_n2h_rcp.sem);
+	return NSS_SUCCESS;
+}
+
 static ctl_table nss_n2h_table[] = {
 	{
 		.procname		= "n2h_empty_pool_buf_core0",
@@ -431,11 +513,10 @@ static struct ctl_table_header *nss_n2h_header;
  *	Initialize IPv4 message.
  */
 void nss_n2h_msg_init(struct nss_n2h_msg *nim, uint16_t if_num, uint32_t type,
-		      uint32_t len, nss_n2h_msg_callback_t *cb, void *app_data)
+		      uint32_t len, nss_n2h_msg_callback_t cb, void *app_data)
 {
 	nss_cmn_msg_init(&nim->cm, if_num, type, len, (void *)cb, app_data);
 }
-
 
 /*
  * nss_n2h_register_sysctl()
@@ -539,62 +620,6 @@ nss_tx_status_t nss_n2h_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_n2h_
 	return NSS_TX_SUCCESS;
 }
 
-
-/*
- * nss_n2h_tx()
- *	Send Message to NSS to enable RPS.
- *
- * This API could be used for any additional RPS related
- * configuration in future.
- *
- * TODO: rename to _rps and rewrite assignment from handler to a callback.
- */
-nss_tx_status_t nss_n2h_tx(struct nss_ctx_instance *nss_ctx, uint32_t enable_rps)
-{
-	struct sk_buff *nbuf;
-	nss_tx_status_t status;
-	struct nss_n2h_msg *nnhm;
-	struct nss_n2h_rps *rps_cfg;
-
-	NSS_VERIFY_CTX_MAGIC(nss_ctx);
-	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
-		return NSS_TX_FAILURE_NOT_READY;
-	}
-
-	nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
-	if (unlikely(!nbuf)) {
-		spin_lock_bh(&nss_ctx->nss_top->stats_lock);
-		nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]++;
-		spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
-		return NSS_TX_FAILURE;
-	}
-
-	nnhm = (struct nss_n2h_msg *)skb_put(nbuf, sizeof(struct nss_n2h_msg));
-
-	nss_n2h_msg_init(nnhm, NSS_N2H_INTERFACE, NSS_TX_METADATA_TYPE_N2H_RPS_CFG,
-			sizeof(struct nss_n2h_rps),
-			NULL, NULL);
-
-	rps_cfg = &nnhm->msg.rps_cfg;
-
-	rps_cfg->enable = enable_rps;
-
-	nss_info("n22_n2h_rps_configure %d \n", enable_rps);
-
-	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
-	if (status != NSS_CORE_STATUS_SUCCESS) {
-		dev_kfree_skb_any(nbuf);
-		nss_info("%p: unable to enqueue 'nss frequency change' - marked as stopped\n", nss_ctx);
-		return NSS_TX_FAILURE;
-	}
-
-	nss_hal_send_interrupt(nss_ctx->nmap,
-				nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
-				NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
-
-	return NSS_TX_SUCCESS;
-}
-
 /*
  * nss_n2h_notify_register()
  *	Register to received N2H events.
@@ -622,6 +647,13 @@ struct nss_ctx_instance *nss_n2h_notify_register(int core, nss_n2h_msg_callback_
 void nss_n2h_register_handler()
 {
 	nss_core_register_handler(NSS_N2H_INTERFACE, nss_n2h_interface_handler, NULL);
+
+	/*
+	 * RPS sema init
+	 */
+	sema_init(&nss_n2h_rcp.sem, 1);
+	init_completion(&nss_n2h_rcp.complete);
+
 
 	nss_n2h_notify_register(NSS_CORE_0, NULL, NULL);
 	nss_n2h_notify_register(NSS_CORE_1, NULL, NULL);
