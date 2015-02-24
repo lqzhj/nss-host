@@ -576,7 +576,8 @@ static inline bool nss_core_handle_nr_frag_skb(struct sk_buff **nbuf_ptr, struct
 	uint16_t payload_offs = desc->payload_offs;
 	uint16_t bit_flags = desc->bit_flags;
 
-	nss_assert(desc->payload_offs + desc->payload_len <= PAGE_SIZE, "%p: payload offset %u + payload len %u larger than page size %u", nbuf, desc->payload_offs, desc->payload_len, PAGE_SIZE);
+	nss_assert(desc->payload_offs + desc->payload_len <= PAGE_SIZE);
+
 	dma_unmap_page(NULL, (desc->buffer + desc->payload_offs), desc->payload_len, DMA_FROM_DEVICE);
 
 	/*
