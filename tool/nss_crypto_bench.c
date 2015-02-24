@@ -503,10 +503,11 @@ static void crypto_bench_flush(void)
 		crypto_sid[i] = -1;
 	}
 
-
 	if (tx_thread != NULL) {
 		kthread_stop(tx_thread);
+		tx_thread = NULL;
 	}
+
 	param.num_loops = 0;
 }
 
@@ -847,14 +848,12 @@ static ssize_t crypto_bench_cmd_read(struct file *fp, char __user *ubuf, size_t 
 static ssize_t crypto_bench_cmd_write(struct file *fp, const char __user *ubuf, size_t cnt, loff_t *pos)
 {
 	uint8_t buf[64] = {0};
-	static int32_t status = CRYPTO_BENCH_OK;
+	int32_t status = CRYPTO_BENCH_OK;
 
 	cnt = simple_write_to_buffer(buf, sizeof(buf), pos, ubuf, cnt);
 
-	if (!strncmp(buf, "start", strlen("start"))) {	/* start */
-		if (status == CRYPTO_BENCH_OK) {
-			wake_up_process(tx_thread);
-		}
+	if (!strncmp(buf, "start", strlen("start")) && (tx_thread != NULL)) {	/* start */
+		wake_up_process(tx_thread);
 	} else if (!strncmp(buf, "flush", strlen("flush"))) {	/* flush */
 		crypto_bench_flush();
 	} else if (!strncmp(buf, "bench", strlen("bench"))) {	/* bench */
