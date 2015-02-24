@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014,2015, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -85,7 +85,8 @@ struct nss_ipsecmgr_encap_del {
 	uint16_t inner_dst_port;	/**< inner protocol's destination port */
 
 	uint8_t inner_ipv4_proto;	/**< inner IPv4 protocol */
-	uint8_t res[3];			/**< reserve for 4-byte alignment */
+	uint8_t use_pattern;		/**< Use random pattern in hash calculation */
+	uint8_t res[2];			/**< reserve for 4-byte alignment */
 };
 
 /**
