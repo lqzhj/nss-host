@@ -51,11 +51,12 @@ int32_t nss_gmac_check_link(struct nss_gmac_dev *gmacdev)
 	if (!test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags))
 		return LINKUP;
 
-	if (gmacdev->emulation && (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_SGMII
-			|| gmacdev->phy_mii_type == PHY_INTERFACE_MODE_QSGMII)) {
+#ifdef RUMI_EMULATION_SUPPORT
+	if (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_SGMII
+			|| gmacdev->phy_mii_type == PHY_INTERFACE_MODE_QSGMII) {
 		return LINKUP;
 	}
-
+#endif
 	if (phydev->link)
 		return LINKUP;
 
@@ -208,8 +209,10 @@ void nss_gmac_mii_wr_reg(struct nss_gmac_dev *gmacdev, uint32_t phy,
  */
 void nss_gmac_reset_phy(struct nss_gmac_dev *gmacdev, uint32_t phyid)
 {
-	if (gmacdev->emulation && (gmacdev->phy_mii_type != PHY_INTERFACE_MODE_RGMII))
+#ifdef RUMI_EMULATION_SUPPORT
+	if (gmacdev->phy_mii_type != PHY_INTERFACE_MODE_RGMII)
 		return;
+#endif
 
 	nss_gmac_mii_wr_reg(gmacdev, phyid, MII_BMCR, BMCR_RESET);
 	nss_gmac_mii_wr_reg(gmacdev, phyid, MII_BMCR,

@@ -607,7 +607,6 @@ static int32_t nss_gmac_of_get_pdata(struct device_node *np,
 	gmacdev = netdev_priv(netdev);
 
 	if (of_property_read_u32(np, "qcom,id", &gmacdev->macid)
-		|| of_property_read_u32(np, "qcom,emulation", &gmaccfg->emulation)
 		|| of_property_read_u32(np, "qcom,phy_mdio_addr", &gmaccfg->phy_mdio_addr)
 		|| of_property_read_u32(np, "qcom,rgmii_delay", &gmaccfg->rgmii_delay)
 		|| of_property_read_u32(np, "qcom,poll_required", &gmaccfg->poll_required)
@@ -758,6 +757,16 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	int32_t ret = 0;
 	phy_interface_t phyif = 0;
 	uint8_t phy_id[MII_BUS_ID_SIZE + 3];
+#ifdef CONFIG_OF
+	struct msm_nss_gmac_platform_data gmaccfg_devicetree;
+	struct device_node *np = NULL;
+	const __be32 *prop = NULL;
+	struct device_node *mdio_node = NULL;
+	struct platform_device *mdio_plat = NULL;
+#else
+	struct device *miidev;
+	uint8_t busid[MII_BUS_ID_SIZE];
+#endif
 
 	if (ctx.common_init_done == false) {
 		ret = nss_gmac_do_common_init(pdev);
@@ -788,9 +797,6 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	gmacdev->loop_back_mode = NOLOOPBACK;
 
 #ifdef CONFIG_OF
-	struct msm_nss_gmac_platform_data gmaccfg_devicetree;
-	struct device_node *np = NULL;
-
 	np = of_node_get(pdev->dev.of_node);
 	ret = nss_gmac_of_get_pdata(np, netdev, &gmaccfg_devicetree);
 	if (ret != 0) {
@@ -806,7 +812,6 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	netdev->irq = pdev->resource[1].start;
 	gmacdev->macid = pdev->id;
 #endif
-	gmacdev->emulation = gmaccfg->emulation;
 	gmacdev->phy_mii_type = gmaccfg->phy_mii_type;
 	gmacdev->phy_base = gmaccfg->phy_mdio_addr;
 	gmacdev->rgmii_delay = gmaccfg->rgmii_delay;
@@ -844,74 +849,68 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 		goto nss_gmac_attach_fail;
 	}
 
-	if (gmacdev->emulation == 0) {
+#ifndef RUMI_EMULATION_SUPPORT
 #ifdef CONFIG_OF
-		const __be32 *prop = NULL;
-		struct device_node *mdio_node = NULL;
-		struct platform_device *mdio_plat = NULL;
+	prop = of_get_property(np, "mdiobus", NULL);
+	if (!prop) {
+		netdev_dbg(netdev, "cannot get 'mdiobus' property\n");
+		ret = -EIO;
+		goto mdiobus_init_fail;
+	}
 
-		prop = of_get_property(np, "mdiobus", NULL);
-		if (!prop) {
-			netdev_dbg(netdev, "cannot get 'mdiobus' property\n");
-			ret = -EIO;
-			goto mdiobus_init_fail;
-		}
+	mdio_node = of_find_node_by_phandle(be32_to_cpup(prop));
+	if (!mdio_node) {
+		netdev_dbg(netdev, "cannot find mdio node by phandle\n");
+		ret = -EIO;
+		goto mdiobus_init_fail;
+	}
 
-		mdio_node = of_find_node_by_phandle(be32_to_cpup(prop));
-		if (!mdio_node) {
-			netdev_dbg(netdev, "cannot find mdio node by phandle\n");
-			ret = -EIO;
-			goto mdiobus_init_fail;
-		}
+	mdio_plat = of_find_device_by_node(mdio_node);
+	if (!mdio_plat) {
+		netdev_dbg(netdev, "cannot find platform device from mdio node\n");
+		of_node_put(mdio_node);
+		ret = -EIO;
+		goto mdiobus_init_fail;
+	}
 
-		mdio_plat = of_find_device_by_node(mdio_node);
-		if (!mdio_plat) {
-			netdev_dbg(netdev, "cannot find platform device from mdio node\n");
-			of_node_put(mdio_node);
-			ret = -EIO;
-			goto mdiobus_init_fail;
-		}
-
-		gmacdev->miibus = dev_get_drvdata(&mdio_plat->dev);
-		if (!gmacdev->miibus) {
-			netdev_dbg(netdev, "cannot get mii bus reference from device data\n");
-			of_node_put(mdio_node);
-			ret = -EIO;
-			goto mdiobus_init_fail;
-		}
+	gmacdev->miibus = dev_get_drvdata(&mdio_plat->dev);
+	if (!gmacdev->miibus) {
+		netdev_dbg(netdev, "cannot get mii bus reference from device data\n");
+		of_node_put(mdio_node);
+		ret = -EIO;
+		goto mdiobus_init_fail;
+	}
 #else
-		struct device *miidev;
-		uint8_t busid[MII_BUS_ID_SIZE];
-
-		snprintf(busid, MII_BUS_ID_SIZE, "%s.%d", IPQ806X_MDIO_BUS_NAME,
+	snprintf(busid, MII_BUS_ID_SIZE, "%s.%d", IPQ806X_MDIO_BUS_NAME,
 							IPQ806X_MDIO_BUS_NUM);
 
-		miidev = bus_find_device_by_name(&platform_bus_type, NULL, busid);
-		if (!miidev) {
-			netdev_dbg(netdev, "mdio bus '%s' get FAIL.\n", busid);
-			ret = -EIO;
-			goto mdiobus_init_fail;
-		}
+	miidev = bus_find_device_by_name(&platform_bus_type, NULL, busid);
+	if (!miidev) {
+		netdev_dbg(netdev, "mdio bus '%s' get FAIL.\n", busid);
+		ret = -EIO;
+		goto mdiobus_init_fail;
+	}
 
-		gmacdev->miibus = dev_get_drvdata(miidev);
-		if (!gmacdev->miibus) {
-			netdev_dbg(netdev, "mdio bus '%s' get FAIL.\n", busid);
-			ret = -EIO;
-			goto mdiobus_init_fail;
-		}
+	gmacdev->miibus = dev_get_drvdata(miidev);
+	if (!gmacdev->miibus) {
+		netdev_dbg(netdev, "mdio bus '%s' get FAIL.\n", busid);
+		ret = -EIO;
+		goto mdiobus_init_fail;
+	}
 #endif
 
-		netdev_dbg(netdev, "mdio bus '%s' OK.\n", gmacdev->miibus->id);
-
-	} else if (gmacdev->emulation && (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_RGMII)) {
+	netdev_dbg(netdev, "mdio bus '%s' OK.\n", gmacdev->miibus->id);
+#else
+	if (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_RGMII) {
 		if (nss_gmac_init_mdiobus(gmacdev) != 0) {
 			netdev_dbg(netdev, "mdio bus register FAIL for emulation.\n");
 			ret = -EIO;
 			goto mdiobus_init_fail;
 		}
-		netdev_dbg(netdev, "mdio bus '%s' register OK for emulation.\n",
-							gmacdev->miibus->id);
 	}
+	netdev_dbg(netdev, "mdio bus '%s' register OK for emulation.\n",
+							gmacdev->miibus->id);
+#endif
 
 	/*
 	 * This just fill in some default MAC address
@@ -1068,8 +1067,9 @@ nss_gmac_reg_fail:
 	}
 
 nss_gmac_phy_attach_fail:
-	if (gmacdev->emulation)
-		nss_gmac_deinit_mdiobus(gmacdev);
+#ifdef RUMI_EMULATION_SUPPORT
+	nss_gmac_deinit_mdiobus(gmacdev);
+#endif
 
 mdiobus_init_fail:
 	nss_gmac_detach(gmacdev);
@@ -1110,9 +1110,9 @@ static int nss_gmac_remove(struct platform_device *pdev)
 		gmacdev->phydev = NULL;
 	}
 
-	if (gmacdev->emulation)
-		nss_gmac_deinit_mdiobus(gmacdev);
-
+#ifdef RUMI_EMULATION_SUPPORT
+	nss_gmac_deinit_mdiobus(gmacdev);
+#endif
 	nss_gmac_detach(gmacdev);
 	unregister_netdev(gmacdev->netdev);
 	free_netdev(gmacdev->netdev);

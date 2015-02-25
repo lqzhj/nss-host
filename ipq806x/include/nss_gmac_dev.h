@@ -154,7 +154,6 @@ struct nss_gmac_dev {
 	uint32_t phy_base;	/* PHY device address on MII interface        */
 	uint32_t macid;		/* Sequence number of Mac on the platform     */
 	uint32_t version;	/* Gmac Revision version                      */
-	uint32_t emulation;	/* Running on emulation platform	      */
 	unsigned long int flags;/* status flags				      */
 	uint32_t drv_flags;	/* Driver specific feature flags		*/
 
@@ -1512,11 +1511,13 @@ void nss_gmac_dev_init(struct nss_gmac_dev *gmacdev);
  */
 int32_t nss_gmac_dev_set_speed(struct nss_gmac_dev *gmacdev);
 
+#ifdef RUMI_EMULATION_SUPPORT
 /*
  * nss_gmac_spare_ctl()
  *	Spare Control reset. Required only for emulation.
  */
 void nss_gmac_spare_ctl(struct nss_gmac_dev *gmacdev);
+#endif
 
 /**
  * Initialize the rx descriptors for ring or chain mode operation.

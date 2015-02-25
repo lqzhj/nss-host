@@ -47,6 +47,7 @@
 /* Initialize notifier list for NSS GMAC */
 static BLOCKING_NOTIFIER_HEAD(nss_gmac_notifier_list);
 
+#ifdef RUMI_EMULATION_SUPPORT
 /**
  * @brief Emulation specific initialization.
  *
@@ -59,9 +60,6 @@ void nss_gmac_spare_ctl(struct nss_gmac_dev *gmacdev)
 	uint32_t count;
 	uint32_t id = gmacdev->macid;
 	uint32_t *nss_base = (uint32_t *)(gmacdev->ctx->nss_base);
-
-	if (!gmacdev->emulation)
-		return;
 
 	val = 1 << id;
 	nss_gmac_set_reg_bits(nss_base, NSS_ETH_SPARE_CTL, val);
@@ -172,7 +170,7 @@ static void nss_gmac_rumi_qsgmii_init(struct nss_gmac_dev *gmacdev)
 	/* Channel 2 force speed */
 	nss_gmac_write_reg(qsgmii_base, PCS_ALL_CH_CTL, 0xF0000600);
 }
-
+#endif
 
 /**
  * @brief QSGMII dev init
@@ -190,9 +188,9 @@ void nss_gmac_qsgmii_dev_init(struct nss_gmac_dev *gmacdev)
 	uint32_t qsgmii_tx_slew;
 	uint32_t qsgmii_deemphasis;
 
-	if (gmacdev->emulation)
-		nss_gmac_rumi_qsgmii_init(gmacdev);
-
+#ifdef RUMI_EMULATION_SUPPORT
+	nss_gmac_rumi_qsgmii_init(gmacdev);
+#endif
 	if (gmacdev->phy_mii_type == PHY_INTERFACE_MODE_SGMII) {
 		switch (gmacdev->macid) {
 		case 1:

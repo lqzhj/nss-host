@@ -681,7 +681,9 @@ void nss_gmac_linkup(struct nss_gmac_dev *gmacdev)
 	uint32_t gmac_tx_desc = 0, gmac_rx_desc = 0;
 	uint32_t mode = NSS_GMAC_MODE0;
 
+#ifdef RUMI_EMULATION_SUPPORT
 	nss_gmac_spare_ctl(gmacdev);
+#endif
 
 	if (nss_gmac_check_phy_init(gmacdev) != 0) {
 		gmacdev->link_state = LINKDOWN;
