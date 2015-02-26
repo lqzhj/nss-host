@@ -371,7 +371,7 @@ static struct crypto_bench_param def_param = {
 	.ciph_algo = 1,
 	.auth_algo = 1,
 	.bam_align = 4,
-	.num_reqs = 10000,
+	.num_reqs = 128,
 	.hash_len = NSS_CRYPTO_MAX_HASHLEN_SHA1,
 	.key_len = 16,
 	.print_mode = 2,
@@ -440,9 +440,9 @@ static void crypto_bench_init_param(enum crypto_bench_type type)
 	chk_n_set((param.auth_algo == 0), param.auth_algo, 1);
 
 	/*
-	 * we don't support sending more than 200 request in a single batch
+	 * we don't support sending more than 128 request in a single batch
 	 */
-	chk_n_set((param.num_reqs > 200), param.num_reqs, 200);
+	chk_n_set((param.num_reqs > 128), param.num_reqs, 128);
 
 	switch (type) {
 	case TYPE_BENCH:
