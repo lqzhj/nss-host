@@ -550,7 +550,7 @@ static int nss_probe(struct platform_device *nss_dev)
 	 */
 	if (npd->shaping_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->shaping_handler_id = nss_dev->id;
-		printk(KERN_INFO "%p: NSS Shaping is enabled, handler id: %u\n", __func__, nss_top->shaping_handler_id);
+		nss_info("%d: NSS shaping is enabled", nss_dev->id);
 	}
 
 	if (npd->ipv4_enabled == NSS_FEATURE_ENABLED) {
