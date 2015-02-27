@@ -182,7 +182,7 @@ struct nss_ctx_instance * nss_tun6rd_get_context()
  */
 void nss_unregister_tun6rd_if(uint32_t if_num)
 {
-	nss_assert(nss_is_dynamic_interface(ncm->interface));
+	nss_assert(nss_is_dynamic_interface(if_num));
 
 	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
 	nss_top_main.subsys_dp_register[if_num].cb = NULL;
