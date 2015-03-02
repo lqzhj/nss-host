@@ -17,3 +17,5 @@ GMAC_INCLUDE = -I$(obj)/include -I$(obj)/exports
 
 ccflags-y += $(GMAC_INCLUDE)
 
+# Un-comment this line to build with emulation platform support
+#ccflags-y += -DRUMI_EMULATION_SUPPORT
