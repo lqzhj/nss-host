@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -86,10 +86,12 @@ typedef enum nss_capwap_msg_response {
  * CAPWAP tunnel create and type flags. These flags are used
  * to determine packet header size during encapsulation.
  */
-#define NSS_CAPWAPMGR_RULE_CREATE_VLAN_CONFIGURED	0x1
+#define NSS_CAPWAP_RULE_CREATE_VLAN_CONFIGURED	0x1
 				/**< VLAN Configured for CAPWAP tunnel */
-#define NSS_CAPWAPMGR_RULE_CREATE_PPPOE_CONFIGURED	0x2
+#define NSS_CAPWAP_RULE_CREATE_PPPOE_CONFIGURED	0x2
 				/**< PPPoE configured for CAPWAP tunnel */
+#define NSS_CAPWAP_ENCAP_UDPLITE_HDR_CSUM	0x4
+				/**< Generate only UDP-Lite header checksum. Otherwise whole UDP-Lite payload */
 
 /**
  * CAPWAP version
@@ -212,6 +214,7 @@ struct nss_capwap_tunnel_stats {
 	uint64_t rx_mem_failure_drops;		/**< Drops due to Memory Failure */
 	uint64_t tx_mem_failure_drops;		/**< Drops due to Memory Failure */
 	uint64_t tx_dropped;			/**< Dropped packets in encap not covered by above */
+	uint32_t rx_csum_drops;		/**< Dropped RX packets due to checksum mismatch */
 };
 
 /**
@@ -231,6 +234,7 @@ struct nss_capwap_stats_msg {
 	uint32_t rx_mem_failure_drops;		/**< Drops due to Memory Failure */
 	uint32_t tx_mem_failure_drops;		/**< Drops due to Memory Failure */
 	uint32_t tx_dropped;			/**< Dropped packets in encap not covered by above */
+	uint32_t rx_csum_drops;			/**< Dropped RX packets due to checksum mismatch */
 };
 
 /**

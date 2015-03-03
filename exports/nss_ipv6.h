@@ -109,6 +109,11 @@ enum exception_events_ipv6 {
 	NSS_EXCEPTION_EVENT_IPV6_GRE_NEEDS_FRAGMENTATION,		/**<  NSS Exception event: GRE protocol needs fragmentation */
 	NSS_EXCEPTION_EVENT_IPV6_GRE_SMALL_HOP_LIMIT,			/**<  NSS Exception event: GRE protocol small hop limit reached */
 	NSS_EXCEPTION_EVENT_IPV6_DESTROY,				/**<  NSS Exception event: Destroy */
+	NSS_EXCEPTION_EVENT_IPV6_ICMP_IPV6_UDPLITE_HEADER_INCOMPLETE,	/**<  NSS Exception event: ICMP IPv6 UDPLite header incomplete */
+	NSS_EXCEPTION_EVENT_IPV6_UDPLITE_HEADER_INCOMPLETE,		/**<  NSS Exception event: UDPLite protocol header incomplete */
+	NSS_EXCEPTION_EVENT_IPV6_UDPLITE_NO_ICME,			/**<  NSS Exception event: UDPLite protocol no IPv6 connection match entry */
+	NSS_EXCEPTION_EVENT_IPV6_UDPLITE_SMALL_HOP_LIMIT,		/**<  NSS Exception event: UDPLite protocol small hop limit reached */
+	NSS_EXCEPTION_EVENT_IPV6_UDPLITE_NEEDS_FRAGMENTATION,		/**<  NSS Exception event: UDPLite protocol needs fragmentation */
 	NSS_EXCEPTION_EVENT_IPV6_MAX					/**<  IPv6 exception events max type number */
 };
 
