@@ -56,6 +56,7 @@
 #include "nss_wifi.h"
 #include "nss_wifi_vdev.h"
 #include "nss_n2h.h"
+#include "nss_wifi_if.h"
 
 /*
  * Interface numbers are reserved in the
@@ -84,7 +85,7 @@
 #define NSS_MAX_VIRTUAL_INTERFACES 16
 #define NSS_MAX_TUNNEL_INTERFACES 4
 #define NSS_MAX_SPECIAL_INTERFACES 30
-#define NSS_MAX_DYNAMIC_INTERFACES 32
+#define NSS_MAX_DYNAMIC_INTERFACES 64
 #define NSS_MAX_WIFI_RADIO_INTERFACES 3
 
 /**

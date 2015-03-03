@@ -31,9 +31,10 @@ enum nss_dynamic_interface_type {
 	NSS_DYNAMIC_INTERFACE_TYPE_CAPWAP = 2,		/* CAPWAP Interface type */
 	NSS_DYNAMIC_INTERFACE_TYPE_TUN6RD = 3,		/* TUN6RD Interface type */
 	NSS_DYNAMIC_INTERFACE_TYPE_802_3_REDIR = 4,	/* 802.3 redirect Interface type */
-	NSS_DYNAMIC_INTERFACE_TYPE_RADIO_0 = 5,		/* WIFI radio type0 */
-	NSS_DYNAMIC_INTERFACE_TYPE_RADIO_1 = 6,		/* WIFI radio type1 */
-	NSS_DYNAMIC_INTERFACE_TYPE_RADIO_2 = 7,		/* WIFI radio type2 */
+	NSS_DYNAMIC_INTERFACE_TYPE_WIFI = 5,		/* Wifi redirect Interface type */
+	NSS_DYNAMIC_INTERFACE_TYPE_RADIO_0 = 6,		/* WIFI radio type0 */
+	NSS_DYNAMIC_INTERFACE_TYPE_RADIO_1 = 7,		/* WIFI radio type1 */
+	NSS_DYNAMIC_INTERFACE_TYPE_RADIO_2 = 8,		/* WIFI radio type2 */
 	NSS_DYNAMIC_INTERFACE_TYPE_MAX
 };
 
