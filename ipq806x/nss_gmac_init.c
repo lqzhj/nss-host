@@ -122,7 +122,7 @@ static void nss_gmac_rumi_qsgmii_init(struct nss_gmac_dev *gmacdev)
 	netdev_dbg(gmacdev->netdev, "Eth2: spare_ctl_reg value after setting = 0x%x\n",
 	      nss_gmac_read_reg((uint32_t *)nss_base, NSS_ETH_SPARE_CTL));
 
-	netdev_dbg(gmac1_dev->netdev, "%s: GMAC1's MACBASE = 0x%x\n", __func__,
+	netdev_dbg(gmac1_dev->netdev, "%s: GMAC1's MACBASE = 0x%p\n", __func__,
 							gmac1_dev->mac_base);
 
 	/* Put PHY in SGMII Mode */
