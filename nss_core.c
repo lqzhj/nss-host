@@ -992,7 +992,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 
 		/*
 		 * Check if we received a linear skb while constructing
-		 * a paged skb. If so we need to free.
+		 * a paged skb. If so we need to free the paged_skb and handle the linear skb.
 		 */
 		if (unlikely(jumbo_start)) {
 			nss_warning("%p: we should not have an incomplete linear skb while"
@@ -1010,7 +1010,6 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 			NSS_PKT_STATS_DECREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NSS_SKB_COUNT]);
 			dev_kfree_skb_any(jumbo_start);
 			jumbo_start = NULL;
-			goto next;
 		}
 
 		/*
