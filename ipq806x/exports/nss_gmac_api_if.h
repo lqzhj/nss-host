@@ -57,6 +57,7 @@ struct nss_gmac_data_plane_ops {
 	int (*mac_addr)(void *ctx, uint8_t *addr);
 	int (*change_mtu)(void *ctx, uint32_t mtu);
 	int (*xmit)(void *ctx, struct sk_buff *os_buf);
+	void (*set_features)(struct net_device *netdev);
 };
 
 /*
