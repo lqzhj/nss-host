@@ -20,6 +20,8 @@
 #include "nss_tx_rx_common.h"
 #include <nss_gmac_api_if.h>
 
+#define NSS_DP_SUPPORTED_FEATURES NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_FRAGLIST | (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO)
+
 struct nss_data_plane_param nss_data_plane_params[NSS_MAX_PHYSICAL_INTERFACES];
 
 /*
@@ -97,6 +99,18 @@ static int nss_data_plane_buf(void *arg, struct sk_buff *os_buf)
 }
 
 /*
+ * nss_data_plane_set_features()
+ *	Called by gmac to allow data plane to modify the set of features it supports
+*/
+static void nss_data_plane_set_features(struct net_device *netdev)
+{
+	netdev->features |= NSS_DP_SUPPORTED_FEATURES;
+	netdev->hw_features |= NSS_DP_SUPPORTED_FEATURES;
+	netdev->vlan_features |= NSS_DP_SUPPORTED_FEATURES;
+	netdev->wanted_features |= NSS_DP_SUPPORTED_FEATURES;
+}
+
+/*
  * nss offload data plane ops
  */
 static struct nss_gmac_data_plane_ops dp_ops =
@@ -107,6 +121,7 @@ static struct nss_gmac_data_plane_ops dp_ops =
 	.mac_addr	= nss_data_plane_mac_addr,
 	.change_mtu	= nss_data_plane_change_mtu,
 	.xmit		= nss_data_plane_buf,
+	.set_features	= nss_data_plane_set_features,
 };
 
 /*
