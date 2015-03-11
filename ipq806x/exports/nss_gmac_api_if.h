@@ -36,8 +36,8 @@
 /*
  * NSS GMAC status
  */
-#define NSS_GMAC_SUCCESS	0	/* Success */
-#define NSS_GMAC_FAILURE	1	/* Failure */
+#define NSS_GMAC_SUCCESS	0
+#define NSS_GMAC_FAILURE	1
 
 /*
  * NSS GMAC mode
@@ -46,7 +46,7 @@
 #define NSS_GMAC_MODE1	1	/* gmac mode 1 */
 
 /*
- * NSS GMAC data plane ops, default would be slowpath and can be override by
+ * NSS GMAC data plane ops, default would be slowpath and can be overridden by
  * nss-drv
  */
 struct nss_gmac_data_plane_ops {
