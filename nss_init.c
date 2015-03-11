@@ -651,7 +651,7 @@ static int nss_probe(struct platform_device *nss_dev)
 	/*
 	 * Remove UBI32 reset clamp
 	 */
-	rstctl = devm_reset_control_get(&nss_dev->dev, NSS_CORE_CLK_RST_CLAMP);
+	rstctl = devm_reset_control_get(&nss_dev->dev, "clkrst_clamp");
 	if (IS_ERR(rstctl)) {
 		nss_info("%p: Deassert UBI32 reset clamp failed", nss_ctx, nss_ctx->id);
 		err = -EFAULT;
@@ -664,7 +664,7 @@ static int nss_probe(struct platform_device *nss_dev)
 	/*
 	 * Remove UBI32 core clamp
 	 */
-	rstctl = devm_reset_control_get(&nss_dev->dev, NSS_CORE_CLAMP);
+	rstctl = devm_reset_control_get(&nss_dev->dev, "clamp");
 	if (IS_ERR(rstctl)) {
 		nss_info("%p: Deassert UBI32 core clamp failed", nss_ctx, nss_ctx->id);
 		err = -EFAULT;
@@ -677,7 +677,7 @@ static int nss_probe(struct platform_device *nss_dev)
 	/*
 	 * Remove UBI32 AHB reset
 	 */
-	rstctl = devm_reset_control_get(&nss_dev->dev, NSS_CORE_AHB_RESET);
+	rstctl = devm_reset_control_get(&nss_dev->dev, "ahb");
 	if (IS_ERR(rstctl)) {
 		nss_info("%p: Deassert AHB reset failed", nss_ctx, nss_ctx->id);
 		err = -EFAULT;
@@ -690,7 +690,7 @@ static int nss_probe(struct platform_device *nss_dev)
 	/*
 	 * Remove UBI32 AXI reset
 	 */
-	rstctl = devm_reset_control_get(&nss_dev->dev, NSS_CORE_AXI_RESET);
+	rstctl = devm_reset_control_get(&nss_dev->dev, "axi");
 	if (IS_ERR(rstctl)) {
 		nss_info("%p: Deassert AXI reset failed", nss_ctx, nss_ctx->id);
 		err = -EFAULT;
