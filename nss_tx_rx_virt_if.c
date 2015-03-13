@@ -33,14 +33,13 @@ void *nss_register_virt_if(void *ctx,
 {
 	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[nss_top_main.ipv4_handler_id];
 	int32_t if_num = (int32_t)ctx;
-	uint32_t features = 0;
 
 	nss_assert(NSS_IS_IF_TYPE(VIRTUAL, if_num));
 
 	nss_top_main.subsys_dp_register[if_num].ndev = netdev;
 	nss_top_main.subsys_dp_register[if_num].cb = rx_callback;
 	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
-	nss_top_main.subsys_dp_register[if_num].features = features;
+	nss_top_main.subsys_dp_register[if_num].features = (uint32_t)netdev->features;
 
 	return nss_ctx;
 }
