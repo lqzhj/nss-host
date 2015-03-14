@@ -146,6 +146,7 @@ void nss_core_handle_nss_status_pkt(struct nss_ctx_instance *nss_ctx, struct sk_
 	uint32_t expected_version = NSS_HLOS_MESSAGE_VERSION;
 	nss_core_rx_callback_t cb;
 	void *app_data;
+	uint16_t nss_if;
 
 	if (skb_shinfo(nbuf)->nr_frags > 0) {
 		ncm = (struct nss_cmn_msg *)skb_frag_address(&skb_shinfo(nbuf)->frags[0]);
@@ -154,11 +155,16 @@ void nss_core_handle_nss_status_pkt(struct nss_ctx_instance *nss_ctx, struct sk_
 	}
 
 	/*
+	 * Save NSS interface number in local variable
+	 */
+	nss_if = ncm->interface;
+
+	/*
 	 * Check for version number
 	 */
 	if (ncm->version != expected_version) {
 		nss_warning("%p: Message %d for interface %d received with invalid version %d, expected version %d",
-							nss_ctx, ncm->type, ncm->interface, ncm->version, expected_version);
+							nss_ctx, ncm->type, nss_if, ncm->version, expected_version);
 		return;
 	}
 
@@ -167,27 +173,31 @@ void nss_core_handle_nss_status_pkt(struct nss_ctx_instance *nss_ctx, struct sk_
 	 */
 	if (ncm->len > nbuf->len) {
 		nss_warning("%p: Message %d for interface %d received with invalid length %d, expected length %d",
-							nss_ctx, ncm->type, ncm->interface, nbuf->len, ncm->len);
+							nss_ctx, ncm->type, nss_if, nbuf->len, ncm->len);
 		return;
 	}
 
 	/*
 	 * Check for validity of interface number
 	 */
-	if (ncm->interface > NSS_MAX_NET_INTERFACES && ncm->interface < 0) {
-		nss_warning("%p: Message %d received with invalid interface number %d", nss_ctx, ncm->type, ncm->interface);
+	if (nss_if > NSS_MAX_NET_INTERFACES) {
+		nss_warning("%p: Message %d received with invalid interface number %d", nss_ctx, ncm->type, nss_if);
 		return;
 	}
 
-	cb = nss_rx_interface_handlers[ncm->interface].cb;
-	app_data = nss_rx_interface_handlers[ncm->interface].app_data;
+	cb = nss_rx_interface_handlers[nss_if].cb;
+	app_data = nss_rx_interface_handlers[nss_if].app_data;
 
 	if (!cb) {
-		nss_warning("%p: Callback not registered for interface %d", nss_ctx, ncm->interface);
+		nss_warning("%p: Callback not registered for interface %d", nss_ctx, nss_if);
 		return;
 	}
 
 	cb(nss_ctx, ncm, app_data);
+
+	if (ncm->interface != nss_if) {
+		nss_warning("%p: Invalid NSS I/F %d expected %d", nss_ctx, ncm->interface, nss_if);
+	}
 
 	return;
 }
