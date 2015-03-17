@@ -377,7 +377,7 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 	len  = 0;
 
 	sid = NSS_CFI_OCF_SESSION(crp->crp_sid);
-	if (sid > NSS_CFI_OCF_MAX_SESSIONS) {
+	if (sid >= NSS_CRYPTO_MAX_IDXS) {
 		nss_cfi_err("session id %d not valid\n", sid);
 		crp->crp_etype = ENOENT;
 		crypto_done(crp);
