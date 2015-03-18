@@ -353,9 +353,22 @@ static void nss_gmac_qsgmii_common_init(struct nss_gmac_global_ctx *ctx)
 		nss_gmac_write_reg(qsgmii_base, PCS_QSGMII_SGMII_MODE,
 						PCS_QSGMII_MODE_QSGMII);
 
-		nss_gmac_clear_reg_bits(qsgmii_base, QSGMII_PHY_QSGMII_CTL,
-						QSGMII_PHY_TX_SLEW_MASK);
+		/* QSGMII Ctrl Register settings */
+		val = nss_gmac_read_reg(qsgmii_base, QSGMII_PHY_QSGMII_CTL);
+		val &= ~(QSGMII_PHY_TX_DRV_AMP_MASK
+			| QSGMII_PHY_TX_SLEW_MASK
+			| QSGMII_PHY_DEEMPHASIS_LVL_MASK
+			| QSGMII_PHY_RX_INPUT_EQU_MASK);
 
+		val |= (QSGMII_PHY_TX_DRV_AMP(0xD)
+			| QSGMII_PHY_TX_SLEW(0)
+			| QSGMII_PHY_DEEMPHASIS_LVL(0)
+			| QSGMII_PHY_RX_INPUT_EQU(0x1));
+
+		nss_gmac_write_reg(qsgmii_base, QSGMII_PHY_QSGMII_CTL, val);
+		val = nss_gmac_read_reg(qsgmii_base, QSGMII_PHY_QSGMII_CTL);
+		pr_debug("%s: QSGMII_PHY_QSGMII_CTL(0x%x) - 0x%x\n",
+					__func__, QSGMII_PHY_QSGMII_CTL, val);
 		goto out;
 	}
 
@@ -417,6 +430,7 @@ out:
 	/* set debug bits */
 	nss_gmac_set_reg_bits((uint32_t *)qsgmii_base, PCS_ALL_CH_CTL,
 								0xF0000000);
+
 }
 
 
