@@ -176,14 +176,24 @@
 #define NSS_FREQ_110_MAX	0x08000		/* Instructions Per ms Max */
 
 #define NSS_FREQ_275		275000000	/* Frequency in hz */
+#define NSS_FREQ_275_MIN	0x06000		/* Instructions Per ms Min */
+#define NSS_FREQ_275_MAX	0x09000		/* Instructions Per ms Max */
 
 #define NSS_FREQ_550		550000000	/* Frequency in hz */
 #define NSS_FREQ_550_MIN	0x07000		/* Instructions Per ms Min */
 #define NSS_FREQ_550_MAX	0x16000		/* Instructions Per ms Max */
 
+#define NSS_FREQ_600		600000000	/* Frequency in hz */
+#define NSS_FREQ_600_MIN	0x07000		/* Instructions Per ms Min */
+#define NSS_FREQ_600_MAX	0x16000		/* Instructions Per ms Max */
+
 #define NSS_FREQ_733		733000000	/* Frequency in hz */
 #define NSS_FREQ_733_MIN	0x10000		/* Instructions Per ms Min */
 #define NSS_FREQ_733_MAX	0x50000		/* Instructions Per ms Max */
+
+#define NSS_FREQ_800		800000000	/* Frequency in hz */
+#define NSS_FREQ_800_MIN	0x10000		/* Instructions Per ms Min */
+#define NSS_FREQ_800_MAX	0x50000		/* Instructions Per ms Max */
 
 #if (NSS_DT_SUPPORT == 1)
 #define NSSTCM_FREQ		400000000	/* NSS TCM Frequency in Hz */
@@ -760,7 +770,6 @@ struct nss_runtime_sampling {
 	struct nss_scale_info freq_scale[NSS_MAX_CPU_SCALES];	/* NSS Max Scale Per Freq */
 	uint32_t freq_scale_index;				/* Current Freq Index */
 	uint32_t freq_scale_ready;				/* Allow Freq Scaling */
-	uint32_t freq_scale_sup_max;				/* NSS Max Supported Scale - Limit Turbo */
 	uint32_t freq_scale_rate_limit_up;			/* Scaling Change Rate Limit */
 	uint32_t freq_scale_rate_limit_down;			/* Scaling Change Rate Limit */
 	uint32_t buffer[NSS_SAMPLE_BUFFER_SIZE];		/* Sample Ring Buffer */
@@ -778,8 +787,8 @@ struct nss_runtime_sampling {
  * nss_feature_enabled
  */
 enum nss_feature_enabled {
-	NSS_FEATURE_NOT_ENABLED = 0,    /* Feature is not enabled on this core */
-	NSS_FEATURE_ENABLED,            /* Feature is enabled on this core */
+	NSS_FEATURE_NOT_ENABLED = 0,		/* Feature is not enabled on this core */
+	NSS_FEATURE_ENABLED,			/* Feature is enabled on this core */
 };
 
 /*
@@ -787,18 +796,21 @@ enum nss_feature_enabled {
  *      Platform data per core
  */
 struct nss_platform_data {
-	uint32_t id;		/* NSS core ID */
-	uint32_t num_irq;       /* No. of interrupts supported per core */
-	uint32_t irq[2];        /* IRQ numbers per interrupt */
-	uint32_t nmap;          /* Virtual address of NSS CSM space */
-	uint32_t vmap;          /* Virtual address of NSS virtual register map */
-	uint32_t nphys;         /* Physical address of NSS CSM space */
-	uint32_t vphys;         /* Physical address of NSS virtual register map */
-	uint32_t rst_addr;      /* Reset address of NSS core */
-	uint32_t load_addr;     /* Load address of NSS firmware */
+	uint32_t id;					/* NSS core ID */
+	uint32_t num_irq;				/* No. of interrupts supported per core */
+	uint32_t irq[2];				/* IRQ numbers per interrupt */
+	uint32_t nmap;					/* Virtual address of NSS CSM space */
+	uint32_t vmap;					/* Virtual address of NSS virtual register map */
+	uint32_t nphys;					/* Physical address of NSS CSM space */
+	uint32_t vphys;					/* Physical address of NSS virtual register map */
+	uint32_t rst_addr;				/* Reset address of NSS core */
+	uint32_t load_addr;				/* Load address of NSS firmware */
 	enum nss_feature_enabled turbo_frequency;	/* Does this core support turbo frequencies */
+	uint32_t low_frequency;				/* The low frequency of NSS core */
+	uint32_t mid_frequency;				/* The mid frequency of NSS core */
+	uint32_t max_frequency;				/* The max frequency of NSS core */
 	enum nss_feature_enabled ipv4_enabled;		/* Does this core handle IPv4? */
-	enum nss_feature_enabled ipv4_reasm_enabled;    /* Does this core handle IPv4? */
+	enum nss_feature_enabled ipv4_reasm_enabled;	/* Does this core handle IPv4? */
 	enum nss_feature_enabled ipv6_enabled;		/* Does this core handle IPv6? */
 	enum nss_feature_enabled l2switch_enabled;	/* Does this core handle L2 switch? */
 	enum nss_feature_enabled crypto_enabled;	/* Does this core handle crypto? */
@@ -806,7 +818,7 @@ struct nss_platform_data {
 	enum nss_feature_enabled wlan_enabled;		/* Does this core handle WLAN 11ac? */
 	enum nss_feature_enabled tun6rd_enabled;	/* Does this core handle 6rd Tunnel ? */
 	enum nss_feature_enabled tunipip6_enabled;	/* Does this core handle ipip6 Tunnel ? */
-	enum nss_feature_enabled gre_redir_enabled;     /* Does this core handle gre_redir Tunnel ? */
+	enum nss_feature_enabled gre_redir_enabled;	/* Does this core handle gre_redir Tunnel ? */
 	enum nss_feature_enabled shaping_enabled;	/* Does this core handle shaping ? */
 	enum nss_feature_enabled gmac_enabled[4];	/* Does this core handle GMACs? */
 };

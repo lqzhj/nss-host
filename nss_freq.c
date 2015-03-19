@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2015 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -33,7 +33,7 @@ extern void *nss_freq_change_context;
 
 /*
  * nss_freq_msg_init()
- *      Initialize the freq message
+ *	Initialize the freq message
  */
 static void nss_freq_msg_init(struct nss_corefreq_msg *ncm, uint16_t if_num, uint32_t type, uint32_t len,
 			void *cb, void *app_data)
@@ -79,7 +79,7 @@ nss_tx_status_t nss_freq_change(struct nss_ctx_instance *nss_ctx, uint32_t eng, 
 	struct nss_corefreq_msg *ncm;
 	struct nss_freq_msg *nfc;
 
-	nss_info("%p: Frequency Changing to: %d\n", nss_ctx, eng);
+	nss_info("%p: frequency changing to: %d\n", nss_ctx, eng);
 
 	NSS_VERIFY_CTX_MAGIC(nss_ctx);
 	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
@@ -119,22 +119,31 @@ nss_tx_status_t nss_freq_change(struct nss_ctx_instance *nss_ctx, uint32_t eng, 
  * nss_freq_queue_work()
  *	Queue Work to the NSS Workqueue based on Current index.
  */
-static void nss_freq_queue_work(void)
+static int nss_freq_queue_work(void)
 {
+	uint32_t index = nss_runtime_samples.freq_scale_index;
 	BUG_ON(!nss_wq);
 
-	nss_cmd_buf.current_freq = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].frequency;
+	nss_info("frequency:%d index:%d sample count:%x\n", nss_runtime_samples.freq_scale[index].frequency,
+					index, nss_runtime_samples.average);
 
 	nss_work = (nss_work_t *)kmalloc(sizeof(nss_work_t), GFP_ATOMIC);
 	if (!nss_work) {
 		nss_info("NSS FREQ WQ kmalloc fail");
-		return;
+		return 1;
 	}
 
+	/*
+	 * Update proc node
+	 */
+	nss_cmd_buf.current_freq = nss_runtime_samples.freq_scale[index].frequency;
+
 	INIT_WORK((struct work_struct *)nss_work, nss_wq_function);
-	nss_work->frequency = nss_cmd_buf.current_freq;
+	nss_work->frequency = nss_runtime_samples.freq_scale[index].frequency;
 	nss_work->stats_enable =  1;
+
 	queue_work(nss_wq, (struct work_struct *)nss_work);
+	return 0;
 }
 
 /*
@@ -146,9 +155,8 @@ static void nss_freq_handle_core_stats(struct nss_ctx_instance *nss_ctx, struct 
 	uint32_t b_index;
 	uint32_t minimum;
 	uint32_t maximum;
-	uint32_t sample;
-
-	sample = core_stats->inst_cnt_total;
+	uint32_t sample = core_stats->inst_cnt_total;
+	uint32_t index = nss_runtime_samples.freq_scale_index;
 
 	/*
 	 * We do not accept any statistics if auto scaling is off,
@@ -187,57 +195,62 @@ static void nss_freq_handle_core_stats(struct nss_ctx_instance *nss_ctx, struct 
 	nss_runtime_samples.average = nss_runtime_samples.sum / nss_runtime_samples.sample_count;
 
 	/*
-	 * Print out statistics every 10 seconds
+	 * Print out statistics every 10 samples
 	 */
-	if (nss_runtime_samples.message_rate_limit == NSS_MESSAGE_RATE_LIMIT) {
+	if (nss_runtime_samples.message_rate_limit++ >= NSS_MESSAGE_RATE_LIMIT) {
 		nss_trace("%p: Running AVG:%x Sample:%x Divider:%d\n", nss_ctx, nss_runtime_samples.average, core_stats->inst_cnt_total, nss_runtime_samples.sample_count);
-		nss_trace("%p: Current Frequency Index:%d\n", nss_ctx, nss_runtime_samples.freq_scale_index);
+		nss_trace("%p: Current Frequency Index:%d\n", nss_ctx, index);
 		nss_trace("%p: Auto Scale:%d Auto Scale Ready:%d\n", nss_ctx, nss_runtime_samples.freq_scale_ready, nss_cmd_buf.auto_scale);
 		nss_trace("%p: Current Rate:%x\n", nss_ctx, nss_runtime_samples.average);
 
 		nss_runtime_samples.message_rate_limit = 0;
-	} else {
-		nss_runtime_samples.message_rate_limit++;
 	}
 
 	/*
-	 * Scale Algorithmn UP and DOWN
+	 * Don't scale if we are not ready or auto scale is disabled.
 	 */
-	if ((nss_runtime_samples.freq_scale_ready == 1) && (nss_cmd_buf.auto_scale == 1)) {
-		if (nss_runtime_samples.freq_scale_rate_limit_up == NSS_FREQUENCY_SCALE_RATE_LIMIT_UP) {
-//			nss_info("%p: Preparing Switch Inst_Cnt Avg:%x\n", nss_ctx, nss_runtime_samples.average);
+	if ((nss_runtime_samples.freq_scale_ready != 1) || (nss_cmd_buf.auto_scale != 1)) {
+		return;
+	}
 
-			maximum = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].maximum;
+	/*
+	 * Scale Algorithmn
+	 *	Algorithmn will limit how fast it will transition each scale, by the number of samples seen.
+	 *	If any sample is out of scale during the idle count, the rate_limit will reset to 0.
+	 *	Scales are limited to the max number of cpu scales we support.
+	 */
+	if (nss_runtime_samples.freq_scale_rate_limit_up++ >= NSS_FREQUENCY_SCALE_RATE_LIMIT_UP) {
+		maximum = nss_runtime_samples.freq_scale[index].maximum;
+		if ((sample > maximum) && (index < (NSS_MAX_CPU_SCALES - 1))) {
+			nss_runtime_samples.freq_scale_index++;
+			nss_runtime_samples.freq_scale_ready = 0;
 
-			if ((sample > maximum) && (nss_runtime_samples.freq_scale_index < (nss_runtime_samples.freq_scale_sup_max - 1))) {
-				nss_runtime_samples.freq_scale_index++;
-				nss_runtime_samples.freq_scale_ready = 0;
-				nss_freq_queue_work();
-//				nss_info("%p: Switch Up with Sample %x \n", nss_ctx, sample);
-			} else {
-//				nss_info("%p: No Change at Max\n", nss_ctx);
-			}
-			nss_runtime_samples.freq_scale_rate_limit_up = 0;
-			return;
-
-		} else {
-			nss_runtime_samples.freq_scale_rate_limit_up++;
-		}
-
-		minimum = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].minimum;
-
-		if ((nss_runtime_samples.average < minimum) && (nss_runtime_samples.freq_scale_index > 0)) {
-			nss_runtime_samples.freq_scale_rate_limit_down++;
-
-			if (nss_runtime_samples.freq_scale_rate_limit_down == NSS_FREQUENCY_SCALE_RATE_LIMIT_DOWN) {
+			/*
+			 * If fail to increase frequency, decrease index
+			 */
+			if (nss_freq_queue_work()) {
 				nss_runtime_samples.freq_scale_index--;
-				nss_runtime_samples.freq_scale_ready = 0;
-				nss_freq_queue_work();
-				nss_runtime_samples.freq_scale_rate_limit_down = 0;
 			}
-		} else {
-			nss_runtime_samples.freq_scale_rate_limit_down = 0;
 		}
+		nss_runtime_samples.freq_scale_rate_limit_up = 0;
+		return;
+	}
+
+	if (nss_runtime_samples.freq_scale_rate_limit_down++ >= NSS_FREQUENCY_SCALE_RATE_LIMIT_DOWN) {
+		minimum = nss_runtime_samples.freq_scale[index].minimum;
+		if ((nss_runtime_samples.average < minimum) && (index > 0)) {
+			nss_runtime_samples.freq_scale_index--;
+			nss_runtime_samples.freq_scale_ready = 0;
+
+			/*
+			 * If fail to decrease frequency, increase index
+			 */
+			if (nss_freq_queue_work()) {
+				nss_runtime_samples.freq_scale_index++;
+			}
+		}
+		nss_runtime_samples.freq_scale_rate_limit_down = 0;
+		return;
 	}
 }
 
