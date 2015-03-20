@@ -18,8 +18,10 @@
 #ifndef __NSS_CRYPTO_CTRL_H
 #define __NSS_CRYPTO_CTRL_H
 
-#define NSS_CRYPTO_IDX_BITS	~(0x1 << NSS_CRYPTO_MAX_IDXS)
-
+/**
+ * @brief session free timeout parameters
+ */
+#define NSS_CRYPTO_SESSION_FREE_TIMEOUT_SEC 60	/* session free request timeout in sec */
 
 /**
  * @brief max key lengths supported for various algorithms
@@ -68,11 +70,13 @@ struct nss_crypto_ctrl_eng {
  * @brief Per index information required for getting information
  */
 struct nss_crypto_idx_info {
-	struct nss_crypto_key ckey;	/**< cipher key */
-	struct nss_crypto_key akey;	/**< auth key */
+	struct timer_list free_timer;		/**< Timer handling session dealloc request */
 
-	uint16_t req_type;		/**< transform is for encryption or decryption */
-	uint16_t res;			/**< reserved for padding */
+	struct nss_crypto_key ckey;		/**< cipher key */
+	struct nss_crypto_key akey;		/**< auth key */
+
+	uint16_t req_type;			/**< transform is for encryption or decryption */
+	uint16_t res;				/**< reserved for padding */
 };
 
 /**
@@ -91,12 +95,12 @@ struct nss_crypto_ctrl {
 	uint32_t num_eng;			/**< number of available engines */
 	spinlock_t lock;			/**< lock */
 
-	struct delayed_work crypto_work;	/**<crypto_work structure */
+	struct delayed_work crypto_work;	/**< crypto_work structure */
+
+	struct nss_crypto_ctrl_eng *eng;	/**< pointer to engines control data information */
 
 	struct nss_crypto_idx_info idx_info[NSS_CRYPTO_MAX_IDXS];
 						/**< per index info */
-
-	struct nss_crypto_ctrl_eng *eng;	/**< pointer to engines control data information */
 };
 
 static inline bool nss_crypto_check_idx_state(uint32_t map, uint32_t idx)
@@ -159,4 +163,12 @@ void nss_crypto_reset_session(uint32_t session_idx, enum nss_crypto_session_stat
  */
 void *nss_crypto_mem_realloc(void *src, size_t src_len, size_t dst_len);
 
+/**
+ * @brief start the session's timer for deallocation
+ *
+ * @param session_idx[IN] session index
+ *
+ * @return result of the call
+ */
+bool nss_crypto_start_idx_free(uint32_t session_idx);
 #endif /* __NSS_CRYPTO_CTRL_H*/
