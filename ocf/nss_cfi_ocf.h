@@ -28,7 +28,6 @@
 #define NSS_CFI_DRV_NAME		"nss_cfi"
 #define NSS_CFI_OCF_SES_MASK		0xffffffff
 #define NSS_CFI_OCF_SESSION(_sid)	((_sid) & NSS_CFI_OCF_SES_MASK)
-#define NSS_CFI_OCF_MAX_SESSIONS	10
 
 
 /**
