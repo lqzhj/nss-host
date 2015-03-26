@@ -160,6 +160,9 @@ static struct nss_platform_data *nss_drv_of_get_pdata(struct device_node *np,
 	    || of_property_read_u32(np, "qcom,rst_addr", &npd->rst_addr)
 	    || of_property_read_u32(np, "qcom,load_addr", &npd->load_addr)
 	    || of_property_read_u32(np, "qcom,turbo_frequency", &npd->turbo_frequency)
+	    || of_property_read_u32(np, "qcom,low_frequency", &npd->low_frequency)
+	    || of_property_read_u32(np, "qcom,mid_frequency", &npd->mid_frequency)
+	    || of_property_read_u32(np, "qcom,max_frequency", &npd->max_frequency)
 	    || of_property_read_u32(np, "qcom,gmac0_enabled", &npd->gmac_enabled[0])
 	    || of_property_read_u32(np, "qcom,gmac1_enabled", &npd->gmac_enabled[1])
 	    || of_property_read_u32(np, "qcom,gmac2_enabled", &npd->gmac_enabled[2])
@@ -397,9 +400,6 @@ static int nss_probe(struct platform_device *nss_dev)
 			return err;
 
 		}
-		clk_set_rate(nss_core0_clk, npd->mid_frequency);
-		clk_prepare(nss_core0_clk);
-		clk_enable(nss_core0_clk);
 
 #if (NSS_PM_SUPPORT == 1)
 		/*
@@ -454,6 +454,10 @@ static int nss_probe(struct platform_device *nss_dev)
 			}
 		}
 		printk("\n");
+
+		clk_set_rate(nss_core0_clk, npd->max_frequency);
+		clk_prepare(nss_core0_clk);
+		clk_enable(nss_core0_clk);
 	}
 
 	/*
