@@ -449,8 +449,33 @@ static int nss_probe(struct platform_device *nss_dev)
 				nss_runtime_samples.freq_scale[i].maximum = NSS_FREQ_800_MAX;
 				printk("800Mhz ");
 			} else {
-				printk("Bad Table Load - Abort\n");
-				goto err_init_0;
+				printk("Error \nNo Table/Invalid Frequency Found - Loading Old Tables - ");
+
+				nss_runtime_samples.freq_scale[0].frequency = NSS_FREQ_110;
+				nss_runtime_samples.freq_scale[0].minimum = NSS_FREQ_110_MIN;
+				nss_runtime_samples.freq_scale[0].maximum = NSS_FREQ_110_MAX;
+
+				if (npd->turbo_frequency) {
+					nss_runtime_samples.freq_scale[1].frequency = NSS_FREQ_550;
+					nss_runtime_samples.freq_scale[1].minimum = NSS_FREQ_550_MIN;
+					nss_runtime_samples.freq_scale[1].maximum = NSS_FREQ_550_MAX;
+					nss_runtime_samples.freq_scale[2].frequency = NSS_FREQ_733;
+					nss_runtime_samples.freq_scale[2].minimum = NSS_FREQ_733_MIN;
+					nss_runtime_samples.freq_scale[2].maximum = NSS_FREQ_733_MAX;
+				} else {
+					nss_runtime_samples.freq_scale[1].frequency = NSS_FREQ_275;
+					nss_runtime_samples.freq_scale[1].minimum = NSS_FREQ_275_MIN;
+					nss_runtime_samples.freq_scale[1].maximum = NSS_FREQ_275_MAX;
+					nss_runtime_samples.freq_scale[2].frequency = NSS_FREQ_550;
+					nss_runtime_samples.freq_scale[2].minimum = NSS_FREQ_550_MIN;
+					nss_runtime_samples.freq_scale[2].maximum = NSS_FREQ_550_MAX;
+				}
+
+				for (i = 0; i < NSS_MAX_CPU_SCALES; i++) {
+					printk("%dmhz ", nss_runtime_samples.freq_scale[i].frequency / 1000000);
+				}
+
+				break;
 			}
 		}
 		printk("\n");
