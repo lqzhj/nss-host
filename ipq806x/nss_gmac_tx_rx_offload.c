@@ -194,7 +194,7 @@ static inline void nss_gmac_rx_refill(struct nss_gmac_dev *gmacdev)
 
 	for (i = 0; i < count; i++) {
 		skb = __netdev_alloc_skb(gmacdev->netdev,
-				NSS_GMAC_MINI_JUMBO_FRAME_MTU, GFP_KERNEL);
+				NSS_GMAC_MINI_JUMBO_FRAME_MTU, GFP_ATOMIC);
 		if (unlikely(skb == NULL)) {
 			netdev_dbg(gmacdev->netdev, "Unable to allocate skb, will try next time\n");
 			break;
