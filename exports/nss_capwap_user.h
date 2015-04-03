@@ -159,19 +159,34 @@ struct nss_capwap_pn_stats {
  */
 struct nss_capwap_tunnel_stats {
 	struct nss_capwap_pn_stats pnode_stats;	/**< NSS FW common stats */
-	uint64_t rx_dup_frag;			/**< Number of duplicate fragments */
-	uint64_t rx_segments;			/**< Number of segments/fragments */
-	uint64_t tx_segments;			/**< Number of segments/fragments */
 	uint64_t dtls_pkts;			/**< Number of DTLS pkts flowing through */
-	uint64_t oversize_drops;		/**< Size of packet > than payload size */
-	uint64_t frag_timeout_drops;		/**< Drops due to reassembly timeout */
-	uint64_t rx_queue_full_drops;		/**< Drops due to queue full condition in CAPWAP node */
-	uint64_t rx_n2h_queue_full_drops;	/**< Drops due to queue full condition in N2H node */
-	uint64_t tx_queue_full_drops;		/**< Drops due to queue full condition */
-	uint64_t rx_mem_failure_drops;		/**< Drops due to Memory Failure */
-	uint64_t tx_mem_failure_drops;		/**< Drops due to Memory Failure */
-	uint64_t tx_dropped;			/**< Dropped packets in encap not covered by above */
-	uint32_t rx_csum_drops;		/**< Dropped RX packets due to checksum mismatch */
+
+	/*
+	 * Rx/decap stats
+	 */
+	uint64_t rx_dup_frag;		/**< Number of duplicate fragment */
+	uint64_t rx_segments;		/**< Number of segments/fragments */
+	uint64_t rx_oversize_drops;	/**< Size of packet > than payload size */
+	uint64_t rx_frag_timeout_drops;	/**< Drops due to reassembly timeout */
+	uint64_t rx_queue_full_drops;	/**< Drops due to queue full condition */
+	uint64_t rx_n2h_queue_full_drops;
+	uint64_t rx_csum_drops;		/**< Dropped RX packets due to checksum mismatch */
+	uint64_t rx_malformed;		/**< Malformed packet drops */
+	uint64_t rx_mem_failure_drops;	/**< Drops due to Memory Failure */
+	uint64_t rx_frag_gap_drops;	/**< Drops due to fragment-offset not being sequential */
+
+	/*
+	 * Tx/encap stats
+	 */
+	uint64_t tx_segments;		/**< Number of segments/fragments */
+	uint64_t tx_queue_full_drops;	/**< Drops due to queue full condition */
+	uint64_t tx_mem_failure_drops;	/**< Drops due to Memory Failure */
+	uint64_t tx_dropped_sg_ref;	/**< TX dropped due to sg reference */
+	uint64_t tx_dropped_ver_mis;	/**< TX Dropped due to version mismatch */
+	uint64_t tx_dropped_unalign;	/**< TX Dropped due to unaligned active buffer */
+	uint64_t tx_dropped_hroom;	/**< TX Dropped due to insufficent headroom */
+	uint64_t tx_dropped_dtls;	/**< TX Dropped due to DTLS pkt */
+	uint64_t tx_dropped_nwireless;	/**< TX Dropped due to nwireless being wrong */
 };
 
 #endif /* __NSS_CAPWAP_USER_H */

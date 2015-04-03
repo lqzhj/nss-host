@@ -1116,7 +1116,8 @@ static ssize_t nss_stats_sjack_read(struct file *fp, char __user *ubuf, size_t s
  */
 static ssize_t nss_stats_capwap_encap(char *line, int len, int i, struct nss_capwap_tunnel_stats *s)
 {
-	char *header[] = { "TX Packets", "TX Bytes", "TX Drops", "Fragments", "QFull", "MemFail", "Unknown" };
+	char *header[] = { "packets", "bytes", "fragments", "drop_ref", "drop_ver", "drop_unalign",
+			"drop_hroom", "drop_dtls", "drop_nwireless", "drop_qfull", "drop_memfail", "unknown" };
 	uint64_t tcnt = 0;
 
 	switch (i) {
@@ -1127,23 +1128,37 @@ static ssize_t nss_stats_capwap_encap(char *line, int len, int i, struct nss_cap
 		tcnt = s->pnode_stats.tx_bytes;
 		break;
 	case 2:
-		tcnt = s->tx_dropped;
-		break;
-	case 3:
 		tcnt = s->tx_segments;
 		break;
+	case 3:
+		tcnt = s->tx_dropped_sg_ref;
+		break;
 	case 4:
-		tcnt = s->tx_queue_full_drops;
+		tcnt = s->tx_dropped_ver_mis;
 		break;
 	case 5:
+		tcnt = s->tx_dropped_unalign;
+		break;
+	case 6:
+		tcnt = s->tx_dropped_hroom;
+		break;
+	case 7:
+		tcnt = s->tx_dropped_dtls;
+		break;
+	case 8:
+		tcnt = s->tx_dropped_nwireless;
+		break;
+	case 9:
+		tcnt = s->tx_queue_full_drops;
+		break;
+	case 10:
 		tcnt = s->tx_mem_failure_drops;
 		break;
 	default:
-		i = 6;
-		break;
+		return 0;
 	}
 
-	return (snprintf(line, len, "%14s %llu\n", header[i], tcnt));
+	return (snprintf(line, len, "%s = %llu\n", header[i], tcnt));
 }
 
 /*
@@ -1151,7 +1166,9 @@ static ssize_t nss_stats_capwap_encap(char *line, int len, int i, struct nss_cap
  */
 static ssize_t nss_stats_capwap_decap(char *line, int len, int i, struct nss_capwap_tunnel_stats *s)
 {
-	char *header[] = { "RX Packets", "RX Bytes", "RX Dropped", "DTLS pkts", "Fragments", "OSzDrop", "FTimeout", "FDup", "QFull", "MemFail", "Unknown" };
+	char *header[] = { "packets", "bytes", "DTLS_pkts", "fragments", "rx_dropped", "drop_oversize",
+		"drop_frag_timeout", "drop_frag_dup", "drop_frag_gap", "drop_qfull", "drop_memfail",
+		"drop_csum", "drop_malformed", "unknown" };
 	uint64_t tcnt = 0;
 
 	switch(i) {
@@ -1162,35 +1179,43 @@ static ssize_t nss_stats_capwap_decap(char *line, int len, int i, struct nss_cap
 		tcnt = s->pnode_stats.rx_bytes;
 		break;
 	case 2:
-		tcnt = s->pnode_stats.rx_dropped;
-		break;
-	case 3:
 		tcnt = s->dtls_pkts;
 		break;
-	case 4:
+	case 3:
 		tcnt = s->rx_segments;
 		break;
+	case 4:
+		tcnt = s->pnode_stats.rx_dropped;
+		break;
 	case 5:
-		tcnt = s->oversize_drops;
+		tcnt = s->rx_oversize_drops;
 		break;
 	case 6:
-		tcnt = s->frag_timeout_drops;
+		tcnt = s->rx_frag_timeout_drops;
 		break;
 	case 7:
 		tcnt = s->rx_dup_frag;
 		break;
 	case 8:
-		tcnt = s->rx_queue_full_drops;
-		return (snprintf(line, len, "%14s: %llu (n2h: %llu)\n", header[i], tcnt, s->rx_n2h_queue_full_drops));
+		tcnt = s->rx_frag_gap_drops;
+		break;
 	case 9:
+		tcnt = s->rx_queue_full_drops;
+		return (snprintf(line, len, "%s = %llu (n2h = %llu)\n", header[i], tcnt, s->rx_n2h_queue_full_drops));
+	case 10:
 		tcnt = s->rx_mem_failure_drops;
 		break;
-	default:
-		i = 10;
+	case 11:
+		tcnt = s->rx_csum_drops;
 		break;
+	case 12:
+		tcnt = s->rx_malformed;
+		break;
+	default:
+		return 0;
 	}
 
-	return (snprintf(line, len, "%14s: %llu\n", header[i], tcnt));
+	return (snprintf(line, len, "%s = %llu\n", header[i], tcnt));
 }
 
 /*
@@ -1204,7 +1229,7 @@ static ssize_t nss_stats_capwap_read(struct file *fp, char __user *ubuf, size_t 
 	struct nss_capwap_tunnel_stats stats;
 	size_t bytes;
 	char line[80];
-	int start, end;
+	int start;
 	uint32_t if_num = NSS_DYNAMIC_IF_START;
 	uint32_t max_if_num = NSS_DYNAMIC_IF_START + NSS_MAX_DYNAMIC_INTERFACES;
 
@@ -1238,7 +1263,7 @@ static ssize_t nss_stats_capwap_read(struct file *fp, char __user *ubuf, size_t 
 			continue;
 		}
 
-		bytes = snprintf(line, sizeof(line), "(%2d) %9s %s\n", if_num, "Stats", "Total");
+		bytes = snprintf(line, sizeof(line), "----if_num : %2d----\n", if_num);
 		if ((bytes_read + bytes) > sz) {
 			break;
 		}
@@ -1249,16 +1274,18 @@ static ssize_t nss_stats_capwap_read(struct file *fp, char __user *ubuf, size_t 
 		}
 		bytes_read += bytes;
 		start = 0;
-		if (type == 1) {
-			end = 5;	/* encap */
-		} else {
-			end = 9;	/* decap */
-		}
-		while (bytes_read < sz && start < end) {
+		while (bytes_read < sz) {
 			if (type == 1) {
 				bytes = nss_stats_capwap_encap(line, sizeof(line), start, &stats);
 			} else {
 				bytes = nss_stats_capwap_decap(line, sizeof(line), start, &stats);
+			}
+
+			/*
+			 * If we don't have any more lines in decap/encap.
+			 */
+			if (bytes == 0) {
+				break;
 			}
 
 			if ((bytes_read + bytes) > sz)
