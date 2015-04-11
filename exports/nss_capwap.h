@@ -65,19 +65,34 @@ typedef enum nss_capwap_msg_response {
  */
 struct nss_capwap_stats_msg {
 	struct nss_if_stats pnode_stats;	/**< NSS FW common stats */
-	uint32_t rx_dup_frag;			/**< Number of duplicate fragments */
-	uint32_t rx_segments;			/**< Number of segments/fragments */
-	uint32_t tx_segments;			/**< Number of segments/fragments */
 	uint32_t dtls_pkts;			/**< Number of DTLS pkts flowing through */
-	uint32_t oversize_drops;		/**< Size of packet > than payload size */
-	uint32_t frag_timeout_drops;		/**< Drops due to reassembly timeout */
-	uint32_t rx_queue_full_drops;		/**< Drops due to queue full condition in CAPWAP node */
-	uint32_t rx_n2h_queue_full_drops;	/**< Drops due to queue full condition in N2H node */
-	uint32_t tx_queue_full_drops;		/**< Drops due to queue full condition */
-	uint32_t rx_mem_failure_drops;		/**< Drops due to Memory Failure */
-	uint32_t tx_mem_failure_drops;		/**< Drops due to Memory Failure */
-	uint32_t tx_dropped;			/**< Dropped packets in encap not covered by above */
-	uint32_t rx_csum_drops;			/**< Dropped RX packets due to checksum mismatch */
+
+	/*
+	 * Rx/decap stats
+	 */
+	uint32_t rx_dup_frag;		/**< Number of duplicate fragment */
+	uint32_t rx_segments;		/**< Number of segments/fragments */
+	uint32_t rx_oversize_drops;	/**< Size of packet > than payload size */
+	uint32_t rx_frag_timeout_drops;	/**< Drops due to reassembly timeout */
+	uint32_t rx_queue_full_drops;	/* Drops due to queue full condition */
+	uint32_t rx_n2h_queue_full_drops;
+	uint32_t rx_csum_drops;		/**< Dropped RX packets due to checksum mismatch */
+	uint32_t rx_malformed;		/**< Malformed packet drops */
+	uint32_t rx_mem_failure_drops;	/**< Drops due to Memory Failure */
+	uint32_t rx_frag_gap_drops;	/**< Drops due to fragment-offset not being sequential */
+
+	/*
+	 * Tx/encap stats
+	 */
+	uint32_t tx_segments;		/**< Number of segments/fragments */
+	uint32_t tx_queue_full_drops;	/**< Drops due to queue full condition */
+	uint32_t tx_mem_failure_drops;	/**< Drops due to Memory Failure */
+	uint32_t tx_dropped_sg_ref;	/**< TX dropped due to sg reference */
+	uint32_t tx_dropped_ver_mis;	/**< TX Dropped due to version mismatch */
+	uint32_t tx_dropped_unalign;	/**< TX Dropped due to unaligned active buffer */
+	uint32_t tx_dropped_hroom;	/**< TX Dropped due to insufficent headroom */
+	uint32_t tx_dropped_dtls;	/**< TX Dropped due to DTLS pkt */
+	uint32_t tx_dropped_nwireless;	/**< TX Dropped due to nwireless being wrong */
 };
 
 /**

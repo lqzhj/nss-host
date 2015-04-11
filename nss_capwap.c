@@ -146,20 +146,27 @@ static void nss_capwapmgr_update_stats(struct nss_capwap_handle *handle, struct 
 	stats = &handle->stats;
 
 	stats->rx_segments += fstats->rx_segments;
-	stats->tx_segments += fstats->tx_segments;
 	stats->dtls_pkts += fstats->dtls_pkts;
 
 	stats->rx_dup_frag += fstats->rx_dup_frag;
-	stats->oversize_drops += fstats->oversize_drops;
-	stats->frag_timeout_drops += fstats->frag_timeout_drops;
+	stats->rx_oversize_drops += fstats->rx_oversize_drops;
+	stats->rx_frag_timeout_drops += fstats->rx_frag_timeout_drops;
 	stats->rx_queue_full_drops += fstats->rx_queue_full_drops;
 	stats->rx_n2h_queue_full_drops += fstats->rx_n2h_queue_full_drops;
 	stats->rx_mem_failure_drops += fstats->rx_mem_failure_drops;
+	stats->rx_csum_drops += fstats->rx_csum_drops;
+	stats->rx_malformed += fstats->rx_malformed;
+	stats->rx_frag_gap_drops += fstats->rx_frag_gap_drops;
 
+	stats->tx_segments += fstats->tx_segments;
 	stats->tx_queue_full_drops += fstats->tx_queue_full_drops;
 	stats->tx_mem_failure_drops += fstats->tx_mem_failure_drops;
-
-	stats->tx_dropped += fstats->tx_dropped;
+	stats->tx_dropped_sg_ref += fstats->tx_dropped_sg_ref;
+	stats->tx_dropped_ver_mis += fstats->tx_dropped_ver_mis;
+	stats->tx_dropped_hroom += fstats->tx_dropped_hroom;
+	stats->tx_dropped_dtls += fstats->tx_dropped_dtls;
+	stats->tx_dropped_nwireless += fstats->tx_dropped_nwireless;
+	stats->tx_dropped_unalign += fstats->tx_dropped_unalign;
 
 	/*
 	 * add pnode stats now.
