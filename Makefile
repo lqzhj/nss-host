@@ -29,6 +29,7 @@ qca-nss-drv-objs := \
 			nss_gre_redir.o \
 			nss_if.o \
 			nss_init.o \
+			nss_freq.o \
 			nss_ipsec.o \
 			nss_ipv4.o \
 			nss_ipv4_reasm.o \
@@ -56,14 +57,11 @@ qca-nss-drv-objs := \
 qca-nss-drv-objs += \
 			nss_tx_rx_virt_if.o
 
-PM_SUPPORT := 0
-
 ccflags-y += -I$(obj)/nss_hal/include -I$(obj)/exports -DNSS_DEBUG_LEVEL=0 -DNSS_EMPTY_BUFFER_SIZE=1792 -DNSS_PKT_STATS_ENABLED=1
 ccflags-y += -DNSS_PM_DEBUG_LEVEL=0 -DNSS_PPP_SUPPORT=1
 
 ifneq ($(findstring 3.4, $(KERNELVERSION)),)
 NSS_CCFLAGS = -DNSS_DT_SUPPORT=0 -DNSS_FW_DBG_SUPPORT=1 -DNSS_PM_SUPPORT=1
-PM_SUPPORT = 1
 else
 NSS_CCFLAGS = -DNSS_DT_SUPPORT=1 -DNSS_FW_DBG_SUPPORT=0 -DNSS_PM_SUPPORT=0
 ccflags-y += -I$(obj)
@@ -75,9 +73,6 @@ export NSS_CCFLAGS
 
 qca-nss-drv-objs += nss_profiler.o
 
-ifeq ($(PM_SUPPORT), 1)
-qca-nss-drv-objs += nss_freq.o
-endif
 
 obj ?= .
 

@@ -401,7 +401,6 @@ static int nss_probe(struct platform_device *nss_dev)
 
 		}
 
-#if (NSS_PM_SUPPORT == 1)
 		/*
 		 * Check if turbo is supported
 		 */
@@ -410,13 +409,12 @@ static int nss_probe(struct platform_device *nss_dev)
 			 * Turbo is supported
 			 */
 			printk("nss_driver - Turbo Support %d\n", npd->turbo_frequency);
+#if (NSS_PM_SUPPORT == 1)
 			nss_pm_set_turbo();
+#endif
 		} else {
 			printk("nss_driver - Turbo No Support %d\n", npd->turbo_frequency);
 		}
-#else
-		printk("nss_driver - Turbo Not Supported\n");
-#endif
 
 		nss_runtime_samples.freq_scale[0].frequency = npd->low_frequency;
 		nss_runtime_samples.freq_scale[1].frequency = npd->mid_frequency;
@@ -686,9 +684,7 @@ static int nss_probe(struct platform_device *nss_dev)
 		}
 	}
 
-#if (NSS_PM_SUPPORT == 1)
 	nss_freq_register_handler();
-#endif
 	nss_lso_rx_register_handler();
 
 	nss_top->frequency_handler_id = nss_dev->id;
@@ -917,7 +913,6 @@ struct platform_driver nss_driver = {
 	},
 };
 
-#if (NSS_PM_SUPPORT == 1)
 /*
  * nss_reset_frequency_stats_samples()
  *	Reset all frequency sampling state when auto scaling is turned off.
@@ -952,6 +947,7 @@ void nss_wq_function (struct work_struct *work)
 	clk_set_rate(nss_core0_clk, my_work->frequency);
 	nss_freq_change(nss_freq_change_context, my_work->frequency, my_work->stats_enable, 1);
 
+#if (NSS_PM_SUPPORT == 1)
 	if(!pm_client) {
 		goto out;
 	}
@@ -963,7 +959,9 @@ void nss_wq_function (struct work_struct *work)
 	} else {
 		nss_pm_set_perf_level(pm_client, NSS_PM_PERF_LEVEL_IDLE);
 	}
+
 out:
+#endif
 	kfree((void *)work);
 }
 
@@ -1127,7 +1125,6 @@ static int nss_get_average_inst_handler(ctl_table *ctl, int write, void __user *
 
 	return ret;
 }
-#endif /* NSS_PM_SUPPORT */
 
 #if (NSS_FW_DBG_SUPPORT == 1)
 /*
@@ -1244,7 +1241,6 @@ static int nss_paged_mode_handler(ctl_table *ctl, int write, void __user *buffer
 	return ret;
 }
 
-#if (NSS_PM_SUPPORT == 1)
 /*
  * sysctl-tuning infrastructure.
  */
@@ -1279,7 +1275,6 @@ static ctl_table nss_freq_table[] = {
 	},
 	{ }
 };
-#endif
 
 static ctl_table nss_general_table[] = {
 	{
@@ -1337,13 +1332,11 @@ static ctl_table nss_general_table[] = {
 };
 
 static ctl_table nss_clock_dir[] = {
-#if (NSS_PM_SUPPORT == 1)
 	{
 		.procname               = "clock",
 		.mode                   = 0555,
 		.child                  = nss_freq_table,
 	},
-#endif
 	{
 		.procname               = "general",
 		.mode                   = 0555,
@@ -1385,11 +1378,7 @@ static int __init nss_init(void)
 
 	nss_info("Init NSS driver");
 
-#if (NSS_PM_SUPPORT == 1)
 	nss_freq_change_context = nss_freq_get_mgr();
-#else
-	nss_freq_change_context = NULL;
-#endif
 
 #if (NSS_DT_SUPPORT == 1)
 	/*
@@ -1466,7 +1455,6 @@ static int __init nss_init(void)
 	skb_queue_head_init(&nss_skb_list);
 #endif
 
-#if (NSS_PM_SUPPORT == 1)
 	/*
 	 * Setup Runtime Sample values
 	 */
@@ -1487,6 +1475,7 @@ static int __init nss_init(void)
 	 */
 	nss_wq = create_workqueue("nss_freq_queue");
 
+#if (NSS_PM_SUPPORT == 1)
 	/*
 	 * Initialize NSS Bus PM module
 	 */
