@@ -1612,6 +1612,9 @@ static inline int32_t nss_core_send_buffer_simple_skb(struct nss_ctx_instance *n
 /*
  * nss_core_send_buffer_nr_frags()
  *	Sends frags array (NETIF_F_SG) to NSS FW
+ *
+ * Note - Opaque is set only on LAST fragment, and DISCARD is set for the rest of segments
+ * Used to differentiate from FRAGLIST
  */
 static inline int32_t nss_core_send_buffer_nr_frags(struct nss_ctx_instance *nss_ctx,
 	struct h2n_desc_if_instance *desc_if, uint32_t if_num, uint32_t frag0phyaddr,
@@ -1685,6 +1688,9 @@ static inline int32_t nss_core_send_buffer_nr_frags(struct nss_ctx_instance *nss
 /*
  * nss_core_send_buffer_fraglist()
  *	Sends fraglist (NETIF_F_FRAGLIST) to NSS FW
+ *
+ * Note - Opaque is set only on HEAD fragment, and DISCARD is set for the rest of segments
+ * Used to differentiate from FRAGS
  */
 static inline int32_t nss_core_send_buffer_fraglist(struct nss_ctx_instance *nss_ctx,
 	struct h2n_desc_if_instance *desc_if, uint32_t if_num, uint32_t frag0phyaddr,
@@ -1699,9 +1705,9 @@ static inline int32_t nss_core_send_buffer_fraglist(struct nss_ctx_instance *nss
 	int16_t i;
 
 	/*
-	 * Set the appropriate flags.
+	 * Copy and Set bit flags
 	 */
-	bit_flags = (flags | H2N_BIT_FLAG_DISCARD);
+	bit_flags = flags;
 	if (likely(nbuf->ip_summed == CHECKSUM_PARTIAL)) {
 		bit_flags |= H2N_BIT_FLAG_GEN_IP_TRANSPORT_CHECKSUM;
 	}
@@ -1710,11 +1716,16 @@ static inline int32_t nss_core_send_buffer_fraglist(struct nss_ctx_instance *nss
 	desc = &desc_ring[hlos_index];
 
 	/*
-	 * First fragment/descriptor is special
+	 * First fragment/descriptor is special. Will hold the Opaque
 	 */
 	nss_core_write_one_descriptor(desc, buffer_type, frag0phyaddr, if_num,
-		(uint32_t)NULL, nbuf->data - nbuf->head, nbuf->len - nbuf->data_len,
+		(uint32_t)nbuf, nbuf->data - nbuf->head, nbuf->len - nbuf->data_len,
 		nbuf->end - nbuf->head, (uint32_t)nbuf->priority, mss, bit_flags | H2N_BIT_FLAG_FIRST_SEGMENT);
+
+	/*
+	 * Set everyone but first fragment/descriptor as discard
+	 */
+	bit_flags |= H2N_BIT_FLAG_DISCARD;
 
 	/*
 	 * Walk the frag_list in nbuf
@@ -1753,12 +1764,10 @@ static inline int32_t nss_core_send_buffer_fraglist(struct nss_ctx_instance *nss
 	}
 
 	/*
-	 * Update bit flag for last descriptor. The discard flag shall
-	 * be set for all fragments except the the last one.
+	 * Update bit flag for last descriptor.
 	 */
 	desc->bit_flags |= H2N_BIT_FLAG_LAST_SEGMENT;
-	desc->bit_flags &= ~(H2N_BIT_FLAG_DISCARD);
-	desc->opaque = (uint32_t)nbuf;
+
 	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_FRAGLIST]);
 	return i+1;
 }
@@ -1823,7 +1832,15 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		struct sk_buff *iter;
 		segments = 0;
 		skb_walk_frags(nbuf, iter) {
-			segments ++;
+			segments++;
+		}
+
+		/*
+		 * Check that segments do not overflow the number of descriptors
+		 */
+		if (unlikely(segments > size)) {
+			nss_warning("%p: Unable to fit in skb - %d segments in our descriptors", nss_ctx, segments);
+			return NSS_CORE_STATUS_FAILURE;
 		}
 	}
 
@@ -1839,8 +1856,6 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	nss_index = if_map->h2n_nss_index[qid];
 	hlos_index = h2n_desc_ring->hlos_index;
 
-	size = desc_if->size;
-	mask = size - 1;
 	count = ((nss_index - hlos_index - 1) + size) & (mask);
 
 	if (unlikely(count < (segments + 1))) {
