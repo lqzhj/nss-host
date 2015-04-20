@@ -710,7 +710,7 @@ bool nss_nlipv4_init(void)
 {
 	int error;
 
-	nss_nl_info("Init NSS netlink ipv4 handler\n");
+	nss_nl_info_always("Init NSS netlink IPv4 handler\n");
 
 	/*
 	 * register NETLINK ops with the family
@@ -760,7 +760,7 @@ bool nss_nlipv4_exit(void)
 {
 	int error;
 
-	nss_nl_info("Exit NSS netlink iipv4 handler\n");
+	nss_nl_info_always("Exit NSS netlink IPv4 handler\n");
 
 	/*
 	 * unregister the ops family
