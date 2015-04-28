@@ -57,6 +57,7 @@ enum nss_ipv4_message_types {
 					/**< Update MTU of connection interfaces */
 #define NSS_IPV4_RULE_CREATE_FLAG_ICMP_NO_CME_FLUSH 0x40
 					/**< Rule for not flushing CME on ICMP pkt */
+#define NSS_IPV4_RULE_CREATE_FLAG_L2_ENCAP 0x80 /**< The L2 payload is not IPv4 but consists of an encapsulating protocol that carries an IPv4 payload within it. */
 
 
 /**
