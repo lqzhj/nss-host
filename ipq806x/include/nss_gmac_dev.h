@@ -47,7 +47,6 @@
 #endif
 #include <nss_gmac_api_if.h>
 
-
 #define NSS_GMAC_IPC_OFFLOAD
 
 #define NSS_GMAC_MACBASE	0x0000	/* Offset of Mac registers within
@@ -153,6 +152,7 @@ struct nss_gmac_dev {
 	void __iomem *dma_base;	/* base address of DMA registers	      */
 	uint32_t phy_base;	/* PHY device address on MII interface        */
 	uint32_t macid;		/* Sequence number of Mac on the platform     */
+	uint32_t sgmii_pcs_chanid;	/* PCS Channel ID used by the GMAC    */
 	uint32_t version;	/* Gmac Revision version                      */
 	unsigned long int flags;/* status flags				      */
 	uint32_t drv_flags;	/* Driver specific feature flags	      */

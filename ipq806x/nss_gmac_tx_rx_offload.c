@@ -416,6 +416,7 @@ static int nss_gmac_slowpath_if_xmit(void *app_data, struct sk_buff *skb)
 	struct net_device *netdev = (struct net_device *)app_data;
 	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	unsigned int len = skb_headlen(skb);
+	dma_addr_t dma_addr;
 	int nfrags = skb_shinfo(skb)->nr_frags;
 
 	/*
@@ -428,8 +429,8 @@ static int nss_gmac_slowpath_if_xmit(void *app_data, struct sk_buff *skb)
 	 * Most likely, it is not a fragmented pkt, optimize for that
 	 */
 	if (likely(nfrags == 0)) {
-		dma_addr_t dma_addr = dma_map_single(&netdev->dev, skb->data,
-							 len, DMA_TO_DEVICE);
+		dma_addr = dma_map_single(&netdev->dev, skb->data, len,
+						DMA_TO_DEVICE);
 		spin_lock_bh(&gmacdev->slock);
 		nss_gmac_set_tx_qptr(gmacdev, dma_addr, len, (uint32_t)skb,
 				(skb->ip_summed == CHECKSUM_PARTIAL),

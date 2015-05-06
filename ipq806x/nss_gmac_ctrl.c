@@ -598,15 +598,24 @@ static int32_t nss_gmac_of_get_pdata(struct device_node *np,
 	gmacdev = netdev_priv(netdev);
 
 	if (of_property_read_u32(np, "qcom,id", &gmacdev->macid)
-		|| of_property_read_u32(np, "qcom,phy_mdio_addr", &gmaccfg->phy_mdio_addr)
-		|| of_property_read_u32(np, "qcom,rgmii_delay", &gmaccfg->rgmii_delay)
-		|| of_property_read_u32(np, "qcom,poll_required", &gmaccfg->poll_required)
-		|| of_property_read_u32(np, "qcom,forced_speed", &gmaccfg->forced_speed)
-		|| of_property_read_u32(np, "qcom,forced_duplex", &gmaccfg->forced_duplex)
-		|| of_property_read_u32(np, "qcom,socver", &gmaccfg->socver)) {
+		|| of_property_read_u32(np, "qcom,phy-mdio-addr",
+			&gmaccfg->phy_mdio_addr)
+		|| of_property_read_u32(np, "qcom,rgmii-delay",
+			&gmaccfg->rgmii_delay)
+		|| of_property_read_u32(np, "qcom,poll-required",
+			&gmaccfg->poll_required)
+		|| of_property_read_u32(np, "qcom,forced-speed",
+			&gmaccfg->forced_speed)
+		|| of_property_read_u32(np, "qcom,forced-duplex",
+			&gmaccfg->forced_duplex)
+		|| of_property_read_u32(np, "qcom,pcs-chanid",
+			&gmacdev->sgmii_pcs_chanid)) {
 		pr_err("%s: error reading critical device node properties\n", np->name);
 		return -EFAULT;
 	}
+
+	if (of_property_read_u32(np, "qcom,socver", &gmaccfg->socver))
+		gmaccfg->socver = 0;
 
 	gmaccfg->phy_mii_type = of_get_phy_mode(np);
 	netdev->irq = irq_of_parse_and_map(np, 0);
@@ -802,6 +811,7 @@ static int32_t nss_gmac_probe(struct platform_device *pdev)
 	netdev->base_addr = pdev->resource[0].start;
 	netdev->irq = pdev->resource[1].start;
 	gmacdev->macid = pdev->id;
+	gmacdev->sgmii_pcs_chanid = gmacdev->macid;
 #endif
 	gmacdev->phy_mii_type = gmaccfg->phy_mii_type;
 	gmacdev->phy_base = gmaccfg->phy_mdio_addr;

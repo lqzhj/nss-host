@@ -1066,7 +1066,7 @@ static void nss_gmac_check_pcs_status(struct nss_gmac_dev *gmacdev)
 
 	ctx = gmacdev->ctx;
 	qsgmii_base = ctx->qsgmii_base;
-	id = gmacdev->macid;
+	id = gmacdev->sgmii_pcs_chanid;
 
 	gmacdev->link_state = LINKDOWN;
 
@@ -1120,7 +1120,7 @@ static void nss_gmac_check_sgmii_link(struct nss_gmac_dev *gmacdev)
 
 	ctx = gmacdev->ctx;
 	qsgmii_base = ctx->qsgmii_base;
-	id = gmacdev->macid;
+	id = gmacdev->sgmii_pcs_chanid;
 
 	previous_linkup_speed = gmacdev->speed;
 	previous_linkup_duplex = gmacdev->duplex_mode;
