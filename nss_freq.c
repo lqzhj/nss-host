@@ -29,7 +29,6 @@ extern struct nss_frequency_statistics nss_freq_stat;
 extern struct nss_runtime_sampling nss_runtime_samples;
 extern struct workqueue_struct *nss_wq;
 extern nss_work_t *nss_work;
-extern void *nss_freq_change_context;
 
 /*
  * nss_freq_msg_init()
@@ -284,12 +283,4 @@ static void nss_freq_interface_handler(struct nss_ctx_instance *nss_ctx, struct 
 void nss_freq_register_handler(void)
 {
 	nss_core_register_handler(NSS_COREFREQ_INTERFACE, nss_freq_interface_handler, NULL);
-}
-
-/*
- * nss_freq_get_mgr()
- */
-void *nss_freq_get_mgr(void)
-{
-	return (void *)&nss_top_main.nss[nss_top_main.frequency_handler_id];
 }

@@ -82,7 +82,6 @@ static void *pm_client;
 /*
  * Handler to send NSS messages
  */
-void *nss_freq_change_context;
 struct clk *nss_core0_clk;
 
 /*
@@ -943,9 +942,15 @@ void nss_wq_function (struct work_struct *work)
 {
 	nss_work_t *my_work = (nss_work_t *)work;
 
-	nss_freq_change(nss_freq_change_context, my_work->frequency, my_work->stats_enable, 0);
+	nss_freq_change(&nss_top_main.nss[NSS_CORE_0], my_work->frequency, my_work->stats_enable, 0);
+#if (NSS_MAX_CORES > 1)
+	nss_freq_change(&nss_top_main.nss[NSS_CORE_1], my_work->frequency, my_work->stats_enable, 0);
+#endif
 	clk_set_rate(nss_core0_clk, my_work->frequency);
-	nss_freq_change(nss_freq_change_context, my_work->frequency, my_work->stats_enable, 1);
+	nss_freq_change(&nss_top_main.nss[NSS_CORE_0], my_work->frequency, my_work->stats_enable, 1);
+#if (NSS_MAX_CORES > 1)
+	nss_freq_change(&nss_top_main.nss[NSS_CORE_1], my_work->frequency, my_work->stats_enable, 1);
+#endif
 
 #if (NSS_PM_SUPPORT == 1)
 	if(!pm_client) {
@@ -1185,7 +1190,7 @@ static int nss_rpscfg_handler(ctl_table *ctl, int write, void __user *buffer, si
  */
 static int nss_coredump_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
 {
-	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) nss_freq_change_context;
+	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[NSS_CORE_0];
 	int ret;
 
 	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
@@ -1377,8 +1382,6 @@ static int __init nss_init(void)
 #endif
 
 	nss_info("Init NSS driver");
-
-	nss_freq_change_context = nss_freq_get_mgr();
 
 #if (NSS_DT_SUPPORT == 1)
 	/*

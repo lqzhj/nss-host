@@ -618,12 +618,6 @@ typedef void (*nss_if_rx_msg_callback_t)(void *app_data, struct nss_cmn_msg *msg
 typedef void (*nss_ipv4_callback_t)(struct nss_ipv4_cb_params *nicb);
 
 /**
- * @brief Get handle to sending/receiving Frequency messages
- *
- * @return void* NSS context to be provided with every message
- */
-extern void *nss_freq_get_mgr(void);
-/**
  * Methods provided by NSS driver for use by virtual interfaces (VAPs)
  */
 
