@@ -744,11 +744,20 @@ struct nss_cmd_buffer {
 };
 
 /*
+ * The scales for NSS
+ */
+enum nss_scales {
+	NSS_FREQ_LOW_SCALE = 0,
+	NSS_FREQ_MID_SCALE = 1,
+	NSS_FREQ_HIGH_SCALE = 2,
+	NSS_FREQ_MAX_SCALE = 3,
+};
+
+/*
  * NSS Core Statistics and Frequencies
  */
 #define NSS_SAMPLE_BUFFER_SIZE 32	/* Ring Buffer should be a Size of two */
 #define NSS_SAMPLE_BUFFER_MASK (NSS_SAMPLE_BUFFER_SIZE - 1)
-#define NSS_MAX_CPU_SCALES 3			/* Max Number of Frequencies */
 #define NSS_FREQUENCY_SCALE_RATE_LIMIT_UP 2	/* Adjust the Rate of Frequency Switching Up */
 #define NSS_FREQUENCY_SCALE_RATE_LIMIT_DOWN 60000	/* Adjust the Rate of Frequency Switching Down */
 #define NSS_MESSAGE_RATE_LIMIT 15000		/* Adjust the Rate of Displaying Statistic Messages */
@@ -772,7 +781,7 @@ struct nss_scale_info {
  *	Also contains the per frequency scale array
  */
 struct nss_runtime_sampling {
-	struct nss_scale_info freq_scale[NSS_MAX_CPU_SCALES];	/* NSS Max Scale Per Freq */
+	struct nss_scale_info freq_scale[NSS_FREQ_MAX_SCALE];	/* NSS Max Scale Per Freq */
 	uint32_t freq_scale_index;				/* Current Freq Index */
 	uint32_t freq_scale_ready;				/* Allow Freq Scaling */
 	uint32_t freq_scale_rate_limit_up;			/* Scaling Change Rate Limit */
@@ -811,9 +820,6 @@ struct nss_platform_data {
 	uint32_t rst_addr;				/* Reset address of NSS core */
 	uint32_t load_addr;				/* Load address of NSS firmware */
 	enum nss_feature_enabled turbo_frequency;	/* Does this core support turbo frequencies */
-	uint32_t low_frequency;				/* The low frequency of NSS core */
-	uint32_t mid_frequency;				/* The mid frequency of NSS core */
-	uint32_t max_frequency;				/* The max frequency of NSS core */
 	enum nss_feature_enabled ipv4_enabled;		/* Does this core handle IPv4? */
 	enum nss_feature_enabled ipv4_reasm_enabled;	/* Does this core handle IPv4? */
 	enum nss_feature_enabled ipv6_enabled;		/* Does this core handle IPv6? */
