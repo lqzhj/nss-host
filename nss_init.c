@@ -68,10 +68,6 @@ int nss_ctl_logbuf __read_mostly = 0;
 int nss_jumbo_mru  __read_mostly = 0;
 int nss_paged_mode __read_mostly = 0;
 
-#ifdef CONFIG_DEBUG_KMEMLEAK
-extern struct sk_buff_head nss_skb_list;
-#endif
-
 /*
  * PM client handle
  */
@@ -1445,15 +1441,6 @@ static int __init nss_init(void)
 	 * Registering sysctl for n2h empty pool buffer.
 	 */
 	nss_n2h_empty_pool_buf_register_sysctl();
-
-#ifdef CONFIG_DEBUG_KMEMLEAK
-	/*
-	 * If the system is under kmemleak debugging, track our
-	 * skbs by putting them in a list.
-	 */
-
-	skb_queue_head_init(&nss_skb_list);
-#endif
 
 	/*
 	 * Setup Runtime Sample values
