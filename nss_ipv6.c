@@ -80,6 +80,8 @@ static void nss_ipv6_driver_node_sync_update(struct nss_ctx_instance *nss_ctx, s
 	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_HASH_REORDERS] += nins->ipv6_connection_hash_reorders;
 	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_FLUSHES] += nins->ipv6_connection_flushes;
 	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_EVICTIONS] += nins->ipv6_connection_evictions;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_FRAGMENTATIONS] += nins->ipv6_fragmentations;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_FRAG_FAILS] += nins->ipv6_frag_fails;
 
 	for (i = 0; i < NSS_EXCEPTION_EVENT_IPV6_MAX; i++) {
 		 nss_top->stats_if_exception_ipv6[i] += nins->exception_events[i];

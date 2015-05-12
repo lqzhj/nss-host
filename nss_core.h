@@ -291,6 +291,10 @@ enum nss_stats_ipv6 {
 					/* Number of IPv6 connection flushes */
 	NSS_STATS_IPV6_CONNECTION_EVICTIONS,
 					/* Number of IPv6 connection evictions */
+	NSS_STATS_IPV6_FRAGMENTATIONS,
+					/* Number of successful IPv6 fragmentations performed */
+	NSS_STATS_IPV6_FRAG_FAILS,
+					/* Number of IPv6 fragmentation fails */
 	NSS_STATS_IPV6_MAX,
 };
 

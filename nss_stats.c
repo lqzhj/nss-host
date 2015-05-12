@@ -97,6 +97,8 @@ static int8_t *nss_stats_str_ipv6[NSS_STATS_IPV6_MAX] = {
 	"hash_reorders",
 	"flushes",
 	"evictions",
+	"fragmentations",
+	"frag_fails",
 };
 
 /*

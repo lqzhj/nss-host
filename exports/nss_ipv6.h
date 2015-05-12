@@ -353,6 +353,10 @@ struct nss_ipv6_node_sync {
 				/**< Number of IPv6 connection flushes */
 	uint32_t ipv6_connection_evictions;
 				/**< Number of IPv6 connection evictions */
+	uint32_t ipv6_fragmentations;
+				/**< Number of successful IPv6 fragmentations */
+	uint32_t ipv6_frag_fails;
+				/**< Number of IPv6 fragmentation fails */
 	uint32_t exception_events[NSS_EXCEPTION_EVENT_IPV6_MAX];
 				/**< Number of IPv6 exception events */
 };
