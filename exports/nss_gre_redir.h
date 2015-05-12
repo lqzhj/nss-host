@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -137,7 +137,7 @@ struct nss_gre_redir_decap_per_pkt_metadata {
 	uint8_t gre_prio;	/**< GRE Priority */
 	uint8_t gre_seq;	/**< Sequence Number */
 	uint16_t gre_tunnel_id;	/**< Tunnel ID */
-	uint16_t res;		/**< Reserved to round it off to word boundary */
+	uint16_t src_if_num;	/**< Source ethernet interface number */
 };
 
 /**
