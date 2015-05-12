@@ -321,7 +321,7 @@ static int nss_n2h_set_empty_pool_buf(ctl_table *ctl, int write, void __user *bu
 	}
 
 	up(&nss_n2h_nepbcfgp[core_num].sem);
-	return NSS_SUCCESS;
+	return 0;
 
 failure:
 	/*
@@ -329,7 +329,7 @@ failure:
 	 */
 	*new_val = nss_n2h_nepbcfgp[core_num].current_value;
 	up(&nss_n2h_nepbcfgp[core_num].sem);
-	return NSS_FAILURE;
+	return -EINVAL;
 }
 
 /*

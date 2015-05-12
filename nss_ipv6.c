@@ -390,7 +390,7 @@ static int nss_ipv6_conn_cfg_handler(ctl_table *ctl, int write, void __user *buf
 	}
 
 	up(&i6cfgp.sem);
-	return NSS_SUCCESS;
+	return 0;
 
 failure:
 	/*
@@ -398,7 +398,7 @@ failure:
 	 */
 	nss_ipv6_conn_cfg = i6cfgp.current_value;
 	up(&i6cfgp.sem);
-	return NSS_FAILURE;
+	return -EINVAL;
 }
 
 static ctl_table nss_ipv6_table[] = {
