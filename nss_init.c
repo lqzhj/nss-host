@@ -943,14 +943,14 @@ void nss_wq_function (struct work_struct *work)
 	nss_work_t *my_work = (nss_work_t *)work;
 
 	nss_freq_change(&nss_top_main.nss[NSS_CORE_0], my_work->frequency, my_work->stats_enable, 0);
-#if (NSS_MAX_CORES > 1)
-	nss_freq_change(&nss_top_main.nss[NSS_CORE_1], my_work->frequency, my_work->stats_enable, 0);
-#endif
+	if (nss_top_main.nss[NSS_CORE_1].state == NSS_CORE_STATE_INITIALIZED) {
+		nss_freq_change(&nss_top_main.nss[NSS_CORE_1], my_work->frequency, my_work->stats_enable, 0);
+	}
 	clk_set_rate(nss_core0_clk, my_work->frequency);
 	nss_freq_change(&nss_top_main.nss[NSS_CORE_0], my_work->frequency, my_work->stats_enable, 1);
-#if (NSS_MAX_CORES > 1)
-	nss_freq_change(&nss_top_main.nss[NSS_CORE_1], my_work->frequency, my_work->stats_enable, 1);
-#endif
+	if (nss_top_main.nss[NSS_CORE_1].state == NSS_CORE_STATE_INITIALIZED) {
+		nss_freq_change(&nss_top_main.nss[NSS_CORE_1], my_work->frequency, my_work->stats_enable, 1);
+	}
 
 #if (NSS_PM_SUPPORT == 1)
 	if(!pm_client) {
