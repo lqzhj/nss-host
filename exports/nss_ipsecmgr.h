@@ -173,6 +173,8 @@ struct nss_ipsecmgr_event {
 	}data;
 };
 
+#ifdef __KERNEL__ /* only kernel will use */
+
 /**
  * @brief Callback function registered by the IPsec tunnel users
  *
@@ -243,4 +245,5 @@ bool nss_ipsecmgr_sa_add(struct net_device *tun, union nss_ipsecmgr_rule *rule, 
  */
 bool nss_ipsecmgr_sa_del(struct net_device *tun, union nss_ipsecmgr_rule *rule, enum nss_ipsecmgr_rule_type type);
 
+#endif /* (__KERNEL__) */
 #endif /* __NSS_IPSECMGR_H */

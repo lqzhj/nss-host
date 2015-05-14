@@ -159,6 +159,8 @@ struct nss_crypto_msg {
 	} msg;
 };
 
+#ifdef __KERNEL__  /* only kernel will use */
+
 /**
  * @brief Message notification callback
  *
@@ -248,4 +250,5 @@ extern void nss_crypto_data_unregister(struct nss_ctx_instance *ctx);
 extern void nss_crypto_msg_init(struct nss_crypto_msg *ncm, uint16_t if_num, uint32_t type, uint32_t len,
 				nss_crypto_msg_callback_t cb, void *app_data);
 
+#endif /*__KERNEL__ */
 #endif /* __NSS_CRYPTO_H */
