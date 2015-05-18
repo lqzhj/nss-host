@@ -40,15 +40,16 @@
 #define __ENCR_MEMCMP_SZ		64
 /* #define __ENCR_MEMCMP_SZ		256 */
 
-#define CRYPTO_BENCH_MAX_DATA_SZ	(1536 + NSS_CRYPTO_MAX_IVLEN_AES)
-#define CRYPTO_BENCH_RESULTS_SZ		128
+#define CRYPTO_BENCH_MAX_DATA_SZ	1536
+#define CRYPTO_BENCH_MAX_BAM_SZ	(CRYPTO_BENCH_MAX_DATA_SZ + NSS_CRYPTO_MAX_IVLEN_AES)
+#define CRYPTO_BENCH_RESULTS_SZ 	128
 #define CRYPTO_BENCH_DATA_ALIGN 	4
 
 #define CRYPTO_BENCH_PRN_LVL_DBG	3
 #define CRYPTO_BENCH_PRN_LVL_INFO	2
 #define CRYPTO_BENCH_PRN_LVL_ERR	1
 
-#define CRYPTO_BENCH_OK		0
+#define CRYPTO_BENCH_OK 	0
 #define CRYPTO_BENCH_NOT_OK	-1
 
 
@@ -428,13 +429,19 @@ static void crypto_bench_init_param(enum crypto_bench_type type)
 	chk_n_set((param.cipher_op == 0), param.cipher_len, 0);
 	chk_n_set((param.cipher_op == 0), param.cipher_skip, 0);
 
+	/*
+	 * we don't support data more than 1536
+	 */
+	chk_n_set((param.cipher_len > CRYPTO_BENCH_MAX_DATA_SZ), param.cipher_len, CRYPTO_BENCH_MAX_DATA_SZ);
+	chk_n_set((param.auth_len > CRYPTO_BENCH_MAX_DATA_SZ), param.auth_len, CRYPTO_BENCH_MAX_DATA_SZ);
+
 	chk_n_set((param.cipher_skip < NSS_CRYPTO_MAX_IVLEN_AES), param.cipher_skip, NSS_CRYPTO_MAX_IVLEN_AES);
 
 	chk_n_set((param.cpu_id > CONFIG_NR_CPUS), param.cpu_id, 0);
 
 	chk_n_set((param.bam_align == 0), param.bam_align, CRYPTO_BENCH_DATA_ALIGN);
 	chk_n_set((param.bam_align > 8), param.bam_align, CRYPTO_BENCH_DATA_ALIGN);
-	chk_n_set((param.bam_len > CRYPTO_BENCH_MAX_DATA_SZ), param.bam_len, CRYPTO_BENCH_MAX_DATA_SZ);
+	chk_n_set((param.bam_len > CRYPTO_BENCH_MAX_BAM_SZ), param.bam_len, CRYPTO_BENCH_MAX_BAM_SZ);
 
 	chk_n_set((param.ciph_algo == 0), param.ciph_algo, 1);
 	chk_n_set((param.auth_algo == 0), param.auth_algo, 1);
@@ -449,7 +456,7 @@ static void crypto_bench_init_param(enum crypto_bench_type type)
 		param.bench_mode = 1;
 		param.mcmp_mode = 0;
 
-		memset(&pattern_data[0], param.pattern, param.bam_len);
+		memset(&pattern_data[0], param.pattern, param.cipher_len);
 		data_ptr = &pattern_data[0];
 
 		break;
