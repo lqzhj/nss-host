@@ -155,9 +155,6 @@ static struct nss_platform_data *nss_drv_of_get_pdata(struct device_node *np,
 	    || of_property_read_u32(np, "qcom,rst_addr", &npd->rst_addr)
 	    || of_property_read_u32(np, "qcom,load_addr", &npd->load_addr)
 	    || of_property_read_u32(np, "qcom,turbo_frequency", &npd->turbo_frequency)
-	    || of_property_read_u32(np, "qcom,low_frequency", &npd->low_frequency)
-	    || of_property_read_u32(np, "qcom,mid_frequency", &npd->mid_frequency)
-	    || of_property_read_u32(np, "qcom,max_frequency", &npd->max_frequency)
 	    || of_property_read_u32(np, "qcom,gmac0_enabled", &npd->gmac_enabled[0])
 	    || of_property_read_u32(np, "qcom,gmac1_enabled", &npd->gmac_enabled[1])
 	    || of_property_read_u32(np, "qcom,gmac2_enabled", &npd->gmac_enabled[2])
@@ -411,69 +408,95 @@ static int nss_probe(struct platform_device *nss_dev)
 			printk("nss_driver - Turbo No Support %d\n", npd->turbo_frequency);
 		}
 
-		nss_runtime_samples.freq_scale[0].frequency = npd->low_frequency;
-		nss_runtime_samples.freq_scale[1].frequency = npd->mid_frequency;
-		nss_runtime_samples.freq_scale[2].frequency = npd->max_frequency;
+		nss_runtime_samples.freq_scale[NSS_FREQ_LOW_SCALE].frequency = 0;
+		nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].frequency = 0;
+		nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].frequency = 0;
+
+		/*
+		 * Load default scales, then query for higher.
+		 * If basic set cannot be set, then go to error, and abort
+		 * Two set of defaults, 110, 550, 733 or 110, 275 and 550
+		 */
+		if (clk_set_rate(nss_core0_clk, NSS_FREQ_110) != 0) {
+			goto err_init_0;
+		}
+
+		nss_runtime_samples.freq_scale[NSS_FREQ_LOW_SCALE].frequency = NSS_FREQ_110;
+		nss_runtime_samples.freq_scale[NSS_FREQ_LOW_SCALE].minimum = NSS_FREQ_110_MIN;
+		nss_runtime_samples.freq_scale[NSS_FREQ_LOW_SCALE].maximum = NSS_FREQ_110_MAX;
+
+		if (npd->turbo_frequency) {
+			/*
+			 * Figure out the middle scale
+			 */
+			if (clk_set_rate(nss_core0_clk, NSS_FREQ_600) == 0) {
+				nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].frequency = NSS_FREQ_600;
+				nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].minimum = NSS_FREQ_600_MIN;
+				nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].maximum = NSS_FREQ_600_MAX;
+			}else if (clk_set_rate(nss_core0_clk, NSS_FREQ_550) == 0) {
+				nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].frequency = NSS_FREQ_550;
+				nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].minimum = NSS_FREQ_550_MIN;
+				nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].maximum = NSS_FREQ_550_MAX;
+			} else {
+				goto err_init_0;
+			}
+
+			/*
+			 * Figure out the max scale
+			 */
+			if (clk_set_rate(nss_core0_clk, NSS_FREQ_800) == 0) {
+				nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].frequency = NSS_FREQ_800;
+				nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].minimum = NSS_FREQ_800_MIN;
+				nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].maximum = NSS_FREQ_800_MAX;
+			} else if (clk_set_rate(nss_core0_clk, NSS_FREQ_733) == 0) {
+				nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].frequency = NSS_FREQ_733;
+				nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].minimum = NSS_FREQ_733_MIN;
+				nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].maximum = NSS_FREQ_733_MAX;
+			} else {
+				goto err_init_0;
+			}
+
+		} else {
+			if (clk_set_rate(nss_core0_clk, NSS_FREQ_275) != 0) {
+				goto err_init_0;
+			}
+			nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].frequency = NSS_FREQ_275;
+			nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].minimum = NSS_FREQ_275_MIN;
+			nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].maximum = NSS_FREQ_275_MAX;
+
+			if (clk_set_rate(nss_core0_clk, NSS_FREQ_550) != 0) {
+				goto err_init_0;
+			}
+			nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].frequency = NSS_FREQ_550;
+			nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].minimum = NSS_FREQ_550_MIN;
+			nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].maximum = NSS_FREQ_550_MAX;
+		}
 
 		printk("Supported Frequencies - ");
-		for (i =0; i < NSS_MAX_CPU_SCALES; i++) {
+		for (i = 0; i < NSS_FREQ_MAX_SCALE; i++) {
 			if (nss_runtime_samples.freq_scale[i].frequency == NSS_FREQ_110) {
-				nss_runtime_samples.freq_scale[i].minimum = NSS_FREQ_110_MIN;
-				nss_runtime_samples.freq_scale[i].maximum = NSS_FREQ_110_MAX;
 				printk("110Mhz ");
 			} else if (nss_runtime_samples.freq_scale[i].frequency == NSS_FREQ_275) {
-				nss_runtime_samples.freq_scale[i].minimum = NSS_FREQ_275_MIN;
-				nss_runtime_samples.freq_scale[i].maximum = NSS_FREQ_275_MAX;
 				printk("275Mhz ");
 			} else if (nss_runtime_samples.freq_scale[i].frequency == NSS_FREQ_550) {
-				nss_runtime_samples.freq_scale[i].minimum = NSS_FREQ_550_MIN;
-				nss_runtime_samples.freq_scale[i].maximum = NSS_FREQ_550_MAX;
 				printk("550Mhz ");
 			} else if (nss_runtime_samples.freq_scale[i].frequency == NSS_FREQ_600) {
-				nss_runtime_samples.freq_scale[i].minimum = NSS_FREQ_600_MIN;
-				nss_runtime_samples.freq_scale[i].maximum = NSS_FREQ_600_MAX;
 				printk("600Mhz ");
 			} else if (nss_runtime_samples.freq_scale[i].frequency == NSS_FREQ_733) {
-				nss_runtime_samples.freq_scale[i].minimum = NSS_FREQ_733_MIN;
-				nss_runtime_samples.freq_scale[i].maximum = NSS_FREQ_733_MAX;
 				printk("733Mhz ");
 			} else if (nss_runtime_samples.freq_scale[i].frequency == NSS_FREQ_800) {
-				nss_runtime_samples.freq_scale[i].minimum = NSS_FREQ_800_MIN;
-				nss_runtime_samples.freq_scale[i].maximum = NSS_FREQ_800_MAX;
 				printk("800Mhz ");
 			} else {
 				printk("Error \nNo Table/Invalid Frequency Found - Loading Old Tables - ");
-
-				nss_runtime_samples.freq_scale[0].frequency = NSS_FREQ_110;
-				nss_runtime_samples.freq_scale[0].minimum = NSS_FREQ_110_MIN;
-				nss_runtime_samples.freq_scale[0].maximum = NSS_FREQ_110_MAX;
-
-				if (npd->turbo_frequency) {
-					nss_runtime_samples.freq_scale[1].frequency = NSS_FREQ_550;
-					nss_runtime_samples.freq_scale[1].minimum = NSS_FREQ_550_MIN;
-					nss_runtime_samples.freq_scale[1].maximum = NSS_FREQ_550_MAX;
-					nss_runtime_samples.freq_scale[2].frequency = NSS_FREQ_733;
-					nss_runtime_samples.freq_scale[2].minimum = NSS_FREQ_733_MIN;
-					nss_runtime_samples.freq_scale[2].maximum = NSS_FREQ_733_MAX;
-				} else {
-					nss_runtime_samples.freq_scale[1].frequency = NSS_FREQ_275;
-					nss_runtime_samples.freq_scale[1].minimum = NSS_FREQ_275_MIN;
-					nss_runtime_samples.freq_scale[1].maximum = NSS_FREQ_275_MAX;
-					nss_runtime_samples.freq_scale[2].frequency = NSS_FREQ_550;
-					nss_runtime_samples.freq_scale[2].minimum = NSS_FREQ_550_MIN;
-					nss_runtime_samples.freq_scale[2].maximum = NSS_FREQ_550_MAX;
-				}
-
-				for (i = 0; i < NSS_MAX_CPU_SCALES; i++) {
-					printk("%dmhz ", nss_runtime_samples.freq_scale[i].frequency / 1000000);
-				}
-
-				break;
+				goto err_init_0;
 			}
 		}
 		printk("\n");
 
-		clk_set_rate(nss_core0_clk, npd->max_frequency);
+		/*
+		 * Set default frequency
+		 */
+		clk_set_rate(nss_core0_clk, nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].frequency);
 		clk_prepare(nss_core0_clk);
 		clk_enable(nss_core0_clk);
 	}
@@ -987,13 +1010,13 @@ static int nss_current_freq_handler (ctl_table *ctl, int write, void __user *buf
 	 * Check if frequency exists in frequency Table
 	 */
 	i = 0;
-	while (i < NSS_MAX_CPU_SCALES) {
+	while (i < NSS_FREQ_MAX_SCALE) {
 		if (nss_runtime_samples.freq_scale[i].frequency == nss_cmd_buf.current_freq) {
 			break;
 		}
 		i++;
 	}
-	if (i == NSS_MAX_CPU_SCALES) {
+	if (i == NSS_FREQ_MAX_SCALE) {
 		printk("Frequency not found. Please check Frequency Table\n");
 		return ret;
 	}
@@ -1101,7 +1124,7 @@ static int nss_get_freq_table_handler(ctl_table *ctl, int write, void __user *bu
 
 	printk("Frequency Supported - ");
 	i = 0;
-	while (i < NSS_MAX_CPU_SCALES) {
+	while (i < NSS_FREQ_MAX_SCALE) {
 		printk("%dMhz ", nss_runtime_samples.freq_scale[i].frequency/1000000);
 		i++;
 	}
