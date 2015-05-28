@@ -57,6 +57,8 @@ enum nss_ipv6_message_types {
 					/**< Rule for not flushing CME on ICMP pkt */
 #define NSS_IPV6_RULE_UPDATE_FLAG_CHANGE_MTU 0x40
 					/**< Rule updation for MTU change */
+#define NSS_IPV6_RULE_CREATE_FLAG_L2_ENCAP 0x80 /**< The L2 payload is not IPv6 but consists of an encapsulating protocol that carries an IPv6 payload within it. */
+
 
 /**
  * IPv6 rule creation validity flags.
