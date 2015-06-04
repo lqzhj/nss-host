@@ -176,7 +176,9 @@ static int8_t *nss_stats_str_drv[NSS_STATS_DRV_MAX] = {
 	"rx_skb_nr_frags",
 	"rx_skb_fraglist",
 	"rx_bad_desciptor",
-	"nss_skb_count"
+	"nss_skb_count",
+	"rx_chain_seg_processed",
+	"rx_frag_seg_processed"
 };
 
 /*

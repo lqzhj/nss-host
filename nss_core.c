@@ -556,7 +556,7 @@ static inline void nss_core_rx_pbuf(struct nss_ctx_instance *nss_ctx, struct n2h
  * nss_core_handle_nrfrag_skb()
  *	Handled the processing of fragmented skb's
  */
-static inline bool nss_core_handle_nr_frag_skb(struct sk_buff **nbuf_ptr, struct sk_buff **jumbo_start_ptr, struct n2h_descriptor *desc, unsigned int buffer_type)
+static inline bool nss_core_handle_nr_frag_skb(struct nss_ctx_instance *nss_ctx, struct sk_buff **nbuf_ptr, struct sk_buff **jumbo_start_ptr, struct n2h_descriptor *desc, unsigned int buffer_type)
 {
 	struct sk_buff *nbuf = *nbuf_ptr;
 	struct sk_buff *jumbo_start = *jumbo_start_ptr;
@@ -600,6 +600,11 @@ static inline bool nss_core_handle_nr_frag_skb(struct sk_buff **nbuf_ptr, struct
 		nbuf->len = payload_len;
 		goto pull;
 	}
+
+	/*
+	 * Track Number of Fragments processed. First && Last is not true fragment
+	 */
+	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_FRAG_SEG_PROCESSED]);
 
 	/*
 	 * NSS sent us an SG chain.
@@ -732,6 +737,11 @@ static inline bool nss_core_handle_linear_skb(struct nss_ctx_instance *nss_ctx, 
 		NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_RX_SIMPLE]);
 		return true;
 	}
+
+	/*
+	 * Track number of skb chain processed. First && Last is not true segment.
+	 */
+	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_CHAIN_SEG_PROCESSED]);
 
 	/*
 	 * NSS sent us an SG chain.
@@ -964,7 +974,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 				goto next;
 			}
 
-			if (!nss_core_handle_nr_frag_skb(&nbuf, &jumbo_start, desc, buffer_type)) {
+			if (!nss_core_handle_nr_frag_skb(nss_ctx, &nbuf, &jumbo_start, desc, buffer_type)) {
 				goto next;
 			}
 			NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_RX_NR_FRAGS]);

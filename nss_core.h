@@ -349,7 +349,9 @@ enum nss_stats_drv {
 	NSS_STATS_DRV_RX_NR_FRAGS,		/* N2H NR Frags SKB Packets */
 	NSS_STATS_DRV_RX_SKB_FRAGLIST,		/* N2H Fraglist SKB Packets */
 	NSS_STATS_DRV_RX_BAD_DESCRIPTOR,	/* N2H Bad descriptor reads */
-	NSS_STATS_DRV_NSS_SKB_COUNT,
+	NSS_STATS_DRV_NSS_SKB_COUNT,		/* NSS SKB Pool Count */
+	NSS_STATS_DRV_CHAIN_SEG_PROCESSED,	/* N2H SKB Chain Processed Count */
+	NSS_STATS_DRV_FRAG_SEG_PROCESSED,	/* N2H Frag Processed Count */
 	NSS_STATS_DRV_MAX,
 };
 
