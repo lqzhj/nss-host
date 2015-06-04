@@ -695,8 +695,8 @@ void nss_gmac_linkup(struct nss_gmac_dev *gmacdev)
 		return;
 
 	if (gmacdev->first_linkup_done == 0) {
-		nss_gmac_disable_interrupt_all(gmacdev);
 		nss_gmac_reset(gmacdev);
+		nss_gmac_disable_interrupt_all(gmacdev);
 		nss_gmac_clear_interrupt(gmacdev);
 
 		/* Program Tx/Rx descriptor base addresses */
@@ -882,6 +882,9 @@ int nss_gmac_open(struct net_device *netdev)
 
 	netif_carrier_off(netdev);
 
+	/* Disable interrupts */
+	nss_gmac_disable_interrupt_all(gmacdev);
+
 	if (!gmacdev->data_plane_ops) {
 		netdev_dbg(netdev, "%s: offload is not enabled, bring up gmac with slowpath\n",
 								__func__);
@@ -912,8 +915,6 @@ int nss_gmac_open(struct net_device *netdev)
 	/**
 	 * Now platform dependent initialization.
 	 */
-	nss_gmac_disable_interrupt_all(gmacdev);
-
 	gmacdev->speed = SPEED_100;
 	gmacdev->duplex_mode = DUPLEX_FULL;
 
