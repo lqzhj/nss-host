@@ -33,7 +33,9 @@
 struct nss_n2h_cfg_pvt {
 	struct semaphore sem;			/* Semaphore structure */
 	struct completion complete;		/* completion structure */
-	int current_value;			/* valid entry */
+	int empty_buf_pool;			/* valid entry */
+	int low_water;				/* valid entry */
+	int high_water;				/* valid entry */
 	int response;				/* Response from FW */
 };
 
@@ -45,6 +47,8 @@ enum nss_n2h_metadata_types {
 	NSS_TX_METADATA_TYPE_N2H_RPS_CFG,
 	NSS_TX_METADATA_TYPE_N2H_EMPTY_POOL_BUF_CFG,
 	NSS_TX_METADATA_TYPE_N2H_FLUSH_PAYLOADS,
+	NSS_TX_METADATA_TYPE_SET_WATER_MARK,
+	NSS_TX_METADATA_TYPE_GET_PAYLOAD_INFO,
 	NSS_METADATA_TYPE_N2H_MAX,
 };
 
@@ -52,8 +56,40 @@ struct nss_n2h_rps {
 	uint32_t enable; /* Enable NSS RPS */
 };
 
+/*
+ * Old way of setting number of empty pool buffers (payloads).
+ * NSS FW then sets low water mark to 'n - ring_size' and
+ * high water mark to 'n + ring_size'.
+ */
 struct nss_n2h_empty_pool_buf {
-	uint32_t pool_size; /* Empty pool buf size */
+	uint32_t pool_size;	/* Empty buffer pool size */
+};
+
+/*
+ * New way of setting low and high water marks in the NSS FW.
+ */
+struct nss_n2h_water_mark {
+	/*
+	 * Low water mark. Set it to 0 for system to determine automatically.
+	 */
+	uint32_t low_water;
+
+	/*
+	 * High water mark. Set it to 0 for system to determine automatically.
+	 */
+	uint32_t high_water;
+};
+
+struct nss_n2h_payload_info {
+	uint32_t pool_size;	/* Empty buffer pool size */
+	/*
+	 * Low water mark. Set it to 0 for system to determine automatically.
+	 */
+	uint32_t low_water;
+	/*
+	 * High water mark. Set it to 0 for system to determine automatically.
+	 */
+	uint32_t high_water;
 };
 
 struct nss_n2h_flush_payloads {
@@ -64,9 +100,9 @@ struct nss_n2h_flush_payloads {
  * NSS Pbuf mgr stats
  */
 struct nss_n2h_pbuf_mgr_stats {
-	uint32_t pbuf_alloc_fails;		/* Pbuf ocm alloc fail */
-	uint32_t pbuf_free_count;		/* Pbuf ocm free count */
-	uint32_t pbuf_total_count;		/* Pbuf ocm total count */
+	uint32_t pbuf_alloc_fails;		/* Pbuf alloc fail */
+	uint32_t pbuf_free_count;		/* Pbuf free count */
+	uint32_t pbuf_total_count;		/* Pbuf total count */
 };
 
 /*
@@ -97,6 +133,7 @@ struct nss_n2h_stats_sync {
 	uint32_t h2n_data_bytes;	/* Data bytes received from HLOS */
 	uint32_t n2h_data_pkts;		/* Data packets sent to HLOS */
 	uint32_t n2h_data_bytes;	/* Data bytes sent to HLOS */
+	uint32_t tot_payloads;		/* Total number of payloads in NSS FW */
 };
 
 /*
@@ -111,6 +148,10 @@ struct nss_n2h_msg {
 							/* Message: empty pool buf configuration */
 		struct nss_n2h_flush_payloads flush_payloads;
 							/* Message: flush payloads present in NSS */
+		struct nss_n2h_water_mark wm;
+				/* Message: Sets low and high water marks */
+		struct nss_n2h_payload_info payload_info;
+				/* Message: Gets payload info */
 	} msg;
 };
 
