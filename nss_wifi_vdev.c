@@ -213,6 +213,7 @@ nss_tx_status_t nss_wifi_vdev_tx_buf(struct nss_ctx_instance *nss_ctx, struct sk
 uint32_t nss_register_wifi_vdev_if(struct nss_ctx_instance *nss_ctx,
 				int32_t if_num,
 				nss_wifi_vdev_callback_t vdev_data_callback,
+				nss_wifi_vdev_ext_data_callback_t vdev_ext_data_callback,
 				nss_wifi_vdev_msg_callback_t vdev_event_callback,
 				struct net_device *netdev,
 				uint32_t features)
@@ -221,6 +222,7 @@ uint32_t nss_register_wifi_vdev_if(struct nss_ctx_instance *nss_ctx,
 
 	nss_top_main.subsys_dp_register[if_num].ndev = netdev;
 	nss_top_main.subsys_dp_register[if_num].cb = vdev_data_callback;
+	nss_top_main.subsys_dp_register[if_num].ext_cb = vdev_ext_data_callback;
 	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
 	nss_top_main.subsys_dp_register[if_num].features = features;
 
@@ -240,6 +242,7 @@ void nss_unregister_wifi_vdev_if(uint32_t if_num)
 
 	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
 	nss_top_main.subsys_dp_register[if_num].cb = NULL;
+	nss_top_main.subsys_dp_register[if_num].ext_cb = NULL;
 	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
 	nss_top_main.subsys_dp_register[if_num].features = 0;
 

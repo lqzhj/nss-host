@@ -610,6 +610,10 @@ struct nss_ctx_instance {
  */
 struct nss_subsystem_dataplane_register {
 	nss_phys_if_rx_callback_t cb;	/* callback to be invoked */
+	nss_phys_if_rx_ext_data_callback_t ext_cb;
+					/* Extended data plane callback to be invoked.
+					This is needed if driver needs extended handling of data packet
+					before giving to stack */
 	void *app_data;			/* additional info passed during callback(for future use) */
 	struct net_device *ndev;	/* Netdevice associated with the interface */
 	uint32_t features;		/* skb types supported by this subsystem */

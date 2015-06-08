@@ -261,6 +261,16 @@ typedef void (*nss_wifi_vdev_msg_callback_t)(void *app_data, struct nss_cmn_msg 
 typedef void (*nss_wifi_vdev_callback_t)(struct net_device *netdev, struct sk_buff *skb, struct napi_struct *napi);
 
 /**
+ * @brief Callback to receive extended data plane wifi vdev data
+ *
+ * @param app_data Application context of the message
+ * @param os_buf  Pointer to data buffer
+ *
+ * @return void
+ */
+typedef void (*nss_wifi_vdev_ext_data_callback_t)(struct net_device *netdev, struct sk_buff *skb, struct napi_struct *napi);
+
+/**
  * @brief nss_wifi messages init function
  *
  * @return void
@@ -280,7 +290,8 @@ void nss_wifi_vdev_msg_init(struct nss_wifi_vdev_msg *nim, uint16_t if_num, uint
  * @return status
  */
 uint32_t nss_register_wifi_vdev_if(struct nss_ctx_instance *nss_ctx, int32_t if_num, nss_wifi_vdev_callback_t wifi_data_callback,
-				nss_wifi_vdev_msg_callback_t wifi_event_callback, struct net_device *netdev, uint32_t features);
+			nss_wifi_vdev_ext_data_callback_t vdev_ext_data_callback, nss_wifi_vdev_msg_callback_t wifi_event_callback,
+			struct net_device *netdev, uint32_t features);
 
 /**
  * @brief Unregister wifi vdev interface with NSS
