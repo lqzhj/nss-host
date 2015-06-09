@@ -60,10 +60,18 @@ static inline void nss_verify_init_done(struct nss_ctx_instance *nss_ctx)
 #endif
 
 /*
+ * Handles associated with redir interfaces(virt_if & wifi_if).
+ * TODO: Once wifi moves to using the new interfaces, this will be deprecated.
+ */
+struct nss_redir_handle {
+	struct nss_wifi_if_handle *whandle;
+	struct nss_virt_if_handle *vhandle;
+};
+
+/*
  * CB handlers for variour interfaces
  */
 void nss_phys_if_register_handler(uint32_t if_num);
-extern void nss_virt_if_register_handler(void);
 extern void nss_crypto_register_handler(void);
 extern void nss_ipsec_register_handler(void);
 extern void nss_ipv4_register_handler(void);

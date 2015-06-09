@@ -31,17 +31,12 @@ void *nss_register_virt_if(void *ctx,
 				nss_virt_if_rx_callback_t rx_callback,
 				struct net_device *netdev)
 {
-	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[nss_top_main.ipv4_handler_id];
-	int32_t if_num = (int32_t)ctx;
+	struct nss_redir_handle *handle = (struct nss_redir_handle *)ctx;
 
-	nss_assert(NSS_IS_IF_TYPE(VIRTUAL, if_num));
+	nss_wifi_if_register(handle->whandle, rx_callback, netdev);
+	nss_virt_if_register(handle->vhandle, rx_callback, netdev);
 
-	nss_top_main.subsys_dp_register[if_num].ndev = netdev;
-	nss_top_main.subsys_dp_register[if_num].cb = rx_callback;
-	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
-	nss_top_main.subsys_dp_register[if_num].features = (uint32_t)netdev->features;
-
-	return nss_ctx;
+	return ctx;
 }
 
 /*
@@ -49,102 +44,25 @@ void *nss_register_virt_if(void *ctx,
  */
 void nss_unregister_virt_if(void *ctx)
 {
-	int32_t if_num = (int32_t)ctx;
+	struct nss_redir_handle *handle = (struct nss_redir_handle *)ctx;
 
-	nss_assert(NSS_IS_IF_TYPE(VIRTUAL, if_num));
-
-	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
-	nss_top_main.subsys_dp_register[if_num].cb = NULL;
-	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
-	nss_top_main.subsys_dp_register[if_num].features = 0;
+	nss_wifi_if_unregister(handle->whandle);
+	nss_virt_if_unregister(handle->vhandle);
 }
 
 /*
  * nss_tx_virt_if_recvbuf()
  *	HLOS interface has received a packet which we redirect to the NSS, if appropriate to do so.
  */
-nss_tx_status_t nss_tx_virt_if_recvbuf(void *ctx, struct sk_buff *os_buf, uint32_t nwifi)
+nss_tx_status_t nss_tx_virt_if_recvbuf(void *ctx, struct sk_buff *skb, uint32_t nwifi)
 {
-	int32_t status;
-	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[nss_top_main.ipv4_handler_id];
-	int32_t if_num = (int32_t)ctx;
-	uint32_t bufftype;
-	int32_t push_mac_header = 0;
-
-	if (unlikely(nss_ctl_redirect == 0)) {
-		return NSS_TX_FAILURE_NOT_ENABLED;
-	}
-
-	if (unlikely(os_buf->vlan_tci)) {
-		return NSS_TX_FAILURE_NOT_SUPPORTED;
-	}
-
-	nss_assert(NSS_IS_IF_TYPE(VIRTUAL, if_num));
-	nss_trace("%p: Virtual Rx packet, if_num:%d, skb:%p", nss_ctx, if_num, os_buf);
-
-	/*
-	 * Get the NSS context that will handle this packet and check that it is initialised and ready
-	 */
-	NSS_VERIFY_CTX_MAGIC(nss_ctx);
-	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
-		nss_warning("%p: Virtual Rx packet dropped as core not ready", nss_ctx);
-		return NSS_TX_FAILURE_NOT_READY;
-	}
-
-	/*
-	 * Sanity check the SKB to ensure that it's suitable for us
-	 */
-	if (unlikely(os_buf->len <= ETH_HLEN)) {
-		nss_warning("%p: Virtual Rx packet: %p too short", nss_ctx, os_buf);
-		return NSS_TX_FAILURE_TOO_SHORT;
-	}
-
-	if (unlikely(skb_shinfo(os_buf)->nr_frags != 0)) {
-		/*
-		 * TODO: If we have a connection matching rule for this skbuff,
-		 * do we need to flush it??
-		 */
-		nss_warning("%p: Delivering the packet to Linux because of fragmented skb: %p\n", nss_ctx, os_buf);
-		return NSS_TX_FAILURE_NOT_SUPPORTED;
-	}
+	struct nss_redir_handle *handle = (struct nss_redir_handle *)ctx;
 
 	if (nwifi) {
-		bufftype = H2N_BUFFER_NATIVE_WIFI;
+		return nss_wifi_if_tx_buf(handle->whandle, skb);
 	} else {
-		bufftype = H2N_BUFFER_PACKET;
-
-		/*
-		 * NSS expects to see buffer from Ethernet header onwards.
-		 * If the wireless driver has called eth_type_trans to remove
-		 * the ethernet header, we need to push back the header
-		 */
-		if (unlikely((os_buf->data - skb_mac_header(os_buf)) == ETH_HLEN)) {
-			skb_push(os_buf, ETH_HLEN);
-			push_mac_header = 1;
-		}
+		return nss_virt_if_tx_buf(handle->vhandle, skb);
 	}
-
-	/*
-	 * Direct the buffer to the NSS
-	 */
-	status = nss_core_send_buffer(nss_ctx, if_num, os_buf, NSS_IF_DATA_QUEUE_0, bufftype, H2N_BIT_FLAG_VIRTUAL_BUFFER);
-	if (unlikely(status != NSS_CORE_STATUS_SUCCESS)) {
-		nss_warning("%p: Virtual Rx packet unable to enqueue\n", nss_ctx);
-
-		if(unlikely(push_mac_header)) {
-			skb_pull(os_buf, ETH_HLEN);
-		}
-
-		return NSS_TX_FAILURE_QUEUE;
-	}
-
-	/*
-	 * Kick the NSS awake so it can process our new entry.
-	 */
-	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_DATA_QUEUE_0].desc_ring.int_bit,
-						NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
-	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_PACKET]);
-	return NSS_TX_SUCCESS;
 }
 
 /*
@@ -181,67 +99,33 @@ nss_tx_status_t nss_tx_virt_if_rx_nwifibuf(void *ctx, struct sk_buff *os_buf)
  */
 void *nss_create_virt_if(struct net_device *netdev)
 {
-	struct nss_virt_if_msg nvim;
-	struct nss_virt_if_create *nvic;
-	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[nss_top_main.ipv4_handler_id];
-	int32_t if_num;
+	struct nss_redir_handle *handles;
 
-	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
-		nss_warning("Interface could not be created as core not ready");
-		return NULL;
+	handles = (struct nss_redir_handle *)kzalloc(sizeof(struct nss_redir_handle), GFP_KERNEL);
+	if (!handles) {
+		nss_warning("%s: kzalloc failed\n", __func__);
+		goto error1;
 	}
 
-	/*
-	 * Check if net_device is Ethernet type
-	 */
-	if (netdev->type != ARPHRD_ETHER) {
-		nss_warning("%p:Register virtual interface %p: type incorrect: %d ", nss_ctx, netdev, netdev->type);
-		return NULL;
+	handles->whandle = nss_wifi_if_create(netdev);
+	if (!handles->whandle) {
+		nss_warning("%s: nss_wifi_if creation failed\n", __func__);
+		goto error2;
 	}
 
-	/*
-	 * Find a free virtual interface
-	 */
-	spin_lock_bh(&nss_top_main.lock);
-	for (if_num = NSS_VIRTUAL_IF_START; if_num < NSS_VIRTUAL_IF_START + NSS_MAX_VIRTUAL_INTERFACES; ++if_num) {
-		if (!nss_top_main.subsys_dp_register[if_num].ndev) {
-			/*
-			 * Use this redirection interface
-			 */
-			nss_top_main.subsys_dp_register[if_num].ndev = netdev;
-			break;
-		}
+	handles->vhandle = nss_virt_if_create(netdev);
+	if (!handles->vhandle) {
+		nss_warning("%s: nss_virt_if creation failed\n", __func__);
+		goto error3;
 	}
 
-	spin_unlock_bh(&nss_top_main.lock);
-	if (if_num == NSS_VIRTUAL_IF_START + NSS_MAX_VIRTUAL_INTERFACES) {
-		/*
-		 * No available virtual contexts
-		 */
-		nss_warning("%p:Register virtual interface %p: no contexts available:", nss_ctx, netdev);
-		return NULL;
-	}
-
-	nss_cmn_msg_init(&nvim.cm, if_num, NSS_VIRT_IF_TX_CREATE_MSG,
-			sizeof(struct nss_virt_if_create), NULL, NULL);
-
-	nvic = &nvim.msg.if_create;
-	nvic->flags = 0;
-	memcpy(nvic->mac_addr, netdev->dev_addr, ETH_ALEN);
-
-	(void)nss_virt_if_tx_msg(nss_ctx, &nvim);
-
-	/*
-	 * Hold a reference to the net_device
-	 */
-	dev_hold(netdev);
-	nss_info("%p:Registered virtual interface %d: context %p", nss_ctx, if_num, netdev);
-
-	/*
-	 * The context returned is the virtual interface # which is, essentially, the index into the if_ctx
-	 * array that is holding the net_device pointer
-	 */
-	return (void *)if_num;
+	return (void *)handles;
+error3:
+	nss_wifi_if_destroy(handles->whandle);
+error2:
+	kfree(handles);
+error1:
+	return NULL;
 }
 
 /*
@@ -249,39 +133,12 @@ void *nss_create_virt_if(struct net_device *netdev)
  */
 nss_tx_status_t nss_destroy_virt_if(void *ctx)
 {
-	int32_t if_num;
-	struct nss_virt_if_msg nvim;
-	struct net_device *dev;
-	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[nss_top_main.ipv4_handler_id];
+	struct nss_redir_handle *handle = (struct nss_redir_handle *)ctx;
 
-	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
-		nss_warning("Interface could not be destroyed as core not ready");
-		return NSS_TX_FAILURE_NOT_READY;
-	}
+	nss_wifi_if_destroy(handle->whandle);
+	nss_virt_if_destroy(handle->vhandle);
 
-	if_num = (int32_t)ctx;
-	nss_assert(NSS_IS_IF_TYPE(VIRTUAL, if_num));
-
-	spin_lock_bh(&nss_top_main.lock);
-	if (!nss_top_main.subsys_dp_register[if_num].ndev) {
-		spin_unlock_bh(&nss_top_main.lock);
-		nss_warning("%p: Unregister virtual interface %d: no context", nss_ctx, if_num);
-		return NSS_TX_FAILURE_BAD_PARAM;
-	}
-
-	/*
-	 * Set this context to NULL
-	 */
-	dev = nss_top_main.subsys_dp_register[if_num].ndev;
-	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
-	spin_unlock_bh(&nss_top_main.lock);
-	nss_info("%p:Unregister virtual interface %d (%p)", nss_ctx, if_num, dev);
-	dev_put(dev);
-
-	nss_cmn_msg_init(&nvim.cm, if_num, NSS_VIRT_IF_TX_DESTROY_MSG,
-			sizeof(struct nss_virt_if_destroy), NULL, NULL);
-
-	return nss_virt_if_tx_msg(nss_ctx, &nvim);
+	return NSS_TX_SUCCESS;
 }
 
 EXPORT_SYMBOL(nss_tx_virt_if_rxbuf);

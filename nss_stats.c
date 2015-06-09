@@ -1702,6 +1702,87 @@ end:
 }
 
 /*
+ * nss_stats_virt_if_read()
+ *	Read virt_if statistics
+ */
+static ssize_t nss_stats_virt_if_read(struct file *fp, char __user *ubuf,
+						size_t sz, loff_t *ppos)
+{
+	struct nss_stats_data *data = fp->private_data;
+	int32_t if_num = NSS_DYNAMIC_IF_START;
+	int32_t max_if_num = if_num + NSS_MAX_DYNAMIC_INTERFACES;
+	size_t bytes = 0;
+	ssize_t bytes_read = 0;
+	char line[80];
+	int start, end;
+
+	if (data) {
+		if_num = data->if_num;
+	}
+
+	if (if_num > max_if_num) {
+		return 0;
+	}
+
+	for (; if_num < max_if_num; if_num++) {
+		if (nss_dynamic_interface_get_type(if_num) != NSS_DYNAMIC_INTERFACE_TYPE_802_3_REDIR)
+			continue;
+
+		bytes = scnprintf(line, sizeof(line), "if_num %d stats start:\n\n", if_num);
+		if ((bytes_read + bytes) > sz)
+			break;
+
+		if (copy_to_user(ubuf + bytes_read, line, bytes) != 0) {
+			bytes_read = -EFAULT;
+			goto end;
+		}
+
+		bytes_read += bytes;
+
+		start = 0;
+		end = 7;
+		while (bytes_read < sz && start < end) {
+			bytes = nss_virt_if_copy_stats(if_num, start, line);
+			if (!bytes)
+				break;
+
+			if ((bytes_read + bytes) > sz)
+				break;
+
+			if (copy_to_user(ubuf + bytes_read, line, bytes) != 0) {
+				bytes_read = -EFAULT;
+				goto end;
+			}
+
+			bytes_read += bytes;
+			start++;
+		}
+
+		bytes = scnprintf(line, sizeof(line), "if_num %d stats end:\n\n", if_num);
+		if (bytes_read > (sz - bytes))
+			break;
+
+		if (copy_to_user(ubuf + bytes_read, line, bytes) != 0) {
+			bytes_read = -EFAULT;
+			goto end;
+		}
+
+		bytes_read += bytes;
+	}
+
+	if (bytes_read > 0) {
+		*ppos = bytes_read;
+	}
+
+	if (data) {
+		data->if_num = if_num;
+	}
+
+end:
+	return bytes_read;
+}
+
+/*
  * nss_stats_open()
  */
 static int nss_stats_open(struct inode *inode, struct file *filp)
@@ -1809,6 +1890,8 @@ NSS_STATS_DECLARE_FILE_OPERATIONS(gre_redir)
 NSS_STATS_DECLARE_FILE_OPERATIONS(sjack)
 
 NSS_STATS_DECLARE_FILE_OPERATIONS(wifi_if)
+
+NSS_STATS_DECLARE_FILE_OPERATIONS(virt_if)
 
 /*
  * wifi_stats_ops
@@ -2004,6 +2087,13 @@ void nss_stats_init(void)
 						nss_top_main.stats_dentry, &nss_top_main, &nss_stats_wifi_if_ops);
 	if (unlikely(nss_top_main.wifi_if_dentry == NULL)) {
 		nss_warning("Failed to create qca-nss-drv/stats/wifi_if file in debugfs");
+		return;
+	}
+
+	nss_top_main.virt_if_dentry = debugfs_create_file("virt_if", 0400,
+						nss_top_main.stats_dentry, &nss_top_main, &nss_stats_virt_if_ops);
+	if (unlikely(nss_top_main.virt_if_dentry == NULL)) {
+		nss_warning("Failed to create qca-nss-drv/stats/virt_if file in debugfs");
 		return;
 	}
 
