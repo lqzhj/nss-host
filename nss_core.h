@@ -93,6 +93,7 @@
 #else
 #define NSS_PKT_STATS_INCREMENT(nss_ctx, x)
 #define NSS_PKT_STATS_DECREMENT(nss_ctx, x)
+#define NSS_PKT_STATS_READ(x) (0)
 #endif
 
 /*

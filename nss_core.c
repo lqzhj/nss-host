@@ -207,14 +207,16 @@ static int32_t nss_send_c2c_map(struct nss_ctx_instance *nss_own, struct nss_ctx
 	int32_t status;
 	struct nss_c2c_msg *ncm;
 	struct nss_c2c_tx_map *nctm;
+	atomic64_t *stats;
 
 	nss_info("%p: C2C map:%x\n", nss_own, nss_other->c2c_start);
 
 	nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
 	if (unlikely(!nbuf)) {
 		struct nss_top_instance *nss_top = nss_own->nss_top;
+		stats = &nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS];
 
-		NSS_PKT_STATS_INCREMENT(nss_own, &nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]);
+		NSS_PKT_STATS_INCREMENT(nss_own, stats);
 		nss_warning("%p: Unable to allocate memory for 'C2C tx map'", nss_own);
 		return NSS_CORE_STATUS_FAILURE;
 	}

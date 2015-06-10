@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014 - 2015, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -224,15 +224,5 @@ extern nss_tx_status_t nss_if_tx_buf(struct nss_ctx_instance *nss_ctx, struct sk
  * @return command Tx status
  */
 nss_tx_status_t nss_if_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_if_msg *nim);
-
-/**
- * @brief Callback to receive physical interface messages
- *
- * @param app_data Application context for this message
- * @param msg NSS interface message
- *
- * @return void
- */
-typedef void (*nss_if_msg_callback_t)(void *app_data, struct nss_if_msg *msg);
 
 #endif /*  __NSS_IF_H */

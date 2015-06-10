@@ -153,7 +153,6 @@ extern nss_tx_status_t nss_n2h_flush_payloads(struct nss_ctx_instance *nss_ctx);
  * nss_n2h_msg_init()
  *	API to initialize the message for N2H package from Host to NSS
  */
-typedef void (*nss_n2h_msg_callback_t)(void *app_data, struct nss_n2h_msg *msg);
 extern void nss_n2h_msg_init(struct nss_n2h_msg *nim, uint16_t if_num, uint32_t type, uint32_t len,
 			nss_n2h_msg_callback_t cb, void *app_data);
 
