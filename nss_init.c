@@ -27,7 +27,6 @@
 #include "nss_data_plane.h"
 
 #include <nss_hal.h>
-#include <nss_clocks.h>
 
 #include <linux/module.h>
 #include <linux/platform_device.h>

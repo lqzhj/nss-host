@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -23,9 +23,9 @@
 #define __NSS_HAL_PVT_H
 
 #include "nss_regs.h"
-#include "nss_clocks.h"
-#include <linux/types.h>
+#include "nss_core.h"
 #include <linux/platform_device.h>
+#include <linux/types.h>
 
 #define NSS_HAL_SUPPORTED_INTERRUPTS (NSS_REGS_N2H_INTR_STATUS_DATA_COMMAND_QUEUE | \
 					NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFER_QUEUE|  \
@@ -38,7 +38,7 @@
 static inline void __nss_hal_read_interrupt_cause(uint32_t map, uint32_t irq __attribute__ ((unused)), uint32_t shift_factor, uint32_t *cause)
 {
 	uint32_t value = nss_read_32(map, NSS_REGS_N2H_INTR_STATUS_OFFSET);
-	*cause = (((value)>> shift_factor) & 0x7FFF);
+	*cause = (((value) >> shift_factor) & 0x7FFF);
 }
 
 /*
@@ -73,15 +73,11 @@ static inline void __nss_hal_send_interrupt(uint32_t map, uint32_t irq __attribu
 	nss_write_32(map, NSS_REGS_C2C_INTR_SET_OFFSET, cause);
 }
 
-#if (NSS_DT_SUPPORT == 1)
 extern void __nss_hal_core_reset(uint32_t map, uint32_t reset);
-#else
-extern void __nss_hal_core_reset(uint32_t core_id, uint32_t map, uint32_t addr, uint32_t clk_src);
-extern void __nss_hal_common_reset(uint32_t *clk_src);
-extern uint32_t nss_hal_pvt_divide_pll18(uint32_t core_id, uint32_t divider);
-extern void nss_hal_pvt_pll_change(uint32_t pll);
-extern uint32_t nss_hal_pvt_enable_pll18(uint32_t speed);
-extern void nss_hal_pvt_register_dump(void);
-#endif
+extern struct nss_platform_data *__nss_hal_of_get_pdata(struct device_node *np, struct platform_device *pdev);
+extern int32_t __nss_hal_clock_pre_init(struct platform_device *nss_dev);
 extern void __nss_hal_debug_enable(void);
+extern int32_t __nss_hal_load_fw(struct platform_device *nss_dev, struct nss_platform_data *npd);
+extern int32_t __nss_hal_reset_control(struct platform_device *nss_dev);
+extern int32_t __nss_hal_clock_post_init(struct platform_device *nss_dev, struct nss_platform_data *npd);
 #endif /* __NSS_HAL_PVT_H */
