@@ -175,27 +175,27 @@
  */
 #define NSS_FREQ_110		110000000	/* Frequency in hz */
 #define NSS_FREQ_110_MIN	0x03000		/* Instructions Per ms Min */
-#define NSS_FREQ_110_MAX	0x08000		/* Instructions Per ms Max */
+#define NSS_FREQ_110_MAX	0x05000		/* Instructions Per ms Max */
 
 #define NSS_FREQ_275		275000000	/* Frequency in hz */
-#define NSS_FREQ_275_MIN	0x06000		/* Instructions Per ms Min */
-#define NSS_FREQ_275_MAX	0x09000		/* Instructions Per ms Max */
+#define NSS_FREQ_275_MIN	0x03000		/* Instructions Per ms Min */
+#define NSS_FREQ_275_MAX	0x05000		/* Instructions Per ms Max */
 
 #define NSS_FREQ_550		550000000	/* Frequency in hz */
-#define NSS_FREQ_550_MIN	0x07000		/* Instructions Per ms Min */
-#define NSS_FREQ_550_MAX	0x16000		/* Instructions Per ms Max */
+#define NSS_FREQ_550_MIN	0x05000		/* Instructions Per ms Min */
+#define NSS_FREQ_550_MAX	0x08000		/* Instructions Per ms Max */
 
 #define NSS_FREQ_600		600000000	/* Frequency in hz */
-#define NSS_FREQ_600_MIN	0x07000		/* Instructions Per ms Min */
-#define NSS_FREQ_600_MAX	0x16000		/* Instructions Per ms Max */
+#define NSS_FREQ_600_MIN	0x05000		/* Instructions Per ms Min */
+#define NSS_FREQ_600_MAX	0x08000		/* Instructions Per ms Max */
 
 #define NSS_FREQ_733		733000000	/* Frequency in hz */
-#define NSS_FREQ_733_MIN	0x10000		/* Instructions Per ms Min */
-#define NSS_FREQ_733_MAX	0x50000		/* Instructions Per ms Max */
+#define NSS_FREQ_733_MIN	0x05000		/* Instructions Per ms Min */
+#define NSS_FREQ_733_MAX	0x25000		/* Instructions Per ms Max */
 
 #define NSS_FREQ_800		800000000	/* Frequency in hz */
-#define NSS_FREQ_800_MIN	0x10000		/* Instructions Per ms Min */
-#define NSS_FREQ_800_MAX	0x50000		/* Instructions Per ms Max */
+#define NSS_FREQ_800_MIN	0x05000		/* Instructions Per ms Min */
+#define NSS_FREQ_800_MAX	0x25000		/* Instructions Per ms Max */
 
 #if (NSS_DT_SUPPORT == 1)
 #define NSSTCM_FREQ		400000000	/* NSS TCM Frequency in Hz */
@@ -787,11 +787,11 @@ enum nss_scales {
 /*
  * NSS Core Statistics and Frequencies
  */
-#define NSS_SAMPLE_BUFFER_SIZE 32	/* Ring Buffer should be a Size of two */
+#define NSS_SAMPLE_BUFFER_SIZE 64			/* Ring Buffer should be a Size of two */
 #define NSS_SAMPLE_BUFFER_MASK (NSS_SAMPLE_BUFFER_SIZE - 1)
-#define NSS_FREQUENCY_SCALE_RATE_LIMIT_UP 2	/* Adjust the Rate of Frequency Switching Up */
+#define NSS_FREQUENCY_SCALE_RATE_LIMIT_UP 2		/* Adjust the Rate of Frequency Switching Up */
 #define NSS_FREQUENCY_SCALE_RATE_LIMIT_DOWN 60000	/* Adjust the Rate of Frequency Switching Down */
-#define NSS_MESSAGE_RATE_LIMIT 15000		/* Adjust the Rate of Displaying Statistic Messages */
+#define NSS_MESSAGE_RATE_LIMIT 15000			/* Adjust the Rate of Displaying Statistic Messages */
 
 /*
  * NSS Frequency Scale Info
