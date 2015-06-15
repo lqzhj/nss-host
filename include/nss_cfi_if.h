@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
@@ -67,21 +67,15 @@
 
 #endif /* !CONFIG_DYNAMIC_DEBUG */
 
+#define nss_cfi_assert(expr) BUG_ON(!expr)
+
 #if !defined (CONFIG_NSS_CFI_DBG)
-#define nss_cfi_assert(expr)
 #define nss_cfi_dbg(fmt, arg...)
 #define nss_cfi_dbg_skb(skb, limit)
 #define nss_cfi_dbg_data(data, len, c)
 
 #else
 #define nss_cfi_dbg(fmt, arg...)     printk(KERN_DEBUG fmt, ## arg)
-#define nss_cfi_assert(expr) do { \
-	if (!(expr)) { \
-		printk("Assertion: %s:%s:%s:%d\n",#expr, __FUNCTION__, __FILE__, __LINE__); \
-		dump_stack(); \
-		panic("nss_cfi_ocf assert"); \
-	}       \
-} while(0);
 
 
 
