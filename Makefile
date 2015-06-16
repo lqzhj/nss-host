@@ -29,7 +29,6 @@ qca-nss-drv-objs := \
 			nss_gre_redir.o \
 			nss_if.o \
 			nss_init.o \
-			nss_freq.o \
 			nss_ipsec.o \
 			nss_ipv4.o \
 			nss_ipv4_reasm.o \
@@ -65,6 +64,14 @@ NSS_CCFLAGS = -DNSS_DT_SUPPORT=0 -DNSS_FW_DBG_SUPPORT=1 -DNSS_PM_SUPPORT=1
 else
 NSS_CCFLAGS = -DNSS_DT_SUPPORT=1 -DNSS_FW_DBG_SUPPORT=0 -DNSS_PM_SUPPORT=0
 ccflags-y += -I$(obj)
+endif
+
+# Disable Frequency scaling
+ifeq "$(NSS_FREQ_SCALE_DISABLE)" "y"
+ccflags-y += -DNSS_FREQ_SCALE_SUPPORT=0
+else
+qca-nss-drv-objs += nss_freq.o
+ccflags-y += -DNSS_FREQ_SCALE_SUPPORT=1
 endif
 
 ccflags-y += $(NSS_CCFLAGS)

@@ -702,7 +702,9 @@ static int nss_probe(struct platform_device *nss_dev)
 		}
 	}
 
+#if (NSS_FREQ_SCALE_SUPPORT == 1)
 	nss_freq_register_handler();
+#endif
 	nss_lso_rx_register_handler();
 
 	nss_top->frequency_handler_id = nss_dev->id;
@@ -931,6 +933,7 @@ struct platform_driver nss_driver = {
 	},
 };
 
+#if (NSS_FREQ_SCALE_SUPPORT == 1)
 /*
  * nss_reset_frequency_stats_samples()
  *	Reset all frequency sampling state when auto scaling is turned off.
@@ -1149,6 +1152,7 @@ static int nss_get_average_inst_handler(ctl_table *ctl, int write, void __user *
 
 	return ret;
 }
+#endif
 
 #if (NSS_FW_DBG_SUPPORT == 1)
 /*
@@ -1265,6 +1269,7 @@ static int nss_paged_mode_handler(ctl_table *ctl, int write, void __user *buffer
 	return ret;
 }
 
+#if (NSS_FREQ_SCALE_SUPPORT == 1)
 /*
  * sysctl-tuning infrastructure.
  */
@@ -1299,6 +1304,7 @@ static ctl_table nss_freq_table[] = {
 	},
 	{ }
 };
+#endif
 
 static ctl_table nss_general_table[] = {
 	{
@@ -1356,11 +1362,13 @@ static ctl_table nss_general_table[] = {
 };
 
 static ctl_table nss_clock_dir[] = {
+#if (NSS_FREQ_SCALE_SUPPORT == 1)
 	{
 		.procname               = "clock",
 		.mode                   = 0555,
 		.child                  = nss_freq_table,
 	},
+#endif
 	{
 		.procname               = "general",
 		.mode                   = 0555,
