@@ -23,19 +23,19 @@
 #include <net/arp.h>
 
 #define NSS_VIRT_IF_TX_TIMEOUT			3000 /* 3 Seconds */
-#define NSS_VIRT_IF_INDEX_OFFSET(if_num)	(if_num-NSS_DYNAMIC_IF_START)
+#define NSS_VIRT_IF_GET_INDEX(if_num)	(if_num-NSS_DYNAMIC_IF_START)
 
 extern int nss_ctl_redirect;
 
 /*
  * Data structure that holds the virtual interface context.
  */
-static struct nss_virt_if_handle *virt_handle[NSS_MAX_DYNAMIC_INTERFACES];
+static struct nss_virt_if_handle *nss_virt_if_handle_t[NSS_MAX_DYNAMIC_INTERFACES];
 
 /*
  * Spinlock to protect the global data structure virt_handle.
  */
-DEFINE_SPINLOCK(virt_if_lock);
+DEFINE_SPINLOCK(nss_virt_if_lock);
 
 /*
  * nss_virt_if_stats_sync()
@@ -84,23 +84,22 @@ static void nss_virt_if_msg_handler(struct nss_ctx_instance *nss_ctx,
 		return nss_if_msg_handler(nss_ctx, ncm, app_data);
 	}
 
-	if (((!NSS_IS_IF_TYPE(DYNAMIC, ncm->interface)) &&
-		(!NSS_IS_IF_TYPE(VIRTUAL, ncm->interface)))) {
+	if (!NSS_IS_IF_TYPE(DYNAMIC, ncm->interface)) {
 		nss_warning("%p: response for another interface: %d", nss_ctx, ncm->interface);
 		return;
 	}
 
-	if_num = NSS_VIRT_IF_INDEX_OFFSET(ncm->interface);
+	if_num = NSS_VIRT_IF_GET_INDEX(ncm->interface);
 
-	spin_lock_bh(&virt_if_lock);
-	if (!virt_handle[if_num]) {
-		spin_unlock_bh(&virt_if_lock);
+	spin_lock_bh(&nss_virt_if_lock);
+	if (!nss_virt_if_handle_t[if_num]) {
+		spin_unlock_bh(&nss_virt_if_lock);
 		nss_warning("%p: virt_if handle is NULL\n", nss_ctx);
 		return;
 	}
 
-	handle = virt_handle[if_num];
-	spin_unlock_bh(&virt_if_lock);
+	handle = nss_virt_if_handle_t[if_num];
+	spin_unlock_bh(&nss_virt_if_lock);
 
 	switch (nvim->cm.type) {
 	case NSS_VIRT_IF_STATS_SYNC_MSG:
@@ -157,6 +156,586 @@ static void nss_virt_if_callback(void *app_data, struct nss_cmn_msg *ncm)
 }
 
 /*
+ * nss_virt_if_tx_msg_sync
+ *	Send a message from HLOS to NSS synchronously.
+ */
+static nss_tx_status_t nss_virt_if_tx_msg_sync(struct nss_virt_if_handle *handle,
+							struct nss_virt_if_msg *nvim)
+{
+	nss_tx_status_t status;
+	int ret = 0;
+	struct nss_virt_if_pvt *nwip = handle->pvt;
+	struct nss_ctx_instance *nss_ctx = handle->nss_ctx;
+
+	down(&nwip->sem);
+
+	status = nss_virt_if_tx_msg(nss_ctx, nvim);
+	if (status != NSS_TX_SUCCESS) {
+		nss_warning("%p: nss_virt_if_msg failed\n", nss_ctx);
+		up(&nwip->sem);
+		return status;
+	}
+
+	ret = wait_for_completion_timeout(&nwip->complete,
+						msecs_to_jiffies(NSS_VIRT_IF_TX_TIMEOUT));
+	if (!ret) {
+		nss_warning("%p: virt_if tx failed due to timeout\n", nss_ctx);
+		nwip->response = NSS_TX_FAILURE;
+	}
+
+	status = nwip->response;
+	up(&nwip->sem);
+
+	return status;
+}
+
+/*
+ * nss_virt_if_msg_init()
+ *	Initialize virt specific message structure.
+ */
+static void nss_virt_if_msg_init(struct nss_virt_if_msg *nvim,
+					uint16_t if_num,
+					uint32_t type,
+					uint32_t len,
+					nss_virt_if_msg_callback_t cb,
+					struct nss_virt_if_handle *app_data)
+{
+	nss_cmn_msg_init(&nvim->cm, if_num, type, len, (void *)cb, (void *)app_data);
+}
+
+/*
+ * nss_virt_if_register_handler()
+ * 	register msg handler for virtual interface.
+ */
+static uint32_t nss_virt_if_register_handler(struct nss_virt_if_handle *handle)
+{
+	uint32_t ret;
+	int32_t if_num = handle->if_num;
+
+	ret = nss_core_register_handler(if_num, nss_virt_if_msg_handler, NULL);
+	if (ret != NSS_CORE_STATUS_SUCCESS) {
+		nss_warning("%d: Message handler failed to be registered for interface\n", if_num);
+		return NSS_VIRT_IF_CORE_FAILURE;
+	}
+
+	return NSS_VIRT_IF_SUCCESS;
+}
+
+/*
+ * nss_virt_if_handle_destroy_cb()
+ *	Callback to handle the response of destroy message.
+ */
+static void nss_virt_if_handle_destroy_cb(void *app_data, struct nss_dynamic_interface_msg *ndim)
+{
+	nss_virt_if_msg_callback_t cb;
+	void *data;
+	uint32_t index;
+	struct nss_virt_if_handle *handle = (struct nss_virt_if_handle *)app_data;
+
+	cb = handle->cb;
+	data = handle->app_data;
+
+	if (ndim->cm.response != NSS_CMN_RESPONSE_ACK) {
+		nss_warning("%p: Received NACK from DI\n", handle->nss_ctx);
+		goto callback;
+	}
+
+	index = NSS_VIRT_IF_GET_INDEX(handle->if_num);
+	spin_lock_bh(&nss_virt_if_lock);
+	nss_virt_if_handle_t[index] = NULL;
+	spin_unlock_bh(&nss_virt_if_lock);
+
+	kfree(handle);
+callback:
+	if (!cb) {
+		nss_warning("callback is NULL\n");
+		return;
+	}
+
+	cb(data, &ndim->cm);
+}
+
+/*
+ * nss_virt_if_handle_destroy()
+ *	Destroy the virt handle either due to request from WLAN or due to error.
+ */
+static int nss_virt_if_handle_destroy(struct nss_virt_if_handle *handle)
+{
+	nss_tx_status_t status;
+	int32_t if_num = handle->if_num;
+	struct nss_ctx_instance *nss_ctx = handle->nss_ctx;
+	struct nss_dynamic_interface_msg ndim;
+	struct nss_dynamic_interface_dealloc_node_msg *ndid;
+
+	nss_dynamic_interface_msg_init(&ndim, NSS_DYNAMIC_INTERFACE, NSS_DYNAMIC_INTERFACE_DEALLOC_NODE,
+				sizeof(struct nss_dynamic_interface_dealloc_node_msg), nss_virt_if_handle_destroy_cb, (void *)handle);
+
+	ndid = &ndim.msg.dealloc_node;
+	ndid->type = NSS_DYNAMIC_INTERFACE_TYPE_802_3_REDIR;
+	ndid->if_num = if_num;
+
+	/*
+	 * Send an asynchronous message to the firmware.
+	 */
+	status = nss_dynamic_interface_tx(nss_ctx, &ndim);
+	if (status != NSS_TX_SUCCESS) {
+		nss_warning("%p: Dynamic interface destroy failed status %d\n", nss_ctx, status);
+		return status;
+	}
+
+	return status;
+}
+
+/*
+ * nss_virt_if_handle_destroy_sync()
+ *	Destroy the virt handle either due to request from user or due to error, synchronously.
+ */
+static int nss_virt_if_handle_destroy_sync(struct nss_virt_if_handle *handle)
+{
+	nss_tx_status_t status;
+	int32_t if_num = handle->if_num;
+	int32_t index = NSS_VIRT_IF_GET_INDEX(if_num);
+	struct nss_ctx_instance *nss_ctx = handle->nss_ctx;
+
+	status = nss_dynamic_interface_dealloc_node(if_num, NSS_DYNAMIC_INTERFACE_TYPE_802_3_REDIR);
+	if (status != NSS_TX_SUCCESS) {
+		nss_warning("%p: Dynamic interface destroy failed status %d\n", nss_ctx, status);
+		return status;
+	}
+
+	spin_lock_bh(&nss_virt_if_lock);
+	nss_virt_if_handle_t[index] = NULL;
+	spin_unlock_bh(&nss_virt_if_lock);
+
+	kfree(handle->pvt);
+	kfree(handle);
+
+	return status;
+}
+
+/*
+ * nss_virt_if_handle_create_cb()
+ *	Callback to handle the response from dynamic interface for an alloc node msg.
+ */
+static void nss_virt_if_handle_create_cb(void *app_data, struct nss_dynamic_interface_msg *ndim)
+{
+	struct nss_virt_if_handle *handle = (struct nss_virt_if_handle *)app_data;
+	nss_virt_if_msg_callback_t cb;
+	struct nss_virt_if_msg nvim;
+	struct nss_virt_if_create_msg *nvcm;
+	void *data;
+	int32_t if_num;
+	uint32_t index;
+	int ret;
+
+	cb = handle->cb;
+	data = handle->app_data;
+
+	if (ndim->cm.response != NSS_CMN_RESPONSE_ACK) {
+		nss_warning("%p: received NACK from NSS %d\n", handle->nss_ctx, ndim->cm.response);
+		kfree(handle);
+		goto fail;
+	}
+
+	if_num = ndim->msg.alloc_node.if_num;
+
+	spin_lock_bh(&nss_virt_if_lock);
+	handle->if_num = if_num;
+	index = NSS_VIRT_IF_GET_INDEX(if_num);
+	nss_virt_if_handle_t[index] = handle;
+	spin_unlock_bh(&nss_virt_if_lock);
+
+	/* Register the msg handler for if_num */
+	ret = nss_virt_if_register_handler(handle);
+	if (ret != NSS_VIRT_IF_SUCCESS) {
+		nss_warning("%p: Registration handler failed reason: %d\n", handle->nss_ctx, ret);
+		nss_virt_if_handle_destroy(handle);
+		goto fail;
+	}
+
+	/*
+	 * Send virt_if message to the Firmware to copy the netdev's macaddr
+	 */
+	nss_virt_if_msg_init(&nvim, handle->if_num, NSS_VIRT_IF_TX_CREATE_MSG,
+				sizeof(struct nss_virt_if_create_msg), NULL, NULL);
+
+	nvcm = &nvim.msg.if_create;
+	nvcm->flags = 0;
+	memcpy(nvcm->mac_addr, handle->ndev->dev_addr, ETH_ALEN);
+
+	ret = nss_virt_if_tx_msg(handle->nss_ctx, &nvim);
+	if (ret != NSS_TX_SUCCESS) {
+		nss_warning("%p: nss_virt_if_tx_msg failed %u\n", handle->nss_ctx, ret);
+		nss_virt_if_handle_destroy(handle);
+		goto fail;
+	}
+
+	spin_lock_bh(&nss_top_main.lock);
+	if (!nss_top_main.subsys_dp_register[handle->if_num].ndev) {
+		nss_top_main.subsys_dp_register[handle->if_num].ndev = handle->ndev;
+	}
+	spin_unlock_bh(&nss_top_main.lock);
+
+	/*
+	 * Hold a reference to the net_device
+	 */
+	dev_hold(handle->ndev);
+
+	/*
+	 * The context returned is the handle which contains all the info related to
+	 * the interface if_num.
+	 */
+
+fail:
+	if (!cb) {
+		nss_warning("cb is NULL\n");
+		return;
+	}
+
+	cb(data, &ndim->cm);
+}
+
+/*
+ * nss_virt_if_handle_create()
+ *	Create and initialize virt_if handle.
+ */
+static struct nss_virt_if_handle *nss_virt_if_handle_create(struct nss_ctx_instance *nss_ctx,
+							struct net_device *ndev,
+							nss_virt_if_msg_callback_t cb,
+							void *app_data,
+							int *cmd_rsp)
+{
+	struct nss_virt_if_handle *handle;
+
+	handle = (struct nss_virt_if_handle *)kzalloc(sizeof(struct nss_virt_if_handle),
+									GFP_ATOMIC);
+	if (!handle) {
+		nss_warning("%p: handle memory alloc failed\n", nss_ctx);
+		*cmd_rsp = NSS_VIRT_IF_ALLOC_FAILURE;
+		goto error;
+	}
+
+	/*
+	 * Save the callback & appdata of the user. The callback will be invoked from
+	 * nss_virt_if_handle_create_cb.
+	 */
+	handle->nss_ctx = nss_ctx;
+	handle->ndev = ndev;
+	handle->cb = cb;
+	handle->app_data = app_data;
+
+	*cmd_rsp = NSS_VIRT_IF_SUCCESS;
+
+	return handle;
+
+error:
+	return NULL;
+}
+
+/*
+ * nss_virt_if_handle_create_sync()
+ *	Initialize virt handle which holds the if_num and stats per interface.
+ */
+static struct nss_virt_if_handle *nss_virt_if_handle_create_sync(struct nss_ctx_instance *nss_ctx, int32_t if_num, int32_t *cmd_rsp)
+{
+	int32_t index;
+	struct nss_virt_if_handle *handle;
+
+	index = NSS_VIRT_IF_GET_INDEX(if_num);
+
+	handle = (struct nss_virt_if_handle *)kzalloc(sizeof(struct nss_virt_if_handle),
+									GFP_KERNEL);
+	if (!handle) {
+		nss_warning("%p: handle memory alloc failed\n", nss_ctx);
+		*cmd_rsp = NSS_VIRT_IF_ALLOC_FAILURE;
+		goto error1;
+	}
+
+	handle->nss_ctx = nss_ctx;
+	handle->if_num = if_num;
+	handle->pvt = (struct nss_virt_if_pvt *)kzalloc(sizeof(struct nss_virt_if_pvt),
+								GFP_KERNEL);
+	if (!handle->pvt) {
+		nss_warning("%p: failure allocating memory for nss_virt_if_pvt\n", nss_ctx);
+		*cmd_rsp = NSS_VIRT_IF_ALLOC_FAILURE;
+		goto error2;
+	}
+
+	handle->cb = NULL;
+	handle->app_data = NULL;
+
+	spin_lock_bh(&nss_virt_if_lock);
+	nss_virt_if_handle_t[index] = handle;
+	spin_unlock_bh(&nss_virt_if_lock);
+
+	*cmd_rsp = NSS_VIRT_IF_SUCCESS;
+
+	return handle;
+
+error2:
+	kfree(handle);
+error1:
+	return NULL;
+}
+
+/*
+ * nss_virt_if_register_handler_sync()
+ * 	register msg handler for virtual interface and initialize semaphore and completion.
+ */
+static uint32_t nss_virt_if_register_handler_sync(struct nss_virt_if_handle *handle)
+{
+	uint32_t ret;
+	struct nss_virt_if_pvt *nvip = NULL;
+	int32_t if_num = handle->if_num;
+
+	ret = nss_core_register_handler(if_num, nss_virt_if_msg_handler, NULL);
+	if (ret != NSS_CORE_STATUS_SUCCESS) {
+		nss_warning("%d: Message handler failed to be registered for interface\n", if_num);
+		return NSS_VIRT_IF_CORE_FAILURE;
+	}
+
+	nvip = handle->pvt;
+	if (!nvip->sem_init_done) {
+		sema_init(&nvip->sem, 1);
+		init_completion(&nvip->complete);
+		nvip->sem_init_done = 1;
+	}
+
+	return NSS_VIRT_IF_SUCCESS;
+}
+
+/*
+ * nss_virt_if_create()
+ *	Create a virtual interface and associate it with the netdev, asynchronously.
+ */
+int nss_virt_if_create(struct net_device *netdev, nss_virt_if_msg_callback_t cb, void *app_data)
+{
+	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[nss_top_main.wlan_handler_id];
+	struct nss_dynamic_interface_msg ndim;
+	struct nss_dynamic_interface_alloc_node_msg *ndia;
+	int ret;
+	struct nss_virt_if_handle *handle = NULL;
+
+	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
+		nss_warning("%p: Interface could not be created as core not ready\n", nss_ctx);
+		return NSS_VIRT_IF_CORE_FAILURE;
+	}
+
+	/*
+	 * Create the virt_if handle and associate the cb and app_data with it.
+	 */
+	handle = nss_virt_if_handle_create(nss_ctx, netdev, cb, app_data, &ret);
+	if (!handle) {
+		nss_warning("%p:virt_if handle create failed ret %d\n", nss_ctx, ret);
+		return ret;
+	}
+
+	ndia = &ndim.msg.alloc_node;
+	ndia->type = NSS_DYNAMIC_INTERFACE_TYPE_802_3_REDIR;
+
+	/*
+	 * Construct a dynamic interface message and send it to the firmware.
+	 */
+	nss_dynamic_interface_msg_init(&ndim, NSS_DYNAMIC_INTERFACE, NSS_DYNAMIC_INTERFACE_ALLOC_NODE,
+				sizeof(struct nss_dynamic_interface_alloc_node_msg), nss_virt_if_handle_create_cb, (void *)handle);
+
+	ret = nss_dynamic_interface_tx(nss_ctx, &ndim);
+	if (ret != NSS_TX_SUCCESS) {
+		nss_warning("%p: failure allocating virt if\n", nss_ctx);
+		ret = NSS_VIRT_IF_DYNAMIC_IF_FAILURE;
+		kfree(handle);
+		return ret;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(nss_virt_if_create);
+
+/*
+ * nss_virt_if_create_sync()
+ *	Create a virt interface, synchronously and associate it with the netdev
+ */
+struct nss_virt_if_handle *nss_virt_if_create_sync(struct net_device *netdev)
+{
+	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[nss_top_main.wlan_handler_id];
+	struct nss_virt_if_msg nvim;
+	struct nss_virt_if_create_msg *nvcm;
+	uint32_t ret;
+	struct nss_virt_if_handle *handle = NULL;
+	int32_t if_num;
+
+	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
+		nss_warning("%p: Interface could not be created as core not ready\n", nss_ctx);
+		return NULL;
+	}
+
+	if_num = nss_dynamic_interface_alloc_node(NSS_DYNAMIC_INTERFACE_TYPE_802_3_REDIR);
+	if (if_num < 0) {
+		nss_warning("%p: failure allocating virt if\n", nss_ctx);
+		return NULL;
+	}
+
+	handle = nss_virt_if_handle_create_sync(nss_ctx, if_num, &ret);
+	if (!handle) {
+		nss_warning("%p:virt_if handle creation failed ret %d\n", nss_ctx, ret);
+		nss_dynamic_interface_dealloc_node(if_num, NSS_DYNAMIC_INTERFACE_TYPE_802_3_REDIR);
+		return NULL;
+	}
+
+	/* Initializes the semaphore and also sets the msg handler for if_num */
+	ret = nss_virt_if_register_handler_sync(handle);
+	if (ret != NSS_VIRT_IF_SUCCESS) {
+		nss_warning("%p: Registration handler failed reason: %d\n", nss_ctx, ret);
+		goto error;
+	}
+
+	nss_virt_if_msg_init(&nvim, handle->if_num, NSS_VIRT_IF_TX_CREATE_MSG,
+				sizeof(struct nss_virt_if_create_msg), nss_virt_if_callback, handle);
+
+	nvcm = &nvim.msg.if_create;
+	nvcm->flags = 0;
+	memcpy(nvcm->mac_addr, netdev->dev_addr, ETH_ALEN);
+
+	ret = nss_virt_if_tx_msg_sync(handle, &nvim);
+	if (ret != NSS_TX_SUCCESS) {
+		nss_warning("%p: nss_virt_if_tx_msg_sync failed %u\n", nss_ctx, ret);
+		goto error;
+	}
+
+	spin_lock_bh(&nss_top_main.lock);
+	if (!nss_top_main.subsys_dp_register[handle->if_num].ndev) {
+		nss_top_main.subsys_dp_register[handle->if_num].ndev = netdev;
+	}
+	spin_unlock_bh(&nss_top_main.lock);
+
+	/*
+	 * Hold a reference to the net_device
+	 */
+	dev_hold(netdev);
+
+	/*
+	 * The context returned is the handle interface # which contains all the info related to
+	 * the interface if_num.
+	 */
+
+	return handle;
+
+error:
+	nss_virt_if_handle_destroy_sync(handle);
+	return NULL;
+}
+EXPORT_SYMBOL(nss_virt_if_create_sync);
+
+/*
+ * nss_virt_if_destroy()
+ *	Destroy the virt interface associated with the interface number, by sending
+ * sending an asynchronous message to dynamic interface.
+ */
+nss_tx_status_t nss_virt_if_destroy(struct nss_virt_if_handle *handle, nss_virt_if_msg_callback_t cb, void *app_data)
+{
+	nss_tx_status_t status;
+	struct net_device *dev;
+	int32_t if_num;
+	struct nss_ctx_instance *nss_ctx;
+	uint32_t ret;
+
+	if (!handle) {
+		nss_warning("handle is NULL\n");
+		return NSS_TX_FAILURE_BAD_PARAM;
+	}
+
+	if_num = handle->if_num;
+	nss_ctx = handle->nss_ctx;
+	handle->cb = cb;
+	handle->app_data = app_data;
+
+	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
+		nss_warning("%p: Interface could not be destroyed as core not ready\n", nss_ctx);
+		return NSS_TX_FAILURE_NOT_READY;
+	}
+
+	spin_lock_bh(&nss_top_main.lock);
+	if (!nss_top_main.subsys_dp_register[if_num].ndev) {
+		spin_unlock_bh(&nss_top_main.lock);
+		nss_warning("%p: Unregister virt interface %d: no context\n", nss_ctx, if_num);
+		return NSS_TX_FAILURE_BAD_PARAM;
+	}
+
+	dev = nss_top_main.subsys_dp_register[if_num].ndev;
+	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
+	spin_unlock_bh(&nss_top_main.lock);
+	dev_put(dev);
+
+	status = nss_virt_if_handle_destroy(handle);
+	if (status != NSS_TX_SUCCESS) {
+		nss_warning("%p: handle destroy tx failed %d\n", nss_ctx, status);
+		return NSS_TX_FAILURE;
+	}
+
+	ret = nss_core_unregister_handler(if_num);
+	if (ret != NSS_CORE_STATUS_SUCCESS) {
+		nss_warning("Not able to unregister handler for virt_if interface %d with NSS core\n", if_num);
+		return NSS_TX_FAILURE_BAD_PARAM;
+	}
+
+	return status;
+}
+EXPORT_SYMBOL(nss_virt_if_destroy);
+
+/*
+ * nss_virt_if_destroy_sync()
+ *	Destroy the virt interface associated with the interface number, synchronously.
+ */
+nss_tx_status_t nss_virt_if_destroy_sync(struct nss_virt_if_handle *handle)
+{
+	nss_tx_status_t status;
+	struct net_device *dev;
+	int32_t if_num;
+	struct nss_ctx_instance *nss_ctx;
+	uint32_t ret;
+
+	if (!handle) {
+		nss_warning("handle is NULL\n");
+		return NSS_TX_FAILURE_BAD_PARAM;
+	}
+
+	if_num = handle->if_num;
+	nss_ctx = handle->nss_ctx;
+
+	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
+		nss_warning("%p: Interface could not be destroyed as core not ready\n", nss_ctx);
+		return NSS_TX_FAILURE_NOT_READY;
+	}
+
+	spin_lock_bh(&nss_top_main.lock);
+	if (!nss_top_main.subsys_dp_register[if_num].ndev) {
+		spin_unlock_bh(&nss_top_main.lock);
+		nss_warning("%p: Unregister virt interface %d: no context\n", nss_ctx, if_num);
+		return NSS_TX_FAILURE_BAD_PARAM;
+	}
+
+	dev = nss_top_main.subsys_dp_register[if_num].ndev;
+	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
+	spin_unlock_bh(&nss_top_main.lock);
+	dev_put(dev);
+
+	status = nss_virt_if_handle_destroy_sync(handle);
+	if (status != NSS_TX_SUCCESS) {
+		nss_warning("%p: handle destroy failed for if_num %d\n", nss_ctx, if_num);
+		return NSS_TX_FAILURE;
+	}
+
+	ret = nss_core_unregister_handler(if_num);
+	if (ret != NSS_CORE_STATUS_SUCCESS) {
+		nss_warning("%p: Not able to unregister handler for virt_if interface %d with NSS core\n", nss_ctx, if_num);
+		return NSS_TX_FAILURE_BAD_PARAM;
+	}
+
+	return status;
+}
+EXPORT_SYMBOL(nss_virt_if_destroy_sync);
+
+/*
  * nss_virt_if_tx_buf()
  *	HLOS interface has received a packet which we redirect to the NSS, if appropriate to do so.
  */
@@ -175,7 +754,7 @@ nss_tx_status_t nss_virt_if_tx_buf(struct nss_virt_if_handle *handle,
 		return NSS_TX_FAILURE_NOT_SUPPORTED;
 	}
 
-	nss_assert(NSS_IS_IF_TYPE(DYNAMIC, if_num) || NSS_IS_IF_TYPE(VIRTUAL, if_num));
+	nss_assert(NSS_IS_IF_TYPE(DYNAMIC, if_num));
 	nss_trace("%p: Virtual Rx packet, if_num:%d, skb:%p", nss_ctx, if_num, skb);
 
 	/*
@@ -226,268 +805,6 @@ nss_tx_status_t nss_virt_if_tx_buf(struct nss_virt_if_handle *handle,
 EXPORT_SYMBOL(nss_virt_if_tx_buf);
 
 /*
- * nss_virt_if_tx_msg_sync
- *	Send a message from HLOS to NSS synchronously.
- */
-static nss_tx_status_t nss_virt_if_tx_msg_sync(struct nss_virt_if_handle *handle,
-							struct nss_virt_if_msg *nvim)
-{
-	nss_tx_status_t status;
-	int ret = 0;
-	struct nss_virt_if_pvt *nwip = handle->pvt;
-	struct nss_ctx_instance *nss_ctx = handle->nss_ctx;
-
-	down(&nwip->sem);
-
-	status = nss_virt_if_tx_msg(nss_ctx, nvim);
-	if (status != NSS_TX_SUCCESS) {
-		nss_warning("%p: nss_virt_if_msg failed\n", nss_ctx);
-		up(&nwip->sem);
-		return status;
-	}
-
-	ret = wait_for_completion_timeout(&nwip->complete,
-						msecs_to_jiffies(NSS_VIRT_IF_TX_TIMEOUT));
-	if (!ret) {
-		nss_warning("%p: virt_if tx failed due to timeout\n", nss_ctx);
-		nwip->response = NSS_TX_FAILURE;
-	}
-
-	status = nwip->response;
-	up(&nwip->sem);
-
-	return status;
-}
-
-/*
- * nss_virt_if_handle_destroy()
- *	Destroy the virt handle either due to request from WLAN or due to error.
- */
-static int nss_virt_if_handle_destroy(struct nss_virt_if_handle *handle)
-{
-	nss_tx_status_t status;
-	int32_t if_num = handle->if_num;
-	int32_t index = NSS_VIRT_IF_INDEX_OFFSET(if_num);
-	struct nss_ctx_instance *nss_ctx = handle->nss_ctx;
-
-	spin_lock_bh(&virt_if_lock);
-	virt_handle[index] = NULL;
-	spin_unlock_bh(&virt_if_lock);
-
-	status = nss_dynamic_interface_dealloc_node(if_num, NSS_DYNAMIC_INTERFACE_TYPE_802_3_REDIR);
-	if (status != NSS_TX_SUCCESS) {
-		nss_warning("%p: Dynamic interface destroy failed status %d\n", nss_ctx, status);
-		return status;
-	}
-
-	kfree(handle->pvt);
-	kfree(handle);
-
-	return status;
-}
-
-/*
- * nss_virt_if_handle_init()
- *	Initialize virt handle which holds the if_num and stats per interface.
- */
-static struct nss_virt_if_handle *nss_virt_if_handle_create(struct nss_ctx_instance *nss_ctx, int32_t *cmd_rsp)
-{
-	int32_t index;
-	int32_t if_num = 0;
-	struct nss_virt_if_handle *handle;
-
-	if_num = nss_dynamic_interface_alloc_node(NSS_DYNAMIC_INTERFACE_TYPE_802_3_REDIR);
-	if (if_num < 0) {
-		nss_warning("%p: failure allocating virt if\n", nss_ctx);
-		*cmd_rsp = NSS_VIRT_IF_DYNAMIC_IF_FAILURE;
-		return NULL;
-	}
-
-	index = NSS_VIRT_IF_INDEX_OFFSET(if_num);
-
-	handle = (struct nss_virt_if_handle *)kzalloc(sizeof(struct nss_virt_if_handle),
-									GFP_KERNEL);
-	if (!handle) {
-		nss_warning("%p: handle memory alloc failed\n", nss_ctx);
-		*cmd_rsp = NSS_VIRT_IF_ALLOC_FAILURE;
-		goto error1;
-	}
-
-	handle->nss_ctx = nss_ctx;
-	handle->if_num = if_num;
-	handle->pvt = (struct nss_virt_if_pvt *)kzalloc(sizeof(struct nss_virt_if_pvt),
-								GFP_KERNEL);
-	if (!handle->pvt) {
-		nss_warning("%p: failure allocating memory for nss_virt_if_pvt\n", nss_ctx);
-		*cmd_rsp = NSS_VIRT_IF_ALLOC_FAILURE;
-		goto error2;
-	}
-
-	handle->cb = NULL;
-	handle->app_data = NULL;
-
-	spin_lock_bh(&virt_if_lock);
-	virt_handle[index] = handle;
-	spin_unlock_bh(&virt_if_lock);
-
-	*cmd_rsp = NSS_VIRT_IF_SUCCESS;
-
-	return handle;
-
-error2:
-	kfree(handle);
-error1:
-	nss_dynamic_interface_dealloc_node(if_num, NSS_DYNAMIC_INTERFACE_TYPE_802_3_REDIR);
-	return NULL;
-}
-
-/* nss_virt_if_msg_init()
- *	Initialize virt specific message structure.
- */
-static void nss_virt_if_msg_init(struct nss_virt_if_msg *nvim,
-					uint16_t if_num,
-					uint32_t type,
-					uint32_t len,
-					nss_virt_if_msg_callback_t cb,
-					struct nss_virt_if_handle *app_data)
-{
-	nss_cmn_msg_init(&nvim->cm, if_num, type, len, (void *)cb, (void *)app_data);
-}
-
-/*
- * nss_virt_if_register_handler()
- * 	register handler for statically allocated virtual interface on NSS with NSS core.
- */
-static uint32_t nss_virt_if_register_handler(struct nss_virt_if_handle *handle)
-{
-	uint32_t ret;
-	struct nss_virt_if_pvt *nvip = NULL;
-	int32_t if_num = handle->if_num;
-
-	ret = nss_core_register_handler(if_num, nss_virt_if_msg_handler, NULL);
-	if (ret != NSS_CORE_STATUS_SUCCESS) {
-		nss_warning("%d: Message handler failed to be registered for interface\n", if_num);
-		return NSS_VIRT_IF_CORE_FAILURE;
-	}
-
-	nvip = handle->pvt;
-	if (!nvip->sem_init_done) {
-		sema_init(&nvip->sem, 1);
-		init_completion(&nvip->complete);
-		nvip->sem_init_done = 1;
-	}
-
-	return NSS_VIRT_IF_SUCCESS;
-}
-
-/*
- * nss_virt_if_create()
- *	Create a virt interface and associate it with the netdev
- */
-struct nss_virt_if_handle *nss_virt_if_create(struct net_device *netdev)
-{
-	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[nss_top_main.wlan_handler_id];
-	struct nss_virt_if_msg nvim;
-	struct nss_virt_if_create_msg *nvcm;
-	uint32_t ret;
-	struct nss_virt_if_handle *handle = NULL;
-
-	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
-		nss_warning("%p: Interface could not be created as core not ready\n", nss_ctx);
-		return NULL;
-	}
-
-	handle = nss_virt_if_handle_create(nss_ctx, &ret);
-	if (!handle) {
-		nss_warning("%p:virt_if handle creation failed ret %d\n", nss_ctx, ret);
-		return NULL;
-	}
-
-	/* Initializes the semaphore and also sets the msg handler for if_num */
-	ret = nss_virt_if_register_handler(handle);
-	if (ret != NSS_VIRT_IF_SUCCESS) {
-		nss_warning("%p: Registration handler failed reason: %d\n", nss_ctx, ret);
-		goto error;
-	}
-
-	nss_virt_if_msg_init(&nvim, handle->if_num, NSS_VIRT_IF_TX_CREATE_MSG,
-				sizeof(struct nss_virt_if_create_msg), nss_virt_if_callback, handle);
-
-	nvcm = &nvim.msg.if_create;
-	nvcm->flags = 0;
-	memcpy(nvcm->mac_addr, netdev->dev_addr, ETH_ALEN);
-
-	ret = nss_virt_if_tx_msg_sync(handle, &nvim);
-	if (ret != NSS_TX_SUCCESS) {
-		nss_warning("%p: nss_virt_if_tx_msg_sync failed %u\n", nss_ctx, ret);
-		goto error;
-	}
-
-	spin_lock_bh(&nss_top_main.lock);
-	if (!nss_top_main.subsys_dp_register[handle->if_num].ndev) {
-		nss_top_main.subsys_dp_register[handle->if_num].ndev = netdev;
-	}
-	spin_unlock_bh(&nss_top_main.lock);
-
-	/*
-	 * Hold a reference to the net_device
-	 */
-	dev_hold(netdev);
-
-	/*
-	 * The context returned is the handle interface # which contains all the info related to
-	 * the interface if_num.
-	 */
-
-	return handle;
-
-error:
-	nss_virt_if_handle_destroy(handle);
-	return NULL;
-}
-EXPORT_SYMBOL(nss_virt_if_create);
-
-/*
- * nss_virt_if_destroy()
- *	Destroy the virt interface associated with the interface number.
- */
-nss_tx_status_t nss_virt_if_destroy(struct nss_virt_if_handle *handle)
-{
-	nss_tx_status_t status;
-	struct net_device *dev;
-	int32_t if_num;
-	struct nss_ctx_instance *nss_ctx;
-
-	if (!handle) {
-		nss_warning("nss_virt_if_destroy handle is NULL\n");
-		return NSS_TX_FAILURE_BAD_PARAM;
-	}
-
-	if_num = handle->if_num;
-	nss_ctx = handle->nss_ctx;
-
-	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
-		nss_warning("%p: Interface could not be destroyed as core not ready\n", nss_ctx);
-		return NSS_TX_FAILURE_NOT_READY;
-	}
-
-	spin_lock_bh(&nss_top_main.lock);
-	if (!nss_top_main.subsys_dp_register[if_num].ndev) {
-		spin_unlock_bh(&nss_top_main.lock);
-		nss_warning("%p: Unregister virt interface %d: no context\n", nss_ctx, if_num);
-		return NSS_TX_FAILURE_BAD_PARAM;
-	}
-
-	dev = nss_top_main.subsys_dp_register[if_num].ndev;
-	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
-	spin_unlock_bh(&nss_top_main.lock);
-	dev_put(dev);
-
-	status = nss_virt_if_handle_destroy(handle);
-	return status;
-}
-EXPORT_SYMBOL(nss_virt_if_destroy);
-/*
  * nss_virt_if_tx_msg()
  */
 nss_tx_status_t nss_virt_if_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_virt_if_msg *nvim)
@@ -505,7 +822,7 @@ nss_tx_status_t nss_virt_if_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_
 	/*
 	 * Sanity check the message
 	 */
-	if (((!NSS_IS_IF_TYPE(DYNAMIC, ncm->interface)) && (!NSS_IS_IF_TYPE(VIRTUAL, ncm->interface)))) {
+	if (!NSS_IS_IF_TYPE(DYNAMIC, ncm->interface)) {
 		nss_warning("%p: tx request for another interface: %d", nss_ctx, ncm->interface);
 		return NSS_TX_FAILURE;
 	}
@@ -560,7 +877,7 @@ void nss_virt_if_register(struct nss_virt_if_handle *handle,
 	int32_t if_num;
 
 	if (!handle) {
-		nss_warning("nss_virt_if_register handle is NULL\n");
+		nss_warning("handle is NULL\n");
 		return;
 	}
 
@@ -581,7 +898,7 @@ void nss_virt_if_unregister(struct nss_virt_if_handle *handle)
 	int32_t if_num;
 
 	if (!handle) {
-		nss_warning("nss_virt_if_unregister handle is NULL\n");
+		nss_warning("handle is NULL\n");
 		return;
 	}
 
@@ -609,20 +926,20 @@ int32_t nss_virt_if_copy_stats(int32_t if_num, int i, char *line)
 	struct nss_virt_if_handle *handle = NULL;
 
 	if (if_num < 0) {
-		nss_warning("nss_virt_if_copy_stats invalid if_num\n");
-		return bytes;
+		nss_warning("invalid if_num\n");
+		return 0;
 	}
 
-	ifnum = NSS_VIRT_IF_INDEX_OFFSET(if_num);
+	ifnum = NSS_VIRT_IF_GET_INDEX(if_num);
 
-	spin_lock_bh(&virt_if_lock);
-	if (!virt_handle[ifnum]) {
-		spin_unlock_bh(&virt_if_lock);
+	spin_lock_bh(&nss_virt_if_lock);
+	if (!nss_virt_if_handle_t[ifnum]) {
+		spin_unlock_bh(&nss_virt_if_lock);
 		goto end;
 	}
 
-	handle = virt_handle[ifnum];
-	spin_unlock_bh(&virt_if_lock);
+	handle = nss_virt_if_handle_t[ifnum];
+	spin_unlock_bh(&nss_virt_if_lock);
 
 	stats = &handle->stats;
 
@@ -671,10 +988,8 @@ end:
  * nss_virt_if_get_interface_num()
  * Get interface number for a virtual interface
  */
-int32_t nss_virt_if_get_interface_num(void *ctx)
+int32_t nss_virt_if_get_interface_num(struct nss_virt_if_handle *handle)
 {
-	struct nss_virt_if_handle *handle = (struct nss_virt_if_handle *)ctx;
-
 	if (!handle) {
 		nss_warning("virt_if handle is NULL\n");
 		return -1;

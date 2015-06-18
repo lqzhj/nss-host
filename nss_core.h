@@ -671,6 +671,7 @@ struct nss_top_instance {
 	struct dentry *core_log_dentry;	/* NSS Core's FW log file */
 	struct dentry *wifi_if_dentry;		/* wifi_if stats dentry */
 	struct dentry *virt_if_dentry;	/* virt_if stats dentry */
+	struct dentry *tx_rx_virt_if_dentry; /* tx_rx_virt_if stats dentry. Will be deprecated soon */
 	struct nss_ctx_instance nss[NSS_MAX_CORES];
 					/* NSS contexts */
 	/*

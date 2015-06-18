@@ -21,22 +21,14 @@
 static struct nss_dynamic_interface_pvt di;
 
 /*
- * nss_dynamic_interface_msg_init()
- *	Initialize dynamic interface message.
- */
-static void nss_dynamic_interface_msg_init(struct nss_dynamic_interface_msg *ndm, uint16_t if_num, uint32_t type, uint32_t len,
-						void *cb, void *app_data)
-{
-	nss_cmn_msg_init(&ndm->cm, if_num, type, len, cb, app_data);
-}
-
-/*
  * nss_dynamic_interface_handler()
- * 	handle NSS -> HLOS messages for dynamic interfaces
+ * 	Handle NSS -> HLOS messages for dynamic interfaces
  */
 static void nss_dynamic_interface_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm, __attribute__((unused))void *app_data)
 {
+	nss_dynamic_interface_msg_callback_t cb;
 	struct nss_dynamic_interface_msg *ndim = (struct nss_dynamic_interface_msg *)ncm;
+	int32_t if_num;
 
 	BUG_ON(ncm->interface != NSS_DYNAMIC_INTERFACE);
 
@@ -64,39 +56,103 @@ static void nss_dynamic_interface_handler(struct nss_ctx_instance *nss_ctx, stru
 	switch (ndim->cm.type) {
 	case NSS_DYNAMIC_INTERFACE_ALLOC_NODE:
 		if (ncm->response == NSS_CMN_RESPONSE_ACK) {
-			nss_info("%p if_num %d\n", nss_ctx, ndim->msg.alloc_node.if_num);
+			nss_info("%p alloc_node response ack if_num %d\n", nss_ctx, ndim->msg.alloc_node.if_num);
 			di.current_if_num = ndim->msg.alloc_node.if_num;
+			if_num = di.current_if_num;
+			if (if_num > 0) {
+				di.type[if_num - NSS_DYNAMIC_IF_START] = ndim->msg.alloc_node.type;
+			} else {
+				nss_warning("%p: if_num < 0\n", nss_ctx);
+			}
 		}
 
-		/*
-		 * Unblock the alloc_node message.
-		 */
-		complete(&di.complete);
 		break;
 
 	case NSS_DYNAMIC_INTERFACE_DEALLOC_NODE:
 		if (ncm->response == NSS_CMN_RESPONSE_ACK) {
-			nss_info("%p if_num %d\n", nss_ctx, ndim->msg.dealloc_node.if_num);
+			nss_info("%p dealloc_node response ack if_num %d\n", nss_ctx, ndim->msg.dealloc_node.if_num);
 			di.current_if_num = ndim->msg.dealloc_node.if_num;
+			if_num = di.current_if_num;
+			di.type[if_num - NSS_DYNAMIC_IF_START] = NSS_DYNAMIC_INTERFACE_TYPE_NONE;
 		}
 
-		/*
-		 * Unblock the dealloc_node message.
-		 */
-		complete(&di.complete);
 		break;
 
 	default:
 		nss_warning("%p: Received response %d for type %d, interface %d",
 				nss_ctx, ncm->response, ncm->type, ncm->interface);
+		return;
 	}
+
+	/*
+	 * Do we have a callback?
+	 */
+	if (!ncm->cb) {
+		nss_warning("%p: nss_dynamic_interface_handler cb is NULL\n", nss_ctx);
+		return;
+	}
+
+	/*
+	 * Callback
+	 */
+	cb = (nss_dynamic_interface_msg_callback_t)ncm->cb;
+	cb((void *)ncm->app_data, ncm);
+}
+
+/*
+ * nss_dynamic_interface_callback
+ *	Callback to handle the message response from NSS FW.
+ */
+static void nss_dynamic_interface_callback(void *app_data, struct nss_cmn_msg *ncm)
+{
+	/*
+	 * Unblock the sleeping function.
+	 */
+	di.response = ncm->response;
+	complete(&di.complete);
+}
+
+/*
+ * nss_dynamic_interface_tx_sync()
+ *	Send the message to NSS and wait till we get an ACK or NACK for this msg.
+ */
+static nss_tx_status_t nss_dynamic_interface_tx_sync(struct nss_ctx_instance *nss_ctx, struct nss_dynamic_interface_msg *ndim)
+{
+	nss_tx_status_t status;
+	int ret;
+
+	/*
+	 * Acquring a semaphore , so that only one caller can send msg at a time.
+	 */
+	down(&di.sem);
+	di.response = false;
+
+	status = nss_dynamic_interface_tx(nss_ctx, ndim);
+	if (status != NSS_TX_SUCCESS) {
+		up(&di.sem);
+		nss_warning("%p: not able to transmit msg successfully\n", nss_ctx);
+		return status;
+	}
+
+	/*
+	 * Blocking call, wait till we get ACK for this msg.
+	 */
+	ret = wait_for_completion_timeout(&di.complete, msecs_to_jiffies(NSS_DYNAMIC_INTERFACE_COMP_TIMEOUT));
+	if (ret == 0) {
+		up(&di.sem);
+		nss_warning("%p: Waiting for ack timed out\n", nss_ctx);
+		return NSS_TX_FAILURE;
+	}
+
+	up(&di.sem);
+	return status;
 }
 
 /*
  * nss_dynamic_interface_tx()
- * 	Transmit a dynamic interface message to NSSFW
+ * 	Transmit a dynamic interface message to NSSFW, asynchronously.
  */
-static nss_tx_status_t nss_dynamic_interface_tx(struct nss_ctx_instance *nss_ctx, struct nss_dynamic_interface_msg *msg)
+nss_tx_status_t nss_dynamic_interface_tx(struct nss_ctx_instance *nss_ctx, struct nss_dynamic_interface_msg *msg)
 {
 	struct nss_dynamic_interface_msg *nm;
 	struct nss_cmn_msg *ncm = &msg->cm;
@@ -156,33 +212,6 @@ static nss_tx_status_t nss_dynamic_interface_tx(struct nss_ctx_instance *nss_ctx
 }
 
 /*
- * nss_dynamic_interface_tx_sync()
- *	Send the message to NSS and wait till we get an ACK or NACK for this msg.
- */
-static nss_tx_status_t nss_dynamic_interface_tx_sync(struct nss_ctx_instance *nss_ctx, struct nss_dynamic_interface_msg *ndim)
-{
-	nss_tx_status_t status;
-	int ret;
-
-	status = nss_dynamic_interface_tx(nss_ctx, ndim);
-	if (status != NSS_TX_SUCCESS) {
-		nss_warning("%p: not able to transmit msg successfully\n", nss_ctx);
-		return status;
-	}
-
-	/*
-	 * Blocking call, wait till we get ACK for this msg.
-	 */
-	ret = wait_for_completion_timeout(&di.complete, msecs_to_jiffies(NSS_DYNAMIC_INTERFACE_COMP_TIMEOUT));
-	if (ret == 0) {
-		nss_warning("%p: Waiting for ack timed out\n", nss_ctx);
-		return NSS_TX_FAILURE;
-	}
-
-	return status;
-}
-
-/*
  * nss_dynamic_interface_alloc_node()
  *	Allocates node of perticular type on NSS and returns interface_num for this node or -1 in case of failure.
  *
@@ -192,80 +221,54 @@ static nss_tx_status_t nss_dynamic_interface_tx_sync(struct nss_ctx_instance *ns
 int nss_dynamic_interface_alloc_node(enum nss_dynamic_interface_type type)
 {
 	struct nss_ctx_instance *nss_ctx = NULL;
-	struct nss_dynamic_interface_msg *ndim;
+	struct nss_dynamic_interface_msg ndim;
 	struct nss_dynamic_interface_alloc_node_msg *ndia;
 	uint32_t core_id;
 	nss_tx_status_t status;
-	int if_num;
 
 	if (type >= NSS_DYNAMIC_INTERFACE_TYPE_MAX) {
 		nss_warning("Dynamic if msg drooped as type is wrong %d\n", type);
 		return -1;
 	}
 
-	ndim = vmalloc(sizeof(struct nss_dynamic_interface_msg));
-	if (!ndim) {
-		nss_warning(" Not able to allocate memory for alloc node message\n");
-		return -1;
-	}
-
 	core_id = nss_top_main.dynamic_interface_table[type];
 	nss_ctx = (struct nss_ctx_instance *)&nss_top_main.nss[core_id];
 
-	nss_dynamic_interface_msg_init(ndim, NSS_DYNAMIC_INTERFACE, NSS_DYNAMIC_INTERFACE_ALLOC_NODE,
-				sizeof(struct nss_dynamic_interface_alloc_node_msg), NULL, NULL);
+	nss_dynamic_interface_msg_init(&ndim, NSS_DYNAMIC_INTERFACE, NSS_DYNAMIC_INTERFACE_ALLOC_NODE,
+				sizeof(struct nss_dynamic_interface_alloc_node_msg), nss_dynamic_interface_callback, (void *)nss_ctx);
 
-	ndia = &ndim->msg.alloc_node;
+	ndia = &ndim.msg.alloc_node;
 	ndia->type = type;
 
 	/*
-	 * Initialize interface number to -1.
+	 * Initialize if_num to -1. The allocated if_num is returned by the firmware
+	 * in the response message.
 	 */
 	ndia->if_num = -1;
 
 	/*
-	 * Acquring a semaphore , so that only one caller can send msg at a time.
-	 */
-	down(&di.sem);
-
-	di.current_if_num = -1;
-
-	/*
 	 * Calling synchronous transmit function.
 	 */
-	status = nss_dynamic_interface_tx_sync(nss_ctx, ndim);
+	status = nss_dynamic_interface_tx_sync(nss_ctx, &ndim);
 	if (status != NSS_TX_SUCCESS) {
-		up(&di.sem);
-		vfree(ndim);
 		nss_warning("%p not able to transmit alloc node msg\n", nss_ctx);
 		return -1;
 	}
 
 	/*
-	 * di.current_if_num contains the right interface number.
+	 * Check di.response and return -1 if its a NACK else proceed.
 	 */
-	if (di.current_if_num < 0) {
+	if (di.response != NSS_CMN_RESPONSE_ACK) {
 		nss_warning("%p Received NACK from NSS\n", nss_ctx);
+		return -1;
 	}
 
-	if_num = di.current_if_num;
-	if (if_num > 0) {
-		di.if_num[if_num - NSS_DYNAMIC_IF_START].type = type;
-	}
-
-	/*
-	 * Release Semaphore
-	 */
-	up(&di.sem);
-
-	vfree(ndim);
-
-	return if_num;
+	return di.current_if_num;
 }
 
 /*
  * nss_dynamic_interface_dealloc_node()
- *	Deallocate node of perticular type and if_num on NSS.
+ *	Deallocate node of particular type and if_num in NSS.
  *
  * Note: This will just mark the state of node as not active, actual memory will be freed when reference count of that node becomes 0.
  * This function should not be called from soft_irq or interrupt context because it blocks till ACK/NACK is received for the message
@@ -274,67 +277,44 @@ int nss_dynamic_interface_alloc_node(enum nss_dynamic_interface_type type)
 nss_tx_status_t nss_dynamic_interface_dealloc_node(int if_num, enum nss_dynamic_interface_type type)
 {
 	struct nss_ctx_instance *nss_ctx = NULL;
-	struct nss_dynamic_interface_msg *ndim;
+	struct nss_dynamic_interface_msg ndim;
 	struct nss_dynamic_interface_dealloc_node_msg *ndid;
 	uint32_t core_id;
 	nss_tx_status_t status;
 
 	if (type >= NSS_DYNAMIC_INTERFACE_TYPE_MAX) {
-		nss_warning("Dynamic if msg dropped as type is wrong %d\n", type);
-		return NSS_TX_FAILURE;
-	}
-
-	ndim = vmalloc(sizeof(struct nss_dynamic_interface_msg));
-	if (!ndim) {
-		nss_warning(" Not able to allocate memory for dealloc node message\n");
-		return NSS_TX_FAILURE;
+		nss_warning("Dynamic if msg dropped as type is wrong type %d if_num %d\n", type, if_num);
+		return NSS_TX_FAILURE_BAD_PARAM;
 	}
 
 	core_id = nss_top_main.dynamic_interface_table[type];
 	nss_ctx = (struct nss_ctx_instance *)&nss_top_main.nss[core_id];
 
-	nss_dynamic_interface_msg_init(ndim, NSS_DYNAMIC_INTERFACE, NSS_DYNAMIC_INTERFACE_DEALLOC_NODE,
-				sizeof(struct nss_dynamic_interface_dealloc_node_msg), NULL, NULL);
+	if (nss_is_dynamic_interface(if_num) == false) {
+		nss_warning("%p: nss_dynamic_interface if_num is not in range %d\n", nss_ctx, if_num);
+		return NSS_TX_FAILURE_BAD_PARAM;
+	}
 
-	ndid = &ndim->msg.dealloc_node;
+	nss_dynamic_interface_msg_init(&ndim, NSS_DYNAMIC_INTERFACE, NSS_DYNAMIC_INTERFACE_DEALLOC_NODE,
+				sizeof(struct nss_dynamic_interface_dealloc_node_msg), nss_dynamic_interface_callback, (void *)nss_ctx);
+
+	ndid = &ndim.msg.dealloc_node;
 	ndid->type = type;
 	ndid->if_num = if_num;
 
 	/*
-	 * Acquring a semaphore , so that only one caller can send msg at a time.
-	 */
-	down(&di.sem);
-
-	di.current_if_num = -1;
-
-	/*
 	 * Calling synchronous transmit function.
 	 */
-	status = nss_dynamic_interface_tx_sync(nss_ctx, ndim);
+	status = nss_dynamic_interface_tx_sync(nss_ctx, &ndim);
 	if (status != NSS_TX_SUCCESS) {
-		up (&di.sem);
-		vfree(ndim);
 		nss_warning("%p not able to transmit alloc node msg\n", nss_ctx);
 		return status;
 	}
 
-	if (di.current_if_num < 0) {
-		up (&di.sem);
-		vfree(ndim);
+	if (di.response != NSS_CMN_RESPONSE_ACK) {
 		nss_warning("%p Received NACK from NSS\n", nss_ctx);
-		return NSS_TX_FAILURE;
+		return -1;
 	}
-
-	if (if_num > 0) {
-		di.if_num[if_num - NSS_DYNAMIC_IF_START].type = NSS_DYNAMIC_INTERFACE_TYPE_NONE;
-	}
-
-	/*
-	 * Release Semaphore
-	 */
-	up(&di.sem);
-
-	vfree(ndim);
 
 	return status;
 }
@@ -370,7 +350,17 @@ enum nss_dynamic_interface_type nss_dynamic_interface_get_type(int if_num)
 		return NSS_DYNAMIC_INTERFACE_TYPE_NONE;
 	}
 
-	return di.if_num[if_num - NSS_DYNAMIC_IF_START].type;
+	return di.type[if_num - NSS_DYNAMIC_IF_START];
+}
+
+/*
+ * nss_dynamic_interface_msg_init()
+ *	Initialize dynamic interface message.
+ */
+void nss_dynamic_interface_msg_init(struct nss_dynamic_interface_msg *ndm, uint16_t if_num, uint32_t type, uint32_t len,
+						void *cb, void *app_data)
+{
+	nss_cmn_msg_init(&ndm->cm, if_num, type, len, cb, app_data);
 }
 
 EXPORT_SYMBOL(nss_dynamic_interface_alloc_node);

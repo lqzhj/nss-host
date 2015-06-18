@@ -123,6 +123,7 @@ typedef void (*nss_virt_if_msg_callback_t)(void *app_data, struct nss_cmn_msg *m
 struct nss_virt_if_handle {
 	struct nss_ctx_instance *nss_ctx;	/*< NSS context */
 	int32_t if_num;				/*< interface number */
+	struct net_device *ndev;		/*< Associated netdevice */
 	struct nss_virt_if_pvt *pvt;		/*< Private data structure */
 	struct nss_virt_if_stats stats;		/*< virt_if stats */
 	atomic_t refcnt;			/*< Reference count */
@@ -131,20 +132,44 @@ struct nss_virt_if_handle {
 };
 
 /**
- * @brief Create a virtual interface
+ * @brief Create a virtual interface, asynchronously
  *
- * @param netdev net device associated with Wifi
- * @return Pointer to nss_virt_if_handle struct
+ * @param netdev net device associated with client
+ * @param cb callback to be invoked when the response from the FW is received
+ * @param app_data app_data to be passed to the callback.
+ *
+ * @return int command tx status
  */
-extern struct nss_virt_if_handle *nss_virt_if_create(struct net_device *netdev);
+extern int nss_virt_if_create(struct net_device *netdev, nss_virt_if_msg_callback_t cb, void *app_data);
 
 /**
- * @brief Destroy the virtual interface associated with the if_num
+ * @brief Create a virtual interface, synchronously.
+ *
+ * @param netdev net device associated with WiFi
+ *
+ * @return Pointer to nss_virt_if_handle struct
+ */
+extern struct nss_virt_if_handle *nss_virt_if_create_sync(struct net_device *netdev);
+
+/**
+ * @brief Destroy the virtual interface associated with the if_num, asynchronously.
  *
  * @param handle virtual interface handle (provided during dynamic_interface allocation)
+ * @param cb callback to be invoked when the response from the FW is received
+ * @param app_data app_data to be passed to the callback.
+ *
  * @return command Tx status
  */
-extern nss_tx_status_t nss_virt_if_destroy(struct nss_virt_if_handle *handle);
+extern nss_tx_status_t nss_virt_if_destroy(struct nss_virt_if_handle *handle, nss_virt_if_msg_callback_t cb, void *app_data);
+
+/**
+ * @brief Destroy the virtual interface associated with the if_num, synchronously.
+ *
+ * @param handle virtual interface handle (provided during dynamic_interface allocation)
+ *
+ * @return command Tx status
+ */
+extern nss_tx_status_t nss_virt_if_destroy_sync(struct nss_virt_if_handle *handle);
 
 /**
  * @brief Send message to virtual interface
@@ -180,11 +205,12 @@ extern void nss_virt_if_register(struct nss_virt_if_handle *handle,
 					nss_virt_if_data_callback_t data_callback,
 					struct net_device *netdev);
 
-
 /**
  * @brief Unregister virtual interface from NSS driver
  *
  * @param handle virtual interface handle
+ *
+ * @return void
  */
 extern void nss_virt_if_unregister(struct nss_virt_if_handle *handle);
 
@@ -198,5 +224,14 @@ extern void nss_virt_if_unregister(struct nss_virt_if_handle *handle);
  * @return int32_t Returns 0 if if_num is not in range or the number of bytes copied.
  */
 extern int32_t nss_virt_if_copy_stats(int32_t if_num, int i, char *line);
+
+/**
+ * @brief Returns the virtual interface number associated with the handle.
+ *
+ * @param handle virtual interface handle(provided during dynamic_interface allocation)
+ *
+ * @return if_num virtual interface number.
+ */
+extern int32_t nss_virt_if_get_interface_num(struct nss_virt_if_handle *handle);
 
 #endif /* __NSS_VIRT_IF_H */

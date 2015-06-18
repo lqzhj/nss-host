@@ -39,11 +39,9 @@ void nss_if_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *nc
 		return;
 	}
 
-	/*
-	 * As the base class we allow both virtual and physical interfaces.
-	 */
-	if (ncm->interface > NSS_TUNNEL_IF_START) {
-		nss_warning("%p: response for another interface: %d", nss_ctx, ncm->interface);
+	if (!nss_is_dynamic_interface(ncm->interface) &&
+		!((ncm->interface >= NSS_PHYSICAL_IF_START) && (ncm->interface < NSS_VIRTUAL_IF_START))) {
+		nss_warning("%p: interface %d not in physical or dynamic if range\n", nss_ctx, ncm->interface);
 		return;
 	}
 
@@ -87,6 +85,12 @@ nss_tx_status_t nss_if_tx_buf(struct nss_ctx_instance *nss_ctx, struct sk_buff *
 		return NSS_TX_FAILURE_NOT_READY;
 	}
 
+	if (!nss_is_dynamic_interface(if_num) &&
+		!((if_num >= NSS_PHYSICAL_IF_START) && (if_num < NSS_VIRTUAL_IF_START))) {
+		nss_warning("%p: interface %d not in physical or dynamic if range\n", nss_ctx, if_num);
+		return NSS_TX_FAILURE_BAD_PARAM;
+	}
+
 	status = nss_core_send_buffer(nss_ctx, if_num, os_buf, NSS_IF_DATA_QUEUE_0, H2N_BUFFER_PACKET, 0);
 	if (unlikely(status != NSS_CORE_STATUS_SUCCESS)) {
 		nss_warning("%p: Unable to enqueue 'Phys If Tx' packet\n", nss_ctx);
@@ -126,13 +130,6 @@ nss_tx_status_t nss_if_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_if_ms
 	/*
 	 * Sanity check the message
 	 */
-	/*
-	 * As the base class we allow both virtual and physical interfaces.
-	 */
-	if (ncm->interface > NSS_TUNNEL_IF_START) {
-		nss_warning("%p: tx request for another interface: %d", nss_ctx, ncm->interface);
-		return NSS_TX_FAILURE;
-	}
 
 	if (ncm->type > NSS_IF_MAX_MSG_TYPES) {
 		nss_warning("%p: message type out of range: %d", nss_ctx, ncm->type);

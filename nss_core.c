@@ -1620,7 +1620,7 @@ static inline int32_t nss_core_send_buffer_simple_skb(struct nss_ctx_instance *n
 		(uint16_t)(nbuf->end - nbuf->head), (uint32_t)nbuf->priority, mss, bit_flags);
 
 #if (LINUX_VERSION_CODE <= KERNEL_VERSION(3,6,0))
-	if (unlikely(!NSS_IS_IF_TYPE(VIRTUAL, if_num))) {
+	if (unlikely(!nss_cmn_interface_is_virtual(nss_ctx, if_num))) {
 		if (likely(nbuf->destructor == NULL)) {
 			if (likely(skb_recycle_check(nbuf, nss_ctx->max_buf_size))) {
 				bit_flags |= H2N_BIT_FLAG_BUFFER_REUSE;
