@@ -37,7 +37,13 @@
 extern struct nss_crypto_ctrl gbl_crypto_ctrl;
 
 struct nss_ctx_instance *nss_drv_hdl;
-void *nss_pm_hdl;
+
+struct nss_crypto_drv_ctx {
+	struct nss_ctx_instance *drv_hdl;
+	void *pm_hdl;
+};
+
+struct nss_crypto_drv_ctx gbl_ctx = {0};
 
 /*
  * internal structure for a buffer node
@@ -372,17 +378,14 @@ EXPORT_SYMBOL(nss_crypto_transform_payload);
  */
 void nss_crypto_init(void)
 {
-	nss_pm_interface_status_t status;
-
 	nss_crypto_ctrl_init();
+#if (NSS_CRYPTO_PM_SUPPORT == 1)
+	gbl_ctx.pm_hdl = nss_pm_client_register(NSS_PM_CLIENT_CRYPTO);
 
-	nss_pm_hdl = nss_pm_client_register(NSS_PM_CLIENT_CRYPTO);
-
-	status = nss_pm_set_perf_level(nss_pm_hdl, NSS_PM_PERF_LEVEL_TURBO);
-	if (status == NSS_PM_API_FAILED) {
+	if (nss_pm_set_perf_level(gbl_ctx.pm_hdl, NSS_PM_PERF_LEVEL_TURBO) == NSS_PM_API_FAILED) {
 		nss_crypto_info(" Not able to set pm perf level to TURBO!!!\n");
 	}
-
+#endif
 	/*
 	 * Initialize debugfs entries
 	 */
