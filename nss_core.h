@@ -476,6 +476,26 @@ enum nss_stats_lso_rx {
 };
 
 /*
+ * wifi statistics
+ */
+enum nss_stats_wifi {
+	NSS_STATS_WIFI_RX_PKTS,
+	NSS_STATS_WIFI_RX_DROPPED,
+	NSS_STATS_WIFI_TX_PKTS,
+	NSS_STATS_WIFI_TX_DROPPED,
+	NSS_STATS_WIFI_TX_COMPLETED,
+	NSS_STATS_WIFI_MGMT_RCV_CNT,
+	NSS_STATS_WIFI_MGMT_TX_PKTS,
+	NSS_STATS_WIFI_MGMT_TX_DROPPED,
+	NSS_STATS_WIFI_MGMT_TX_COMPLETIONS,
+	NSS_STATS_WIFI_RX_INV_PEER_ENQUEUE_CNT,
+	NSS_STATS_WIFI_RX_INV_PEER_RCV_CNT,
+	NSS_STATS_WIFI_RX_PN_CHECK_FAILED,
+	NSS_STATS_WIFI_RX_DELIVERED,
+	NSS_STATS_WIFI_MAX,
+};
+
+/*
  * NSS core state
  */
 enum nss_core_state {
@@ -590,6 +610,10 @@ struct nss_ctx_instance {
  */
 struct nss_subsystem_dataplane_register {
 	nss_phys_if_rx_callback_t cb;	/* callback to be invoked */
+	nss_phys_if_rx_ext_data_callback_t ext_cb;
+					/* Extended data plane callback to be invoked.
+					This is needed if driver needs extended handling of data packet
+					before giving to stack */
 	void *app_data;			/* additional info passed during callback(for future use) */
 	struct net_device *ndev;	/* Netdevice associated with the interface */
 	uint32_t features;		/* skb types supported by this subsystem */
@@ -620,6 +644,7 @@ struct nss_top_instance {
 	struct dentry *capwap_encap_dentry;     /* CAPWAP encap ethnode stats dentry */
 	struct dentry *gre_redir_dentry;	/* gre_redir ethnode stats dentry */
 	struct dentry *sjack_dentry;		/* sjack stats dentry */
+	struct dentry *wifi_dentry;		/* wifi stats dentry */
 	struct dentry *logs_dentry;	/* NSS FW logs directory */
 	struct dentry *core_log_dentry;	/* NSS Core's FW log file */
 	struct nss_ctx_instance nss[NSS_MAX_CORES];
@@ -638,6 +663,7 @@ struct nss_top_instance {
 	uint8_t ipsec_handler_id;
 	uint8_t wlan_handler_id;
 	uint8_t tun6rd_handler_id;
+	uint8_t wifi_handler_id;
 	uint8_t tunipip6_handler_id;
 	uint8_t frequency_handler_id;
 	uint8_t sjack_handler_id;
@@ -669,6 +695,8 @@ struct nss_top_instance {
 					/* Profiler interface callback function */
 	nss_tun6rd_msg_callback_t tun6rd_msg_callback;
 					/* 6rd tunnel interface event callback function */
+	nss_wifi_msg_callback_t wifi_msg_callback;
+					/* wifi interface event callback function */
 	nss_tunipip6_msg_callback_t tunipip6_msg_callback;
 					/* ipip6 tunnel interface event callback function */
 	struct nss_shaper_bounce_registrant bounce_interface_registrants[NSS_MAX_NET_INTERFACES];
@@ -708,6 +736,8 @@ struct nss_top_instance {
 					/* PPPoE statistics */
 	uint64_t stats_gmac[NSS_MAX_PHYSICAL_INTERFACES][NSS_STATS_GMAC_MAX];
 					/* GMAC statistics */
+	uint64_t stats_wifi[NSS_MAX_WIFI_RADIO_INTERFACES][NSS_STATS_WIFI_MAX];
+					/* WIFI statistics */
 	uint64_t stats_eth_rx[NSS_STATS_ETH_RX_MAX];
 					/* ETH_RX statistics */
 	uint64_t stats_node[NSS_MAX_NET_INTERFACES][NSS_STATS_NODE_MAX];
@@ -863,6 +893,7 @@ struct nss_platform_data {
 	enum nss_feature_enabled gre_redir_enabled;	/* Does this core handle gre_redir Tunnel ? */
 	enum nss_feature_enabled shaping_enabled;	/* Does this core handle shaping ? */
 	enum nss_feature_enabled gmac_enabled[4];	/* Does this core handle GMACs? */
+	enum nss_feature_enabled wifioffload_enabled;   /* Does this core handle WIFI OFFLOAD? */
 };
 #endif
 
