@@ -24,6 +24,7 @@ obj-m += qca-nss-drv.o
 qca-nss-drv-objs := \
 			nss_cmn.o \
 			nss_core.o \
+			nss_coredump.o \
 			nss_crypto.o \
 			nss_dynamic_interface.o \
 			nss_gre_redir.o \

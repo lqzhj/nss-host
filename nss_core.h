@@ -129,6 +129,7 @@
 #define NSS_INTR_CAUSE_INVALID 0
 #define NSS_INTR_CAUSE_QUEUE 1
 #define NSS_INTR_CAUSE_NON_QUEUE 2
+#define NSS_INTR_CAUSE_EMERGENCY 3
 
 /*
  * NSS Core Status
@@ -496,11 +497,17 @@ enum nss_stats_wifi {
 };
 
 /*
- * NSS core state
+ * NSS core state -- for H2N/N2H
  */
 enum nss_core_state {
 	NSS_CORE_STATE_UNINITIALIZED = 0,
-	NSS_CORE_STATE_INITIALIZED
+	NSS_CORE_STATE_INITIALIZED,
+	/*
+	 * in following cases, only interrupts work
+	 */
+	NSS_CORE_STATE_FW_DEAD = 2,
+	NSS_CORE_STATE_FW_DUMP = 4,
+	NSS_CORE_STATE_PANIC = 8,
 };
 
 /*
@@ -972,4 +979,10 @@ extern int nss_core_get_jumbo_mru(void);
 extern void nss_core_set_paged_mode(int mode);
 extern int nss_core_get_paged_mode(void);
 
+/*
+ * APIs for coredump
+ */
+extern void nss_coredump_notify_register(void);
+extern void nss_fw_coredump_notify(struct nss_ctx_instance *nss_own, int intr);
+extern int nss_coredump_init_delay_work(void);
 #endif /* __NSS_CORE_H */

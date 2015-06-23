@@ -1397,9 +1397,16 @@ static uint32_t nss_core_get_prioritized_cause(uint32_t cause, uint32_t *type, i
 		return NSS_REGS_N2H_INTR_STATUS_DATA_QUEUE_1;
 	}
 
-	if (cause & NSS_REGS_H2N_INTR_STATUS_COREDUMP_END) {
-		printk("COREDUMP SIGNAL END");
-		return NSS_REGS_H2N_INTR_STATUS_COREDUMP_END;
+	if (cause & NSS_REGS_N2H_INTR_STATUS_COREDUMP_END_0) {
+		printk("COREDUMP 0 SIGNAL END %x ", cause);
+		*type = NSS_INTR_CAUSE_EMERGENCY;
+		return NSS_REGS_N2H_INTR_STATUS_COREDUMP_END_0;
+	}
+
+	if (cause & NSS_REGS_N2H_INTR_STATUS_COREDUMP_END_1) {
+		printk("COREDUMP 1 SIGNAL END %x\n", cause);
+		*type = NSS_INTR_CAUSE_EMERGENCY;
+		return NSS_REGS_N2H_INTR_STATUS_COREDUMP_END_1;
 	}
 
 	return 0;
@@ -1458,6 +1465,11 @@ int nss_core_handle_napi(struct napi_struct *napi, int budget)
 
 		case NSS_INTR_CAUSE_NON_QUEUE:
 			nss_core_handle_cause_nonqueue(int_ctx, prio_cause, weight);
+			int_ctx->cause &= ~prio_cause;
+			break;
+
+		case NSS_INTR_CAUSE_EMERGENCY:
+			nss_fw_coredump_notify(nss_ctx, prio_cause);
 			int_ctx->cause &= ~prio_cause;
 			break;
 
