@@ -32,6 +32,7 @@
 #include <linux/vmalloc.h>
 #include <linux/completion.h>
 #include <linux/semaphore.h>
+#include <linux/in.h>
 
 #include <net/genetlink.h>
 #include <net/route.h>
@@ -166,6 +167,28 @@ static struct neighbour *nss_nlipv4_get_neigh(uint32_t ip_addr)
 static int nss_nlipv4_get_macaddr(uint32_t ip_addr, uint8_t mac_addr[])
 {
 	struct neighbour *neigh;
+
+	/*
+	 * handle multicast IP address seperately
+	 */
+	if (ipv4_is_multicast(htonl(ip_addr))) {
+		/*
+		 * fixed
+		 */
+		mac_addr[0] = 0x01;
+		mac_addr[1] = 0x00;
+		mac_addr[2] = 0x5e;
+
+		/*
+		 * from ip_addr
+		 */
+		mac_addr[3] = (htonl(ip_addr) & 0x7f0000) >> 16;
+		mac_addr[4] = (htonl(ip_addr) & 0xff00) >> 8;
+		mac_addr[5] = (htonl(ip_addr) & 0xff);
+
+		return 0;
+	}
+
 
 	rcu_read_lock();
 
