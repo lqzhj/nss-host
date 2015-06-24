@@ -242,6 +242,7 @@ static struct nss_platform_data *nss_hal_of_get_pdata(struct device_node *np,
 	npd->ipsec_enabled = of_property_read_bool(np, "qcom,ipsec-enabled");
 	npd->wlanredirect_enabled = of_property_read_bool(np, "qcom,wlan-enabled");
 	npd->tun6rd_enabled = of_property_read_bool(np, "qcom,tun6rd-enabled");
+	npd->l2tpv2_enabled = of_property_read_bool(np, "qcom,l2tpv2-enabled");
 	npd->tunipip6_enabled = of_property_read_bool(np, "qcom,tunipip6-enabled");
 	npd->shaping_enabled = of_property_read_bool(np, "qcom,shaping-enabled");
 
@@ -480,6 +481,11 @@ int nss_hal_probe(struct platform_device *nss_dev)
 		nss_top->tun6rd_handler_id = nss_dev->id;
 	}
 
+	if (npd->l2tpv2_enabled == NSS_FEATURE_ENABLED) {
+		nss_top->l2tpv2_handler_id = nss_dev->id;
+		nss_l2tpv2_register_handler();
+	}
+
 	if (npd->tunipip6_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->tunipip6_handler_id = nss_dev->id;
 		nss_tunipip6_register_handler();
@@ -569,7 +575,6 @@ err_init_0:
 
 	return err;
 }
-
 
 /*
  * nss_hal_remove()

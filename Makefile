@@ -42,6 +42,7 @@ qca-nss-drv-objs := \
 			nss_sjack.o \
 			nss_stats.o \
 			nss_tun6rd.o \
+			nss_l2tpv2.o \
 			nss_tunipip6.o \
 			nss_virt_if.o \
 			nss_shaper.o \
@@ -84,7 +85,6 @@ ccflags-y += $(NSS_CCFLAGS)
 export NSS_CCFLAGS
 
 qca-nss-drv-objs += nss_profiler.o
-
 
 obj ?= .
 

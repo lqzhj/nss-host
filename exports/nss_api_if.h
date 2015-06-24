@@ -39,6 +39,7 @@
 #include "nss_def.h"
 #include "nss_cmn.h"
 #include "nss_tun6rd.h"
+#include "nss_l2tpv2.h"
 #include "nss_tunipip6.h"
 #include "nss_lag.h"
 #include "nss_ipv4.h"
@@ -84,7 +85,7 @@
 #define NSS_MAX_PHYSICAL_INTERFACES 4
 #define NSS_MAX_VIRTUAL_INTERFACES 16
 #define NSS_MAX_TUNNEL_INTERFACES 4
-#define NSS_MAX_SPECIAL_INTERFACES 34
+#define NSS_MAX_SPECIAL_INTERFACES 35
 #define NSS_MAX_WIFI_RADIO_INTERFACES 3
 
 /**
@@ -133,6 +134,7 @@
 #define NSS_LAG1_INTERFACE_NUM (NSS_SPECIAL_IF_START + 31) /* Special IF number for LAG1 */
 #define NSS_LAG2_INTERFACE_NUM (NSS_SPECIAL_IF_START + 32) /* Special IF number for LAG2 */
 #define NSS_LAG3_INTERFACE_NUM (NSS_SPECIAL_IF_START + 33) /* Special IF number for LAG3 */
+#define NSS_L2TPV2_INTERFACE (NSS_SPECIAL_IF_START + 34) /* Special L2TPv2 UDP encap interface */
 
 /**
  * This macro converts format for IPv6 address (from Linux to NSS)

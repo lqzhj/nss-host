@@ -219,7 +219,6 @@ void nss_hal_pvt_pll_change(uint32_t pll)
 
 	uint32_t pll_cl_mask = 0x1;
 
-
 	nss_trace("Picking PLL%d\n", pll);
 
 	if (pll == 11) {
@@ -324,7 +323,6 @@ uint32_t nss_hal_pvt_divide_pll18(uint32_t core_id, uint32_t divider)
 	nss_trace("UBI32_COREn_CLK_SRC0_MD Core 0: %x\n", readl(UBI32_COREn_CLK_SRC0_MD(0)));
 	nss_trace("UBI32_COREn_CLK_SRC0_MD Core 1: %x\n", readl(UBI32_COREn_CLK_SRC0_MD(1)));
 	nss_trace("\n\n\n");
-
 
 	md_reg0 = readl(UBI32_COREn_CLK_SRC0_MD(0));
 	md_reg1 = readl(UBI32_COREn_CLK_SRC0_MD(1));
@@ -489,7 +487,6 @@ uint32_t nss_hal_pvt_enable_pll18(uint32_t speed)
 
 	return PLL_NOT_LOCKED;
 }
-
 
 /*
  * __nss_hal_common_reset
@@ -1421,6 +1418,11 @@ clk_complete:
 
 	if (npd->tun6rd_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->tun6rd_handler_id = nss_dev->id;
+	}
+
+	if (npd->l2tpv2_enabled == NSS_FEATURE_ENABLED) {
+		nss_top->l2tpv2_handler_id = nss_dev->id;
+		nss_l2tpv2_register_handler();
 	}
 
 	if (npd->tunipip6_enabled == NSS_FEATURE_ENABLED) {
