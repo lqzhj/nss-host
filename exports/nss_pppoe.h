@@ -31,10 +31,11 @@
  * PPPoE Request/Response types
  */
 enum nss_pppoe_metadata_types {
-	NSS_PPPOE_TX_CONN_RULE_DESTROY,
-	NSS_PPPOE_RX_CONN_RULE_SUCCESS,
+	NSS_PPPOE_RX_DEPRECATED0,	/* Deprecated: NSS_PPPOE_TX_CONN_RULE_DESTROY */
+	NSS_PPPOE_RX_DEPRECATED1,	/* Deprecated: NSS_PPPOE_TX_CONN_RULE_SUCCESS */
 	NSS_PPPOE_RX_CONN_STATS_SYNC,
 	NSS_PPPOE_RX_NODE_STATS_SYNC,
+	NSS_PPPOE_RX_SESSION_RESET,
 	NSS_PPPOE_MAX,
 };
 
@@ -51,23 +52,6 @@ enum nss_pppoe_exception_events {
 };
 
 /**
- * The NSS PPPoE rule destruction structure.
- */
-struct nss_pppoe_rule_destroy_msg {
-	uint16_t pppoe_session_id;	/* PPPoE session ID */
-	uint16_t pppoe_remote_mac[3];	/* PPPoE server MAC address */
-};
-
-/**
- * The NSS PPPoE rule create success structure.
- */
-struct nss_pppoe_rule_create_success_msg {
-	uint16_t pppoe_session_id;	/* PPPoE session ID on which stats are based */
-	uint8_t pppoe_remote_mac[ETH_ALEN];
-					/* PPPoE server MAC address */
-};
-
-/**
  * The NSS PPPoE node stats structure.
  */
 struct nss_pppoe_node_stats_sync_msg {
@@ -79,7 +63,15 @@ struct nss_pppoe_node_stats_sync_msg {
 	uint32_t pppoe_session_destroy_requests;
 					/* PPPoE session destroy requests */
 	uint32_t pppoe_session_destroy_misses;
-					/* PPPoE session destroy failures */
+					/* PPPoE session destroy misses */
+};
+
+/**
+ * NSS PPPoE session reset message structure.
+ */
+struct nss_pppoe_session_reset_msg {
+	uint32_t interface;
+	uint32_t session_index;
 };
 
 /**
@@ -101,13 +93,12 @@ struct nss_pppoe_conn_stats_sync_msg {
 struct nss_pppoe_msg {
 	struct nss_cmn_msg cm;						/* Message Header */
 	union {
-		struct nss_pppoe_rule_destroy_msg pppoe_rule_destroy;	/* Message: destroy pppoe rule */
-		struct nss_pppoe_rule_create_success_msg pppoe_rule_create_success;
-									/* Message: rule status response */
 		struct nss_pppoe_conn_stats_sync_msg pppoe_conn_stats_sync;
 									/* Message: exception statistics sync */
 		struct nss_pppoe_node_stats_sync_msg pppoe_node_stats_sync;
 									/* Message: node statistics sync */
+		struct nss_pppoe_session_reset_msg pppoe_session_reset;
+									/* Message: session reset */
 	} msg;
 };
 

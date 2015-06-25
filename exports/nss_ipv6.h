@@ -33,7 +33,7 @@
 enum nss_ipv6_message_types {
 	NSS_IPV6_TX_CREATE_RULE_MSG,		/**< IPv6 create rule message */
 	NSS_IPV6_TX_DESTROY_RULE_MSG,		/**< IPv6 destroy rule message */
-	NSS_IPV6_RX_ESTABLISH_RULE_MSG,		/**< IPv6 establish rule message */
+	NSS_IPV6_RX_DEPRECATED0,		/**< Deprecated: NSS_IPV6_RX_ESTABLISH_RULE_MSG */
 	NSS_IPV6_RX_CONN_STATS_SYNC_MSG,	/**< IPv6 connection stats sync message */
 	NSS_IPV6_RX_NODE_STATS_SYNC_MSG,	/**< IPv6 generic statistics sync message */
 	NSS_IPV6_TX_CONN_CFG_RULE_MSG,		/**< IPv6 connection cfg rule message */
@@ -268,7 +268,7 @@ struct nss_ipv6_rule_create_msg {
 	/*
 	 * Response
 	 */
-	uint32_t index;					/**< Slot ID for cache stats to host OS */
+	uint32_t reserved;					/**< Reserved field */
 };
 
 /**
@@ -322,33 +322,6 @@ struct nss_ipv6_rule_conn_cfg_msg {
 };
 
 /**
- * The NSS IPv6 rule establish structure.
- */
-struct nss_ipv6_rule_establish {
-	uint32_t index;				/**< Slot ID for cache stats to host OS */
-	uint8_t protocol;			/**< Protocol number */
-	uint8_t reserved[3];			/**< Reserved to align fields */
-	int32_t flow_interface;			/**< Flow interface number */
-	uint32_t flow_mtu;			/**< MTU for flow interface */
-	uint32_t flow_ip[4];			/**< Flow IP address */
-	uint32_t flow_ident;			/**< Flow ident (e.g. port) */
-	uint16_t flow_mac[3];			/**< Flow direction source MAC address */
-	uint16_t flow_pppoe_session_id;		/**< Flow direction`s PPPoE session ID. */
-	uint16_t flow_pppoe_remote_mac[3];	/**< Flow direction`s PPPoE Server MAC address */
-	uint16_t ingress_vlan_tag;		/**< Ingress VLAN tag */
-	int32_t return_interface;		/**< Return interface number */
-	uint32_t return_mtu;			/**< MTU for return interface */
-	uint32_t return_ip[4];			/**< Return IP address */
-	uint32_t return_ident;			/**< Return ident (e.g. port) */
-	uint16_t return_mac[3];			/**< Return direction source MAC address */
-	uint16_t return_pppoe_session_id;	/**< Return direction's PPPoE session ID. */
-	uint16_t return_pppoe_remote_mac[3];	/**< Return direction's PPPoE Server MAC address */
-	uint16_t egress_vlan_tag;		/**< Egress VLAN tag */
-	uint8_t flags;				/**< Bit flags associated with the rule */
-	uint32_t qos_tag;			/**< QoS Tag */
-};
-
-/**
  * IPv6 rule sync reasons.
  */
 #define NSS_IPV6_RULE_SYNC_REASON_STATS 0
@@ -366,7 +339,7 @@ struct nss_ipv6_rule_establish {
  * The NSS IPv6 rule sync structure.
  */
 struct nss_ipv6_conn_sync {
-	uint32_t index;			/**< Slot ID for cache stats to host OS */
+	uint32_t reserved;			/**< Reserved field */
 	uint8_t protocol;		/**< Protocol number */
 	uint32_t flow_ip[4];		/**< Flow IP address */
 	uint32_t flow_ident;		/**< Flow ident (e.g. port) */
@@ -454,7 +427,6 @@ struct nss_ipv6_msg {
 	union {
 		struct nss_ipv6_rule_create_msg rule_create;	/**< Message: rule create */
 		struct nss_ipv6_rule_destroy_msg rule_destroy;	/**< Message: rule destroy */
-		struct nss_ipv6_rule_establish rule_establish;	/**< Message: rule establish confirmation */
 		struct nss_ipv6_conn_sync conn_stats;		/**< Message: stats sync */
 		struct nss_ipv6_node_sync node_stats;		/**< Message: node stats sync */
 		struct nss_ipv6_rule_conn_cfg_msg rule_conn_cfg;/**< Message: rule conn cfg */
