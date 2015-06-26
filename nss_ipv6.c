@@ -82,6 +82,12 @@ static void nss_ipv6_driver_node_sync_update(struct nss_ctx_instance *nss_ctx, s
 	nss_top->stats_ipv6[NSS_STATS_IPV6_CONNECTION_EVICTIONS] += nins->ipv6_connection_evictions;
 	nss_top->stats_ipv6[NSS_STATS_IPV6_FRAGMENTATIONS] += nins->ipv6_fragmentations;
 	nss_top->stats_ipv6[NSS_STATS_IPV6_FRAG_FAILS] += nins->ipv6_frag_fails;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_MC_CONNECTION_CREATE_REQUESTS] += nins->ipv6_mc_connection_create_requests;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_MC_CONNECTION_UPDATE_REQUESTS] += nins->ipv6_mc_connection_update_requests;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_MC_CONNECTION_CREATE_INVALID_INTERFACE] += nins->ipv6_mc_connection_create_invalid_interface;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_MC_CONNECTION_DESTROY_REQUESTS] += nins->ipv6_mc_connection_destroy_requests;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_MC_CONNECTION_DESTROY_MISSES] += nins->ipv6_mc_connection_destroy_misses;
+	nss_top->stats_ipv6[NSS_STATS_IPV6_MC_CONNECTION_FLUSHES] += nins->ipv6_mc_connection_flushes;
 
 	for (i = 0; i < NSS_EXCEPTION_EVENT_IPV6_MAX; i++) {
 		 nss_top->stats_if_exception_ipv6[i] += nins->exception_events[i];
@@ -285,7 +291,7 @@ static void nss_ipv6_conn_cfg_callback(void *app_data, struct nss_ipv6_msg *nim)
 {
 	if (nim->cm.response != NSS_CMN_RESPONSE_ACK) {
 		/*
-		 * Error, hence we are not updating the nss_ipv4_conn_cfg
+		 * Error, hence we are not updating the nss_ipv6_conn_cfg
 		 * Restore the current_value to its previous state
 		 */
 		i6cfgp.response = NSS_FAILURE;
@@ -294,7 +300,7 @@ static void nss_ipv6_conn_cfg_callback(void *app_data, struct nss_ipv6_msg *nim)
 	}
 
 	/*
-	 * Sucess at NSS FW, hence updating nss_ipv4_conn_cfg, with the valid value
+	 * Sucess at NSS FW, hence updating nss_ipv6_conn_cfg, with the valid value
 	 * saved at the sysctl handler.
 	 */
 	nss_info("IPv6 connection configuration success: %d\n", nim->cm.error);
@@ -382,7 +388,7 @@ static int nss_ipv6_conn_cfg_handler(ctl_table *ctl, int write, void __user *buf
 
 	/*
 	 * ACK/NACK received from NSS FW
-	 * If ACK: Callback function will update nss_ipv4_conn_cfg with
+	 * If ACK: Callback function will update nss_ipv6_conn_cfg with
 	 * i6cfgp.num_conn_valid, which holds the user input
 	 */
 	if (NSS_FAILURE == i6cfgp.response) {
@@ -443,7 +449,7 @@ static struct ctl_table_header *nss_ipv6_header;
 
 /*
  * nss_ipv6_register_sysctl()
- *	Register sysctl specific to ipv4
+ *	Register sysctl specific to ipv6
  */
 void nss_ipv6_register_sysctl(void)
 {
@@ -458,7 +464,7 @@ void nss_ipv6_register_sysctl(void)
 
 /*
  * nss_ipv6_unregister_sysctl()
- *	Unregister sysctl specific to ipv4
+ *	Unregister sysctl specific to ipv6
  */
 void nss_ipv6_unregister_sysctl(void)
 {
