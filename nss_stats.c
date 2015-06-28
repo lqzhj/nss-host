@@ -1833,5 +1833,6 @@ void nss_stats_clean(void)
 	 */
 	if (likely(nss_top_main.top_dentry != NULL)) {
 		debugfs_remove_recursive(nss_top_main.top_dentry);
+		nss_top_main.top_dentry = NULL;
 	}
 }

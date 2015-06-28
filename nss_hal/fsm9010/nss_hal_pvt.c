@@ -610,6 +610,7 @@ int nss_hal_remove(struct platform_device *nss_dev)
 	for (i = 0 ; i < NSS_MAX_PHYSICAL_INTERFACES ; i++) {
 		if (nss_top->subsys_dp_register[i].ndev) {
 			nss_data_plane_unregister_from_nss_gmac(i);
+			nss_top->subsys_dp_register[i].ndev = NULL;
 		}
 	}
 
