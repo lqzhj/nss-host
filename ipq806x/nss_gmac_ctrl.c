@@ -1096,30 +1096,10 @@ nss_gmac_attach_fail:
  */
 static int nss_gmac_remove(struct platform_device *pdev)
 {
-	struct net_device *netdev = NULL;
-	struct nss_gmac_dev *gmacdev = NULL;
-
-	gmacdev = ctx.nss_gmac[pdev->id];
-	if (!gmacdev) {
-		pr_info("Invalid GMAC\n");
-		return -EINVAL;
-	}
-
-	netdev = gmacdev->netdev;
-
-	if (!IS_ERR(gmacdev->phydev)) {
-		phy_disconnect(gmacdev->phydev);
-		gmacdev->phydev = NULL;
-	}
-
-#ifdef RUMI_EMULATION_SUPPORT
-	nss_gmac_deinit_mdiobus(gmacdev);
-#endif
-	nss_gmac_detach(gmacdev);
-	unregister_netdev(gmacdev->netdev);
-	free_netdev(gmacdev->netdev);
-	ctx.nss_gmac[pdev->id] = NULL;
-
+	/*
+	 * All remove has been done in nss_gmac_exit_network_interfaces
+	 * Just return success here
+	 */
 	return 0;
 }
 
@@ -1188,6 +1168,13 @@ void nss_gmac_exit_network_interfaces(void)
 	for (i = 0; i < NSS_MAX_GMACS; i++) {
 		gmacdev = ctx.nss_gmac[i];
 		if (gmacdev) {
+			if (!IS_ERR(gmacdev->phydev)) {
+				phy_disconnect(gmacdev->phydev);
+				gmacdev->phydev = NULL;
+			}
+#ifdef RUMI_EMULATION_SUPPORT
+			nss_gmac_deinit_mdiobus(gmacdev);
+#endif
 			unregister_netdev(gmacdev->netdev);
 			free_netdev(gmacdev->netdev);
 			nss_gmac_detach(gmacdev);
