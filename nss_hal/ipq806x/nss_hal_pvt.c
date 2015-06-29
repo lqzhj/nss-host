@@ -1341,6 +1341,11 @@ int nss_hal_probe(struct platform_device *nss_dev)
 		nss_ipv6_register_handler();
 	}
 
+	if (npd->ipv6_reasm_enabled == NSS_FEATURE_ENABLED) {
+		nss_top->ipv6_reasm_handler_id = nss_dev->id;
+		nss_ipv6_reasm_register_handler();
+	}
+
 	if (npd->crypto_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->crypto_enabled = 1;
 		nss_top->crypto_handler_id = nss_dev->id;

@@ -114,6 +114,16 @@ static int8_t *nss_stats_str_ipv6[NSS_STATS_IPV6_MAX] = {
 };
 
 /*
+ * nss_stats_str_ipv6_reasm
+ *	IPv6 reassembly stats strings
+ */
+static int8_t *nss_stats_str_ipv6_reasm[NSS_STATS_IPV6_REASM_MAX] = {
+	"alloc_fails",
+	"timeouts",
+	"discards",
+};
+
+/*
  * nss_stats_str_n2h
  *	N2H stats strings
  */
@@ -646,6 +656,78 @@ static ssize_t nss_stats_ipv6_read(struct file *fp, char __user *ubuf, size_t sz
 	}
 
 	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,"\nipv6 stats end\n\n");
+	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, strlen(lbuf));
+	kfree(lbuf);
+	kfree(stats_shadow);
+
+	return bytes_read;
+}
+
+/*
+ * nss_stats_ipv6_reasm_read()
+ *	Read IPV6 reassembly stats
+ */
+static ssize_t nss_stats_ipv6_reasm_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
+{
+	int32_t i;
+	/*
+	 * max output lines = #stats + start tag line + end tag line + three blank lines
+	 */
+	uint32_t max_output_lines = (NSS_STATS_NODE_MAX + 2) + (NSS_STATS_IPV6_REASM_MAX + 3) + 5;
+	size_t size_al = NSS_STATS_MAX_STR_LENGTH * max_output_lines;
+	size_t size_wr = 0;
+	ssize_t bytes_read = 0;
+	uint64_t *stats_shadow;
+
+	char *lbuf = kzalloc(size_al, GFP_KERNEL);
+	if (unlikely(lbuf == NULL)) {
+		nss_warning("Could not allocate memory for local statistics buffer");
+		return 0;
+	}
+
+	stats_shadow = kzalloc(NSS_STATS_IPV6_REASM_MAX * 8, GFP_KERNEL);
+	if (unlikely(stats_shadow == NULL)) {
+		nss_warning("Could not allocate memory for local shadow buffer");
+		kfree(lbuf);
+		return 0;
+	}
+
+	size_wr = scnprintf(lbuf, size_al, "ipv6 reasm stats start:\n\n");
+
+	/*
+	 * Common node stats
+	 */
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "common node stats:\n\n");
+	spin_lock_bh(&nss_top_main.stats_lock);
+	for (i = 0; (i < NSS_STATS_NODE_MAX); i++) {
+		stats_shadow[i] = nss_top_main.stats_node[NSS_IPV6_REASM_INTERFACE][i];
+	}
+
+	spin_unlock_bh(&nss_top_main.stats_lock);
+
+	for (i = 0; (i < NSS_STATS_NODE_MAX); i++) {
+		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+					"%s = %llu\n", nss_stats_str_node[i], stats_shadow[i]);
+	}
+
+	/*
+	 * Ipv6 reasm node stats
+	 */
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nipv6 reasm node stats:\n\n");
+
+	spin_lock_bh(&nss_top_main.stats_lock);
+	for (i = 0; (i < NSS_STATS_IPV6_REASM_MAX); i++) {
+		stats_shadow[i] = nss_top_main.stats_ipv6_reasm[i];
+	}
+
+	spin_unlock_bh(&nss_top_main.stats_lock);
+
+	for (i = 0; (i < NSS_STATS_IPV6_REASM_MAX); i++) {
+		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+					"%s = %llu\n", nss_stats_str_ipv6_reasm[i], stats_shadow[i]);
+	}
+
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nipv6 reasm stats end\n\n");
 	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, strlen(lbuf));
 	kfree(lbuf);
 	kfree(stats_shadow);
@@ -1596,6 +1678,11 @@ NSS_STATS_DECLARE_FILE_OPERATIONS(ipv4_reasm)
 NSS_STATS_DECLARE_FILE_OPERATIONS(ipv6)
 
 /*
+ * ipv6_reasm_stats_ops
+ */
+NSS_STATS_DECLARE_FILE_OPERATIONS(ipv6_reasm)
+
+/*
  * n2h_stats_ops
  */
 NSS_STATS_DECLARE_FILE_OPERATIONS(n2h)
@@ -1712,7 +1799,17 @@ void nss_stats_init(void)
 	}
 
 	/*
-	 * ipv6_stats
+	 * ipv6_reasm_stats
+	 */
+	nss_top_main.ipv6_reasm_dentry = debugfs_create_file("ipv6_reasm", 0400,
+						nss_top_main.stats_dentry, &nss_top_main, &nss_stats_ipv6_reasm_ops);
+	if (unlikely(nss_top_main.ipv6_reasm_dentry == NULL)) {
+		nss_warning("Failed to create qca-nss-drv/stats/ipv6_reasm file in debugfs");
+		return;
+	}
+
+	/*
+	 * eth_rx__stats
 	 */
 	nss_top_main.eth_rx_dentry = debugfs_create_file("eth_rx", 0400,
 						nss_top_main.stats_dentry, &nss_top_main, &nss_stats_eth_rx_ops);
