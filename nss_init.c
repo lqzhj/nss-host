@@ -714,6 +714,12 @@ static int __init nss_init(void)
 	nss_top_main.prev_mtu_sz = NSS_GMAC_NORMAL_FRAME_MTU;
 
 	/*
+	 * register panic handler and timeout control
+	 */
+	nss_coredump_notify_register();
+	nss_coredump_init_delay_work();
+
+	/*
 	 * Register platform_driver
 	 */
 	return platform_driver_register(&nss_driver);
