@@ -28,6 +28,7 @@
 #include <linux/debugfs.h>
 #include <linux/dma-mapping.h>
 #include <linux/delay.h>
+#include <linux/atomic.h>
 
 #include <nss_crypto_if.h>
 #include <nss_crypto_hlos.h>
@@ -83,9 +84,9 @@ static struct kmem_cache *crypto_op_zone;
 
 static struct dentry *droot;
 
-static const uint8_t *help = "bench mcmp flush start";
+static const uint8_t *help = "bench mcmp flush start default";
 
-static uint32_t tx_reqs;
+static atomic_t tx_reqs;
 
 static uint8_t auth_key[NSS_CRYPTO_MAX_KEYLEN_SHA256]= {
 	0x01, 0x02, 0x03, 0x04,
@@ -355,6 +356,9 @@ struct crypto_bench_param {
 	uint32_t cipher_skip;	/**< start cipher after skipping */
 	uint32_t auth_skip;	/**< start cipher after skipping */
 
+	uint32_t max_sids;	/**< maximum Sessions supported */
+	uint32_t tx_err; /**< number of errors while enqueuing buffer to NSS */
+
 	uint32_t mcmp_encr;	/**< encryption failures in mcmp */
 	uint32_t mcmp_hash;	/**< hash match failures in mcmp */
 	uint32_t avg_mbps;	/**< avg throughput */
@@ -376,6 +380,12 @@ static struct crypto_bench_param def_param = {
 	.hash_len = NSS_CRYPTO_MAX_HASHLEN_SHA1,
 	.key_len = 16,
 	.print_mode = 2,
+	.num_loops = 999999,
+	.cipher_len = 200,
+	.auth_len = 220,
+	.auth_skip = 16,
+	.cipher_skip = 16,
+	.max_sids = 4,
 };
 
 static struct crypto_bench_param param;
@@ -446,10 +456,7 @@ static void crypto_bench_init_param(enum crypto_bench_type type)
 	chk_n_set((param.ciph_algo == 0), param.ciph_algo, 1);
 	chk_n_set((param.auth_algo == 0), param.auth_algo, 1);
 
-	/*
-	 * we don't support sending more than 128 request in a single batch
-	 */
-	chk_n_set((param.num_reqs > 128), param.num_reqs, 128);
+	chk_n_set((param.max_sids > NSS_CRYPTO_MAX_IDXS), param.max_sids, NSS_CRYPTO_MAX_IDXS);
 
 	switch (type) {
 	case TYPE_BENCH:
@@ -499,7 +506,7 @@ static void crypto_bench_flush(void)
 		kmem_cache_free(crypto_op_zone, op);
 	}
 
-	for (i = 0; i < NSS_CRYPTO_MAX_IDXS; i++) {
+	for (i = 0; i < param.max_sids; i++) {
 
 		if (crypto_sid[i] < 0) {
 			continue;
@@ -615,7 +622,7 @@ static int32_t crypto_bench_prep_op(void)
 		return CRYPTO_BENCH_NOT_OK;
 	}
 
-	for (i = 0; i < NSS_CRYPTO_MAX_IDXS; i++) {
+	for (i = 0; i < param.max_sids; i++) {
 		status = nss_crypto_session_alloc(crypto_hdl, &c_key, &a_key, &crypto_sid[i]);
 		if (status != NSS_CRYPTO_STATUS_OK) {
 			crypto_bench_error("UNABLE TO ALLOCATE CRYPTO SESSION\n");
@@ -627,8 +634,6 @@ static int32_t crypto_bench_prep_op(void)
 	crypto_bench_info("preparing crypto bench\n");
 
 	iv_hash_len = NSS_CRYPTO_MAX_IVLEN_AES + CRYPTO_BENCH_RESULTS_SZ + sizeof(uint32_t);
-
-	crypto_bench_info("session = %d\n", crypto_sid[param.sid]);
 
 	for (i = 0; i < param.num_reqs; i++) {
 
@@ -677,6 +682,7 @@ static int32_t crypto_bench_prep_op(void)
 static int32_t crypto_bench_prep_buf(struct crypto_op *op)
 {
 	struct nss_crypto_buf *buf;
+	static int curr_sid;
 
 	buf = nss_crypto_buf_alloc(crypto_hdl);
 	if (buf == NULL) {
@@ -687,7 +693,8 @@ static int32_t crypto_bench_prep_buf(struct crypto_op *op)
 	buf->cb_ctx = (uint32_t)op;
 	buf->cb_fn = crypto_bench_done;
 
-	buf->session_idx = crypto_sid[param.sid];
+	curr_sid = (curr_sid + 1) % param.max_sids;
+	buf->session_idx = crypto_sid[curr_sid];
 
 	buf->iv_offset = op->iv_offset;
 
@@ -746,6 +753,7 @@ static int crypto_bench_tx(void *arg)
 	struct list_head *ptr;
 	nss_crypto_status_t status;
 	uint32_t loop_count = 0, total_mbps = 0;
+	uint32_t reqs_completed = 0;
 
 	param.peak_mbps = 0;
 	param.avg_mbps = 0;
@@ -758,7 +766,7 @@ static int crypto_bench_tx(void *arg)
 			break;
 		}
 
-		tx_reqs = 0;
+		atomic_set(&tx_reqs, param.num_reqs);
 
 		crypto_bench_debug("#");
 
@@ -779,11 +787,13 @@ static int crypto_bench_tx(void *arg)
 
 			status = nss_crypto_transform_payload(crypto_hdl, op->buf);
 			if (status != NSS_CRYPTO_STATUS_OK) {
-				crypto_bench_error("unable to enqueue\n");
+				param.tx_err++;
+				nss_crypto_buf_free(crypto_hdl, op->buf);
+				atomic_dec(&tx_reqs);
 			}
 		}
 
-		wait_event_interruptible(tx_comp, (tx_reqs == param.num_reqs));
+		wait_event_interruptible(tx_comp, (atomic_read(&tx_reqs) == 0));
 
 		/**
 		 * Calculate time and output the Mbps
@@ -793,13 +803,18 @@ static int crypto_bench_tx(void *arg)
 		comp_usecs  = (comp_time.tv_sec * 1000 * 1000) + comp_time.tv_usec;
 		delta_usecs = comp_usecs - init_usecs;
 
-		mbits   = (tx_reqs * param.bam_len * 8);
-		param.mbps = mbits / delta_usecs;
+		reqs_completed = param.num_reqs - atomic_read(&tx_reqs);
+
+		mbits   = (reqs_completed * param.bam_len * 8);
+
+		if (delta_usecs) {
+			param.mbps = mbits / delta_usecs;
+		}
 
 		chk_n_set((param.peak_mbps < param.mbps), param.peak_mbps, param.mbps);
 
 		crypto_bench_debug("bench: completed (reqs = %d, size = %d, time = %d, mbps = %d",
-				tx_reqs, param.bam_len, delta_usecs, param.mbps);
+				reqs_completed, param.bam_len, delta_usecs, param.mbps);
 
 		total_mbps += param.mbps;
 
@@ -831,16 +846,12 @@ static void crypto_bench_done(struct nss_crypto_buf *buf)
 
 	op = (struct crypto_op *)buf->cb_ctx;
 
-	tx_reqs++;
-
 	nss_crypto_buf_free(crypto_hdl, buf);
 
-	if (tx_reqs == param.num_reqs) {
-
+	if (atomic_dec_and_test(&tx_reqs)) {
 		do_gettimeofday(&comp_time);
 
 		wake_up_interruptible(&tx_comp);
-
 		param.num_loops--;
 	}
 }
@@ -872,6 +883,14 @@ static ssize_t crypto_bench_cmd_write(struct file *fp, const char __user *ubuf, 
 	} else if (!strncmp(buf, "cal", strlen("cal"))) {	/* mcmp */
 		crypto_bench_init_param(TYPE_CAL);
 		status = crypto_bench_prep_op();
+	} else if (!strncmp(buf, "default", strlen("default"))) {
+		memcpy(&param, &def_param, sizeof(struct crypto_bench_param));
+		crypto_bench_init_param(TYPE_BENCH);
+
+		status = crypto_bench_prep_op();
+		if (status == CRYPTO_BENCH_OK) {
+			wake_up_process(tx_thread);
+		}
 	} else {
 		crypto_bench_error("<bench>: invalid cmd\n");
 	}
@@ -920,11 +939,10 @@ nss_crypto_user_ctx_t crypto_bench_attach(nss_crypto_handle_t crypto)
 	debugfs_create_u32("cipher_algo", CRYPTO_BENCH_PERM_RW, droot, &param.ciph_algo);
 	debugfs_create_u32("auth_algo", CRYPTO_BENCH_PERM_RW, droot, &param.auth_algo);
 
-	debugfs_create_u32("session", CRYPTO_BENCH_PERM_RW, droot, &param.sid);
+	debugfs_create_u32("max_session", CRYPTO_BENCH_PERM_RW, droot, &param.max_sids);
 
 	/* R/W buffer */
 	debugfs_create_file("cmd", CRYPTO_BENCH_PERM_RW, droot, &op_head, &cmd_ops);
-
 
 	/* Read, U32 */
 	debugfs_create_u32("mbps", CRYPTO_BENCH_PERM_RO, droot, &param.mbps);
@@ -932,9 +950,9 @@ nss_crypto_user_ctx_t crypto_bench_attach(nss_crypto_handle_t crypto)
 	debugfs_create_u32("mcmp", CRYPTO_BENCH_PERM_RO, droot, &param.mcmp_mode);
 	debugfs_create_u32("hash_fail", CRYPTO_BENCH_PERM_RO, droot, &param.mcmp_hash);
 	debugfs_create_u32("encr_fail", CRYPTO_BENCH_PERM_RO, droot, &param.mcmp_encr);
-	debugfs_create_u32("comp", CRYPTO_BENCH_PERM_RO, droot, &tx_reqs);
 	debugfs_create_u32("peak_mbps", CRYPTO_BENCH_PERM_RO, droot, &param.peak_mbps);
 	debugfs_create_u32("avg_mbps", CRYPTO_BENCH_PERM_RO, droot, &param.avg_mbps);
+	debugfs_create_u32("enqueue_errors", CRYPTO_BENCH_PERM_RO, droot, &param.tx_err);
 
 	return (nss_crypto_user_ctx_t)&op_head;
 }
