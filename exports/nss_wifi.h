@@ -248,7 +248,7 @@ typedef void (*nss_wifi_callback_t)(struct net_device *netdev, struct sk_buff *s
  * @return nss_ctx_instance* NSS context
  */
 struct nss_ctx_instance *nss_register_wifi_if(uint32_t if_num, nss_wifi_callback_t wifi_callback,
-			nss_wifi_msg_callback_t event_callback, struct net_device *netdev, uint32_t features);
+			nss_wifi_callback_t wifi_ext_callback, nss_wifi_msg_callback_t event_callback, struct net_device *netdev, uint32_t features);
 
 /**
  * @brief Unregister wifi interface with NSS

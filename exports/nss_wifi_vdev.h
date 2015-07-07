@@ -66,7 +66,8 @@ enum {
 	NSS_WIFI_VDEV_SNOOPTABLE_PEER_UNAVAILABLE,	/**< peer is unavailable */
 	NSS_WIFI_VDEV_SNOOPTABLE_GRP_LIST_ENOMEM,	/**< error in allocating memory for grplist in snooptable */
 	NSS_WIFI_VDEV_SNOOPTABLE_GRP_LIST_EXIST,	/**< grp_list already exists in snooplist */
-	NSS_WIFI_VDEV_ME_ENOMEM				/**< error in allocating memory for multicast enhancement instance */
+	NSS_WIFI_VDEV_ME_ENOMEM,			/**< error in allocating memory for multicast enhancement instance */
+	NSS_WIFI_VDEV_EINV_NAWDS_CFG			/**< error in nawds config */
 };
 
 /**
@@ -86,6 +87,7 @@ enum nss_wifi_vdev_cmd {
 	NSS_WIFI_VDEV_ENCAP_TYPE_CMD,		/**< command to configure encap mode of vap */
 	NSS_WIFI_VDEV_DECAP_TYPE_CMD,		/**< command to configure decap mode of vap */
 	NSS_WIFI_VDEV_ENABLE_ME_CMD,		/**< command to enable multicast enhancement */
+	NSS_WIFI_VDEV_NAWDS_MODE_CMD,		/**< command to configure NAWDS on vap */
 };
 
 /**
