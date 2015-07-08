@@ -24,6 +24,7 @@
 #include <linux/types.h>
 #include <linux/version.h>
 #include <linux/if.h>
+#include <linux/in.h>
 #include <linux/netlink.h>
 #include <linux/rcupdate.h>
 #include <linux/etherdevice.h>
@@ -44,9 +45,10 @@
 
 #include <nss_api_if.h>
 #include <nss_cmn.h>
-#include <nss_ipsec.h>
 #include <nss_nl_if.h>
 #include "nss_nl.h"
+#include "nss_nlcmn_if.h"
+#include "nss_nlipv4_if.h"
 
 
 #define NSS_NLIPV4_ARPHRD_IPSEC_TUNNEL_TYPE 0x31
@@ -236,25 +238,30 @@ fail:
 static int nss_nlipv4_verify_5tuple(struct nss_ipv4_rule_create_msg *msg)
 {
 	struct nss_ipv4_5tuple *tuple = &msg->tuple;
+	bool ident_check = false;
 
 	/*
-	 * protocol must be provided
+	 * protocol, flow ip and return ip  must be provided
 	 */
-	if (!tuple->protocol) {
-		nss_nl_info("Empty protocol for 5-tuple\n");
+	if (!tuple->protocol || !tuple->flow_ip || !tuple->return_ip) {
+		nss_nl_info("Empty protocol or flow_ip or return_ip for 5-tuple\n");
 		return -EINVAL;
 	}
 
-	/*
-	 * flow or return should not be empty
-	 */
-	if (!tuple->flow_ip || !tuple->flow_ident) {
-		nss_nl_info("Empty flow info ip:%d, port:%d\n", tuple->flow_ip, tuple->flow_ident);
-		return -EINVAL;
+	/* Validate the port number */
+	switch (tuple->protocol) {
+	case IPPROTO_UDP:
+	case IPPROTO_TCP:
+	case IPPROTO_SCTP:
+		ident_check = true;
+		break;
+	default:
+		ident_check = false;
+		break;
 	}
 
-	if (!tuple->return_ip || !tuple->return_ident) {
-		nss_nl_info("Empty flow info ip:%d, port:%d\n", tuple->return_ip, tuple->return_ident);
+	if (ident_check && (!tuple->flow_ident || !tuple->return_ident)) {
+		nss_nl_info("Empty idents flow port:%d return port:%d\n", tuple->flow_ident, tuple->return_ident);
 		return -EINVAL;
 	}
 
@@ -674,6 +681,7 @@ static int nss_nlipv4_ops_destroy_rule(struct sk_buff *skb, struct genl_info *in
 	struct nss_nlcmn *nl_cm;
 	struct nss_ipv4_msg *nim;
 	nss_tx_status_t tx_status;
+	struct sk_buff *resp;
 	uint32_t pid;
 	int error;
 
@@ -703,6 +711,15 @@ static int nss_nlipv4_ops_destroy_rule(struct sk_buff *skb, struct genl_info *in
 	}
 
 	/*
+	 * copy the NL message for response
+	 */
+	resp = nss_nl_copy_msg(skb);
+	if (!resp) {
+		nss_nl_error("%d:unable to save response data from NL buffer\n", pid);
+		error = -ENOMEM;
+		goto done;
+	}
+	/*
 	 * Initialize the common message
 	 */
 	nss_ipv4_msg_init(nim,						/* ipv4 message */
@@ -710,7 +727,7 @@ static int nss_nlipv4_ops_destroy_rule(struct sk_buff *skb, struct genl_info *in
 			NSS_IPV4_TX_DESTROY_RULE_MSG,			/* rule */
 			sizeof(struct nss_ipv4_rule_destroy_msg),	/* message size */
 			nss_nlipv4_process_resp,			/* response callback */
-			(void *)nim);					/* app context */
+			(void *)resp);					/* app context */
 
 	/*
 	 * Push rule to NSS

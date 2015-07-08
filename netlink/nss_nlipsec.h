@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014 - 2015, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -15,18 +15,22 @@
  */
 
 /*
- * @file nss_nl_if.h
- *	NSS Netlink interface
+ * nss_nlipsec.h
+ *	NSS Netlink IPsec API definitions
  */
-#ifndef __NSS_NL_IF_H
-#define __NSS_NL_IF_H
-
-#define NSS_NL_VER_MINOR 1
-#define NSS_NL_VER_MAJOR 1
-#define NSS_NL_VER_SHIFT 8
-
-#define NSS_NL_VER ((NSS_NL_VER_MAJOR << NSS_NL_VER_SHIFT) | NSS_NL_VER_MINOR)
-
-#endif /* __NSS_NL_IF_H */
+#ifndef __NSS_NLIPSEC_H
+#define __NSS_NLIPSEC_H
 
 
+bool nss_nlipsec_init(void);
+bool nss_nlipsec_exit(void);
+
+#if defined(CONFIG_NSS_NLIPSEC)
+#define NSS_NLIPSEC_INIT nss_nlipsec_init
+#define NSS_NLIPSEC_EXIT nss_nlipsec_exit
+#else
+#define NSS_NLIPSEC_INIT 0
+#define NSS_NLIPSEC_EXIT 0
+#endif /* !CONFIG_NSS_NLIPSEC */
+
+#endif /* __NSS_NLIPSEC_H */

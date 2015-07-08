@@ -23,6 +23,8 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/version.h>
+
+#include <nss_crypto_if.h>
 #include <linux/netlink.h>
 #include <linux/version.h>
 #include <net/genetlink.h>
@@ -30,18 +32,25 @@
 #include <nss_api_if.h>
 #include <nss_cmn.h>
 #include <nss_nl_if.h>
-#include "nss_nl.h"
-#include <nss_crypto_if.h>
+#include "nss_nlcmn_if.h"
+#include "nss_crypto_if.h"
 #include "nss_nlcrypto_if.h"
+#include "nss_nl.h"
+
 /*
  * @brief prototypes
  */
-
 static int nss_nlcrypto_op_session_create(struct sk_buff *skb_msg, struct genl_info *info);
 static int nss_nlcrypto_op_session_update(struct sk_buff *skb_msg, struct genl_info *info);
 static int nss_nlcrypto_op_session_destroy(struct sk_buff *skb_msg, struct genl_info *info);
 static int nss_nlcrypto_op_session_info(struct sk_buff *skb_msg, struct genl_info *info);
 
+/*
+ * NSS NETLINK crypto context
+ */
+struct nss_nlcrypto_ctx {
+	nss_crypto_handle_t crypto_hdl;
+};
 
 /*
  * @brief  Crypto family definition
@@ -70,11 +79,6 @@ static struct genl_ops nss_nlcrypto_ops[] = {
 
 #define NSS_NLCRYPTO_OPS_SZ ARRAY_SIZE(nss_nlcrypto_ops)
 
-static nss_crypto_handle_t nss_nlcrypto_hdl;
-
-struct nss_nlcrypto_ctx {
-	nss_crypto_handle_t crypto_hdl;		/* Crypto handle */
-};
 
 /*
  * global context
@@ -167,15 +171,16 @@ static inline bool nss_nlcrypto_validate_param(struct nss_crypto_params *param)
 	/* pure decryption */
 	case NSS_CRYPTO_REQ_TYPE_DECRYPT:
 		return true;
-	/* encryption + authentication */
+	/* encryption and authentication */
 	case (NSS_CRYPTO_REQ_TYPE_ENCRYPT | NSS_CRYPTO_REQ_TYPE_AUTH):
 		return true;
-	/* decryption + authentication */
+	/* decryption and authentication */
 	case (NSS_CRYPTO_REQ_TYPE_DECRYPT | NSS_CRYPTO_REQ_TYPE_AUTH):
 		return true;
-	/* everything else */
+	/* otherwise */
 	default:
 		return false;
+
 	}
 
 	return false;
@@ -208,8 +213,6 @@ static int nss_nlcrypto_op_session_create(struct sk_buff *skb, struct genl_info 
 	int32_t session_idx = -1;
 	struct sk_buff *resp;
 	uint32_t pid;
-
-
 
 	/*
 	 * extract the message payload
@@ -329,7 +332,7 @@ static int nss_nlcrypto_op_session_update(struct sk_buff *skb_msg, struct genl_i
 		return -EINVAL;
 	}
 
-	return nss_crypto_session_update(nss_nlcrypto_hdl, session_idx, param);
+	return nss_crypto_session_update(gbl_ctx.crypto_hdl, session_idx, param);
 }
 
 /*
@@ -372,7 +375,7 @@ static int nss_nlcrypto_op_session_destroy(struct sk_buff *skb_msg, struct genl_
 		return -EINVAL;
 	}
 
-	status = nss_crypto_session_free(nss_nlcrypto_hdl, destroy->session_idx);
+	status = nss_crypto_session_free(gbl_ctx.crypto_hdl, destroy->session_idx);
 	if (status != NSS_CRYPTO_STATUS_OK) {
 		nss_nl_error("unable to delete the session:%d\n", destroy->session_idx);
 		return -EINVAL;
@@ -507,7 +510,7 @@ bool nss_nlcrypto_exit(void)
 		return false;
 	}
 
-	nss_crypto_unregister_user(nss_nlcrypto_hdl);
+	nss_crypto_unregister_user(gbl_ctx.crypto_hdl);
 
 	return true;
 }
