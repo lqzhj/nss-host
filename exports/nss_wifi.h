@@ -126,6 +126,7 @@ struct nss_wifi_tx_init_msg {
 	uint32_t htt_tx_desc_base_vaddr;	/**< Firmware shared HTT trasmit desc memory start virtual addres */
 	uint32_t htt_tx_desc_base_paddr; 	/**< Firmware shared HTT trasmit desc memory start physical address */
 	uint32_t htt_tx_desc_offset; 		/**< Firmware shared HTT trasmit each desc size */
+	uint32_t pmap_addr;			/**< Firmware shared peer/TID map */
 };
 
 /**
