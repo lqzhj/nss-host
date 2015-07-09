@@ -64,6 +64,14 @@
 #define NSS_REGS_N2H_INTR_STATUS_DATA_QUEUE_1	    	0x0004
 #define NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFERS_SOS	0x0400
 #define NSS_REGS_N2H_INTR_STATUS_TX_UNBLOCKED		0x0800
+/*
+ * 15 cannot be use for N2H (Okay for H2N)
+ * single H2N_..._COREDUMP_START is enough because QGIC2 split it to
+ * two NSS core; however needs two N2H_..._COREDUMP_END_X because both
+ * cores may generate interrupt simultaneously.
+ */
+#define NSS_REGS_N2H_INTR_STATUS_COREDUMP_END_0		(1 << 14)
+#define NSS_REGS_N2H_INTR_STATUS_COREDUMP_END_1		(1 << 13)
 
 /*
  * Defines for H2N interrupts
@@ -73,7 +81,6 @@
 #define NSS_REGS_H2N_INTR_STATUS_RESET			0x0400	/** Unused */
 #define NSS_REGS_H2N_INTR_STATUS_TX_UNBLOCKED		0x0800
 #define NSS_REGS_H2N_INTR_STATUS_COREDUMP_START		(1 << 15)
-#define NSS_REGS_H2N_INTR_STATUS_COREDUMP_END		(1 << 14)
 
 /*
  * clock source for NSS cores

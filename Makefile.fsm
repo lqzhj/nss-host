@@ -9,6 +9,7 @@ obj-m += qca-nss-drv.o
 qca-nss-drv-objs := \
 			nss_cmn.o \
 			nss_core.o \
+			nss_coredump.o \
 			nss_crypto.o \
 			nss_capwap.o \
 			nss_lso_rx.o \
@@ -31,6 +32,7 @@ qca-nss-drv-objs := \
 			nss_shaper.o \
 			nss_n2h.o \
 			nss_log.o \
+			nss_profiler.o \
 			nss_eth_rx.o
 
 
