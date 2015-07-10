@@ -162,11 +162,8 @@
  * INFO: These numbers are based on previous generation chip
  *	These may change in future
  */
-#define NSS_PPPOE_NUM_SESSION_PER_INTERFACE 8
+#define NSS_PPPOE_NUM_SESSION_PER_INTERFACE 4
 					/* Number of maximum simultaneous PPPoE sessions per physical interface */
-#define NSS_PPPOE_NUM_SESSION_TOTAL (NSS_MAX_PHYSICAL_INTERFACES * NSS_PPPOE_NUM_SESSION_PER_INTERFACE)
-					/* Number of total PPPoE sessions */
-
 
 /*
  * NSS Frequency Defines and Values
@@ -776,8 +773,8 @@ struct nss_top_instance {
 					/* IPv4 protocol exception events per interface */
 	uint64_t stats_if_exception_ipv6[NSS_EXCEPTION_EVENT_IPV6_MAX];
 					/* IPv6 protocol exception events per interface */
-	uint64_t stats_if_exception_pppoe[NSS_MAX_PHYSICAL_INTERFACES][NSS_PPPOE_NUM_SESSION_PER_INTERFACE][NSS_PPPOE_EXCEPTION_EVENT_MAX];
-					/* PPPoE exception events for per session on per interface */
+	uint64_t stats_if_exception_pppoe[NSS_MAX_PHYSICAL_INTERFACES + 1][NSS_PPPOE_NUM_SESSION_PER_INTERFACE + 1][NSS_PPPOE_EXCEPTION_EVENT_MAX];
+					/* PPPoE exception events for per session on per interface. Interface and session indexes start with 1. */
 #if (NSS_DT_SUPPORT == 1)
 	void *nss_fpb_base;			/* Virtual address of FPB base */
 	bool nss_hal_common_init_done;

@@ -33,7 +33,7 @@
 enum nss_ipv4_message_types {
 	NSS_IPV4_TX_CREATE_RULE_MSG,		/**< IPv4 create rule message */
 	NSS_IPV4_TX_DESTROY_RULE_MSG,		/**< IPv4 destroy rule message */
-	NSS_IPV4_RX_ESTABLISH_RULE_MSG,		/**< IPv4 establish rule message */
+	NSS_IPV4_RX_DEPRECATED0,		/**< Deprecated: NSS_IPV4_RX_ESTABLISH_RULE_MSG */
 	NSS_IPV4_RX_CONN_STATS_SYNC_MSG,	/**< IPv4 connection stats sync message */
 	NSS_IPV4_RX_NODE_STATS_SYNC_MSG,	/**< IPv4 generic statistics sync message */
 	NSS_IPV4_TX_CONN_CFG_RULE_MSG,		/**< IPv4 number of connections supported rule message */
@@ -217,7 +217,7 @@ struct nss_ipv4_rule_create_msg {
 	struct nss_ipv4_vlan_rule vlan_secondary_rule;	/**< Secondary VLAN related accleration parameters */
 
 	/* Response */
-	uint32_t index;					/**< Slot ID for cache stats to host OS */
+	uint32_t reserved;					/**< Reserved field */
 };
 
 /**
@@ -272,37 +272,6 @@ struct nss_ipv4_rule_conn_cfg_msg {
 	uint32_t num_conn;	/**< Number of supported IPv4 connections */
 };
 
-
-/**
- * The NSS IPv4 rule establish structure.
- */
-struct nss_ipv4_rule_establish {
-	uint32_t index;				/**< Slot ID for cache stats to host OS */
-	uint32_t protocol;			/**< Protocol number */
-	int32_t flow_interface;			/**< Flow interface number */
-	uint32_t flow_mtu;			/**< MTU for flow interface */
-	uint32_t flow_ip;			/**< Flow IP address */
-	uint32_t flow_ip_xlate;			/**< Translated flow IP address */
-	uint32_t flow_ident;			/**< Flow ident (e.g. port) */
-	uint32_t flow_ident_xlate;		/**< Translated flow ident (e.g. port) */
-	uint16_t flow_mac[3];			/**< Flow direction source MAC address */
-	uint16_t flow_pppoe_session_id;		/**< Flow direction`s PPPoE session ID. */
-	uint16_t flow_pppoe_remote_mac[3];	/**< Flow direction`s PPPoE Server MAC address */
-	uint16_t ingress_vlan_tag;		/**< Ingress VLAN tag */
-	int32_t return_interface;		/**< Return interface number */
-	uint32_t return_mtu;			/**< MTU for return interface */
-	uint32_t return_ip;			/**< Return IP address */
-	uint32_t return_ip_xlate;		/**< Translated return IP address */
-	uint32_t return_ident;			/**< Return ident (e.g. port) */
-	uint32_t return_ident_xlate;		/**< Translated return ident (e.g. port) */
-	uint16_t return_mac[3];			/**< Return direction source MAC address */
-	uint16_t return_pppoe_session_id;	/**< Return direction's PPPoE session ID. */
-	uint16_t return_pppoe_remote_mac[3];	/**< Return direction's PPPoE Server MAC address */
-	uint16_t egress_vlan_tag;		/**< Egress VLAN tag */
-	uint32_t flags;				/**< Bit flags associated with the rule */
-	uint32_t qos_tag;			/**< QoS Tag */
-};
-
 /**
  * IPv4 rule sync reasons.
  */
@@ -321,7 +290,7 @@ struct nss_ipv4_rule_establish {
  * The NSS IPv4 rule sync structure.
  */
 struct nss_ipv4_conn_sync {
-	uint32_t index;			/**< Slot ID for cache stats to host OS */
+	uint32_t reserved;			/**< Reserved field */
 	uint8_t protocol;		/**< Protocol number */
 	uint32_t flow_ip;		/**< Flow IP address */
 	uint32_t flow_ip_xlate;		/**< Translated flow IP address */
@@ -490,7 +459,6 @@ struct nss_ipv4_msg {
 	union {
 		struct nss_ipv4_rule_create_msg rule_create;	/**< Message: rule create */
 		struct nss_ipv4_rule_destroy_msg rule_destroy;	/**< Message: rule destroy */
-		struct nss_ipv4_rule_establish rule_establish;	/**< Message: rule establish confirmation */
 		struct nss_ipv4_conn_sync conn_stats;	/**< Message: connection stats sync */
 		struct nss_ipv4_node_sync node_stats;	/**< Message: node stats sync */
 		struct nss_ipv4_rule_conn_cfg_msg rule_conn_cfg;	/**< Message: rule connections supported */

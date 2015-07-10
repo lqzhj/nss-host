@@ -1072,7 +1072,7 @@ static ssize_t nss_stats_pppoe_read(struct file *fp, char __user *ubuf, size_t s
 	/*
 	 * PPPoE node stats
 	 */
-	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "pppoe node stats:\n\n");
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\npppoe node stats:\n\n");
 	spin_lock_bh(&nss_top_main.stats_lock);
 	for (i = 0; (i < NSS_STATS_PPPOE_MAX); i++) {
 		stats_shadow[i] = nss_top_main.stats_pppoe[i];
@@ -1090,31 +1090,31 @@ static ssize_t nss_stats_pppoe_read(struct file *fp, char __user *ubuf, size_t s
 	 */
 	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nException PPPoE:\n\n");
 
-	for (j = 0; j < NSS_MAX_PHYSICAL_INTERFACES; j++) {
+	for (j = 1; j <= NSS_MAX_PHYSICAL_INTERFACES; j++) {
 		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nInterface %d:\n\n", j);
 
 		spin_lock_bh(&nss_top_main.stats_lock);
-		for (k = 0; k < NSS_PPPOE_NUM_SESSION_PER_INTERFACE; k++) {
+		for (k = 1; k <= NSS_PPPOE_NUM_SESSION_PER_INTERFACE; k++) {
 			for (i = 0; (i < NSS_PPPOE_EXCEPTION_EVENT_MAX); i++) {
-				stats_shadow_pppoe_except[k][i] = nss_top_main.stats_if_exception_pppoe[j][k][i];
+				stats_shadow_pppoe_except[k - 1][i] = nss_top_main.stats_if_exception_pppoe[j][k][i];
 			}
 		}
 
 		spin_unlock_bh(&nss_top_main.stats_lock);
 
-		for (k = 0; k < NSS_PPPOE_NUM_SESSION_PER_INTERFACE; k++) {
+		for (k = 1; k <= NSS_PPPOE_NUM_SESSION_PER_INTERFACE; k++) {
 			size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "%d. Session\n", k);
 			for (i = 0; (i < NSS_PPPOE_EXCEPTION_EVENT_MAX); i++) {
 				size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
 						"%s = %llu\n",
 						nss_stats_str_if_exception_pppoe[i],
-						stats_shadow_pppoe_except[k][i]);
+						stats_shadow_pppoe_except[k - 1][i]);
 			}
 		}
 
-		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\npppoe stats end\n\n");
 	}
 
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\npppoe stats end\n\n");
 	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, strlen(lbuf));
 	kfree(lbuf);
 	kfree(stats_shadow);

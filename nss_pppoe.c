@@ -93,32 +93,22 @@ nss_tx_status_t nss_pppoe_tx(struct nss_ctx_instance *nss_ctx, struct nss_pppoe_
  */
 
 /*
- * nss_pppoe_reset_session_stats()
- * 	Reset PPPoE stats when session is destroyed.
+ * nss_pppoe_session_reset()
+ * 	Reset PPPoE session when session is destroyed.
  */
-static void nss_pppoe_reset_session_stats(struct nss_ctx_instance *nss_ctx)
+static void nss_pppoe_session_reset(struct nss_ctx_instance *nss_ctx, struct nss_pppoe_session_reset_msg *npsr)
 {
-	uint32_t i, j, k;
+	uint32_t i;
+	uint32_t interface = npsr->interface;
+	uint32_t session_index = npsr->session_index;
 
 	/*
-	 * Reset the PPPoE statistics.
+	 * Reset the PPPoE statistics for this specific session.
 	 */
 	spin_lock_bh(&nss_ctx->nss_top->stats_lock);
-
-	/*
-	 * TODO: Don't reset all the statistics. Reset only the destroyed session's stats.
-	 */
-	for (i = 0; i < NSS_MAX_PHYSICAL_INTERFACES; i++) {
-		for (j = 0; j < NSS_PPPOE_NUM_SESSION_PER_INTERFACE; j++) {
-			for (k = 0; k < NSS_PPPOE_EXCEPTION_EVENT_MAX; k++) {
-				nss_ctx->nss_top->stats_if_exception_pppoe[i][j][k] = 0;
-			}
-		}
+	for (i = 0; i < NSS_PPPOE_EXCEPTION_EVENT_MAX; i++) {
+		nss_ctx->nss_top->stats_if_exception_pppoe[interface][session_index][i] = 0;
 	}
-
-	/*
-	 * TODO: Do we need to unregister the destroy method? The ppp_dev has already gone.
-	 */
 	spin_unlock_bh(&nss_ctx->nss_top->stats_lock);
 }
 
@@ -170,76 +160,9 @@ static void nss_pppoe_node_stats_sync(struct nss_ctx_instance *nss_ctx, struct n
 	nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_CREATE_REQUESTS] += npess->pppoe_session_create_requests;
 	nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_CREATE_FAILURES] += npess->pppoe_session_create_failures;
 	nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_DESTROY_REQUESTS] += npess->pppoe_session_destroy_requests;
-	nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_DESTROY_MISSES] += npess->pppoe_session_destroy_misses;
+	nss_top->stats_pppoe[NSS_STATS_PPPOE_SESSION_DESTROY_REQUESTS] += npess->pppoe_session_destroy_requests;
 
 	spin_unlock_bh(&nss_top->stats_lock);
-}
-
-/*
- * nss_pppoe_destroy_connection_rule()
- * Destroy PPoE connection rule associated with the session ID and remote server MAC address.
- */
-
-/*
- * TODO: This API should be deprecated soon and removed.
- */
-static void nss_pppoe_destroy_connection_rule(void *ctx, uint16_t pppoe_session_id, uint8_t *pppoe_remote_mac)
-{
-	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *) ctx;
-	struct nss_pppoe_msg npm;
-	struct nss_pppoe_rule_destroy_msg *nprd;
-	uint16_t *pppoe_remote_mac_uint16_t = (uint16_t *)pppoe_remote_mac;
-	int32_t status;
-
-	/*
-	 * TODO Remove this function once linux kernel directly calls nss_pppoe_tx()
-	 */
-	nss_info("%p: Destroy all PPPoE rules of session ID: %x remote MAC: %x:%x:%x:%x:%x:%x", nss_ctx, pppoe_session_id,
-			pppoe_remote_mac[0], pppoe_remote_mac[1], pppoe_remote_mac[2],
-			pppoe_remote_mac[3], pppoe_remote_mac[4], pppoe_remote_mac[5]);
-
-	nss_pppoe_msg_init(&npm, NSS_PPPOE_RX_INTERFACE, NSS_PPPOE_TX_CONN_RULE_DESTROY,
-			sizeof(struct nss_pppoe_rule_destroy_msg), NULL, NULL);
-
-	nprd = &npm.msg.pppoe_rule_destroy;
-
-	nprd->pppoe_session_id = pppoe_session_id;
-	nprd->pppoe_remote_mac[0] = pppoe_remote_mac_uint16_t[0];
-	nprd->pppoe_remote_mac[1] = pppoe_remote_mac_uint16_t[1];
-	nprd->pppoe_remote_mac[2] = pppoe_remote_mac_uint16_t[2];
-
-	status = nss_pppoe_tx(nss_ctx, &npm);
-	if (status != NSS_TX_SUCCESS) {
-		nss_warning("%p: Not able to send destroy pppoe rule msg to NSS %x\n", nss_ctx, status);
-	}
-}
-
-/*
- * nss_pppoe_rule_create_success()
- *	Handle the PPPoE rule create success message.
- */
-static void nss_pppoe_rule_create_success(struct nss_ctx_instance *nss_ctx, struct nss_pppoe_rule_create_success_msg *pcs)
-{
-#if (NSS_PPP_SUPPORT == 1)
-	struct net_device *ppp_dev = pppoe_get_and_hold_netdev_from_session_info(pcs->pppoe_session_id, pcs->pppoe_remote_mac);
-
-	if (!ppp_dev) {
-		nss_warning("%p: There is not any PPP devices with SID: %x remote MAC: %x:%x:%x:%x:%x:%x", nss_ctx, pcs->pppoe_session_id,
-			pcs->pppoe_remote_mac[0], pcs->pppoe_remote_mac[1], pcs->pppoe_remote_mac[2],
-			pcs->pppoe_remote_mac[3], pcs->pppoe_remote_mac[4], pcs->pppoe_remote_mac[5]);
-
-		return;
-	}
-
-	/*
-	 * TODO Remove this registration once kernel directly calls nss_pppoe_tx().
-	 */
-	if (!ppp_register_destroy_method(ppp_dev, nss_pppoe_destroy_connection_rule, (void *)nss_ctx)) {
-		nss_warning("%p: Failed to register destroy method", nss_ctx);
-	}
-
-	dev_put(ppp_dev);
-#endif
 }
 
 /*
@@ -274,24 +197,15 @@ static void nss_pppoe_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct ns
 	 * Handling PPPoE messages coming from NSS fw.
 	 */
 	switch (nim->cm.type) {
-	case NSS_PPPOE_RX_CONN_RULE_SUCCESS:
-		nss_pppoe_rule_create_success(nss_ctx, &nim->msg.pppoe_rule_create_success);
-		break;
-
 	case NSS_PPPOE_RX_NODE_STATS_SYNC:
 		nss_pppoe_node_stats_sync(nss_ctx, &nim->msg.pppoe_node_stats_sync);
 		break;
-
 	case NSS_PPPOE_RX_CONN_STATS_SYNC:
 		nss_pppoe_exception_stats_sync(nss_ctx, &nim->msg.pppoe_conn_stats_sync);
 		break;
-
-	case NSS_PPPOE_TX_CONN_RULE_DESTROY:
-		if (ncm->response == NSS_CMN_RESPONSE_ACK) {
-			nss_pppoe_reset_session_stats(nss_ctx);
-		}
+	case NSS_PPPOE_RX_SESSION_RESET:
+		nss_pppoe_session_reset(nss_ctx, &nim->msg.pppoe_session_reset);
 		break;
-
 	default:
 		nss_warning("%p: Received response %d for type %d, interface %d",
 				nss_ctx, ncm->response, ncm->type, ncm->interface);
