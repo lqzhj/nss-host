@@ -118,6 +118,8 @@ struct nss_cmn_node_stats {
 	uint32_t tx_bytes;		/**< Number of bytes transmitted */
 };
 
+#ifdef __KERNEL__ /* only for kernel to use */
+
 /**
  * @brief Initialize common area of Host to NSS message
  *
@@ -210,4 +212,5 @@ extern nss_cb_register_status_t nss_cmn_register_queue_decongestion(struct nss_c
  */
 extern nss_cb_unregister_status_t nss_cmn_unregister_queue_decongestion(struct nss_ctx_instance *nss_ctx, nss_cmn_queue_decongestion_callback_t event_callback);
 
+#endif /* __KERNEL__ */
 #endif /* __NSS_CMN_MSG_H */

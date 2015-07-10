@@ -468,6 +468,8 @@ struct nss_ipv4_msg {
 
 extern int nss_ipv6_conn_cfg;
 
+#ifdef __KERNEL__ /* only kernel will use */
+
 /**
  * @brief Return the maximum number of IPv4 connections that the NSS acceleration engine supports
  *
@@ -543,4 +545,6 @@ extern void nss_ipv4_unregister_sysctl(void);
 extern void nss_ipv4_msg_init(struct nss_ipv4_msg *nim, uint16_t if_num, uint32_t type, uint32_t len,
 			nss_ipv4_msg_callback_t cb, void *app_data);
 
+
+#endif /*__KERNEL__ */
 #endif /* __NSS_IPV4_H */
