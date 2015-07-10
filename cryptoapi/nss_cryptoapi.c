@@ -33,6 +33,7 @@
 #include <linux/delay.h>
 #include <linux/crypto.h>
 #include <linux/rtnetlink.h>
+#include <linux/debugfs.h>
 
 #include <crypto/ctr.h>
 #include <crypto/des.h>
@@ -50,10 +51,104 @@
 #include "nss_cryptoapi.h"
 
 #define nss_cryptoapi_sg_has_frags(s) sg_next(s)
-#define nss_cryptoapi_get_hmac_sz(req) crypto_aead_authsize(crypto_aead_reqtfm(req))
-#define nss_cryptoapi_get_iv_sz(req) crypto_aead_ivsize(crypto_aead_reqtfm(req))
 
 static struct nss_cryptoapi gbl_ctx;
+
+/*
+ * nss_cryptoapi_debugs_add_stats()
+ * 	Creates debugfs entries for common statistics
+ */
+static void nss_cryptoapi_debugfs_add_stats(struct dentry *parent, struct nss_cryptoapi_ctx *session_ctx)
+{
+	debugfs_create_u64("queued", S_IRUGO, parent, &session_ctx->queued);
+	debugfs_create_u64("completed", S_IRUGO, parent, &session_ctx->completed);
+}
+
+/*
+ * nss_cryptoapi_debugfs_add_session()
+ * 	Creates per session debugfs entries
+ */
+void nss_cryptoapi_debugfs_add_session(struct nss_cryptoapi *gbl_ctx, struct nss_cryptoapi_ctx *session_ctx)
+{
+	char buf[NSS_CRYPTOAPI_DEBUGFS_NAME_SZ];
+
+	if (gbl_ctx->root_dentry == NULL) {
+		nss_cfi_err("root directories are not present: unable to add session data\n");
+		return;
+	}
+
+	memset(buf, 0, NSS_CRYPTOAPI_DEBUGFS_NAME_SZ);
+	scnprintf(buf, sizeof(buf), "session%d", session_ctx->sid);
+
+	session_ctx->session_dentry = debugfs_create_dir(buf, gbl_ctx->stats_dentry);
+	if (session_ctx->session_dentry == NULL) {
+		nss_cfi_err("Unable to create qca-nss-cryptoapi/stats/%s directory in debugfs", buf);
+		return;
+	}
+
+	/*
+	 * create session's stats files
+	 */
+	nss_cryptoapi_debugfs_add_stats(session_ctx->session_dentry, session_ctx);
+}
+
+/*
+ * nss_cryptoapi_debugfs_del_session()
+ * 	deletes per session debugfs entries
+ */
+void nss_cryptoapi_debugfs_del_session(struct nss_cryptoapi_ctx *session_ctx)
+{
+	if (session_ctx->session_dentry == NULL)  {
+		nss_cfi_err("Unable to find the directory\n");
+		return;
+	}
+
+	debugfs_remove_recursive(session_ctx->session_dentry);
+}
+
+/*
+ * nss_cryptoapi_debugfs_init()
+ * 	initiallize the cryptoapi debugfs interface
+ */
+void nss_cryptoapi_debugfs_init(struct nss_cryptoapi *gbl_ctx)
+{
+	gbl_ctx->root_dentry = debugfs_create_dir("qca-nss-cryptoapi", NULL);
+	if (!gbl_ctx->root_dentry) {
+
+		/*
+		 * Non availability of debugfs directory is not a catastrophy
+		 * We can still go ahead with other initialization
+		 */
+		nss_cfi_err("Unable to create directory qca-nss-cryptoapi in debugfs\n");
+		return;
+	}
+
+	gbl_ctx->stats_dentry = debugfs_create_dir("stats", gbl_ctx->root_dentry);
+	if (!gbl_ctx->stats_dentry) {
+
+		/*
+		 * Non availability of debugfs directory is not a catastrophy
+		 * We can still go ahead with other initialization
+		 */
+		nss_cfi_err("Unable to create directory qca-nss-cryptoapi/stats in debugfs\n");
+		debugfs_remove_recursive(gbl_ctx->root_dentry);
+		return;
+	}
+}
+
+/*
+ * nss_cryptoapi_debugfs_exit()
+ * 	cleanup the cryptoapi debugfs interface
+ */
+void nss_cryptoapi_debugfs_exit(struct nss_cryptoapi *gbl_ctx)
+{
+	if (!gbl_ctx->root_dentry) {
+		nss_cfi_err("Unable to find root directory qca-nss-cryptoapi in debugfs\n");
+		return;
+	}
+
+	debugfs_remove_recursive(gbl_ctx->root_dentry);
+}
 
 /*
  * nss_cryptoapi_aead_init()
@@ -66,6 +161,8 @@ static int nss_cryptoapi_aead_init(struct crypto_tfm *tfm)
 	nss_cfi_assert(ctx);
 
 	ctx->sid = NSS_CRYPTO_MAX_IDXS;
+	ctx->queued = 0;
+	ctx->completed = 0;
 	atomic_set(&ctx->refcnt, 0);
 
 	nss_cryptoapi_set_magic(ctx);
@@ -85,10 +182,12 @@ static void nss_cryptoapi_aead_exit(struct crypto_tfm *tfm)
 
 	nss_cfi_assert(ctx);
 
-	if (atomic_read(&ctx->refcnt)) {
+	if (!atomic_dec_and_test(&ctx->refcnt)) {
 		nss_cfi_err("Process done is not completed, while exit is called\n");
 		nss_cfi_assert(false);
 	}
+
+	nss_cryptoapi_debugfs_del_session(ctx);
 
 	status = nss_crypto_session_free(sc->crypto, ctx->sid);
 	if (status != NSS_CRYPTO_STATUS_OK) {
@@ -162,12 +261,18 @@ static int nss_cryptoapi_sha1_aes_setkey(struct crypto_aead *tfm, const u8 *key,
 	struct nss_cryptoapi *sc = &gbl_ctx;
 	struct nss_crypto_key cip = { .algo = NSS_CRYPTO_CIPHER_AES };
 	struct nss_crypto_key auth = { .algo = NSS_CRYPTO_AUTH_SHA1_HMAC };
+	uint32_t flag = CRYPTO_TFM_RES_BAD_KEY_LEN;
 	nss_crypto_status_t status;
 
 	/*
 	 * validate magic number - init should be called before setkey
 	 */
 	nss_cryptoapi_verify_magic(ctx);
+
+	if (atomic_cmpxchg(&ctx->refcnt, 0, 1)) {
+		nss_cfi_err("reusing context, setkey is already called\n");
+		return -EINVAL;
+	}
 
 	/*
 	 * Extract and cipher and auth key
@@ -194,8 +299,11 @@ static int nss_cryptoapi_sha1_aes_setkey(struct crypto_aead *tfm, const u8 *key,
 	if (status != NSS_CRYPTO_STATUS_OK) {
 		nss_cfi_err("nss_crypto_session_alloc failed - status: %d\n", status);
 		ctx->sid = NSS_CRYPTO_MAX_IDXS;
-		return -EINVAL;
+		flag = CRYPTO_TFM_RES_BAD_FLAGS;
+		goto fail;
 	}
+
+	nss_cryptoapi_debugfs_add_session(sc, ctx);
 
 	nss_cfi_info("session id created: %d\n", ctx->sid);
 
@@ -205,7 +313,8 @@ static int nss_cryptoapi_sha1_aes_setkey(struct crypto_aead *tfm, const u8 *key,
 	return 0;
 
 fail:
-	crypto_aead_set_flags(tfm, CRYPTO_TFM_RES_BAD_KEY_LEN);
+	atomic_dec(&ctx->refcnt);
+	crypto_aead_set_flags(tfm, flag);
 	return -EINVAL;
 }
 
@@ -219,12 +328,18 @@ static int nss_cryptoapi_sha256_aes_setkey(struct crypto_aead *tfm, const u8 *ke
 	struct nss_cryptoapi *sc = &gbl_ctx;
 	struct nss_crypto_key cip = { .algo = NSS_CRYPTO_CIPHER_AES };
 	struct nss_crypto_key auth = { .algo = NSS_CRYPTO_AUTH_SHA256_HMAC };
+	uint32_t flag = CRYPTO_TFM_RES_BAD_KEY_LEN;
 	nss_crypto_status_t status;
 
 	/*
 	 * validate magic number - init should be called before setkey
 	 */
 	nss_cryptoapi_verify_magic(ctx);
+
+	if (atomic_cmpxchg(&ctx->refcnt, 0, 1)) {
+		nss_cfi_err("reusing context, setkey is already called\n");
+		return -EINVAL;
+	}
 
 	/*
 	 * Extract and cipher and auth key
@@ -251,8 +366,11 @@ static int nss_cryptoapi_sha256_aes_setkey(struct crypto_aead *tfm, const u8 *ke
 	if (status != NSS_CRYPTO_STATUS_OK) {
 		nss_cfi_err("nss_crypto_session_alloc failed - status: %d\n", status);
 		ctx->sid = NSS_CRYPTO_MAX_IDXS;
-		return -EINVAL;
+		flag = CRYPTO_TFM_RES_BAD_FLAGS;
+		goto fail;
 	}
+
+	nss_cryptoapi_debugfs_add_session(sc, ctx);
 
 	nss_cfi_info("session id created: %d\n", ctx->sid);
 
@@ -262,7 +380,8 @@ static int nss_cryptoapi_sha256_aes_setkey(struct crypto_aead *tfm, const u8 *ke
 	return 0;
 
 fail:
-	crypto_aead_set_flags(tfm, CRYPTO_TFM_RES_BAD_KEY_LEN);
+	atomic_dec(&ctx->refcnt);
+	crypto_aead_set_flags(tfm, flag);
 	return -EINVAL;
 }
 
@@ -276,12 +395,18 @@ static int nss_cryptoapi_sha1_3des_setkey(struct crypto_aead *tfm, const u8 *key
 	struct nss_cryptoapi *sc = &gbl_ctx;
 	struct nss_crypto_key cip = { .algo = NSS_CRYPTO_CIPHER_DES };
 	struct nss_crypto_key auth = { .algo = NSS_CRYPTO_AUTH_SHA1_HMAC };
+	uint32_t flag = CRYPTO_TFM_RES_BAD_KEY_LEN;
 	nss_crypto_status_t status;
 
 	/*
 	 * validate magic number - init should be called before setkey
 	 */
 	nss_cryptoapi_verify_magic(ctx);
+
+	if (atomic_cmpxchg(&ctx->refcnt, 0, 1)) {
+		nss_cfi_err("reusing context, setkey is already called\n");
+		return -EINVAL;
+	}
 
 	/*
 	 * Extract and cipher and auth key
@@ -308,8 +433,11 @@ static int nss_cryptoapi_sha1_3des_setkey(struct crypto_aead *tfm, const u8 *key
 	if (status != NSS_CRYPTO_STATUS_OK) {
 		nss_cfi_err("nss_crypto_session_alloc failed - status: %d\n", status);
 		ctx->sid = NSS_CRYPTO_MAX_IDXS;
-		return -EINVAL;
+		flag = CRYPTO_TFM_RES_BAD_FLAGS;
+		goto fail;
 	}
+
+	nss_cryptoapi_debugfs_add_session(sc, ctx);
 
 	nss_cfi_info("session id created: %d\n", ctx->sid);
 
@@ -319,7 +447,8 @@ static int nss_cryptoapi_sha1_3des_setkey(struct crypto_aead *tfm, const u8 *key
 	return 0;
 
 fail:
-	crypto_aead_set_flags(tfm, CRYPTO_TFM_RES_BAD_KEY_LEN);
+	atomic_dec(&ctx->refcnt);
+	crypto_aead_set_flags(tfm, flag);
 	return -EINVAL;
 }
 
@@ -333,12 +462,18 @@ static int nss_cryptoapi_sha256_3des_setkey(struct crypto_aead *tfm, const u8 *k
 	struct nss_cryptoapi *sc = &gbl_ctx;
 	struct nss_crypto_key cip = { .algo = NSS_CRYPTO_CIPHER_DES };
 	struct nss_crypto_key auth = { .algo = NSS_CRYPTO_AUTH_SHA256_HMAC };
+	uint32_t flag = CRYPTO_TFM_RES_BAD_KEY_LEN;
 	nss_crypto_status_t status;
 
 	/*
 	 * validate magic number - init should be called before setkey
 	 */
 	nss_cryptoapi_verify_magic(ctx);
+
+	if (atomic_cmpxchg(&ctx->refcnt, 0, 1)) {
+		nss_cfi_err("reusing context, setkey is already called\n");
+		return -EINVAL;
+	}
 
 	/*
 	 * Extract and cipher and auth key
@@ -365,8 +500,11 @@ static int nss_cryptoapi_sha256_3des_setkey(struct crypto_aead *tfm, const u8 *k
 	if (status != NSS_CRYPTO_STATUS_OK) {
 		nss_cfi_err("nss_crypto_session_alloc failed - status: %d\n", status);
 		ctx->sid = NSS_CRYPTO_MAX_IDXS;
-		return -EINVAL;
+		flag = CRYPTO_TFM_RES_BAD_FLAGS;
+		goto fail;
 	}
+
+	nss_cryptoapi_debugfs_add_session(sc, ctx);
 
 	nss_cfi_info("session id created: %d\n", ctx->sid);
 
@@ -376,7 +514,8 @@ static int nss_cryptoapi_sha256_3des_setkey(struct crypto_aead *tfm, const u8 *k
 	return 0;
 
 fail:
-	crypto_aead_set_flags(tfm, CRYPTO_TFM_RES_BAD_KEY_LEN);
+	atomic_dec(&ctx->refcnt);
+	crypto_aead_set_flags(tfm, flag);
 	return -EINVAL;
 }
 
@@ -440,6 +579,7 @@ static void nss_cryptoapi_process_done(struct nss_crypto_buf *buf)
 
 	nss_cfi_assert(atomic_read(&ctx->refcnt));
 	atomic_dec(&ctx->refcnt);
+	ctx->completed++;
 }
 
 /*
@@ -603,6 +743,13 @@ static struct nss_crypto_buf *nss_cryptoapi_aead_transform(struct aead_request *
 		buf->auth_len -= sha;
 	}
 
+	if (buf->cipher_len & (nss_cryptoapi_get_blocksize(req) - 1)) {
+		nss_cfi_err("Invalid cipher len - Not aligned to algo blocksize\n");
+		nss_crypto_buf_free(sc->crypto, buf);
+		crypto_aead_set_flags(crypto_aead_reqtfm(req), CRYPTO_TFM_RES_BAD_BLOCK_LEN);
+		return NULL;
+	}
+
 	/*
 	 * The physical buffer data length provided to crypto will include
 	 * space for authentication hash
@@ -611,8 +758,10 @@ static struct nss_crypto_buf *nss_cryptoapi_aead_transform(struct aead_request *
 	buf->data = sg_addr.start;
 
 
-	nss_cfi_dbg("cipher_len: %d, iv_offset: %d, iv_len: %d, auth_len: %d, hash_offset: %d, tot_buf_len: %d, sha: %d, cipher_skip: %d, auth_skip: %d\n",
-			buf->cipher_len, buf->iv_offset, buf->iv_len, buf->auth_len, buf->hash_offset, tot_buf_len, sha, params->cipher_skip, params->auth_skip);
+	nss_cfi_dbg("cipher_len: %d, iv_offset: %d, iv_len: %d, auth_len: %d, hash_offset: %d"
+			"tot_buf_len: %d, sha: %d, cipher_skip: %d, auth_skip: %d\n",
+			buf->cipher_len, buf->iv_offset, buf->iv_len, buf->auth_len, buf->hash_offset,
+			tot_buf_len, sha, params->cipher_skip, params->auth_skip);
 	nss_cfi_dbg_data(buf->data, buf->data_len, ' ');
 
 	return buf;
@@ -672,7 +821,9 @@ static int nss_cryptoapi_sha1_aes_encrypt(struct aead_request *req)
 		return -EINVAL;
 	}
 
+	ctx->queued++;
 	atomic_inc(&ctx->refcnt);
+
 	return -EINPROGRESS;
 }
 
@@ -721,7 +872,9 @@ static int nss_cryptoapi_sha256_aes_encrypt(struct aead_request *req)
 		return -EINVAL;
 	}
 
+	ctx->queued++;
 	atomic_inc(&ctx->refcnt);
+
 	return -EINPROGRESS;
 }
 
@@ -772,7 +925,9 @@ static int nss_cryptoapi_sha1_3des_encrypt(struct aead_request *req)
 		return -EINVAL;
 	}
 
+	ctx->queued++;
 	atomic_inc(&ctx->refcnt);
+
 	return -EINPROGRESS;
 }
 
@@ -821,7 +976,9 @@ static int nss_cryptoapi_sha256_3des_encrypt(struct aead_request *req)
 		return -EINVAL;
 	}
 
+	ctx->queued++;
 	atomic_inc(&ctx->refcnt);
+
 	return -EINPROGRESS;
 }
 
@@ -870,7 +1027,9 @@ static int nss_cryptoapi_sha1_aes_decrypt(struct aead_request *req)
 		return -EINVAL;
 	}
 
+	ctx->queued++;
 	atomic_inc(&ctx->refcnt);
+
 	return -EINPROGRESS;
 }
 
@@ -919,7 +1078,9 @@ static int nss_cryptoapi_sha256_aes_decrypt(struct aead_request *req)
 		return -EINVAL;
 	}
 
+	ctx->queued++;
 	atomic_inc(&ctx->refcnt);
+
 	return -EINPROGRESS;
 }
 
@@ -969,7 +1130,9 @@ static int nss_cryptoapi_sha1_3des_decrypt(struct aead_request *req)
 		return -EINVAL;
 	}
 
+	ctx->queued++;
 	atomic_inc(&ctx->refcnt);
+
 	return -EINPROGRESS;
 }
 
@@ -1019,7 +1182,9 @@ static int nss_cryptoapi_sha256_3des_decrypt(struct aead_request *req)
 		return -EINVAL;
 	}
 
+	ctx->queued++;
 	atomic_inc(&ctx->refcnt);
+
 	return -EINPROGRESS;
 }
 
@@ -1073,7 +1238,9 @@ static int nss_cryptoapi_sha1_aes_geniv_encrypt(struct aead_givcrypt_request *re
 		return -EINVAL;
 	}
 
+	ctx->queued++;
 	atomic_inc(&ctx->refcnt);
+
 	return -EINPROGRESS;
 }
 
@@ -1127,7 +1294,9 @@ static int nss_cryptoapi_sha256_aes_geniv_encrypt(struct aead_givcrypt_request *
 		return -EINVAL;
 	}
 
+	ctx->queued++;
 	atomic_inc(&ctx->refcnt);
+
 	return -EINPROGRESS;
 }
 
@@ -1181,7 +1350,9 @@ static int nss_cryptoapi_sha1_3des_geniv_encrypt(struct aead_givcrypt_request *r
 		return -EINVAL;
 	}
 
+	ctx->queued++;
 	atomic_inc(&ctx->refcnt);
+
 	return -EINPROGRESS;
 }
 
@@ -1235,6 +1406,7 @@ static int nss_cryptoapi_sha256_3des_geniv_encrypt(struct aead_givcrypt_request 
 		return -EINVAL;
 	}
 
+	ctx->queued++;
 	atomic_inc(&ctx->refcnt);
 
 	return -EINPROGRESS;
@@ -1368,11 +1540,15 @@ static nss_crypto_user_ctx_t nss_cryptoapi_register(nss_crypto_handle_t crypto)
 		rc = crypto_register_alg(&cryptoapi_aead_algos[i]);
 		if (rc) {
 			nss_cfi_err("Aead registeration failed, algo: %s\n", cryptoapi_aead_algos[i].cra_name);
-		} else {
-			nss_cfi_info("Aead registeration succeed, algo: %s\n", cryptoapi_aead_algos[i].cra_name);
+			continue;
 		}
+		nss_cfi_info("Aead registeration succeed, algo: %s\n", cryptoapi_aead_algos[i].cra_name);
 	}
 
+	/*
+	 * Initialize debugfs for cryptoapi.
+	 */
+	nss_cryptoapi_debugfs_init(sc);
 
 	return sc;
 }
@@ -1383,7 +1559,13 @@ static nss_crypto_user_ctx_t nss_cryptoapi_register(nss_crypto_handle_t crypto)
  */
 static void nss_cryptoapi_unregister(nss_crypto_user_ctx_t cfi)
 {
+	struct nss_cryptoapi *sc = &gbl_ctx;
 	nss_cfi_info("unregister nss_cryptoapi\n");
+
+        /*
+         * cleanup cryptoapi debugfs.
+         */
+        nss_cryptoapi_debugfs_exit(sc);
 }
 
 /*

@@ -35,8 +35,8 @@
 /*
  * Compile messages for dynamic enable/disable
  */
-#define nss_cfi_err(s, ...) pr_debug("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
-#define nss_cfi_warn(s, ...) pr_debug("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define nss_cfi_err(s, ...) pr_alert("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define nss_cfi_warn(s, ...) pr_warn("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #define nss_cfi_info(s, ...) pr_debug("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #define nss_cfi_trace(s, ...) pr_debug("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 
@@ -45,22 +45,22 @@
  * Statically compile messages at different levels
  */
 #define nss_cfi_err(s, ...) {	\
-	if (NSS_CFI_DEBUG_LEVEL < NSS_CFI_DEBUG_LVL_ERROR) {	\
+	if (NSS_CFI_DEBUG_LEVEL > NSS_CFI_DEBUG_LVL_ERROR) {	\
 		pr_alert("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__);	\
 	}	\
 }
 #define nss_cfi_warn(s, ...) {	\
-	if (NSS_CFI_DEBUG_LEVEL < NSS_CFI_DEBUG_LVL_WARN) {	\
+	if (NSS_CFI_DEBUG_LEVEL > NSS_CFI_DEBUG_LVL_WARN) {	\
 		pr_warn("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__);	\
 	}	\
 }
 #define nss_cfi_info(s, ...) {	\
-	if (NSS_CFI_DEBUG_LEVEL < NSS_CFI_DEBUG_LVL_INFO) {	\
+	if (NSS_CFI_DEBUG_LEVEL > NSS_CFI_DEBUG_LVL_INFO) {	\
 		pr_notice("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__);	\
 	}	\
 }
 #define nss_cfi_trace(s, ...) {	\
-	if (NSS_CFI_DEBUG_LEVEL < NSS_CFI_DEBUG_LVL_TRACE) {	\
+	if (NSS_CFI_DEBUG_LEVEL > NSS_CFI_DEBUG_LVL_TRACE) {	\
 		pr_info("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__);	\
 	}	\
 }

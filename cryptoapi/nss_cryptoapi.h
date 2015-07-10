@@ -39,17 +39,25 @@ struct nss_cryptoapi_addr {
  */
 struct nss_cryptoapi {
 	nss_crypto_handle_t crypto;		/**< crypto handle */
+	struct dentry *root_dentry;
+	struct dentry *stats_dentry;
 };
 
 struct nss_cryptoapi_ctx {
+	uint64_t queued;
+	uint64_t completed;
 	uint32_t sid;
 	unsigned int authsize;
 	enum nss_crypto_cipher cip_alg;
 	enum nss_crypto_auth auth_alg;
 	enum nss_crypto_req_type op;
+	struct dentry *session_dentry;
 	atomic_t refcnt;
 	uint16_t magic;
+	uint16_t rsvd;
 };
+
+#define NSS_CRYPTOAPI_DEBUGFS_NAME_SZ 64
 
 #define CRYPTOAPI_MAX_KEY_SIZE 64
 #define NSS_CRYPTOAPI_MAGIC 0x1fff
@@ -83,3 +91,19 @@ static inline uint8_t nss_cryptoapi_get_skip(uint8_t *addr, uint8_t *start)
 {
 	return addr - start;
 }
+
+static inline uint32_t nss_cryptoapi_get_hmac_sz(struct aead_request *req)
+{
+	return crypto_aead_authsize(crypto_aead_reqtfm(req));
+}
+
+static inline uint32_t nss_cryptoapi_get_blocksize(struct aead_request *req)
+{
+	return crypto_aead_blocksize(crypto_aead_reqtfm(req));
+}
+
+static inline uint32_t nss_cryptoapi_get_iv_sz(struct aead_request *req)
+{
+	return crypto_aead_ivsize(crypto_aead_reqtfm(req));
+}
+
