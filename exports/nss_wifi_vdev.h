@@ -100,6 +100,7 @@ struct nss_wifi_vdev_config_msg {
 	uint32_t hdrcachelen;		/**< Header cache length */
 	uint32_t hdrcache[NSS_WIFI_HTT_TRANSFER_HDRSIZE_WORD];
 					/**< Header cache */
+	uint32_t opmode;		/**< VAP Opmode - AP or STA? */
 };
 
 /**
