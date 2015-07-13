@@ -194,6 +194,7 @@ nss_tx_status_t nss_wifi_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_wif
  * 	Register Wifi with nss driver
  */
 struct nss_ctx_instance *nss_register_wifi_if(uint32_t if_num, nss_wifi_callback_t wifi_callback,
+			nss_wifi_callback_t wifi_ext_callback,
 			nss_wifi_msg_callback_t event_callback, struct net_device *netdev, uint32_t features)
 {
         nss_assert((if_num >= NSS_MAX_VIRTUAL_INTERFACES) && (if_num < NSS_MAX_NET_INTERFACES));
@@ -202,6 +203,7 @@ struct nss_ctx_instance *nss_register_wifi_if(uint32_t if_num, nss_wifi_callback
 
 	nss_top_main.subsys_dp_register[if_num].ndev = netdev;
 	nss_top_main.subsys_dp_register[if_num].cb = wifi_callback;
+	nss_top_main.subsys_dp_register[if_num].ext_cb = wifi_ext_callback;
 	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
 	nss_top_main.subsys_dp_register[if_num].features = features;
 
@@ -220,6 +222,7 @@ void nss_unregister_wifi_if(uint32_t if_num)
 
 	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
 	nss_top_main.subsys_dp_register[if_num].cb = NULL;
+	nss_top_main.subsys_dp_register[if_num].ext_cb = NULL;
 	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
 	nss_top_main.subsys_dp_register[if_num].features = 0;
 
