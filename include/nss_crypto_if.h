@@ -134,6 +134,8 @@ struct nss_crypto_params {
 	uint8_t  res[2];		/**< reserve for 4 byte alignment */
 };
 
+#ifdef __KERNEL__  /*protect the code which kernel only  uses */
+
 /**
  * @brief crypto request buffer for doing operation with the crypto driver
  *
@@ -150,10 +152,10 @@ struct nss_crypto_params {
 struct nss_crypto_buf {
 	/* private fields*/
 	struct nss_crypto_buf *next;	/**< next buffer */
-	uint32_t ctx_0;			/**< private context(0) per buf */
-	uint32_t ctx_1;			/**< private context(1) per buf */
+	uint32_t ctx_0; 		/**< private context(0) per buf */
+	uint32_t ctx_1;  		/**< private context(1) per buf */
 
-	uint16_t state;			/**< buffer operation specific state */
+	uint16_t state;  		/**< buffer operation specific state */
 	uint16_t origin;		/**< crypto_req originator */
 
 	/* public fields*/
@@ -181,6 +183,7 @@ struct nss_crypto_buf {
 
 typedef void *nss_crypto_user_ctx_t;	/**< crypto driver user's context */
 typedef void *nss_crypto_handle_t;	/**< crypto driver handle for its users */
+
 
 /**
  * @brief handler called when the crypto device is ready, this is
@@ -334,4 +337,5 @@ uint32_t nss_crypto_get_auth_keylen(uint32_t session_idx);
  */
 nss_crypto_status_t nss_crypto_transform_payload(nss_crypto_handle_t crypto, struct nss_crypto_buf *buf);
 
+#endif /* __KERNEL__ */
 #endif /* __NSS_CRYPTO_IF_H */
