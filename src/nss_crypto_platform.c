@@ -196,8 +196,6 @@ void nss_crypto_delayed_init(struct work_struct *work)
 
 	ctrl = container_of(to_delayed_work(work), struct nss_crypto_ctrl, crypto_work);
 
-	nss_crypto_info_always(".");
-
 	/*
 	 * check if NSS FW is initialized
 	 */
@@ -206,7 +204,7 @@ void nss_crypto_delayed_init(struct work_struct *work)
 		return;
 	}
 
-	nss_crypto_info_always("Done\n");
+	nss_crypto_info_always("NSS Firmware initialized\n");
 
 	/*
 	 * reserve the index if certain pipe pairs are locked out for

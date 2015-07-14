@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013, 2015, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -117,6 +117,14 @@ struct nss_crypto_ctrl {
 
 	struct nss_crypto_idx_info idx_info[NSS_CRYPTO_MAX_IDXS];
 						/**< per index info */
+};
+
+/**
+ * @brief Driver context structure
+ */
+struct nss_crypto_drv_ctx {
+	struct nss_ctx_instance *drv_hdl;	/**< NSS driver handle */
+	void *pm_hdl;				/**< NSS PM handle */
 };
 
 static inline bool nss_crypto_check_idx_state(uint32_t map, uint32_t idx)
