@@ -54,6 +54,11 @@ extern struct nss_top_instance nss_top_main;
 extern struct clk *nss_core0_clk;
 extern struct nss_runtime_sampling nss_runtime_samples;
 
+#if (NSS_DT_SUPPORT == 1)
+extern struct clk *nss_fab0_clk;
+extern struct clk *nss_fab1_clk;
+#endif
+
 /*
  * File local/Static variables/functions
  */
@@ -986,6 +991,30 @@ int nss_hal_probe(struct platform_device *nss_dev)
 
 		clk_prepare(nss_tcm_clk);
 		clk_enable(nss_tcm_clk);
+
+		/*
+		 * DT - Fabric Clocks.
+		 */
+
+		nss_fab0_clk = clk_get(&nss_dev->dev, NSS_FABRIC0_CLK);
+		if (IS_ERR(nss_fab0_clk)) {
+			printk("nss-driver: cannot get clock: %s\n", NSS_FABRIC0_CLK);
+			nss_fab0_clk = NULL;
+		} else {
+			printk("nss-driver: fabric 0 handler\n");
+			clk_prepare(nss_fab0_clk);
+			clk_enable(nss_fab0_clk);
+		}
+
+		nss_fab1_clk = clk_get(&nss_dev->dev, NSS_FABRIC1_CLK);
+		if (IS_ERR(nss_fab1_clk)) {
+			printk("nss-driver: cannot get clock: %s\n", NSS_FABRIC1_CLK);
+			nss_fab1_clk = NULL;
+		} else {
+			printk("nss-driver: fabric 1 handler\n");
+			clk_prepare(nss_fab1_clk);
+			clk_enable(nss_fab1_clk);
+		}
 
 		nss_top_main.nss_hal_common_init_done = true;
 		nss_info("nss_hal_common_reset Done.\n");

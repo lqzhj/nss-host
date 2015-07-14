@@ -201,6 +201,17 @@
 /* NSS Clock names */
 #define NSS_TCM_SRC_CLK		"nss_tcm_src"
 #define NSS_TCM_CLK		"nss_tcm_clk"
+#define NSS_FABRIC0_CLK		"nss-fab0-clk"
+#define NSS_FABRIC1_CLK		"nss-fab1-clk"
+
+
+/* NSS Fabric speeds */
+#define NSS_FABRIC0_TURBO	533000000
+#define NSS_FABRIC1_TURBO	266000000
+#define NSS_FABRIC0_NOMINAL	400000000
+#define NSS_FABRIC1_NOMINAL	200000000
+#define NSS_FABRIC0_IDLE	5000000
+#define NSS_FABRIC1_IDLE	133000000
 #endif
 
 /*

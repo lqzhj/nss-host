@@ -70,6 +70,14 @@ static void *pm_client;
 struct clk *nss_core0_clk;
 
 /*
+ * Handle fabric requests - only on new kernel
+ */
+#if (NSS_DT_SUPPORT == 1)
+struct clk *nss_fab0_clk;
+struct clk *nss_fab1_clk;
+#endif
+
+/*
  * Top level nss context structure
  */
 struct nss_top_instance nss_top_main;
@@ -171,8 +179,13 @@ void nss_wq_function (struct work_struct *work)
 		nss_freq_change(&nss_top_main.nss[NSS_CORE_1], my_work->frequency, my_work->stats_enable, 1);
 	}
 
+/*
+ * If we are running NSS_PM_SUPPORT, we are on banana
+ * otherwise, we check if we are are on new kernel by checking if the
+ * fabric lookups are not NULL (success in init()))
+ */
 #if (NSS_PM_SUPPORT == 1)
-	if(!pm_client) {
+	if (!pm_client) {
 		goto out;
 	}
 
@@ -185,6 +198,21 @@ void nss_wq_function (struct work_struct *work)
 	}
 
 out:
+#else
+#if (NSS_DT_SUPPORT == 1)
+	if ((nss_fab0_clk != NULL) && (nss_fab0_clk != NULL)) {
+		if (my_work->frequency >= NSS_FREQ_733) {
+			clk_set_rate(nss_fab0_clk, NSS_FABRIC0_TURBO);
+			clk_set_rate(nss_fab1_clk, NSS_FABRIC1_TURBO);
+		} else if (my_work->frequency > NSS_FREQ_110) {
+			clk_set_rate(nss_fab0_clk, NSS_FABRIC0_NOMINAL);
+			clk_set_rate(nss_fab1_clk, NSS_FABRIC1_NOMINAL);
+		} else {
+			clk_set_rate(nss_fab0_clk, NSS_FABRIC0_IDLE);
+			clk_set_rate(nss_fab1_clk, NSS_FABRIC1_IDLE);
+		}
+	}
+#endif
 #endif
 	kfree((void *)work);
 }
