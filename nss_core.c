@@ -1397,16 +1397,16 @@ static uint32_t nss_core_get_prioritized_cause(uint32_t cause, uint32_t *type, i
 		return NSS_REGS_N2H_INTR_STATUS_DATA_QUEUE_1;
 	}
 
-	if (cause & NSS_REGS_N2H_INTR_STATUS_COREDUMP_END_0) {
-		printk("COREDUMP 0 SIGNAL END %x ", cause);
+	if (cause & NSS_REGS_N2H_INTR_STATUS_COREDUMP_COMPLETE_0) {
+		printk("NSS core 0 signal COREDUMP COMPLETE %x ", cause);
 		*type = NSS_INTR_CAUSE_EMERGENCY;
-		return NSS_REGS_N2H_INTR_STATUS_COREDUMP_END_0;
+		return NSS_REGS_N2H_INTR_STATUS_COREDUMP_COMPLETE_0;
 	}
 
-	if (cause & NSS_REGS_N2H_INTR_STATUS_COREDUMP_END_1) {
-		printk("COREDUMP 1 SIGNAL END %x\n", cause);
+	if (cause & NSS_REGS_N2H_INTR_STATUS_COREDUMP_COMPLETE_1) {
+		printk("NSS core 1 signal COREDUMP COMPLETE %x\n", cause);
 		*type = NSS_INTR_CAUSE_EMERGENCY;
-		return NSS_REGS_N2H_INTR_STATUS_COREDUMP_END_1;
+		return NSS_REGS_N2H_INTR_STATUS_COREDUMP_COMPLETE_1;
 	}
 
 	return 0;

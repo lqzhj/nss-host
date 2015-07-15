@@ -417,7 +417,7 @@ static int nss_coredump_handler(ctl_table *ctl, int write, void __user *buffer, 
 	if (!ret) {
 		if ((write) && (nss_ctl_debug != 0)) {
 			printk("Coredumping to DDR\n");
-			nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit, NSS_REGS_H2N_INTR_STATUS_COREDUMP_START);
+			nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit, NSS_REGS_H2N_INTR_STATUS_TRIGGER_COREDUMP);
 		}
 	}
 
