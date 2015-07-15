@@ -388,7 +388,25 @@ static struct crypto_bench_param def_param = {
 	.max_sids = 4,
 };
 
-static struct crypto_bench_param param;
+static struct crypto_bench_param param = {
+	.pattern = 0x33,
+	.bam_len = 256,
+	.cipher_op = 1,
+	.auth_op = 1,
+	.ciph_algo = 1,
+	.auth_algo = 1,
+	.bam_align = 4,
+	.num_reqs = 128,
+	.hash_len = NSS_CRYPTO_MAX_HASHLEN_SHA1,
+	.key_len = 16,
+	.print_mode = 2,
+	.num_loops = 999999,
+	.cipher_len = 200,
+	.auth_len = 220,
+	.auth_skip = 16,
+	.cipher_skip = 16,
+	.max_sids = 4,
+};
 
 #if defined (CONFIG_NSS_CRYPTO_TOOL_DBG)
 static void crypto_bench_dump_addr(uint8_t *addr, uint32_t len, uint8_t *str)
@@ -456,7 +474,8 @@ static void crypto_bench_init_param(enum crypto_bench_type type)
 	chk_n_set((param.ciph_algo == 0), param.ciph_algo, 1);
 	chk_n_set((param.auth_algo == 0), param.auth_algo, 1);
 
-	chk_n_set((param.max_sids > NSS_CRYPTO_MAX_IDXS), param.max_sids, NSS_CRYPTO_MAX_IDXS);
+	chk_n_set((param.max_sids > NSS_CRYPTO_MAX_IDXS), param.max_sids, def_param.max_sids);
+	chk_n_set((param.max_sids == 0), param.max_sids, def_param.max_sids);
 
 	switch (type) {
 	case TYPE_BENCH:
