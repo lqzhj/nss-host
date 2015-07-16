@@ -24,12 +24,10 @@ $(NSS_CRYPTO_MOD_NAME)-objs += nss_crypto_ctrl.o
 $(NSS_CRYPTO_MOD_NAME)-objs += nss_crypto_debugfs.o
 
 ifneq ($(findstring 3.4, $(KERNELVERSION)),)
-ccflags-y += -DNSS_CRYPTO_PM_SUPPORT=1
 $(NSS_CRYPTO_MOD_NAME)-objs += nss_crypto_platform.o
 endif
 
 ifneq ($(findstring 3.10, $(KERNELVERSION)),)
-ccflags-y += -DNSS_CRYPTO_PM_SUPPORT=0
 $(NSS_CRYPTO_MOD_NAME)-objs += nss_crypto_dtsi.o
 endif
 

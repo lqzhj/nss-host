@@ -374,9 +374,8 @@ void nss_crypto_init(void)
 {
 	nss_crypto_ctrl_init();
 
-#if (NSS_CRYPTO_PM_SUPPORT == 1)
 	gbl_ctx.pm_hdl = nss_pm_client_register(NSS_PM_CLIENT_CRYPTO);
-#endif
+
 	/*
 	 * Initialize debugfs entries
 	 */
