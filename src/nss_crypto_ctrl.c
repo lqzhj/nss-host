@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013, 2015, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -25,6 +25,8 @@
 #include <nss_crypto_dbg.h>
 
 struct nss_crypto_ctrl gbl_crypto_ctrl = {0};
+
+extern struct nss_crypto_drv_ctx gbl_ctx;
 
 #define NSS_CRYPTO_SESSION_FREE_DELAY_TICKS  msecs_to_jiffies(NSS_CRYPTO_SESSION_FREE_TIMEOUT_SEC * 1000)
 
@@ -753,8 +755,7 @@ bool nss_crypto_chk_idx_isfree(struct nss_crypto_idx_info *idx)
  * nss_crypto_session_update()
  * 	update allocated crypto session parameters
  */
-nss_crypto_status_t nss_crypto_session_update(nss_crypto_handle_t crypto, uint32_t session_idx,
-						struct nss_crypto_params *params)
+nss_crypto_status_t nss_crypto_session_update(nss_crypto_handle_t crypto, uint32_t session_idx, struct nss_crypto_params *params)
 {
 	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
 	struct nss_crypto_ctrl_eng *e_ctrl = &ctrl->eng[0];
@@ -822,6 +823,7 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
 	struct nss_crypto_encr_cfg encr_cfg;
 	struct nss_crypto_auth_cfg auth_cfg;
 	nss_crypto_status_t status;
+	bool first_idx;
 	uint32_t idx;
 	int i;
 
@@ -859,6 +861,11 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
 	}
 
 	/*
+	 * is this the first session that we are creating
+	 */
+	first_idx = !ctrl->idx_bitmap;
+
+	/*
 	 * search a free index and allocate it
 	 */
 	idx = ffz(ctrl->idx_bitmap);
@@ -884,6 +891,14 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
 
 	spin_unlock_bh(&ctrl->lock); /* index unlock*/
 
+#if (NSS_CRYPTO_PM_SUPPORT == 1)
+	/*
+	 * scale the fabric up to turbo as this the first index
+	 */
+	if (unlikely(first_idx)) {
+		nss_pm_set_perf_level(gbl_ctx.pm_hdl, NSS_PM_PERF_LEVEL_TURBO);
+	}
+#endif
 	nss_crypto_info_always("new index (used - %d, max - %d)\n", ctrl->num_idxs, NSS_CRYPTO_MAX_IDXS);
 	nss_crypto_dbg("index bitmap = 0x%x, index assigned = %d\n", ctrl->idx_bitmap, idx);
 
@@ -933,6 +948,7 @@ void nss_crypto_idx_free(unsigned long session_idx)
 	struct nss_crypto_encr_cfg encr_cfg;
 	struct nss_crypto_auth_cfg auth_cfg;
 	uint32_t idx_mask;
+	bool last_idx;
 	int i;
 
 	idx_mask = (0x1 << session_idx);
@@ -967,8 +983,21 @@ void nss_crypto_idx_free(unsigned long session_idx)
 	ctrl->idx_bitmap &= ~idx_mask;
 	ctrl->num_idxs--;
 
+	/*
+	 * check if this the last index that is getting deleted
+	 */
+	last_idx = !ctrl->idx_bitmap;
+
 	spin_unlock(&ctrl->lock); /* index unlock*/
 
+#if (NSS_CRYPTO_PM_SUPPORT == 1)
+	/*
+	 * scale the fabric down to IDLE as this the last index
+	 */
+	if (unlikely(last_idx)) {
+		nss_pm_set_perf_level(gbl_ctx.pm_hdl, NSS_PM_PERF_LEVEL_IDLE);
+	}
+#endif
 	nss_crypto_info_always("deallocated index (used - %d, max - %d)\n", ctrl->num_idxs, NSS_CRYPTO_MAX_IDXS);
 	nss_crypto_dbg("index freed  = 0x%x, index = %d\n", ctrl->idx_bitmap, session_idx);
 }
