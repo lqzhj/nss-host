@@ -74,9 +74,10 @@ enum {
  * Extended data plane pkt types sent from NSS to host.
  */
 enum nss_wifi_vdev_ext_data_pkt_type {
-        NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_NONE = 0,
-        NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_IGMP = 1,		/**< igmp packets */
-        NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_MAX
+	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_NONE = 0,
+	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_IGMP = 1,		/**< igmp packets */
+	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_MESH = 2,		/**< mesh packets */
+	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_MAX
 };
 
 /**
@@ -103,6 +104,7 @@ struct nss_wifi_vdev_config_msg {
 	uint32_t hdrcache[NSS_WIFI_HTT_TRANSFER_HDRSIZE_WORD];
 					/**< Header cache */
 	uint32_t opmode;		/**< VAP Opmode - AP or STA? */
+	uint32_t mesh_mode_en;		/**< Mesh mode enabled */
 };
 
 /**
@@ -194,12 +196,21 @@ struct nss_wifi_vdev_igmp_per_packet_metadata {
 };
 
 /**
+ * Wifi per packet metadata for MESH packets.
+ */
+struct nss_wifi_vdev_mesh_per_packet_metadata {
+	uint32_t status;			/**< status */
+	uint32_t rssi;				/**< rssi */
+};
+
+/**
  * wifi per packet metadata content
  */
 struct nss_wifi_vdev_per_packet_metadata {
 	uint32_t pkt_type;
 	union {
 		struct nss_wifi_vdev_igmp_per_packet_metadata igmp_metadata;
+		struct nss_wifi_vdev_mesh_per_packet_metadata mesh_metadata;
 	} metadata;
 };
 
