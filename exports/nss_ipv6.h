@@ -470,6 +470,8 @@ struct nss_ipv6_msg {
 
 extern int nss_ipv4_conn_cfg;
 
+#ifdef __KERNEL__
+
 /**
  * @brief Return the maximum number of IPv6 connections that the NSS acceleration engine supports
  *
@@ -561,4 +563,5 @@ extern void nss_ipv6_msg_init(struct nss_ipv6_msg *nim, uint16_t if_num, uint32_
  * @return 0 on success
  */
 extern int nss_ipv6_update_conn_count(int ipv6_num_conn);
+#endif
 #endif /* __NSS_IPV6_H */
