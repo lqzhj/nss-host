@@ -78,7 +78,7 @@ static int nss_panic_handler(struct notifier_block *nb,
 			continue;
 		nss_ctx->state |= NSS_CORE_STATE_PANIC;
 		nss_hal_send_interrupt(nss_ctx->nmap, 0,
-			NSS_REGS_H2N_INTR_STATUS_COREDUMP_START);
+			NSS_REGS_H2N_INTR_STATUS_TRIGGER_COREDUMP);
 		nss_warning("panic call NSS FW %x to dump %x\n",
 			nss_ctx->nmap, nss_ctx->state);
 	}
@@ -157,7 +157,7 @@ void nss_fw_coredump_notify(struct nss_ctx_instance *nss_own,
 			nss_warning("notify NSS FW %X for coredump\n",
 				nss_ctx->nmap);
 			nss_hal_send_interrupt(nss_ctx->nmap, 0,
-				NSS_REGS_H2N_INTR_STATUS_COREDUMP_START);
+				NSS_REGS_H2N_INTR_STATUS_TRIGGER_COREDUMP);
 		}
 	}
 }
