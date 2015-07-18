@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2015 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -139,7 +139,9 @@ nss_state_t nss_cmn_get_state(struct nss_ctx_instance *ctx)
  */
 bool nss_cmn_interface_is_virtual(void *nss_ctx, int32_t interface_num)
 {
-	return (NSS_IS_IF_TYPE(DYNAMIC, interface_num) || NSS_IS_IF_TYPE(VIRTUAL, interface_num));
+	return ((nss_dynamic_interface_get_type(interface_num) == NSS_DYNAMIC_INTERFACE_TYPE_WIFI)
+		|| (nss_dynamic_interface_get_type(interface_num) == NSS_DYNAMIC_INTERFACE_TYPE_802_3_REDIR)
+		|| (nss_dynamic_interface_get_type(interface_num) == NSS_DYNAMIC_INTERFACE_TYPE_VIRTIF_DEPRECATED));
 }
 
 /*

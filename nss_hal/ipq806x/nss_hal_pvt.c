@@ -872,7 +872,7 @@ static struct nss_platform_data *nss_hal_of_get_pdata(struct device_node *np,
 	    || of_property_read_u32(np, "qcom,l2switch_enabled", &npd->l2switch_enabled)
 	    || of_property_read_u32(np, "qcom,crypto_enabled", &npd->crypto_enabled)
 	    || of_property_read_u32(np, "qcom,ipsec_enabled", &npd->ipsec_enabled)
-	    || of_property_read_u32(np, "qcom,wlan_enabled", &npd->wlan_enabled)
+	    || of_property_read_u32(np, "qcom,wlanredirect_enabled", &npd->wlanredirect_enabled)
 	    || of_property_read_u32(np, "qcom,tun6rd_enabled", &npd->tun6rd_enabled)
 	    || of_property_read_u32(np, "qcom,tunipip6_enabled", &npd->tunipip6_enabled)
 	    || of_property_read_u32(np, "qcom,shaping_enabled", &npd->shaping_enabled)) {
@@ -1318,7 +1318,6 @@ int nss_hal_probe(struct platform_device *nss_dev)
 		nss_pppoe_register_handler();
 		nss_eth_rx_register_handler();
 		nss_n2h_register_handler();
-		nss_virt_if_register_handler();
 		nss_lag_register_handler();
 		nss_dynamic_interface_register_handler();
 		nss_top->capwap_handler_id = nss_dev->id;
@@ -1357,7 +1356,7 @@ int nss_hal_probe(struct platform_device *nss_dev)
 		nss_ipsec_register_handler();
 	}
 
-	if (npd->wlan_enabled == NSS_FEATURE_ENABLED) {
+	if (npd->wlanredirect_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->wlan_handler_id = nss_dev->id;
 	}
 

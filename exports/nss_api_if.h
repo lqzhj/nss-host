@@ -56,6 +56,7 @@
 #include "nss_wifi.h"
 #include "nss_wifi_vdev.h"
 #include "nss_n2h.h"
+#include "nss_wifi_if.h"
 
 /*
  * Interface numbers are reserved in the
@@ -84,7 +85,6 @@
 #define NSS_MAX_VIRTUAL_INTERFACES 16
 #define NSS_MAX_TUNNEL_INTERFACES 4
 #define NSS_MAX_SPECIAL_INTERFACES 30
-#define NSS_MAX_DYNAMIC_INTERFACES 32
 #define NSS_MAX_WIFI_RADIO_INTERFACES 3
 
 /**
@@ -661,15 +661,6 @@ extern void nss_unregister_virt_if(void *ctx);
  * @return void* context
  */
 extern void *nss_create_virt_if(struct net_device *netdev);
-
-/**
- * @brief Obtain NSS Interface number for a virtual interface context
- *
- * @param context Interface context
- *
- * @return int32_t The NSS interface number
- */
-int32_t nss_virt_if_get_interface_num(void *if_ctx);
 
 /**
  * @brief Destroy virtual interface (VAPs)

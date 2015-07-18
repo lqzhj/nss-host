@@ -60,10 +60,127 @@ static inline void nss_verify_init_done(struct nss_ctx_instance *nss_ctx)
 #endif
 
 /*
+ * Deprecated Redirect
+ */
+
+/**
+ * @brief Request/Response types
+ */
+enum nss_tx_rx_virt_if_msg_types {
+	NSS_TX_RX_VIRT_IF_OPEN = NSS_IF_OPEN,
+	NSS_TX_RX_VIRT_IF_CLOSE = NSS_IF_CLOSE,
+	NSS_TX_RX_VIRT_IF_LINK_STATE_NOTIFY = NSS_IF_LINK_STATE_NOTIFY,
+	NSS_TX_RX_VIRT_IF_MTU_CHANGE = NSS_IF_MTU_CHANGE,
+	NSS_TX_RX_VIRT_IF_MAC_ADDR_SET = NSS_IF_MAC_ADDR_SET,
+	NSS_TX_RX_VIRT_IF_STATS_SYNC = NSS_IF_STATS,
+	NSS_TX_RX_VIRT_IF_ISHAPER_ASSIGN = NSS_IF_ISHAPER_ASSIGN,
+	NSS_TX_RX_VIRT_IF_BSHAPER_ASSIGN = NSS_IF_BSHAPER_ASSIGN,
+	NSS_TX_RX_VIRT_IF_ISHAPER_UNASSIGN = NSS_IF_ISHAPER_UNASSIGN,
+	NSS_TX_RX_VIRT_IF_BSHAPER_UNASSIGN = NSS_IF_BSHAPER_UNASSIGN,
+	NSS_TX_RX_VIRT_IF_ISHAPER_CONFIG = NSS_IF_ISHAPER_CONFIG,
+	NSS_TX_RX_VIRT_IF_BSHAPER_CONFIG = NSS_IF_BSHAPER_CONFIG,
+	NSS_TX_RX_VIRT_IF_TX_CREATE_MSG = NSS_IF_MAX_MSG_TYPES + 1,
+	NSS_TX_RX_VIRT_IF_TX_DESTROY_MSG,
+	NSS_TX_RX_VIRT_IF_STATS_SYNC_MSG,
+	NSS_TX_RX_VIRT_IF_MAX_MSG_TYPES,
+};
+
+/**
+ * virt_if error types
+ */
+enum nss_tx_rx_virt_if_error_types {
+	NSS_TX_RX_VIRT_IF_SUCCESS,			/*< Success */
+	NSS_TX_RX_VIRT_IF_CORE_FAILURE,		/*< nss core failure */
+	NSS_TX_RX_VIRT_IF_ALLOC_FAILURE,		/*< Memory allocation failure */
+	NSS_TX_RX_VIRT_IF_DYNAMIC_IF_FAILURE,	/*< Dynamic interface failure */
+	NSS_TX_RX_VIRT_IF_MSG_TX_FAILURE,		/*< Message transmission failure */
+	NSS_TX_RX_VIRT_IF_REG_FAILURE,		/*< Registration failure */
+	NSS_TX_RX_VIRT_IF_CORE_NOT_INITIALIZED,	/*< NSS core not intialized */
+};
+
+/**
+ * Structure which contains stats received from NSS.
+ */
+struct nss_tx_rx_virt_if_stats {
+	struct nss_if_stats node_stats;	/**< common stats */
+	uint32_t tx_enqueue_failed;	/**< tx enqueue failures in the FW */
+	uint32_t shaper_enqueue_failed;	/**< shaper enqueue failures in the FW */
+};
+
+/**
+ * The NSS virtual interface creation structure.
+ */
+struct nss_tx_rx_virt_if_create_msg {
+	uint32_t flags;			/**< Interface flags */
+	uint8_t mac_addr[ETH_ALEN];	/**< MAC address */
+};
+
+/**
+ * The NSS virtual interface destruction structure.
+ */
+struct nss_tx_rx_virt_if_destroy_msg {
+	int32_t reserved;		/**< place holder */
+};
+
+/**
+ * Message structure to send/receive virtual interface commands
+ */
+struct nss_tx_rx_virt_if_msg {
+	struct nss_cmn_msg cm;
+				/**< Message Header */
+	union {
+		union nss_if_msgs if_msgs;
+		struct nss_tx_rx_virt_if_create_msg if_create;
+				/**< Message: create virt if rule */
+		struct nss_tx_rx_virt_if_destroy_msg if_destroy;
+				/**< Message: destroy virt if rule */
+		struct nss_tx_rx_virt_if_stats stats;
+				/**< Message: stats */
+	} msg;
+};
+
+/*
+ * Private data structure for virt_if interface
+ */
+struct nss_tx_rx_virt_if_pvt {
+	struct semaphore sem;
+	struct completion complete;
+	int response;
+	int sem_init_done;
+};
+
+typedef void (*nss_tx_rx_virt_if_data_callback_t)(struct net_device *netdev, struct sk_buff *skb, struct napi_struct *napi);
+typedef void (*nss_tx_rx_virt_if_msg_callback_t)(void *app_data, struct nss_cmn_msg *msg);
+
+/*
+ * Handles associated with redir interfaces(virt_if & wifi_i).
+ * TODO: Once wifi moves to using the new interfaces, this will be deprecated.
+ */
+
+struct nss_tx_rx_virt_if_handle {
+	struct nss_ctx_instance *nss_ctx;
+	int32_t if_num;
+	struct nss_tx_rx_virt_if_pvt *pvt;
+	struct nss_tx_rx_virt_if_stats stats;
+	nss_tx_rx_virt_if_msg_callback_t cb;
+	void *app_data;
+};
+
+/**
+ * @brief Get stats for redir interface from NSS driver
+ *
+ * @param if_num Interface number (provided during dynamic_interface allocation)
+ * @param i index of stats
+ * @param line buffer into which the stats will be copied.
+ *
+ * @return int32_t Returns 0 if if_num is not in range or the number of bytes copied.
+ */
+extern int32_t nss_tx_rx_virt_if_copy_stats(int32_t if_num, int i, char *line);
+
+/*
  * CB handlers for variour interfaces
  */
 void nss_phys_if_register_handler(uint32_t if_num);
-extern void nss_virt_if_register_handler(void);
 extern void nss_crypto_register_handler(void);
 extern void nss_ipsec_register_handler(void);
 extern void nss_ipv4_register_handler(void);

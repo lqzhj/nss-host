@@ -308,68 +308,6 @@ struct nss_lso_rx_msg {
 };
 
 /*
- * Dynamic interface messages
- */
-
-/*
- * Dynamic Interface request/response types
- */
-enum nss_dynamic_interface_message_types {
-	NSS_DYNAMIC_INTERFACE_ALLOC_NODE,	/* Alloc node message type */
-	NSS_DYNAMIC_INTERFACE_DEALLOC_NODE,	/* Dealloc node message type */
-	NSS_DYNAMIC_INTERFACE_MAX,
-};
-
-/*
- * Dynamic interface alloc node msg
- */
-struct nss_dynamic_interface_alloc_node_msg {
-	enum nss_dynamic_interface_type type;	/* Dynamic Interface type */
-	/*
-	 * Response
-	 */
-	int if_num;				/* Interface number */
-};
-
-/*
- * This structure is there to keep information
- * pertaining to each if_num allocated through
- * dynamic interface API
- */
-struct nss_dynamic_interface_assigned {
-	enum nss_dynamic_interface_type type;
-};
-
-/*
- * Private data structure of dynamic interface
- */
-struct nss_dynamic_interface_pvt {
-	struct semaphore sem;			/* Semaphore structure */
-	struct completion complete;		/* completion structure */
-	int current_if_num;			/* Current interface number */
-	struct nss_dynamic_interface_assigned if_num[NSS_MAX_DYNAMIC_INTERFACES];
-};
-
-/*
- * Dynamic interface dealloc node msg
- */
-struct nss_dynamic_interface_dealloc_node_msg {
-	enum nss_dynamic_interface_type type;	/* Dynamic Interface type */
-	int if_num;				/* Interface number */
-};
-
-/*
- * Message structure to send/receive Dynamic Interface messages
- */
-struct nss_dynamic_interface_msg {
-	struct nss_cmn_msg cm;							/* Common Message */
-	union {
-		struct nss_dynamic_interface_alloc_node_msg alloc_node;		/* Msg: Allocate dynamic node */
-		struct nss_dynamic_interface_dealloc_node_msg dealloc_node;	/* Msg: deallocate dynamic node */
-	} msg;
-};
-
-/*
  * H2N Buffer Types
  */
 #define H2N_BUFFER_EMPTY			0
