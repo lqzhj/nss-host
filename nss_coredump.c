@@ -26,8 +26,8 @@
 #include <linux/jiffies.h>	/* for time */
 #include "nss_tx_rx_common.h"
 
-#if NSS_MAX_CORES != 2	/* see comment in nss_fw_coredump_notify */
-#error	NSS Cores != 2
+#if NSS_MAX_CORES > 2	/* see comment in nss_fw_coredump_notify */
+#error	too many NSS Cores: should be 1 or 2
 #endif
 
 static struct delayed_work coredump_queuewait;
@@ -74,7 +74,7 @@ static int nss_panic_handler(struct notifier_block *nb,
 
 	for (i = 0; i < NSS_MAX_CORES; i++) {
 		struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[i];
-		if (nss_ctx->state & NSS_CORE_STATE_FW_DEAD)
+		if (nss_ctx->state & NSS_CORE_STATE_FW_DEAD || !nss_ctx->nmap)
 			continue;
 		nss_ctx->state |= NSS_CORE_STATE_PANIC;
 		nss_hal_send_interrupt(nss_ctx->nmap, 0,
@@ -91,7 +91,8 @@ static int nss_panic_handler(struct notifier_block *nb,
 		mdelay(200);
 		for (i = 0; i < NSS_MAX_CORES; i++) {
 			struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[i];
-			if (nss_ctx->state & NSS_CORE_STATE_FW_DEAD &&
+			if ((nss_ctx->state & NSS_CORE_STATE_FW_DEAD ||
+				!nss_ctx->nmap) &&
 			    !(nss_ctx->state & NSS_CORE_STATE_FW_DUMP)) {
 				nss_ctx->state |= NSS_CORE_STATE_FW_DUMP;
 				dumped++;
@@ -147,7 +148,8 @@ void nss_fw_coredump_notify(struct nss_ctx_instance *nss_own,
 		 * Do not call panic() till all core dumped.
 		 */
 		if (nss_ctx != nss_own) {
-			if (nss_ctx->state & NSS_CORE_STATE_FW_DEAD) {
+			if (nss_ctx->state & NSS_CORE_STATE_FW_DEAD ||
+					!nss_ctx->nmap) {
 				/*
 				 * cannot call atomic_notifier_chain_unregister?
 				 * (&panic_notifier_list, &nss_panic_nb);
