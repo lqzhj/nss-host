@@ -23,6 +23,7 @@
 #define __NSS_WIFI_H
 
 #define NSS_WIFI_MGMT_DATA_LEN  128
+#define NSS_WIFI_FW_STATS_DATA_LEN  480
 #define NSS_WIFI_RAWDATA_MAX_LEN  64
 
 /**
@@ -44,6 +45,7 @@ enum nss_wifi_metadata_types {
 	NSS_WIFI_RX_REORDER_ARRAY_FREELIST_APPEND_MSG,
 	NSS_WIFI_SEND_PEER_MEMORY_REQUEST_MSG,
 	NSS_WIFI_SEND_RRA_MEMORY_REQUEST_MSG,
+	NSS_WIFI_FW_STATS_MSG,
 	NSS_WIFI_MAX_MSG
 };
 
@@ -154,6 +156,14 @@ struct nss_wifi_mgmtsend_msg {
 };
 
 /**
+ *  wifi fw-stats data message structure
+ */
+struct nss_wifi_fw_stats_msg {
+	uint32_t len;					/**< Length of the stats data */
+	uint8_t array[NSS_WIFI_FW_STATS_DATA_LEN];	/**< Stats data */
+};
+
+/**
  * wifi pdev wds peer specific messages
  */
 struct nss_wifi_wds_peer_msg {
@@ -229,6 +239,7 @@ struct nss_wifi_msg {
 		struct nss_wifi_stats_sync_msg statsmsg;
 		struct nss_wifi_peer_freelist_append_msg peer_freelist_append;
 		struct nss_wifi_rx_reorder_array_freelist_append_msg rx_reorder_array_freelist_append;
+		struct nss_wifi_fw_stats_msg fwstatsmsg;
 	} msg;
 };
 
