@@ -216,6 +216,7 @@ nss_tx_status_t nss_tx_virt_if_recvbuf(void *ctx, struct sk_buff *skb, uint32_t 
 	int32_t if_num = handle->if_num;
 	struct nss_ctx_instance *nss_ctx = handle->nss_ctx;
 	nss_tx_status_t status;
+	int push_mac_header = 0;
 
 	if (unlikely(nss_ctl_redirect == 0)) {
 		return NSS_TX_FAILURE_NOT_ENABLED;
@@ -261,6 +262,16 @@ nss_tx_status_t nss_tx_virt_if_recvbuf(void *ctx, struct sk_buff *skb, uint32_t 
 		skb->priority = NSS_TX_RX_VIRT_IF_NATIVE_WIFI_PKT;
 	} else {
 		skb->priority = NSS_TX_RX_VIRT_IF_802_3_PKT;
+
+		/*
+		 * NSS expects to see buffer from Ethernet header onwards.
+		 * If the wireless driver has called eth_type_trans to remove
+		 * the ethernet header, we need to push back the header
+		 */
+		if (unlikely((skb->data - skb_mac_header(skb)) == ETH_HLEN)) {
+			skb_push(skb, ETH_HLEN);
+			push_mac_header = 1;
+		}
 	}
 
 	/*
@@ -270,6 +281,11 @@ nss_tx_status_t nss_tx_virt_if_recvbuf(void *ctx, struct sk_buff *skb, uint32_t 
 					H2N_BUFFER_PACKET, H2N_BIT_FLAG_VIRTUAL_BUFFER);
 	if (unlikely(status != NSS_CORE_STATUS_SUCCESS)) {
 		nss_warning("%p: Virtual Rx packet unable to enqueue\n", nss_ctx);
+
+		if (unlikely(push_mac_header)) {
+			skb_pull(skb, ETH_HLEN);
+		}
+
 		return NSS_TX_FAILURE_QUEUE;
 	}
 
