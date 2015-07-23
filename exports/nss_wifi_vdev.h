@@ -102,9 +102,10 @@ struct nss_wifi_vdev_config_msg {
 	uint32_t downloadlen;		/**< Header download length */
 	uint32_t hdrcachelen;		/**< Header cache length */
 	uint32_t hdrcache[NSS_WIFI_HTT_TRANSFER_HDRSIZE_WORD];
-					/**< Header cache */
 	uint32_t opmode;		/**< VAP Opmode - AP or STA? */
 	uint32_t mesh_mode_en;		/**< Mesh mode enabled */
+	uint8_t  is_mpsta;		/**< is this vap is mpsta */
+	uint8_t  is_psta;		/**< this is a proxy station*/
 };
 
 /**
@@ -212,6 +213,22 @@ struct nss_wifi_vdev_per_packet_metadata {
 		struct nss_wifi_vdev_igmp_per_packet_metadata igmp_metadata;
 		struct nss_wifi_vdev_mesh_per_packet_metadata mesh_metadata;
 	} metadata;
+};
+
+/**
+ * wifi transmit meta data for mpsta
+ */
+struct nss_wifi_mpsta_tx_metadata {
+	uint16_t vdev_id;		/**< vdev_id */
+	uint16_t reserve;
+};
+
+/**
+ * wifi recieve meta data for mpsta
+ */
+struct nss_wifi_mpsta_rx_metadata {
+	uint16_t vdev_id;		/**< vdev_id */
+	uint16_t peer_id;		/**< peer_id */
 };
 
 /**
