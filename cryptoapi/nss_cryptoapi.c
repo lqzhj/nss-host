@@ -313,7 +313,6 @@ static int nss_cryptoapi_sha1_aes_setkey(struct crypto_aead *tfm, const u8 *key,
 	return 0;
 
 fail:
-	atomic_dec(&ctx->refcnt);
 	crypto_aead_set_flags(tfm, flag);
 	return -EINVAL;
 }
@@ -380,7 +379,6 @@ static int nss_cryptoapi_sha256_aes_setkey(struct crypto_aead *tfm, const u8 *ke
 	return 0;
 
 fail:
-	atomic_dec(&ctx->refcnt);
 	crypto_aead_set_flags(tfm, flag);
 	return -EINVAL;
 }
@@ -447,7 +445,6 @@ static int nss_cryptoapi_sha1_3des_setkey(struct crypto_aead *tfm, const u8 *key
 	return 0;
 
 fail:
-	atomic_dec(&ctx->refcnt);
 	crypto_aead_set_flags(tfm, flag);
 	return -EINVAL;
 }
@@ -514,7 +511,6 @@ static int nss_cryptoapi_sha256_3des_setkey(struct crypto_aead *tfm, const u8 *k
 	return 0;
 
 fail:
-	atomic_dec(&ctx->refcnt);
 	crypto_aead_set_flags(tfm, flag);
 	return -EINVAL;
 }
