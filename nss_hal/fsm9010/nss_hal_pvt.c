@@ -240,7 +240,7 @@ static struct nss_platform_data *nss_hal_of_get_pdata(struct device_node *np,
 	npd->crypto_enabled = of_property_read_bool(np, "qcom,crypto-enabled");
 	npd->l2switch_enabled = of_property_read_bool(np, "qcom,l2switch_enabled");
 	npd->ipsec_enabled = of_property_read_bool(np, "qcom,ipsec-enabled");
-	npd->wlan_enabled = of_property_read_bool(np, "qcom,wlan-enabled");
+	npd->wlanredirect_enabled = of_property_read_bool(np, "qcom,wlan-enabled");
 	npd->tun6rd_enabled = of_property_read_bool(np, "qcom,tun6rd-enabled");
 	npd->tunipip6_enabled = of_property_read_bool(np, "qcom,tunipip6-enabled");
 	npd->shaping_enabled = of_property_read_bool(np, "qcom,shaping-enabled");
@@ -473,7 +473,7 @@ int nss_hal_probe(struct platform_device *nss_dev)
 		nss_ipsec_register_handler();
 	}
 
-	if (npd->wlan_enabled == NSS_FEATURE_ENABLED) {
+	if (npd->wlanredirect_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->wlan_handler_id = nss_dev->id;
 	}
 
