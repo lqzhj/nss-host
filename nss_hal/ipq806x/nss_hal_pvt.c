@@ -822,6 +822,13 @@ static struct nss_platform_data *nss_hal_of_get_pdata(struct device_node *np,
 		goto out;
 	}
 
+	/*
+	 * Read frequencies. If failure, load default values.
+	 */
+	of_property_read_u32(np, "qcom,low_frequency", &nss_runtime_samples.freq_scale[NSS_FREQ_LOW_SCALE].frequency);
+	of_property_read_u32(np, "qcom,mid_frequency", &nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].frequency);
+	of_property_read_u32(np, "qcom,max_frequency", &nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].frequency);
+
 	nss_ctx = &nss_top->nss[npd->id];
 	nss_ctx->id = npd->id;
 
@@ -1116,9 +1123,15 @@ int nss_hal_probe(struct platform_device *nss_dev)
 			printk("nss_driver - Turbo No Support %d\n", npd->turbo_frequency);
 		}
 
-		nss_runtime_samples.freq_scale[NSS_FREQ_LOW_SCALE].frequency = 0;
-		nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].frequency = 0;
-		nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].frequency = 0;
+		/*
+		 * If valid entries - from dtsi - then just init clks.
+		 * Otherwise query for clocks.
+		 */
+		if ((nss_runtime_samples.freq_scale[NSS_FREQ_LOW_SCALE].frequency != 0) &&
+			(nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].frequency != 0) &&
+			(nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].frequency != 0)) {
+			goto clk_complete;
+		}
 
 		/*
 		 * Load default scales, then query for higher.
@@ -1128,10 +1141,7 @@ int nss_hal_probe(struct platform_device *nss_dev)
 		if (clk_set_rate(nss_core0_clk, NSS_FREQ_110) != 0) {
 			goto err_init_0;
 		}
-
 		nss_runtime_samples.freq_scale[NSS_FREQ_LOW_SCALE].frequency = NSS_FREQ_110;
-		nss_runtime_samples.freq_scale[NSS_FREQ_LOW_SCALE].minimum = NSS_FREQ_110_MIN;
-		nss_runtime_samples.freq_scale[NSS_FREQ_LOW_SCALE].maximum = NSS_FREQ_110_MAX;
 
 		if (npd->turbo_frequency) {
 			/*
@@ -1139,12 +1149,8 @@ int nss_hal_probe(struct platform_device *nss_dev)
 			 */
 			if (clk_set_rate(nss_core0_clk, NSS_FREQ_600) == 0) {
 				nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].frequency = NSS_FREQ_600;
-				nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].minimum = NSS_FREQ_600_MIN;
-				nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].maximum = NSS_FREQ_600_MAX;
 			} else if (clk_set_rate(nss_core0_clk, NSS_FREQ_550) == 0) {
 				nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].frequency = NSS_FREQ_550;
-				nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].minimum = NSS_FREQ_550_MIN;
-				nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].maximum = NSS_FREQ_550_MAX;
 			} else {
 				goto err_init_0;
 			}
@@ -1154,12 +1160,8 @@ int nss_hal_probe(struct platform_device *nss_dev)
 			 */
 			if (clk_set_rate(nss_core0_clk, NSS_FREQ_800) == 0) {
 				nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].frequency = NSS_FREQ_800;
-				nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].minimum = NSS_FREQ_800_MIN;
-				nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].maximum = NSS_FREQ_800_MAX;
 			} else if (clk_set_rate(nss_core0_clk, NSS_FREQ_733) == 0) {
 				nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].frequency = NSS_FREQ_733;
-				nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].minimum = NSS_FREQ_733_MIN;
-				nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].maximum = NSS_FREQ_733_MAX;
 			} else {
 				goto err_init_0;
 			}
@@ -1169,15 +1171,43 @@ int nss_hal_probe(struct platform_device *nss_dev)
 				goto err_init_0;
 			}
 			nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].frequency = NSS_FREQ_275;
-			nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].minimum = NSS_FREQ_275_MIN;
-			nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].maximum = NSS_FREQ_275_MAX;
 
 			if (clk_set_rate(nss_core0_clk, NSS_FREQ_550) != 0) {
 				goto err_init_0;
 			}
 			nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].frequency = NSS_FREQ_550;
-			nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].minimum = NSS_FREQ_550_MIN;
-			nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].maximum = NSS_FREQ_550_MAX;
+		}
+
+clk_complete:
+
+		/*
+		 * Setup Ranges
+		 */
+		for (i = 0; i < NSS_FREQ_MAX_SCALE; i++) {
+			if (nss_runtime_samples.freq_scale[i].frequency == NSS_FREQ_110) {
+				nss_runtime_samples.freq_scale[i].minimum = NSS_FREQ_110_MIN;
+				nss_runtime_samples.freq_scale[i].maximum = NSS_FREQ_110_MAX;
+			}
+			if (nss_runtime_samples.freq_scale[i].frequency == NSS_FREQ_275) {
+				nss_runtime_samples.freq_scale[i].minimum = NSS_FREQ_275_MIN;
+				nss_runtime_samples.freq_scale[i].maximum = NSS_FREQ_275_MAX;
+			}
+			if (nss_runtime_samples.freq_scale[i].frequency == NSS_FREQ_550) {
+				nss_runtime_samples.freq_scale[i].minimum = NSS_FREQ_550_MIN;
+				nss_runtime_samples.freq_scale[i].maximum = NSS_FREQ_550_MAX;
+			}
+			if (nss_runtime_samples.freq_scale[i].frequency == NSS_FREQ_600) {
+				nss_runtime_samples.freq_scale[i].minimum = NSS_FREQ_600_MIN;
+				nss_runtime_samples.freq_scale[i].maximum = NSS_FREQ_600_MAX;
+			}
+			if (nss_runtime_samples.freq_scale[i].frequency == NSS_FREQ_733) {
+				nss_runtime_samples.freq_scale[i].minimum = NSS_FREQ_733_MIN;
+				nss_runtime_samples.freq_scale[i].maximum = NSS_FREQ_733_MAX;
+			}
+			if (nss_runtime_samples.freq_scale[i].frequency == NSS_FREQ_800) {
+				nss_runtime_samples.freq_scale[i].minimum = NSS_FREQ_800_MIN;
+				nss_runtime_samples.freq_scale[i].maximum = NSS_FREQ_800_MAX;
+			}
 		}
 
 		printk("Supported Frequencies - ");
