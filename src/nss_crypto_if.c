@@ -437,11 +437,6 @@ void nss_crypto_engine_init(uint32_t eng_num)
 		nss_crypto_err("Failed to send the message to NSS\n");
 		return;
 	}
-
-	/*
-	 * Create debufs information of the engine
-	 */
-	nss_crypto_debugfs_add_engine(ctrl, eng_num);
 }
 
 /*

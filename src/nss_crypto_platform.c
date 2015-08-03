@@ -38,6 +38,7 @@
 #include <nss_crypto_hw.h>
 #include <nss_crypto_ctrl.h>
 #include <nss_crypto_dbg.h>
+#include <nss_crypto_debugfs.h>
 
 #define REG(off)	(MSM_CLK_CTL_BASE + (off))
 #define REG_GCC(off)	(MSM_APCS_GCC_BASE + (off))
@@ -193,6 +194,7 @@ void nss_crypto_delayed_init(struct work_struct *work)
 {
 	struct nss_crypto_ctrl *ctrl;
 	uint32_t status = 0;
+	uint32_t i = 0;
 
 	ctrl = container_of(to_delayed_work(work), struct nss_crypto_ctrl, crypto_work);
 
@@ -218,6 +220,11 @@ void nss_crypto_delayed_init(struct work_struct *work)
 		return;
 	}
 
+	/*
+	 * Initialize the engine stats
+	 */
+	for (i = 0; i < gbl_crypto_ctrl.num_eng ; i++)
+		nss_crypto_debugfs_add_engine(ctrl, i);
 }
 
 /*

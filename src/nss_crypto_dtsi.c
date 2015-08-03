@@ -42,6 +42,7 @@
 #include <nss_crypto_hw.h>
 #include <nss_crypto_ctrl.h>
 #include <nss_crypto_dbg.h>
+#include <nss_crypto_debugfs.h>
 
 /* Poll time in ms */
 #define CRYPTO_DELAYED_INIT_TIME	100
@@ -220,6 +221,7 @@ void nss_crypto_delayed_init(struct work_struct *work)
 {
 	struct nss_crypto_ctrl *ctrl;
 	uint32_t status = 0;
+	uint32_t i = 0;
 
 	ctrl = container_of(to_delayed_work(work), struct nss_crypto_ctrl, crypto_work);
 
@@ -244,6 +246,12 @@ void nss_crypto_delayed_init(struct work_struct *work)
 		nss_crypto_err("unable to register the driver : %d\n", status);
 		return;
 	}
+
+	/*
+	 * Initialize the engine stats
+	 */
+	for (i = 0; i < gbl_crypto_ctrl.num_eng ; i++)
+		nss_crypto_debugfs_add_engine(ctrl, i);
 }
 
 /*
