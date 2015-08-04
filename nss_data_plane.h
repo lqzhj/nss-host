@@ -35,6 +35,7 @@ struct nss_data_plane_param {
 	int notify_open;			/* This gmac interface has been opened or not */
 	int enabled;				/* This gmac is enabled or not */
 	uint32_t features;			/* skb types supported by this interface */
+	uint32_t bypass_nw_process;		/* Do we want to bypass NW processing in NSS for this GMAC */
 };
 
 /*

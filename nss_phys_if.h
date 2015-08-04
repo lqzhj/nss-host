@@ -204,10 +204,12 @@ nss_tx_status_t nss_phys_if_msg_sync(struct nss_ctx_instance *nss_ctx, struct ns
  * @param tx_desc_ring Tx descriptor ring address
  * @param rx_desc_ring Rx descriptor ring address
  * @param if_num GMAC i/f number
+ * @param bypass_nw_process network processing in nss is bypassed for GMAC
  *
  * @return nss_tx_status_t Tx status
  */
-nss_tx_status_t nss_phys_if_open(struct nss_ctx_instance *nss_ctx, uint32_t tx_desc_ring, uint32_t rx_desc_ring, uint32_t mode, uint32_t if_num);
+nss_tx_status_t nss_phys_if_open(struct nss_ctx_instance *nss_ctx, uint32_t tx_desc_ring, uint32_t rx_desc_ring, uint32_t mode, uint32_t if_num,
+								uint32_t bypass_nw_process);
 
 /**
  * @brief Close GMAC interface on NSS

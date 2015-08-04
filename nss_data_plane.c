@@ -20,6 +20,8 @@
 #include "nss_tx_rx_common.h"
 #include <nss_gmac_api_if.h>
 
+extern int nss_skip_nw_process;
+
 #define NSS_DP_SUPPORTED_FEATURES NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_FRAGLIST | (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO)
 
 struct nss_data_plane_param nss_data_plane_params[NSS_MAX_PHYSICAL_INTERFACES];
@@ -35,7 +37,7 @@ static int nss_data_plane_open(void *arg, uint32_t tx_desc_ring, uint32_t rx_des
 	if (dp->notify_open) {
 		return NSS_GMAC_SUCCESS;
 	}
-	if (nss_phys_if_open(dp->nss_ctx, tx_desc_ring, rx_desc_ring, mode, dp->if_num) == NSS_TX_SUCCESS) {
+	if (nss_phys_if_open(dp->nss_ctx, tx_desc_ring, rx_desc_ring, mode, dp->if_num, dp->bypass_nw_process) == NSS_TX_SUCCESS) {
 		dp->notify_open = 1;
 		return NSS_GMAC_SUCCESS;
 	}
@@ -159,6 +161,15 @@ bool nss_data_plane_register_to_nss_gmac(struct nss_ctx_instance *nss_ctx, int i
 	ndpp->notify_open = 0;
 	ndpp->features = 0;
 
+	/*
+	 * Check if NSS NW processing to be bypassed for this GMAC
+	 */
+	if (nss_skip_nw_process) {
+		ndpp->bypass_nw_process = 1;
+	} else {
+		ndpp->bypass_nw_process = 0;
+	}
+
 	if (nss_gmac_override_data_plane(netdev, &dp_ops, ndpp) != NSS_GMAC_SUCCESS) {
 		nss_info("Override nss-gmac data plane failed\n");
 		return false;
@@ -196,4 +207,5 @@ void nss_data_plane_unregister_from_nss_gmac(int if_num)
 	nss_data_plane_params[if_num].if_num = 0;
 	nss_data_plane_params[if_num].notify_open = 0;
 	nss_data_plane_params[if_num].enabled = 0;
+	nss_data_plane_params[if_num].bypass_nw_process = 0;
 }

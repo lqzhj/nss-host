@@ -62,6 +62,8 @@ int nss_core1_add_buf_pool_size __read_mostly = 0;
 int nss_ctl_logbuf __read_mostly = 0;
 int nss_jumbo_mru  __read_mostly = 0;
 int nss_paged_mode __read_mostly = 0;
+int nss_skip_nw_process = 0x0;
+module_param(nss_skip_nw_process, int, S_IRUGO);
 
 /*
  * PM client handle
