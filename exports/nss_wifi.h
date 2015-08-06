@@ -46,6 +46,7 @@ enum nss_wifi_metadata_types {
 	NSS_WIFI_SEND_PEER_MEMORY_REQUEST_MSG,
 	NSS_WIFI_SEND_RRA_MEMORY_REQUEST_MSG,
 	NSS_WIFI_FW_STATS_MSG,
+	NSS_WIFI_MONITOR_FILTER_SET_MSG,
 	NSS_WIFI_MAX_MSG
 };
 
@@ -164,6 +165,13 @@ struct nss_wifi_fw_stats_msg {
 };
 
 /**
+ *  wifi monitor mode set filter message structure
+ */
+struct nss_wifi_monitor_set_filter_msg {
+	uint32_t filter_type;			/**< filter type */
+};
+
+/**
  * wifi pdev wds peer specific messages
  */
 struct nss_wifi_wds_peer_msg {
@@ -240,6 +248,7 @@ struct nss_wifi_msg {
 		struct nss_wifi_peer_freelist_append_msg peer_freelist_append;
 		struct nss_wifi_rx_reorder_array_freelist_append_msg rx_reorder_array_freelist_append;
 		struct nss_wifi_fw_stats_msg fwstatsmsg;
+		struct nss_wifi_monitor_set_filter_msg monitor_filter_msg;
 	} msg;
 };
 
