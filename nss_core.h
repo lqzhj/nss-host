@@ -620,8 +620,10 @@ struct nss_ctx_instance {
 					/* Host to NSS descriptor rings */
 	struct hlos_n2h_desc_ring n2h_desc_ring[15];
 					/* NSS to Host descriptor rings */
-	uint8_t n2h_rps_en;		/* N2H Enable Multiple queues for Data Packets */
+	uint16_t n2h_rps_en;		/* N2H Enable Multiple queues for Data Packets */
+	uint16_t n2h_mitigate_en;	/* N2H mitigation */
 	uint32_t max_buf_size;		/* Maximum buffer size */
+	uint32_t buf_sz_allocated;	/* size of bufs allocated from host */
 	nss_cmn_queue_decongestion_callback_t queue_decongestion_callback[NSS_MAX_CLIENTS];
 					/* Queue decongestion callbacks */
 	void *queue_decongestion_ctx[NSS_MAX_CLIENTS];

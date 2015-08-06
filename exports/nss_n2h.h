@@ -27,6 +27,8 @@
 #ifndef __NSS_N2H_H
 #define __NSS_N2H_H
 
+#define MAX_PAGES_PER_MSG 32
+
 /*
  * Private data structure for configure general configs
  */
@@ -47,6 +49,8 @@ enum nss_n2h_metadata_types {
 	NSS_TX_METADATA_TYPE_N2H_RPS_CFG,
 	NSS_TX_METADATA_TYPE_N2H_EMPTY_POOL_BUF_CFG,
 	NSS_TX_METADATA_TYPE_N2H_FLUSH_PAYLOADS,
+	NSS_TX_METADATA_TYPE_N2H_MITIGATION_CFG,
+	NSS_METADATA_TYPE_N2H_ADD_BUF_POOL,
 	NSS_TX_METADATA_TYPE_SET_WATER_MARK,
 	NSS_TX_METADATA_TYPE_GET_PAYLOAD_INFO,
 	NSS_METADATA_TYPE_N2H_MAX,
@@ -54,6 +58,17 @@ enum nss_n2h_metadata_types {
 
 struct nss_n2h_rps {
 	uint32_t enable; /* Enable NSS RPS */
+};
+
+struct nss_n2h_mitigation {
+	uint32_t enable; /* Enable NSS MITIGATION */
+};
+
+struct nss_n2h_buf_pool {
+	uint32_t nss_buf_page_size;
+	uint32_t nss_buf_num_pages;
+	void *nss_buf_pool_vaddr[MAX_PAGES_PER_MSG];
+	uint32_t nss_buf_pool_addr[MAX_PAGES_PER_MSG];
 };
 
 /*
@@ -148,6 +163,9 @@ struct nss_n2h_msg {
 							/* Message: empty pool buf configuration */
 		struct nss_n2h_flush_payloads flush_payloads;
 							/* Message: flush payloads present in NSS */
+		struct nss_n2h_mitigation mitigation_cfg;
+							/* Message: Mitigation configuration */
+		struct nss_n2h_buf_pool buf_pool;	/* Message: pbuf coniguration */
 		struct nss_n2h_water_mark wm;
 				/* Message: Sets low and high water marks */
 		struct nss_n2h_payload_info payload_info;
@@ -171,6 +189,18 @@ extern nss_tx_status_t nss_n2h_tx_msg(struct nss_ctx_instance *nss_ctx, struct n
  * 	API to enable/disable Host RPS support in NSS
  */
 extern nss_tx_status_t nss_n2h_rps_cfg(struct nss_ctx_instance *nss_ctx, int enable_rps);
+
+/*
+ * nss_n2h_mitigation_cfg()
+ * 	API to enable/disable Host MITIGATION support in NSS
+ */
+extern nss_tx_status_t nss_n2h_mitigation_cfg(struct nss_ctx_instance *nss_ctx, int enable_mitigation, nss_core_id_t nss_core);
+
+/*
+ * nss_n2h_buf_pool_cfg()
+ * 	API to increase the pbufs on NSS using Host memory
+ */
+extern nss_tx_status_t nss_n2h_buf_pool_cfg(struct nss_ctx_instance *nss_ctx, int nss_pbuf_pool_size, nss_core_id_t nss_core);
 
 /*
  * nss_n2h_empty_pool_buf_register_sysctl()
