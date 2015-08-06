@@ -436,7 +436,6 @@ int nss_hal_probe(struct platform_device *nss_dev)
 #endif
 		nss_eth_rx_register_handler();
 		nss_n2h_register_handler();
-		nss_virt_if_register_handler();
 		nss_lag_register_handler();
 		nss_dynamic_interface_register_handler();
 
