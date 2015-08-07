@@ -339,6 +339,283 @@ static int32_t nss_gmac_set_mac_address(struct net_device *netdev,
 	return 0;
 }
 
+/**
+ * @brief Display ethernet mac time and time of the next mac pps pulse.
+ * @param[in] dev pointer to device node
+ * @param[in] attribute pointer to the sysctl node
+ * @param[out] Output buffer address for sysctl file ops
+ * @return number of characters stored on Success
+ */
+static int nss_gmac_mtnp_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(to_net_dev(dev));
+	uint32_t sec = 0;
+	uint32_t nsec = 0;
+	uint32_t ret, timeout;
+
+	/*
+	 * Read/capture the high and low timestamp registers values.
+	 * Make sure high register's value doesn't increment during read.
+	 */
+	timeout = TSTAMP_LOOP_VARIABLE;
+	do {
+		timeout--;
+		sec = nss_gmac_read_reg(gmacdev->mac_base, gmac_ts_high);
+		nsec = nss_gmac_read_reg(gmacdev->mac_base, gmac_ts_low);
+	} while (sec != nss_gmac_read_reg(gmacdev->mac_base, gmac_ts_high));
+
+	if (timeout == 0) {
+		netdev_dbg(gmacdev->netdev, "%s: Mtnp show timed out\n", __func__);
+		return -1;
+	}
+
+	ret = snprintf(buf, PAGE_SIZE, "%u %u %u %u\n",
+		sec,
+		nsec,
+		(nsec == 0) ? 1 : 0,
+		(nsec == 0) ? 0 : (BILLION - nsec));
+
+	return ret;
+}
+
+/**
+ * @brief Display ethernet tstamp and system time
+ * @param[in] dev pointer to device node
+ * @param[in] attribute pointer to the sysctl node
+ * @param[out] Output buffer address for sysctl file ops
+ * @return number of characters stored on Success
+ */
+static int nss_gmac_tstamp_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(to_net_dev(dev));
+	struct timeval tv;
+	uint32_t ret, timeout;
+	uint32_t ts_hi, ts_lo;
+
+	/*
+	 * Read/capture the high and low timestamp registers values.
+	 * Make sure high register's value doesn't increment during read.
+	 */
+	timeout = TSTAMP_LOOP_VARIABLE;
+	do {
+		timeout--;
+		ts_hi = nss_gmac_read_reg(gmacdev->mac_base, gmac_ts_high);
+		ts_lo = nss_gmac_read_reg(gmacdev->mac_base, gmac_ts_low);
+	} while ((ts_hi !=  nss_gmac_read_reg(gmacdev->mac_base, gmac_ts_high)) && timeout > 0);
+
+	if (timeout == 0) {
+		netdev_dbg(gmacdev->netdev, "%s: Tstamp show timed out\n", __func__);
+		return -1;
+	}
+
+	do_gettimeofday(&tv);
+
+	ret = snprintf(
+		buf, PAGE_SIZE,
+		"sec:%u nsec:%u time-of-day: %12d.%06d \n", ts_hi, ts_lo, (int)tv.tv_sec, (int)tv.tv_usec);
+
+	return ret;
+}
+
+/**
+ * @brief 'slam' a particular time into time registers.
+ * @param[in] dev pointer to device node
+ * @param[in] attribute pointer to the sysctl node
+ * @param[in] Input buffer address for sysctl file ops
+ * @param[in] number of chars to read from sysctl node
+ * @return number of characters read on Success
+ */
+static int nss_gmac_slam(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(to_net_dev(dev));
+	uint32_t sec = 0;
+	uint32_t nsec = 0;
+	uint32_t data, timeout;
+
+	if (!count) {
+		pr_err("%s: Invalid input buffer.\n", __func__);
+		return -EINVAL;
+	}
+
+	if (sscanf(buf, "%u %u", &sec, &nsec) != 2) {
+		pr_err("%s: Invalid input value.\n", __func__);
+		return -EINVAL;
+	}
+
+	nss_gmac_write_reg(gmacdev->mac_base, gmac_ts_high_update, sec);
+	nss_gmac_write_reg(gmacdev->mac_base, gmac_ts_low_update, nsec);
+
+
+	/* Wait until the ts_init bit is cleared to reset it or timeout */
+	timeout = TSTAMP_LOOP_VARIABLE;
+	do {
+		timeout--;
+		data = nss_gmac_read_reg(gmacdev->mac_base, gmac_ts_control);
+	} while ((data & gmac_ts_init_mask) && timeout > 0);
+
+	if (timeout == 0) {
+		netdev_dbg(gmacdev->netdev, "%s: Slam timed out\n", __func__);
+		return -1;
+	}
+
+	nss_gmac_write_reg(gmacdev->mac_base, gmac_ts_control, data | gmac_ts_init_mask);
+
+	return strnlen(buf, count);
+}
+
+
+/**
+ * @brief coarsely adjust the time registers with passed offset
+ * @param[in] dev pointer to device node
+ * @param[in] attribute pointer to the sysctl node
+ * @param[in] Input buffer address for sysctl file ops
+ * @param[in] number of chars to read from sysctl node
+ * @return number of characters read on Success
+ */
+static int nss_gmac_cadj(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *) netdev_priv(to_net_dev(dev));
+	int64_t offset = 0;
+	uint64_t newOffset;
+	uint32_t ts_hi;
+	uint32_t ts_lo;
+	uint32_t sec;
+	uint32_t nsec;
+	uint32_t data, timeout;
+
+	if (!count) {
+		pr_err("%s: Invalid input buffer.\n", __func__);
+		return -EINVAL;
+	}
+
+	if (sscanf(buf, "%lld", &offset) != 1) {
+		pr_err("%s: bad offset value.\n", __func__);
+		return -EINVAL;
+	}
+
+	/* Wait until we read ts_high value or timeout*/
+	timeout = TSTAMP_LOOP_VARIABLE;
+	do {
+		ts_hi = nss_gmac_read_reg(gmacdev->mac_base, gmac_ts_high);
+		ts_lo = nss_gmac_read_reg(gmacdev->mac_base, gmac_ts_low);
+	} while ((ts_hi !=  nss_gmac_read_reg(gmacdev->mac_base, gmac_ts_high) && timeout > 0));
+
+	if (timeout == 0) {
+		netdev_dbg(gmacdev->netdev, "%s: Coarse Adjustment timed out\n", __func__);
+		return -1;
+	}
+
+	newOffset = (((uint64_t) ts_hi * BILLION) + (uint64_t) ts_lo) + offset;
+	nsec = do_div(newOffset, BILLION);
+	sec = newOffset;
+
+	nss_gmac_write_reg(gmacdev->mac_base, gmac_ts_high_update, sec);
+	nss_gmac_write_reg(gmacdev->mac_base, gmac_ts_low_update, nsec);
+
+	/* Wait until the ts_init bit is cleared to reset it or timeout*/
+	timeout = TSTAMP_LOOP_VARIABLE;
+	do {
+		timeout--;
+		data = nss_gmac_read_reg(gmacdev->mac_base, gmac_ts_control);
+	} while ((data & gmac_ts_init_mask) && timeout > 0);
+
+	if (timeout == 0) {
+		netdev_dbg(gmacdev->netdev, "%s: Coarse Adjustment timed out\n", __func__);
+		return -1;
+	}
+
+	nss_gmac_write_reg(gmacdev->mac_base, gmac_ts_control, data | gmac_ts_init_mask);
+
+	return strnlen(buf, count);
+}
+
+/**
+ * @brief finely adjust the time registers with passed offset
+ * @param[in] dev pointer to device node
+ * @param[in] attribute pointer to the sysctl node
+ * @param[in] Input buffer address for sysctl file ops
+ * @param[in] number of chars to read from sysctl node
+ * @return number of characters read on Success
+ */
+static int nss_gmac_fadj(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(to_net_dev(dev));
+	int64_t offset = 0;
+	uint64_t direction = 0;
+	uint32_t sec;
+	uint32_t nsec;
+	uint32_t data, timeout;
+
+	if (!count) {
+		pr_err("%s: Invalid input buffer.\n", __func__);
+		return -EINVAL;
+	}
+
+	if (sscanf(buf, "%lld", &offset) != 1) {
+		pr_err("%s: bad offset value.\n", __func__);
+		return -EINVAL;
+	}
+
+	/*
+	 * If offset is a negative value, we subtract from
+	 * the current time.
+	 */
+	if (offset < 0) {
+		direction = 1 << NSS_GMAC_NS_UPDATE_ADDSUB;
+		offset   *= -1;
+	}
+
+	nsec = do_div(offset, BILLION);
+	sec = offset;
+
+	nss_gmac_write_reg(gmacdev->mac_base, gmac_ts_high_update, sec);
+	nss_gmac_write_reg(gmacdev->mac_base, gmac_ts_low_update, nsec | direction);
+
+	/* Wait until the ts_updt bit is cleared to reset it or timeout*/
+	timeout = TSTAMP_LOOP_VARIABLE;
+	do {
+		timeout--;
+		data = nss_gmac_read_reg(gmacdev->mac_base, gmac_ts_control);
+	} while (data & gmac_ts_updt_mask);
+
+	if (timeout == 0) {
+		netdev_dbg(gmacdev->netdev, "%s: Fine Adjustment timed out\n", __func__);
+		return -1;
+	}
+
+	nss_gmac_write_reg(gmacdev->mac_base, gmac_ts_control, data | gmac_ts_updt_mask);
+
+	return strnlen(buf, count);
+}
+
+static DEVICE_ATTR(slam, 0222, NULL, nss_gmac_slam);
+static DEVICE_ATTR(cadj, 0222, NULL, nss_gmac_cadj);
+static DEVICE_ATTR(fadj, 0222, NULL, nss_gmac_fadj);
+static DEVICE_ATTR(mtnp, 0444, nss_gmac_mtnp_show, NULL);
+static DEVICE_ATTR(tstamp, 0444, nss_gmac_tstamp_show, NULL);
+
+static void nss_gmac_tstamp_sysfs_create(struct net_device *dev)
+{
+	if (device_create_file(&(dev->dev), &dev_attr_slam) ||
+		device_create_file(&(dev->dev), &dev_attr_cadj) ||
+		device_create_file(&(dev->dev), &dev_attr_fadj) ||
+		device_create_file(&(dev->dev), &dev_attr_tstamp) ||
+		device_create_file(&(dev->dev), &dev_attr_mtnp))
+		pr_err("Failed to create sysfs entries \n");
+	return;
+}
+
+static void nss_gmac_tstamp_sysfs_remove(struct net_device *dev)
+{
+	device_remove_file(&(dev->dev), &dev_attr_slam);
+	device_remove_file(&(dev->dev), &dev_attr_cadj);
+	device_remove_file(&(dev->dev), &dev_attr_fadj);
+	device_remove_file(&(dev->dev), &dev_attr_tstamp);
+	device_remove_file(&(dev->dev), &dev_attr_mtnp);
+	return;
+}
+
+
 #ifdef CONFIG_MDIO
 /**
  * @brief Function to read a PHY device register over a MDIO bus
@@ -447,6 +724,7 @@ static uint32_t nss_gmac_tstamp_ioctl(struct net_device *netdev, struct ifreq *i
 			/* Increase headroom for PTP/NTP timestamps */
 			netdev->needed_headroom += 32;
 			/* Create sysfs entries for timestamp registers */
+			nss_gmac_tstamp_sysfs_create(netdev);
 			if (nss_gmac_ts_enable(gmacdev)) {
 				netdev_dbg(netdev, "%s: Reg write error. Cannot enable Timestamping \n", __func__);
 				return -EINVAL;
@@ -1231,6 +1509,7 @@ void nss_gmac_exit_network_interfaces(void)
 #ifdef RUMI_EMULATION_SUPPORT
 			nss_gmac_deinit_mdiobus(gmacdev);
 #endif
+			nss_gmac_tstamp_sysfs_remove(gmacdev->netdev);
 			unregister_netdev(gmacdev->netdev);
 			free_netdev(gmacdev->netdev);
 			nss_gmac_detach(gmacdev);

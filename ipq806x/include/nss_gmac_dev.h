@@ -61,6 +61,7 @@
 					   Descriptor pool/queue              */
 #define DEFAULT_DELAY_VARIABLE  10
 #define DEFAULT_LOOP_VARIABLE   10
+#define TSTAMP_LOOP_VARIABLE	1000
 #define MDC_CLK_DIV             (gmii_csr_clk0)
 
 #define NSS_GMAC_EXTRA			NET_IP_ALIGN
@@ -75,6 +76,7 @@
 #define NSS_GMAC_SUB_SEC_VALUE (BILLION / NSS_GMAC_AUX_REF_CLOCK)
 #define NSS_GMAC_TS_ENABLE_MIN_USLEEP	10
 #define NSS_GMAC_TS_ENABLE_MAX_USLEEP	20
+#define NSS_GMAC_NS_UPDATE_ADDSUB	31
 
 /* Ethtool specific list of GMAC supported features */
 #define NSS_GMAC_SUPPORTED_FEATURES	(SUPPORTED_10baseT_Half		\
