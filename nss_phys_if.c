@@ -93,6 +93,7 @@ void nss_phys_if_gmac_stats_sync(struct nss_ctx_instance *nss_ctx,
 	gmac_stats.rx_missed = stats->estats.rx_missed;
 	gmac_stats.fifo_overflows = stats->estats.fifo_overflows;
 	gmac_stats.rx_scatter_errors = stats->estats.rx_scatter_errors;
+	gmac_stats.tx_ts_create_errors = stats->estats.tx_ts_create_errors;
 	gmac_stats.gmac_total_ticks = stats->estats.gmac_total_ticks;
 	gmac_stats.gmac_worst_case_ticks = stats->estats.gmac_worst_case_ticks;
 	gmac_stats.gmac_iterations = stats->estats.gmac_iterations;
@@ -274,6 +275,7 @@ static uint16_t nss_phys_if_get_mtu_sz(struct nss_ctx_instance *nss_ctx)
 nss_tx_status_t nss_phys_if_buf(struct nss_ctx_instance *nss_ctx, struct sk_buff *os_buf, uint32_t if_num)
 {
 	int32_t status;
+	uint16_t flags = 0;
 
 	nss_trace("%p: Phys If Tx packet, id:%d, data=%p", nss_ctx, if_num, os_buf->data);
 
@@ -283,7 +285,12 @@ nss_tx_status_t nss_phys_if_buf(struct nss_ctx_instance *nss_ctx, struct sk_buff
 		return NSS_TX_FAILURE_NOT_READY;
 	}
 
-	status = nss_core_send_buffer(nss_ctx, if_num, os_buf, NSS_IF_DATA_QUEUE_0, H2N_BUFFER_PACKET, 0);
+	/* Check if we need the packet to be timestamped by GMAC Hardware at Tx */
+	if (unlikely(skb_shinfo(os_buf)->tx_flags & SKBTX_HW_TSTAMP)) {
+		flags |= H2N_BIT_FLAG_TX_TS_REQUIRED;
+	}
+
+	status = nss_core_send_buffer(nss_ctx, if_num, os_buf, NSS_IF_DATA_QUEUE_0, H2N_BUFFER_PACKET, flags);
 	if (unlikely(status != NSS_CORE_STATUS_SUCCESS)) {
 		nss_warning("%p: Unable to enqueue 'Phys If Tx' packet\n", nss_ctx);
 		if (status == NSS_CORE_STATUS_FAILURE_QUEUE) {

@@ -191,6 +191,7 @@ static struct nss_platform_data *nss_hal_of_get_pdata(struct device_node *np,
 	npd->gmac_enabled[0] = of_property_read_bool(np, "qcom,gmac0-enabled");
 	npd->gmac_enabled[1] = of_property_read_bool(np, "qcom,gmac1-enabled");
 	npd->turbo_frequency = of_property_read_bool(np, "qcom,turbo-frequency");
+	npd->tstamp_enabled = of_property_read_bool(np, "qcom,tstamp-enabled");
 
 	nss_ctx = &nss_top->nss[npd->id];
 	nss_ctx->id = npd->id;
@@ -427,6 +428,11 @@ int nss_hal_probe(struct platform_device *nss_dev)
 	if (npd->shaping_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->shaping_handler_id = nss_dev->id;
 		nss_info("%d: NSS shaping is enabled", nss_dev->id);
+	}
+
+	if (npd->tstamp_enabled == NSS_FEATURE_ENABLED) {
+		nss_top->tstamp_handler_id = nss_dev->id;
+		nss_tstamp_register_handler();
 	}
 
 	if (npd->ipv4_enabled == NSS_FEATURE_ENABLED) {
