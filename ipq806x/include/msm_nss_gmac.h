@@ -79,6 +79,7 @@
 #define GMAC0_GMII_RX_CLK_SHIFT			4
 #define GMAC0_GMII_TX_CLK_SHIFT			0
 #define GMAC0_PTP_CLK_SHIFT			16
+#define NSS_GMAC_AUX_CLK_MASK			31
 
 #define AR8xxx_PHY_RGMII_TX_DELAY_VAL(x) (((x) & 0x3) << 5)
 

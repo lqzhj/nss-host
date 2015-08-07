@@ -70,6 +70,12 @@
 #define NSS_GMAC_MAX_DESC_BUFF		0x1FFF
 #define NSS_GMAC_RTL_VER		"(3.72a)"
 
+#define BILLION 			1000000000
+#define NSS_GMAC_AUX_REF_CLOCK		100000000 /* Aux Ref clock is 100 MHz */
+#define NSS_GMAC_SUB_SEC_VALUE (BILLION / NSS_GMAC_AUX_REF_CLOCK)
+#define NSS_GMAC_TS_ENABLE_MIN_USLEEP	10
+#define NSS_GMAC_TS_ENABLE_MAX_USLEEP	20
+
 /* Ethtool specific list of GMAC supported features */
 #define NSS_GMAC_SUPPORTED_FEATURES	(SUPPORTED_10baseT_Half		\
 					| SUPPORTED_10baseT_Full	\
@@ -221,6 +227,7 @@ struct nss_gmac_dev {
 					   bring up has been done             */
 	int32_t forced_speed;		/* Forced Speed */
 	int32_t forced_duplex;		/* Forced Duplex */
+	uint32_t aux_clk_freq;		/* Auxillary PTP Reference clk frequency */
 
 	struct net_device *netdev;
 	struct platform_device *pdev;
@@ -286,6 +293,7 @@ enum nss_gmac_state {
 	__NSS_GMAC_RXPAUSE,
 	__NSS_GMAC_TXPAUSE,
 	__NSS_GMAC_LINKPOLL,	/* Poll link status			      */
+	__NSS_GMAC_TSTAMP,	/* HW Timestamp support Enabled		      */
 };
 
 /**
@@ -295,6 +303,8 @@ enum nss_gmac_state {
  */
 enum nss_gmac_priv_flags {
 	__NSS_GMAC_PRIV_FLAG_LINKPOLL,
+	__NSS_GMAC_PRIV_FLAG_TSTAMP,
+	__NSS_GMAC_PRIV_FLAG_TSMODE,	/* 0 = PTP,1 = NTP */
 	__NSS_GMAC_PRIV_FLAG_MAX,
 };
 #define NSS_GMAC_PRIV_FLAG(x)	(1 << __NSS_GMAC_PRIV_FLAG_ ## x)
@@ -667,7 +677,7 @@ enum gmac_interrupt_status_bit_definition {
 
 /* gmac_interrupt_mask	= 0x003C,	Mac Interrupt Mask register	*/
 enum gmac_interrupt_mask_bit_definition {
-	gmac_tSInt_mask = 0x00000200,		/* when set disables the time
+	gmac_ts_int_mask = 0x00000200,		/* when set disables the time
 						   stamp interrupt generation */
 	gmac_pmt_int_mask = 0x00000008,		/* when set Disables the
 						   assertion of PMT interrupt */
@@ -680,6 +690,18 @@ enum gmac_interrupt_mask_bit_definition {
 	gmac_rgmii_int_mask = 0x00000001,	/* when set disables the
 						   assertion of RGMII
 						   interrupt		      */
+};
+
+/* gmac_ts_control = 0x0700,	GMAC timestamp control register	*/
+enum gmac_gmac_ts_control_bit_definition {
+	gmac_ts_ena_mask = 0x00000001,		/*	timestamp enable mask	*/
+	gmac_ts_cf_updt_mask = 0x00000002,	/*	coarse/fine update mask	*/
+	gmac_ts_init_mask = 0x00000004,		/* 	timestamp init mask	*/
+	gmac_ts_updt_mask = 0x00000008,		/*	timestamp update mask	*/
+	gmac_ts_enall_mask = 0x00000100,	/*	enable all mask		*/
+	gmac_ts_tsctrlssr_mask = 0x00000200,	/* 	timestamp rollover control mask	*/
+	gmac_ts_ver2ena_mask = 0x00000400,	/*	PTP v2 version enable mask	*/
+	gmac_ts_ipv6ena_mask = 0x00001000,	/*	ipv6 enable mask	*/
 };
 
 /**********************************************************
@@ -1477,6 +1499,8 @@ int32_t nss_gmac_write_phy_reg(uint32_t *reg_base, uint32_t phy_base,
 int32_t nss_gmac_read_phy_reg(uint32_t *reg_base, uint32_t phy_base,
 			      uint32_t reg_offset, uint16_t *data,
 			      uint32_t mdc_clk_div);
+int32_t nss_gmac_ts_enable(struct nss_gmac_dev *gmacdev);
+void nss_gmac_ts_disable(struct nss_gmac_dev *gmacdev);
 
 /*
  * nss_gmac_common_init()

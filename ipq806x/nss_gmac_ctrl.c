@@ -36,6 +36,7 @@
 #include <linux/platform_device.h>
 #include <linux/workqueue.h>
 #include <linux/phy.h>
+#include <linux/net_tstamp.h>
 
 #ifdef CONFIG_OF
 #include <linux/of.h>
@@ -419,8 +420,52 @@ static int nss_gmac_mdio_mii_ioctl_write(struct net_device *netdev, int phy_addr
 #endif
 
 /**
+ * @brief Function to enable disable Timestamping feature
+ * @param[in] pointer to net_device structure.
+ * @param[in] ioctl input params from the user
+ * @return Returns 0 on success Error code on failure.
+ */
+static uint32_t nss_gmac_tstamp_ioctl(struct net_device *netdev, struct ifreq *ifr)
+{
+	struct hwtstamp_config  *cfg  = (struct hwtstamp_config *) ifr->ifr_data;
+	struct nss_gmac_dev *gmacdev = NULL;
+
+	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
+
+	/* Return if NSS FW is not up */
+	if (gmacdev->data_plane_ctx == netdev) {
+		netdev_dbg(netdev, "%s: NSS Firmware is not up. Cannot enable Timestamping  \n", __func__);
+		return -EINVAL;
+	}
+
+	/*
+	 * Enable Timestamping if not already enabled
+	 * By default PTP Mode is enabled
+	 */
+	if (cfg->rx_filter == HWTSTAMP_FILTER_ALL) {
+		if (!test_bit(__NSS_GMAC_TSTAMP, &gmacdev->flags)) {
+			/* Increase headroom for PTP/NTP timestamps */
+			netdev->needed_headroom += 32;
+			/* Create sysfs entries for timestamp registers */
+			if (nss_gmac_ts_enable(gmacdev)) {
+				netdev_dbg(netdev, "%s: Reg write error. Cannot enable Timestamping \n", __func__);
+				return -EINVAL;
+			}
+		}
+	} else if ((cfg->tx_type == HWTSTAMP_TX_OFF) && (cfg->rx_filter != HWTSTAMP_FILTER_ALL)) {
+		/* Disable Timestamping if not already disabled	*/
+		if (!test_bit(__NSS_GMAC_TSTAMP, &gmacdev->flags)) {
+			netdev_dbg(netdev, "%s: Timestamp is already disabled \n", __func__);
+			return -EINVAL;
+		}
+		nss_gmac_ts_disable(gmacdev);
+	}
+	return 0;
+};
+
+/**
  * @brief IOCTL interface.
- * This function is mainly for debugging purpose.
+ * This function is mainly for debugging purpose and Timestamp Feature enabling
  * This provides hooks for Register read write, Retrieve descriptor status
  * and Retreiving Device structure information.
  * @param[in] pointer to net_device structure.
@@ -433,7 +478,9 @@ static int32_t nss_gmac_do_ioctl(struct net_device *netdev,
 {
 	int ret = -EINVAL;
 	struct nss_gmac_dev *gmacdev = NULL;
-	struct mii_ioctl_data *mii_data = if_mii(ifr);
+#ifdef CONFIG_MDIO
+	struct mii_ioctl_data *mii_data = NULL;
+#endif
 
 	if (netdev == NULL)
 		return -EINVAL;
@@ -443,10 +490,19 @@ static int32_t nss_gmac_do_ioctl(struct net_device *netdev,
 	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 	BUG_ON(gmacdev->netdev != netdev);
-	netdev_dbg(netdev, "PHY addr 0x%x, Reg num 0x%x, Val_in 0x%x, Val_out 0x%x\n",
-			mii_data->phy_id, mii_data->reg_num, mii_data->val_in, mii_data->val_out);
+
+	if (cmd == SIOCSHWTSTAMP) {
+		struct hwtstamp_config  *cfg  = (struct hwtstamp_config *) ifr->ifr_data;
+		netdev_dbg(netdev, "Tstamp ioctl, Tx_type: %d, Rx_filter: %d, Flags: %d\n",
+				cfg->tx_type, cfg->rx_filter, cfg->flags);
+		ret = nss_gmac_tstamp_ioctl(netdev, ifr);
+		return ret;
+	}
 
 #ifdef CONFIG_MDIO
+	mii_data = if_mii(ifr);
+	netdev_dbg(netdev, "PHY addr 0x%x, Reg num 0x%x, Val_in 0x%x, Val_out 0x%x\n",
+			mii_data->phy_id, mii_data->reg_num, mii_data->val_in, mii_data->val_out);
 	/*
 	 * Handle both MDIO C45/C22 ioctl requests
 	 */
@@ -617,6 +673,8 @@ static int32_t nss_gmac_of_get_pdata(struct device_node *np,
 	if (of_property_read_u32(np, "qcom,socver", &gmaccfg->socver))
 		gmaccfg->socver = 0;
 
+	of_property_read_u32(np, "qcom,aux-clk-freq", &gmacdev->aux_clk_freq);
+
 	gmaccfg->phy_mii_type = of_get_phy_mode(np);
 	netdev->irq = irq_of_parse_and_map(np, 0);
 	if (netdev->irq == NO_IRQ) {
@@ -740,8 +798,6 @@ nss_gmac_cmn_init_ok:
 #endif
 	return ret;
 }
-
-
 /**
  * @brief Function to initialize the Linux network interface.
  * Linux dependent Network interface is setup here. This provides

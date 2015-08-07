@@ -888,6 +888,102 @@ void nss_gmac_rx_pause_enable(struct nss_gmac_dev *gmacdev)
 }
 
 /*
+ * This enables timestamp generation config options.
+ * @param[in] pointer to nss_gmac_dev.
+ * @param[in] flag for ptp/ntp protocol selectoin.
+ * @return returns 0 for Success, -1 for error.
+ */
+int32_t nss_gmac_ts_enable(struct nss_gmac_dev *gmacdev)
+{
+	uint32_t data, timeout;
+#ifdef CONFIG_OF
+	uint32_t *nss_base = (uint32_t *)(gmacdev->ctx->nss_base);
+#endif
+
+	nss_gmac_set_reg_bits(gmacdev->mac_base, gmac_interrupt_mask, gmac_ts_int_mask);
+	nss_gmac_set_reg_bits(gmacdev->mac_base, gmac_ts_control, gmac_ts_ena_mask);
+
+#ifdef CONFIG_OF
+	/*
+	 * The following selects the Aux Reference clock instead of the primary to
+	 * clock the timestamp module.
+	 */
+	if (gmacdev->aux_clk_freq) {
+		nss_gmac_set_reg_bits(nss_base , NSS_ETH_CLK_SRC_CTL, 1 << NSS_GMAC_AUX_CLK_MASK);
+		/*
+		 * The value programmed in this field is accumalated every clock cycle
+		 * with the contents of sub-seconds register.
+		 * Aux Reference clock is 100 MHz, i.e 100000000 Hz
+		 * Value taken is BILLION/100000000 which is 0xa
+		 */
+		nss_gmac_write_reg(gmacdev->mac_base, gmac_ts_sub_sec_incr, (BILLION / gmacdev->aux_clk_freq));
+	}
+#endif
+
+	/*
+	 * The value programmed in this field is accumulated every clock cycle
+	 * with the contents of the sub-second register
+	 * Aux Reference clock is 100 Mhz,100 MHz = 10 nsecs.
+	 * 10 (dec) = 0xa (Hex)
+	 */
+	nss_gmac_write_reg(gmacdev->mac_base, gmac_ts_sub_sec_incr, NSS_GMAC_SUB_SEC_VALUE);
+
+	/* Select Coarse Update Method for timestamp updation */
+	nss_gmac_clear_reg_bits(gmacdev->mac_base, gmac_ts_control, gmac_ts_cf_updt_mask);
+
+	/* Initialize the system-time maintained by the MAC in seconds and nanoseconds */
+	nss_gmac_write_reg(gmacdev->mac_base, gmac_ts_high_update, 0x0);
+	nss_gmac_write_reg(gmacdev->mac_base, gmac_ts_low_update, 0x0);
+
+	/*
+	 * Set the Rollover control register to roll over the seconds register after
+	 * nanosecond counts 0x3b9a-c9ff i.e, 1 nanoseconds accuracy
+	 */
+	nss_gmac_set_reg_bits(gmacdev->mac_base, gmac_ts_control, gmac_ts_tsctrlssr_mask);
+
+	/* Enable timestamping of ipv6 packets	*/
+	nss_gmac_set_reg_bits(gmacdev->mac_base, gmac_ts_control, gmac_ts_ipv6ena_mask);
+
+	/* Check for PTP or NTP Mode, set through the ethtool */
+	if (gmacdev->drv_flags & NSS_GMAC_PRIV_FLAG(TSMODE)) {
+		/* NTP Mode */
+		nss_gmac_set_reg_bits(gmacdev->mac_base, gmac_ts_control, gmac_ts_enall_mask);
+	} else {
+		/* PTP Mode */
+		nss_gmac_set_reg_bits(gmacdev->mac_base, gmac_ts_control, gmac_ts_ver2ena_mask);
+	}
+
+	/* Loop until bit is set or Timeout happens */
+	timeout = DEFAULT_LOOP_VARIABLE;
+	do {
+		timeout--;
+		data = nss_gmac_read_reg(gmacdev->mac_base, gmac_ts_control);
+		usleep_range(NSS_GMAC_TS_ENABLE_MIN_USLEEP, NSS_GMAC_TS_ENABLE_MAX_USLEEP);
+	} while ((data & gmac_ts_init_mask) && timeout > 0);
+
+	if (timeout == 0) {
+		netdev_dbg(gmacdev->netdev, "%s: Timestamp enable timed out\n", __func__);
+		return -1;
+	}
+
+	netdev_dbg(gmacdev->netdev, "%s: Timestamp enabled\n", __func__);
+	nss_gmac_set_reg_bits(gmacdev->mac_base, gmac_ts_control, gmac_ts_init_mask);
+	gmacdev->drv_flags |= NSS_GMAC_PRIV_FLAG(TSTAMP);
+	set_bit(__NSS_GMAC_TSTAMP, &gmacdev->flags);
+	return 0;
+};
+
+/*
+ * This disables timestamp generation config options.
+ * @param[in] pointer to nss_gmac_dev.
+ * @return void.
+ */
+void nss_gmac_ts_disable (struct nss_gmac_dev *gmacdev)
+{
+	nss_gmac_clear_reg_bits(gmacdev->mac_base, gmac_ts_control, gmac_ts_init_mask);
+	clear_bit(__NSS_GMAC_TSTAMP, &gmacdev->flags);
+};
+/*
  * Disable pause frame generation.
  * @param[in] pointer to nss_gmac_dev.
  * @return void.

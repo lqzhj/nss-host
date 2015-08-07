@@ -522,6 +522,7 @@ static void nss_gmac_copy_stats(struct nss_gmac_dev *gmacdev,
 	gmacdev->nss_stats.tx_ip_header_errors += gstat->tx_ip_header_errors;
 	gmacdev->nss_stats.tx_ip_payload_errors += gstat->tx_ip_payload_errors;
 	gmacdev->nss_stats.tx_dropped += gstat->tx_dropped;
+	gmacdev->nss_stats.tx_ts_create_errors += gstat->tx_ts_create_errors;
 	gmacdev->nss_stats.hw_errs[0] += gstat->hw_errs[0];
 	gmacdev->nss_stats.hw_errs[1] += gstat->hw_errs[1];
 	gmacdev->nss_stats.hw_errs[2] += gstat->hw_errs[2];

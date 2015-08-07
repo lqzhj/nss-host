@@ -83,6 +83,7 @@ static const struct nss_gmac_ethtool_stats gmac_gstrings_stats[] = {
 	{"rx_missed", NSS_GMAC_STAT(rx_missed)},
 	{"fifo_overflows", NSS_GMAC_STAT(fifo_overflows)},
 	{"rx_scatter_errors", NSS_GMAC_STAT(rx_scatter_errors)},
+	{"tx_ts_create_errors", NSS_GMAC_STAT(tx_ts_create_errors)},
 	{"pmt_interrupts", NSS_GMAC_STAT(hw_errs[0])},
 	{"mmc_interrupts", NSS_GMAC_STAT(hw_errs[0]) + (1 * HW_ERR_SIZE)},
 	{"line_interface_interrupts", NSS_GMAC_STAT(hw_errs[0]) + (2 * HW_ERR_SIZE)},
@@ -103,6 +104,8 @@ static const struct nss_gmac_ethtool_stats gmac_gstrings_stats[] = {
  */
 static const char *gmac_strings_priv_flags[] = {
 	"linkpoll",
+	"tstamp",
+	"tsmode",
 };
 
 #define NSS_GMAC_STATS_LEN	ARRAY_SIZE(gmac_gstrings_stats)
@@ -501,6 +504,12 @@ static int32_t nss_gmac_set_priv_flags(struct net_device *netdev, u32 flags)
 		} else {
 			gmacdev->drv_flags &= ~NSS_GMAC_PRIV_FLAG(LINKPOLL);
 		}
+	} else if (changed & NSS_GMAC_PRIV_FLAG(TSMODE)) {
+		if (flags & NSS_GMAC_PRIV_FLAG(TSMODE)) {
+			gmacdev->drv_flags |= NSS_GMAC_PRIV_FLAG(TSMODE);
+		} else {
+			gmacdev->drv_flags &= ~NSS_GMAC_PRIV_FLAG(TSMODE);
+		}
 	}
 
 	return 0;
@@ -536,7 +545,6 @@ struct ethtool_ops nss_gmac_ethtool_ops = {
 	.get_priv_flags = nss_gmac_get_priv_flags,
 	.set_priv_flags = nss_gmac_set_priv_flags,
 };
-
 
 /**
  * @brief Register ethtool_ops
