@@ -58,7 +58,8 @@ enum nss_ipv6_message_types {
 					/**< Rule for not flushing CME on ICMP pkt */
 #define NSS_IPV6_RULE_UPDATE_FLAG_CHANGE_MTU 0x40
 					/**< Rule updation for MTU change */
-#define NSS_IPV6_RULE_CREATE_FLAG_L2_ENCAP 0x80 /**< The L2 payload is not IPv6 but consists of an encapsulating protocol that carries an IPv6 payload within it. */
+#define NSS_IPV6_RULE_CREATE_FLAG_L2_ENCAP 0x80
+					/**< The L2 payload is not IPv6 but consists of an encapsulating protocol that carries an IPv6 payload within it. */
 
 
 /**
@@ -71,6 +72,7 @@ enum nss_ipv6_message_types {
 #define NSS_IPV6_RULE_CREATE_VLAN_VALID 0x10		/**< VLAN fields are valid */
 #define NSS_IPV6_RULE_CREATE_DSCP_MARKING_VALID 0x20	/**< DSCP marking fields are valid */
 #define NSS_IPV6_RULE_CREATE_VLAN_MARKING_VALID 0x40	/**< VLAN marking fields are valid */
+#define NSS_IPV6_RULE_CREATE_SRC_MAC_VALID 0x80		/**< Src MAC address fields are valid */
 
 /**
  * IPv6 multicast command rule flags
@@ -94,10 +96,16 @@ enum nss_ipv6_message_types {
 #define NSS_IPV6_MC_RULE_CREATE_IF_FLAG_LEAVE 0x08		/**< Interface has left the flow */
 
 /**
- * IPv6 multicast connection per-interface valid flags (to be used with valid_flags field of nss_ipv4_mc_if_rule structure)
+ * IPv6 multicast connection per-interface valid flags (to be used with valid_flags field of nss_ipv6_mc_if_rule structure)
  */
 #define NSS_IPV6_MC_RULE_CREATE_IF_FLAG_VLAN_VALID 0x01		/**< VLAN fields are valid */
 #define NSS_IPV6_MC_RULE_CREATE_IF_FLAG_PPPOE_VALID 0x02	/**< PPPoE fields are valid */
+
+/**
+ * Source MAC address valid flags (to be used with mac_valid_flags field of nss_ipv6_src_mac_rule structure)
+ */
+#define NSS_IPV6_SRC_MAC_FLOW_VALID 0x01		/**< FLOW interface MAC address is valid */
+#define NSS_IPV6_SRC_MAC_RETURN_VALID 0x02		/**< Return interface MAC address is valid */
 
 /**
  * Exception events from IPv6 bridge/route handler
@@ -229,6 +237,15 @@ struct nss_ipv6_qos_rule {
 };
 
 /**
+ * Src MAC address rule structure
+ */
+struct nss_ipv6_src_mac_rule {
+	uint32_t mac_valid_flags;	/**< MAC address valid flags */
+	uint16_t flow_src_mac[3];	/**< Source MAC address for flow direction */
+	uint16_t return_src_mac[3];	/**< Source MAC address for return direction */
+};
+
+/**
  * Error types for ipv6 messages
  */
 enum nss_ipv6_error_response_types {
@@ -264,6 +281,7 @@ struct nss_ipv6_rule_create_msg {
 	struct nss_ipv6_dscp_rule dscp_rule;		/**< DSCP related accleration parameters */
 	struct nss_ipv6_vlan_rule vlan_primary_rule;	/**< VLAN related accleration parameters */
 	struct nss_ipv6_vlan_rule vlan_secondary_rule;	/**< VLAN related accleration parameters */
+	struct nss_ipv6_src_mac_rule src_mac_rule;	/**< Source MAC address related acceleration parameters */
 
 	/*
 	 * Response

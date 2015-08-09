@@ -58,7 +58,8 @@ enum nss_ipv4_message_types {
 					/**< Update MTU of connection interfaces */
 #define NSS_IPV4_RULE_CREATE_FLAG_ICMP_NO_CME_FLUSH 0x40
 					/**< Rule for not flushing CME on ICMP pkt */
-#define NSS_IPV4_RULE_CREATE_FLAG_L2_ENCAP 0x80 /**< The L2 payload is not IPv4 but consists of an encapsulating protocol that carries an IPv4 payload within it. */
+#define NSS_IPV4_RULE_CREATE_FLAG_L2_ENCAP 0x80
+					/**< The L2 payload is not IPv4 but consists of an encapsulating protocol that carries an IPv4 payload within it. */
 
 
 /**
@@ -71,6 +72,7 @@ enum nss_ipv4_message_types {
 #define NSS_IPV4_RULE_CREATE_VLAN_VALID 0x10		/**< VLAN fields are valid */
 #define NSS_IPV4_RULE_CREATE_DSCP_MARKING_VALID 0x20	/**< DSCP marking fields are valid */
 #define NSS_IPV4_RULE_CREATE_VLAN_MARKING_VALID 0x40	/**< VLAN marking fields are valid */
+#define NSS_IPV4_RULE_CREATE_SRC_MAC_VALID 0x80		/**< Src MAC address fields are valid */
 
 /**
  * IPv4 multicast command rule flags
@@ -99,6 +101,12 @@ enum nss_ipv4_message_types {
 #define NSS_IPV4_MC_RULE_CREATE_IF_FLAG_VLAN_VALID 0x01		/**< VLAN fields are valid */
 #define NSS_IPV4_MC_RULE_CREATE_IF_FLAG_PPPOE_VALID 0x02	/**< PPPoE fields are valid */
 #define NSS_IPV4_MC_RULE_CREATE_IF_FLAG_NAT_VALID 0x4		/**< Interface is configured with Source-NAT */
+
+/**
+ * Source MAC address valid flags (to be used with mac_valid_flags field of nss_ipv4_src_mac_rule structure)
+ */
+#define NSS_IPV4_SRC_MAC_FLOW_VALID 0x01		/**< FLOW interface MAC address is valid */
+#define NSS_IPV4_SRC_MAC_RETURN_VALID 0x02		/**< Return interface MAC address is valid */
 
 /**
  * Common 5 tuple structure
@@ -179,6 +187,15 @@ struct nss_ipv4_qos_rule {
 };
 
 /**
+ * Src MAC address rule structure
+ */
+struct nss_ipv4_src_mac_rule {
+	uint32_t mac_valid_flags;	/**< MAC address valid flags */
+	uint16_t flow_src_mac[3];	/**< Source MAC address for flow direction */
+	uint16_t return_src_mac[3];	/**< Source MAC address for return direction */
+};
+
+/**
  * Error types for ipv4 messages
  */
 enum nss_ipv4_error_response_types {
@@ -215,6 +232,7 @@ struct nss_ipv4_rule_create_msg {
 	struct nss_ipv4_dscp_rule dscp_rule;		/**< DSCP related accleration parameters */
 	struct nss_ipv4_vlan_rule vlan_primary_rule;	/**< Primary VLAN related accleration parameters */
 	struct nss_ipv4_vlan_rule vlan_secondary_rule;	/**< Secondary VLAN related accleration parameters */
+	struct nss_ipv4_src_mac_rule src_mac_rule;	/**< Source MAC address related acceleration parameters */
 
 	/* Response */
 	uint32_t reserved;					/**< Reserved field */
