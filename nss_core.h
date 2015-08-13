@@ -49,6 +49,8 @@
 /*
  * NSS debug macros
  */
+#define nss_info_always(s, ...) pr_alert(s, ##__VA_ARGS__)
+
 #if (NSS_DEBUG_LEVEL < 1)
 #define nss_assert(fmt, args...)
 #else

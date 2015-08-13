@@ -815,8 +815,8 @@ static int __init nss_init(void)
 	 */
 	cmn = of_find_node_by_name(NULL, "nss-common");
 	if (!cmn) {
-		nss_info("cannot find nss-common node\n");
-		return -EFAULT;
+		nss_info_always("qca-nss-drv.ko is loaded for symbol link\n");
+		return 0;
 	}
 
 	if (of_address_to_resource(cmn, 0, &res_nss_fpb_base) != 0) {
@@ -933,6 +933,19 @@ static int __init nss_init(void)
  */
 static void __exit nss_cleanup(void)
 {
+#if (NSS_DT_SUPPORT == 1)
+	struct device_node *cmn = NULL;
+
+	/*
+	 * Get reference to NSS common device node
+	 */
+	cmn = of_find_node_by_name(NULL, "nss-common");
+	if (!cmn) {
+		nss_info_always("cannot find nss-common node, maybe just for symbol link\n");
+		return;
+	}
+#endif
+
 	nss_info("Exit NSS driver");
 
 	if (nss_dev_header)
