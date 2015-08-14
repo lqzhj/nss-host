@@ -20,9 +20,8 @@
  */
 
 #include "nss_tx_rx_common.h"
+#include <asm/cacheflush.h>
 
-#define NSS_CORE_0			0
-#define NSS_CORE_1			1
 
 #define NSS_N2H_MIN_EMPTY_POOL_BUF_SZ		32
 #define NSS_N2H_DEFAULT_EMPTY_POOL_BUF_SZ	8192
@@ -38,6 +37,8 @@ struct nss_n2h_registered_data {
 static struct nss_n2h_cfg_pvt nss_n2h_nepbcfgp[NSS_MAX_CORES];
 static struct nss_n2h_registered_data nss_n2h_rd[NSS_MAX_CORES];
 static struct nss_n2h_cfg_pvt nss_n2h_rcp;
+static struct nss_n2h_cfg_pvt nss_n2h_mitigationcp[NSS_CORE_MAX];
+static struct nss_n2h_cfg_pvt nss_n2h_bufcp[NSS_CORE_MAX];
 
 /*
  * nss_n2h_stats_sync()
@@ -133,6 +134,10 @@ static void nss_n2h_interface_handler(struct nss_ctx_instance *nss_ctx,
 		nss_info("NSS N2H rps_en %d \n",nnm->msg.rps_cfg.enable);
 		break;
 
+	case NSS_TX_METADATA_TYPE_N2H_MITIGATION_CFG:
+		nss_info("NSS N2H mitigation_dis %d \n",nnm->msg.mitigation_cfg.enable);
+		break;
+
 	case NSS_TX_METADATA_TYPE_N2H_EMPTY_POOL_BUF_CFG:
 		nss_info("%p: empty pool buf cfg response from FW", nss_ctx);
 		break;
@@ -207,6 +212,63 @@ static void nss_n2h_rps_cfg_callback(void *app_data, struct nss_n2h_msg *nnm)
 	nss_ctx->n2h_rps_en = nnm->msg.rps_cfg.enable;
 	nss_n2h_rcp.response = NSS_SUCCESS;
 	complete(&nss_n2h_rcp.complete);
+}
+
+/*
+ * nss_n2h_mitigation_cfg_callback()
+ *	call back function for mitigation configuration
+ */
+static void nss_n2h_mitigation_cfg_callback(void *app_data, struct nss_n2h_msg *nnm)
+{
+	int core_num = (int)app_data;
+	struct nss_top_instance *nss_top = &nss_top_main;
+	struct nss_ctx_instance *nss_ctx = &nss_top->nss[core_num];
+
+	if (nnm->cm.response != NSS_CMN_RESPONSE_ACK) {
+
+		/*
+		 * Error, hence we are not updating the nss_n2h_mitigate_en
+		 */
+		nss_n2h_mitigationcp[core_num].response = NSS_FAILURE;
+		complete(&nss_n2h_mitigationcp[core_num].complete);
+		nss_warning("core%d: MITIGATION configuration failed : %d\n", core_num, nnm->cm.error);
+		return;
+	}
+
+	nss_info("core%d: MITIGATION configuration succeeded: %d\n", core_num, nnm->cm.error);
+
+	nss_ctx->n2h_mitigate_en = nnm->msg.mitigation_cfg.enable;
+	nss_n2h_mitigationcp[core_num].response = NSS_SUCCESS;
+	complete(&nss_n2h_mitigationcp[core_num].complete);
+}
+
+/*
+ * nss_n2h_buf_cfg_callback()
+ *	call back function for pbuf configuration
+ */
+static void nss_n2h_bufs_cfg_callback(void *app_data, struct nss_n2h_msg *nnm)
+{
+	int core_num = (int)app_data;
+	unsigned int allocated_sz;
+
+	struct nss_top_instance *nss_top = &nss_top_main;
+	struct nss_ctx_instance *nss_ctx = &nss_top->nss[core_num];
+
+	if (nnm->cm.response != NSS_CMN_RESPONSE_ACK) {
+		nss_n2h_bufcp[core_num].response = NSS_FAILURE;
+		nss_warning("core%d: buf configuration failed : %d\n", core_num, nnm->cm.error);
+		goto done;
+	}
+
+	nss_info("core%d: buf configuration succeeded: %d\n", core_num, nnm->cm.error);
+
+	allocated_sz = nnm->msg.buf_pool.nss_buf_page_size * nnm->msg.buf_pool.nss_buf_num_pages;
+	nss_ctx->buf_sz_allocated += allocated_sz;
+
+	nss_n2h_bufcp[core_num].response = NSS_SUCCESS;
+
+done:
+	complete(&nss_n2h_bufcp[core_num].complete);
 }
 
 /*
@@ -663,6 +725,146 @@ nss_tx_status_t nss_n2h_rps_cfg(struct nss_ctx_instance *nss_ctx, int enable_rps
 	return NSS_SUCCESS;
 }
 
+/*
+ * nss_n2h_mitigation_cfg()
+ *	Send Message to NSS to disable MITIGATION.
+ */
+nss_tx_status_t nss_n2h_mitigation_cfg(struct nss_ctx_instance *nss_ctx, int enable_mitigation, nss_core_id_t core_num)
+{
+	struct nss_n2h_msg nnm;
+	struct nss_n2h_mitigation *mitigation_cfg;
+	nss_tx_status_t nss_tx_status;
+	int ret;
+
+	nss_assert(core_num < NSS_CORE_MAX);
+
+	down(&nss_n2h_mitigationcp[core_num].sem);
+	nss_n2h_msg_init(&nnm, NSS_N2H_INTERFACE, NSS_TX_METADATA_TYPE_N2H_MITIGATION_CFG,
+			sizeof(struct nss_n2h_mitigation),
+			nss_n2h_mitigation_cfg_callback,
+			(void *)core_num);
+
+	mitigation_cfg = &nnm.msg.mitigation_cfg;
+	mitigation_cfg->enable = enable_mitigation;
+
+	nss_tx_status = nss_n2h_tx_msg(nss_ctx, &nnm);
+
+	if (nss_tx_status != NSS_TX_SUCCESS) {
+		nss_warning("%p: nss_tx error setting mitigation\n", nss_ctx);
+		goto failure;
+	}
+
+	/*
+	 * Blocking call, wait till we get ACK for this msg.
+	 */
+	ret = wait_for_completion_timeout(&nss_n2h_mitigationcp[core_num].complete, msecs_to_jiffies(NSS_CONN_CFG_TIMEOUT));
+	if (ret == 0) {
+		nss_warning("%p: Waiting for ack timed out\n", nss_ctx);
+		goto failure;
+	}
+
+	/*
+	 * ACK/NACK received from NSS FW
+	 */
+	if (NSS_FAILURE == nss_n2h_mitigationcp[core_num].response) {
+		goto failure;
+	}
+
+	up(&nss_n2h_mitigationcp[core_num].sem);
+	return NSS_SUCCESS;
+
+failure:
+	up(&nss_n2h_mitigationcp[core_num].sem);
+	return NSS_FAILURE;
+}
+
+static inline void nss_n2h_buf_pool_free(struct nss_n2h_buf_pool *buf_pool)
+{
+	int page_count;
+	for (page_count = 0; page_count < buf_pool->nss_buf_num_pages; page_count++) {
+		kfree(buf_pool->nss_buf_pool_vaddr[page_count]);
+	}
+}
+
+/*
+ * nss_n2h_buf_cfg()
+ *	Send Message to NSS to enable pbufs.
+ */
+nss_tx_status_t nss_n2h_buf_pool_cfg(struct nss_ctx_instance *nss_ctx,
+	       				int buf_pool_size, nss_core_id_t core_num)
+{
+	static struct nss_n2h_msg nnm;
+	struct nss_n2h_buf_pool *buf_pool;
+	nss_tx_status_t nss_tx_status;
+	int ret;
+	int page_count;
+	int num_pages = ALIGN(buf_pool_size, PAGE_SIZE)/PAGE_SIZE;
+
+	nss_assert(core_num < NSS_CORE_MAX);
+
+	nss_n2h_msg_init(&nnm, NSS_N2H_INTERFACE, NSS_METADATA_TYPE_N2H_ADD_BUF_POOL,
+			sizeof(struct nss_n2h_buf_pool),
+			nss_n2h_bufs_cfg_callback,
+			(void *)core_num);
+
+	do {
+
+		down(&nss_n2h_bufcp[core_num].sem);
+
+		buf_pool = &nnm.msg.buf_pool;
+		buf_pool->nss_buf_page_size = PAGE_SIZE;
+
+		for (page_count = 0; page_count < MAX_PAGES_PER_MSG && num_pages; page_count++, num_pages--) {
+
+			void *kern_addr = kzalloc(PAGE_SIZE, GFP_ATOMIC);
+			if (!kern_addr) {
+				BUG_ON(!page_count);
+				break;
+			}
+			BUG_ON((long unsigned int)kern_addr % PAGE_SIZE);
+
+			buf_pool->nss_buf_pool_vaddr[page_count] = kern_addr;
+			buf_pool->nss_buf_pool_addr[page_count] = dma_map_single(NULL, kern_addr, PAGE_SIZE, DMA_TO_DEVICE);
+		}
+
+		buf_pool->nss_buf_num_pages = page_count;
+		nss_tx_status = nss_n2h_tx_msg(nss_ctx, &nnm);
+		if (nss_tx_status != NSS_TX_SUCCESS) {
+
+			nss_n2h_buf_pool_free(buf_pool);
+			nss_warning("%p: nss_tx error setting pbuf\n", nss_ctx);
+			goto failure;
+		}
+
+		/*
+	 	 * Blocking call, wait till we get ACK for this msg.
+	 	 */
+		ret = wait_for_completion_timeout(&nss_n2h_bufcp[core_num].complete, msecs_to_jiffies(NSS_CONN_CFG_TIMEOUT));
+		if (ret == 0) {
+			nss_warning("%p: Waiting for ack timed out\n", nss_ctx);
+			goto failure;
+		}
+
+		/*
+		 * ACK/NACK received from NSS FW
+		 */
+		if (NSS_FAILURE == nss_n2h_bufcp[core_num].response) {
+
+			nss_n2h_buf_pool_free(buf_pool);
+			goto failure;
+		}
+
+		up(&nss_n2h_bufcp[core_num].sem);
+	} while(num_pages);
+
+	return NSS_SUCCESS;
+failure:
+	up(&nss_n2h_bufcp[core_num].sem);
+	return NSS_FAILURE;
+}
+
+
+
 static ctl_table nss_n2h_table[] = {
 	{
 		.procname	= "n2h_empty_pool_buf_core0",
@@ -894,6 +1096,29 @@ void nss_n2h_register_handler()
 	sema_init(&nss_n2h_rcp.sem, 1);
 	init_completion(&nss_n2h_rcp.complete);
 
+	/*
+	 * MITIGATION sema init for core0
+	 */
+	sema_init(&nss_n2h_mitigationcp[NSS_CORE_0].sem, 1);
+	init_completion(&nss_n2h_mitigationcp[NSS_CORE_0].complete);
+
+	/*
+	 * MITIGATION sema init for core1
+	 */
+	sema_init(&nss_n2h_mitigationcp[NSS_CORE_1].sem, 1);
+	init_completion(&nss_n2h_mitigationcp[NSS_CORE_1].complete);
+
+	/*
+	 * PBUF addition sema init for core0
+	 */
+	sema_init(&nss_n2h_bufcp[NSS_CORE_0].sem, 1);
+	init_completion(&nss_n2h_bufcp[NSS_CORE_0].complete);
+
+	/*
+	 * PBUF addition sema init for core1
+	 */
+	sema_init(&nss_n2h_bufcp[NSS_CORE_1].sem, 1);
+	init_completion(&nss_n2h_bufcp[NSS_CORE_1].complete);
 
 	nss_n2h_notify_register(NSS_CORE_0, NULL, NULL);
 	nss_n2h_notify_register(NSS_CORE_1, NULL, NULL);
