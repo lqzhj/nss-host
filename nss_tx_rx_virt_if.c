@@ -119,7 +119,7 @@ static void nss_tx_rx_virt_if_msg_handler(struct nss_ctx_instance *nss_ctx,
 	 * to the same callback/app_data.
 	 */
 	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
-		ncm->cb = (uint32_t)nss_ctx->nss_top->virt_if_msg_callback[ncm->interface];
+		ncm->cb = (uint32_t)nss_ctx->nss_top->if_rx_msg_callback[ncm->interface];
 		ncm->app_data = (uint32_t)nss_ctx->nss_top->subsys_dp_register[ncm->interface].ndev;
 	}
 
@@ -179,6 +179,8 @@ void *nss_register_virt_if(void *ctx,
 	nss_top_main.subsys_dp_register[if_num].cb = rx_callback;
 	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
 	nss_top_main.subsys_dp_register[if_num].features = (uint32_t)netdev->features;
+
+	nss_top_main.if_rx_msg_callback[if_num] = NULL;
 
 	return ctx;
 }
