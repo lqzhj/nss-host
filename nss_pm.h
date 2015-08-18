@@ -115,8 +115,8 @@ struct nss_pm_global_ctx {
 		{\
 			.src = MSM_BUS_MASTER_NSS_CRYPTO5_0, \
 			.dst = MSM_BUS_SLAVE_EBI_CH0, \
-			.ab = (_data_bw) * 16 * 1000000ULL, \
-			.ib = (_data_bw) * 16 * 1000000ULL, \
+			.ab = 0, \
+			.ib = 0, \
 		}, \
 		{ \
 			.src =  MSM_BUS_MASTER_NSS_CRYPTO5_0, \
