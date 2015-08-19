@@ -26,12 +26,12 @@
 #include <linux/uaccess.h>
 #include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
-#include <mach/msm_iomap.h>
 #include <linux/of.h>
 #include <linux/of_net.h>
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
+#include <linux/reset.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/vmalloc.h>
@@ -100,6 +100,7 @@ static int nss_crypto_probe(struct platform_device *pdev)
 	struct nss_crypto_ctrl_eng *eng_ptr;
 	struct resource crypto_res = {0};
 	struct resource bam_res = {0};
+	struct reset_control *rst_ctl __attribute__((unused));
 	uint32_t bam_ee = 0;
 	size_t old_sz;
 	size_t new_sz;
@@ -115,6 +116,24 @@ static int nss_crypto_probe(struct platform_device *pdev)
 	/* crypto engine resources */
 	nss_crypto_info_always("Device Tree node found\n");
 	np = of_node_get(pdev->dev.of_node);
+
+#if defined CONFIG_RESET_CONTROLLER
+	/*
+	 * Reset Crypto AHB, when first crypto engine is probed
+	 */
+	rst_ctl = devm_reset_control_get(&pdev->dev, "rst_ahb");
+	if (!IS_ERR(rst_ctl) && (reset_control_deassert(rst_ctl) > 0)) {
+		nss_crypto_info_always("Crypto AHB pulled out-of-reset\n");
+	}
+
+	/*
+	 * Reset the Crypto Engine
+	 */
+	rst_ctl = devm_reset_control_get(&pdev->dev, "rst_eng");
+	if (!IS_ERR(rst_ctl) && (reset_control_deassert(rst_ctl) > 0)) {
+		nss_crypto_info_always("Crypto Engine (%d) pulled out-of-reset\n", eng_count);
+	}
+#endif
 
 	/*
 	 * Crypto Registers
