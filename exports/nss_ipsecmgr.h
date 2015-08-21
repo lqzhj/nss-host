@@ -245,5 +245,17 @@ bool nss_ipsecmgr_sa_add(struct net_device *tun, union nss_ipsecmgr_rule *rule, 
  */
 bool nss_ipsecmgr_sa_del(struct net_device *tun, union nss_ipsecmgr_rule *rule, enum nss_ipsecmgr_rule_type type);
 
+
+/**
+ * @brief flush rules for all sa belonging to a specific tunnel
+ *
+ * @param dev[IN] pseudo IPsec tunnel device
+ * @param skb[IN]  the packet
+ * @param type[IN] ingress or egress type
+ *
+ * @return true for success
+ */
+bool nss_ipsecmgr_sa_flush(struct net_device *dev, enum nss_ipsecmgr_rule_type type);
+
 #endif /* (__KERNEL__) */
 #endif /* __NSS_IPSECMGR_H */
