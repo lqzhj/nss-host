@@ -20,7 +20,7 @@
 #include "nss_tx_rx_common.h"
 #include <nss_gmac_api_if.h>
 
-#define NSS_DP_SUPPORTED_FEATURES NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_FRAGLIST | (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO)
+#define NSS_DP_SUPPORTED_FEATURES NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_FRAGLIST | (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO)
 
 struct nss_data_plane_param nss_data_plane_params[NSS_MAX_PHYSICAL_INTERFACES];
 
