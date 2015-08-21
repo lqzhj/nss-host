@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -350,7 +350,7 @@ static int32_t nss_cfi_ipsec_trap_decap(struct sk_buff *skb, struct nss_cfi_cryp
 
 	hlos_dev = nss_cfi_ipsec_get_dev(skb);
 	if (hlos_dev == NULL) {
-		nss_cfi_err("hlos dev is NULL\n");
+		nss_cfi_dbg("hlos dev is NULL\n");
 		return -1;
 	}
 
@@ -421,7 +421,10 @@ static int32_t nss_cfi_ipsec_trap_decap(struct sk_buff *skb, struct nss_cfi_cryp
 static void nss_cfi_ipsec_data_cb(void *cb_ctx, struct sk_buff *skb)
 {
 	struct net_device *dev = cb_ctx;
+	struct net_device *nss_dev;
 	struct iphdr *ip;
+	int16_t index = 0;
+
 
 	nss_cfi_dbg("exception data ");
 
@@ -437,11 +440,23 @@ static void nss_cfi_ipsec_data_cb(void *cb_ctx, struct sk_buff *skb)
 
 	ip = (struct iphdr *)skb->data;
 
-
 	if ((ip->version != IPVERSION ) || (ip->ihl != 5)) {
 		nss_cfi_dbg("unkown ipv4 header\n");
 		dev_kfree_skb_any(skb);
-		return;
+		goto done;
+	}
+
+	if (ip->protocol == IPPROTO_ESP) {
+		index = nss_cfi_ipsec_get_index(dev->name);
+		nss_dev = tunnel_map[index].nss_dev;
+		if (nss_dev == NULL) {
+			nss_cfi_err("NSS IPsec tunnel dev allocation failed for %s\n", dev->name);
+			goto done;
+		}
+
+		nss_ipsecmgr_sa_flush(nss_dev, NSS_IPSECMGR_RULE_TYPE_ENCAP);
+		dev_kfree_skb_any(skb);
+		goto done;
 	}
 
 	skb_reset_network_header(skb);
@@ -454,8 +469,8 @@ static void nss_cfi_ipsec_data_cb(void *cb_ctx, struct sk_buff *skb)
 
 	netif_receive_skb(skb);
 
+done:
 	dev_put(dev);
-
 	nss_cfi_dbg("delivered\n");
 }
 
