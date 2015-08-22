@@ -54,6 +54,27 @@ static void nss_ipv4_driver_conn_sync_update(struct nss_ctx_instance *nss_ctx, s
 }
 
 /*
+ * nss_ipv4_driver_conn_sync_many_update()
+ *	Update driver specific information from the conn_sync_many messsage.
+ */
+static void nss_ipv4_driver_conn_sync_many_update(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_conn_sync_many_msg *nicsm)
+{
+	int i;
+
+	/*
+	 * Sanity check for the stats count
+	 */
+	if (nicsm->count * sizeof(struct nss_ipv4_conn_sync) >= nicsm->size) {
+		nss_warning("%p: stats sync count %u exceeds the size of this msg %u", nss_ctx, nicsm->count, nicsm->size);
+		return;
+	}
+
+	for (i = 0; i < nicsm->count; i++) {
+		nss_ipv4_driver_conn_sync_update(nss_ctx, &nicsm->conn_sync[i]);
+	}
+}
+
+/*
  * nss_ipv4_driver_node_sync_update)
  *	Update driver specific information from the messsage.
  */
@@ -138,6 +159,13 @@ static void nss_ipv4_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 		 */
 		nss_ipv4_driver_conn_sync_update(nss_ctx, &nim->msg.conn_stats);
 		break;
+
+	case NSS_IPV4_TX_CONN_STATS_SYNC_MANY_MSG:
+		/*
+		 * Update driver statistics on connection sync many.
+		 */
+		nss_ipv4_driver_conn_sync_many_update(nss_ctx, &nim->msg.conn_stats_many);
+		break;
 	}
 
 	/*
@@ -164,10 +192,10 @@ static void nss_ipv4_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 }
 
 /*
- * nss_ipv4_tx()
- *	Transmit an ipv4 message to the FW.
+ * nss_ipv4_tx_with_size()
+ *	Transmit an ipv4 message to the FW with a specified size.
  */
-nss_tx_status_t nss_ipv4_tx(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_msg *nim)
+nss_tx_status_t nss_ipv4_tx_with_size(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_msg *nim, uint32_t size)
 {
 	struct nss_ipv4_msg *nim2;
 	struct nss_cmn_msg *ncm = &nim->cm;
@@ -198,7 +226,12 @@ nss_tx_status_t nss_ipv4_tx(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_ms
 		return NSS_TX_FAILURE;
 	}
 
-	nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
+	if(size > PAGE_SIZE) {
+		nss_warning("%p: tx request size too large: %u", nss_ctx, size);
+		return NSS_TX_FAILURE;
+	}
+
+	nbuf = dev_alloc_skb(size);
 	if (unlikely(!nbuf)) {
 		NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]);
 		nss_warning("%p: msg dropped as command allocation failed", nss_ctx);
@@ -223,6 +256,15 @@ nss_tx_status_t nss_ipv4_tx(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_ms
 
 	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_CMD_REQ]);
 	return NSS_TX_SUCCESS;
+}
+
+/*
+ * nss_ipv4_tx()
+ *	Transmit an ipv4 message to the FW.
+ */
+nss_tx_status_t nss_ipv4_tx(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_msg *nim)
+{
+	return nss_ipv4_tx_with_size(nss_ctx, nim, NSS_NBUF_PAYLOAD_SIZE);
 }
 
 /*
@@ -487,6 +529,7 @@ void nss_ipv4_msg_init(struct nss_ipv4_msg *nim, uint16_t if_num, uint32_t type,
 }
 
 EXPORT_SYMBOL(nss_ipv4_tx);
+EXPORT_SYMBOL(nss_ipv4_tx_with_size);
 EXPORT_SYMBOL(nss_ipv4_notify_register);
 EXPORT_SYMBOL(nss_ipv4_notify_unregister);
 EXPORT_SYMBOL(nss_ipv4_get_mgr);

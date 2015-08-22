@@ -38,6 +38,7 @@ enum nss_ipv4_message_types {
 	NSS_IPV4_RX_NODE_STATS_SYNC_MSG,	/**< IPv4 generic statistics sync message */
 	NSS_IPV4_TX_CONN_CFG_RULE_MSG,		/**< IPv4 number of connections supported rule message */
 	NSS_IPV4_TX_CREATE_MC_RULE_MSG,		/**< IPv4 multicast create rule message */
+	NSS_IPV4_TX_CONN_STATS_SYNC_MANY_MSG,	/**< IPv4 request FW to send many conn sync message */
 	NSS_IPV4_MAX_MSG_TYPES,			/**< IPv4 message max type number */
 };
 
@@ -350,6 +351,20 @@ struct nss_ipv4_conn_sync {
 };
 
 /**
+ * The NSS IPv4 conn sync many structure.
+ */
+struct nss_ipv4_conn_sync_many_msg {
+	/* Request */
+	uint16_t index;		/**< Request conn stats from index */
+	uint16_t size;		/**< The buf size of this msg */
+
+	/* Response */
+	uint16_t next;		/**< FW response the next conn to be requested */
+	uint16_t count;		/**< How many conn_sync included in this msg */
+	struct nss_ipv4_conn_sync conn_sync[]; /**< Array for the stats */
+};
+
+/**
  * Exception events from bridge/route handler
  */
 enum exception_events_ipv4 {
@@ -480,7 +495,8 @@ struct nss_ipv4_msg {
 		struct nss_ipv4_conn_sync conn_stats;	/**< Message: connection stats sync */
 		struct nss_ipv4_node_sync node_stats;	/**< Message: node stats sync */
 		struct nss_ipv4_rule_conn_cfg_msg rule_conn_cfg;	/**< Message: rule connections supported */
-		struct nss_ipv4_mc_rule_create_msg mc_rule_create; /**<Message: Multicast rule create */
+		struct nss_ipv4_mc_rule_create_msg mc_rule_create; /**< Message: Multicast rule create */
+		struct nss_ipv4_conn_sync_many_msg conn_stats_many;	/**< Message: connection stats sync */
 	} msg;
 };
 
@@ -509,6 +525,17 @@ typedef void (*nss_ipv4_msg_callback_t)(void *app_data, struct nss_ipv4_msg *msg
  * @return nss_tx_status_t The status of the Tx operation
  */
 extern nss_tx_status_t nss_ipv4_tx(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_msg *msg);
+
+/**
+ * @brief Transmit an IPv4 message to the NSS with specified size
+ *
+ * @param nss_ctx NSS context
+ * @param msg The IPv4 message
+ * @param size Actual size of this msg
+ *
+ * @return nss_tx_status_t The status of the Tx operation
+ */
+extern nss_tx_status_t nss_ipv4_tx_with_size(struct nss_ctx_instance *nss_ctx, struct nss_ipv4_msg *msg, uint32_t size);
 
 /**
  * @brief Register a notifier callback for IPv4 messages from NSS

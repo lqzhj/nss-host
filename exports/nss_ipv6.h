@@ -38,6 +38,7 @@ enum nss_ipv6_message_types {
 	NSS_IPV6_RX_NODE_STATS_SYNC_MSG,	/**< IPv6 generic statistics sync message */
 	NSS_IPV6_TX_CONN_CFG_RULE_MSG,		/**< IPv6 connection cfg rule message */
 	NSS_IPV6_TX_CREATE_MC_RULE_MSG,		/**< IPv6 create multicast rule message */
+	NSS_IPV6_TX_CONN_STATS_SYNC_MANY_MSG,	/**< IPv6 connection stats sync many message */
 	NSS_IPV6_MAX_MSG_TYPES,
 };
 
@@ -394,6 +395,20 @@ struct nss_ipv6_conn_sync {
 };
 
 /**
+ * NSS IPv6 connection stats sync many structure
+ */
+struct nss_ipv6_conn_sync_many_msg {
+	/* Request */
+	uint16_t index;		/**< Request conn stats from index */
+	uint16_t size;		/**< The buf size of this msg */
+
+	/* Response */
+	uint16_t next;		/**< FW response the next conn to be requested */
+	uint16_t count;		/**< How many conn_sync included in this msg */
+	struct nss_ipv6_conn_sync conn_sync[];	/**< Array for the stats */
+};
+
+/**
  * NSS IPv6 node stats sync structure
  */
 struct nss_ipv6_node_sync {
@@ -448,7 +463,8 @@ struct nss_ipv6_msg {
 		struct nss_ipv6_conn_sync conn_stats;		/**< Message: stats sync */
 		struct nss_ipv6_node_sync node_stats;		/**< Message: node stats sync */
 		struct nss_ipv6_rule_conn_cfg_msg rule_conn_cfg;/**< Message: rule conn cfg */
-		struct nss_ipv6_mc_rule_create_msg mc_rule_create; /**<Message: Multicast rule create */
+		struct nss_ipv6_mc_rule_create_msg mc_rule_create; /**< Message: Multicast rule create */
+		struct nss_ipv6_conn_sync_many_msg conn_stats_many; /**< Message: stats sync many */
 	} msg;
 };
 
@@ -475,6 +491,17 @@ typedef void (*nss_ipv6_msg_callback_t)(void *app_data, struct nss_ipv6_msg *msg
  * @return nss_tx_status_t The status of the Tx operation
  */
 extern nss_tx_status_t nss_ipv6_tx(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_msg *msg);
+
+/**
+ * @brief Transmit an IPv6 message to the NSS with specified size
+ *
+ * @param nss_ctx NSS context
+ * @param msg The IPv6 message
+ * @param size Actual size of this message
+ *
+ * @return nss_tx_status_t The status of the Tx operation
+ */
+extern nss_tx_status_t nss_ipv6_tx_with_size(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_msg *msg, uint32_t size);
 
 /**
  * @brief Register a notifier callback for IPv6 messages from NSS
