@@ -29,6 +29,20 @@
 
 #define NSS_CORE_JUMBO_LINEAR_BUF_SIZE 128
 
+static int max_ipv4_conn = NSS_DEFAULT_NUM_CONN;
+module_param(max_ipv4_conn, int, S_IRUGO);
+MODULE_PARM_DESC(max_ipv4_conn, "Max number of IPv4 connections");
+
+static int max_ipv6_conn = NSS_DEFAULT_NUM_CONN;
+module_param(max_ipv6_conn, int, S_IRUGO);
+MODULE_PARM_DESC(max_ipv6_conn, "Max number of IPv6 connections");
+
+/*
+ * Track IPv4/IPv6 max connection update done
+ */
+static int max_ipv4_conn_update_done;
+static int max_ipv6_conn_update_done;
+
 /*
  * Atomic variables to control jumbo_mru & paged_mode
  */
@@ -1115,6 +1129,25 @@ static void nss_core_init_nss(struct nss_ctx_instance *nss_ctx, struct nss_if_me
 		for (i = 0; i < NSS_MAX_PHYSICAL_INTERFACES; i++) {
 			if (nss_data_plane_register_to_nss_gmac(nss_ctx, i)) {
 				nss_info("Register data plan to gmac%d success\n", i);
+			}
+		}
+	}
+
+	/*
+	 * Configure the maximum number of IPv4/IPv6
+	 * connections supported by the accelerator.
+	 */
+	if ((nss_ctx->id == 0) &&
+	    ((max_ipv4_conn_update_done == 0) || (max_ipv6_conn_update_done == 0))) {
+		if (max_ipv4_conn_update_done == 0) {
+			if (nss_ipv4_update_conn_count(max_ipv4_conn) == 0) {
+				max_ipv4_conn_update_done = 1;
+			}
+		}
+
+		if (max_ipv6_conn_update_done == 0) {
+			if (nss_ipv6_update_conn_count(max_ipv6_conn) == 0) {
+				max_ipv6_conn_update_done = 1;
 			}
 		}
 	}

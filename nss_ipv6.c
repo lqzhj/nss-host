@@ -326,6 +326,59 @@ void nss_ipv6_register_handler()
 }
 
 /*
+ * nss_ipv6_conn_cfg_process()
+ *	Process request to configure number of ipv6 connections
+ */
+static int nss_ipv6_conn_cfg_process(struct nss_ctx_instance *nss_ctx, int conn,
+				     void (*cfg_cb)(void *app_data, struct nss_ipv6_msg *nim))
+{
+	struct nss_ipv6_msg nim;
+	struct nss_ipv6_rule_conn_cfg_msg *nirccm;
+	nss_tx_status_t nss_tx_status;
+	uint32_t sum_of_conn;
+
+	/*
+	 * Specifications for input
+	 * 1) The input should be power of 2.
+	 * 2) Input for ipv4 and ipv6 sum togther should not exceed 8k
+	 * 3) Min. value should be at leat 256 connections. This is the
+	 * minimum connections we will support for each of them.
+	 */
+	sum_of_conn = nss_ipv4_conn_cfg + conn;
+	if ((conn & NSS_NUM_CONN_QUANTA_MASK) ||
+		(sum_of_conn > NSS_MAX_TOTAL_NUM_CONN_IPV4_IPV6) ||
+		(conn < NSS_MIN_NUM_CONN)) {
+		nss_warning("%p: input supported connections (%d) does not adhere\
+				specifications\n1) not power of 2,\n2) is less than \
+				min val: %d, OR\n 	IPv4/6 total exceeds %d\n",
+				nss_ctx,
+				conn,
+				NSS_MIN_NUM_CONN,
+				NSS_MAX_TOTAL_NUM_CONN_IPV4_IPV6);
+		return -EINVAL;
+	}
+
+	nss_info("%p: IPv6 supported connections: %d\n", nss_ctx, conn);
+
+	memset(&nim, 0, sizeof(struct nss_ipv6_msg));
+	nss_ipv6_msg_init(&nim, NSS_IPV6_RX_INTERFACE, NSS_IPV6_TX_CONN_CFG_RULE_MSG,
+		sizeof(struct nss_ipv6_rule_conn_cfg_msg), cfg_cb, NULL);
+
+	nirccm = &nim.msg.rule_conn_cfg;
+	nirccm->num_conn = htonl(conn);
+	nss_tx_status = nss_ipv6_tx(nss_ctx, &nim);
+
+	if (nss_tx_status != NSS_TX_SUCCESS) {
+		nss_warning("%p: nss_tx error setting IPv6 Connections: %d\n",
+						nss_ctx,
+						conn);
+		return -EIO;
+	}
+
+	return 0;
+}
+
+/*
  * nss_ipv6_conn_cfg_callback()
  *	call back function for the ipv6 connection configuration handler
  */
@@ -359,11 +412,7 @@ static int nss_ipv6_conn_cfg_handler(ctl_table *ctl, int write, void __user *buf
 {
 	struct nss_top_instance *nss_top = &nss_top_main;
 	struct nss_ctx_instance *nss_ctx = &nss_top->nss[0];
-	struct nss_ipv6_msg nim;
-	struct nss_ipv6_rule_conn_cfg_msg *nirccm;
-	nss_tx_status_t nss_tx_status;
 	int ret = NSS_FAILURE;
-	uint32_t sum_of_conn;
 
 	/*
 	 * Acquiring semaphore
@@ -382,40 +431,10 @@ static int nss_ipv6_conn_cfg_handler(ctl_table *ctl, int write, void __user *buf
 	}
 
 	/*
-	 * Specifications for input
-	 * 1) The input should be power of 2.
-	 * 2) Input for ipv4 and ipv6 sum togther should not exceed 8k
-	 * 3) Min. value should be at leat 256 connections. This is the
-	 * minimum connections we will support for each of them.
+	 * Process request to change number of IPv6 connections
 	 */
-	sum_of_conn = nss_ipv4_conn_cfg + nss_ipv6_conn_cfg;
-	if ((nss_ipv6_conn_cfg & NSS_NUM_CONN_QUANTA_MASK) ||
-		(sum_of_conn > NSS_MAX_TOTAL_NUM_CONN_IPV4_IPV6) ||
-		(nss_ipv6_conn_cfg < NSS_MIN_NUM_CONN)) {
-		nss_warning("%p: input supported connections (%d) does not adhere\
-				specifications\n1) not power of 2,\n2) is less than \
-				min val: %d, OR\n 	IPv4/6 total exceeds %d\n",
-				nss_ctx,
-				nss_ipv6_conn_cfg,
-				NSS_MIN_NUM_CONN,
-				NSS_MAX_TOTAL_NUM_CONN_IPV4_IPV6);
-		goto failure;
-	}
-
-
-	nss_info("%p: IPv6 supported connections: %d\n", nss_ctx, nss_ipv6_conn_cfg);
-
-	nss_ipv6_msg_init(&nim, NSS_IPV6_RX_INTERFACE, NSS_IPV6_TX_CONN_CFG_RULE_MSG,
-		sizeof(struct nss_ipv6_rule_conn_cfg_msg), nss_ipv6_conn_cfg_callback, NULL);
-
-	nirccm = &nim.msg.rule_conn_cfg;
-	nirccm->num_conn = htonl(nss_ipv6_conn_cfg);
-	nss_tx_status = nss_ipv6_tx(nss_ctx, &nim);
-
-	if (nss_tx_status != NSS_TX_SUCCESS) {
-		nss_warning("%p: nss_tx error setting IPv6 Connections: %d\n",
-						nss_ctx,
-						nss_ipv6_conn_cfg);
+	ret = nss_ipv6_conn_cfg_process(nss_ctx, nss_ipv6_conn_cfg, nss_ipv6_conn_cfg_callback);
+	if (ret != 0) {
 		goto failure;
 	}
 
@@ -446,6 +465,48 @@ failure:
 	 */
 	nss_ipv6_conn_cfg = i6cfgp.current_value;
 	up(&i6cfgp.sem);
+	return -EINVAL;
+}
+
+/*
+ * nss_ipv6_update_conn_count_cb()
+ *	call back function for the ipv6 connection count update handler
+ */
+static void nss_ipv6_update_conn_count_cb(void *app_data, struct nss_ipv6_msg *nim)
+{
+	if (nim->cm.response != NSS_CMN_RESPONSE_ACK) {
+		nss_warning("IPv6 connection count update failed with error: %d\n", nim->cm.error);
+		return;
+	}
+
+	nss_warning("IPv6 connection count update success: %d\n", nim->cm.error);
+}
+
+/*
+ * nss_ipv6_update_conn_count()
+ *	Sets the maximum number of connections for IPv6
+ */
+int nss_ipv6_update_conn_count(int ipv6_num_conn)
+{
+	struct nss_top_instance *nss_top = &nss_top_main;
+	struct nss_ctx_instance *nss_ctx = &nss_top->nss[0];
+	int saved_nss_ipv6_conn_cfg = nss_ipv6_conn_cfg;
+	int ret = 0;
+
+	nss_ipv6_conn_cfg = ipv6_num_conn;
+
+	/*
+	 * Process request to change number of IPv6 connections
+	 */
+	ret = nss_ipv6_conn_cfg_process(nss_ctx, nss_ipv6_conn_cfg, nss_ipv6_update_conn_count_cb);
+	if (ret != 0) {
+		goto failure;
+	}
+
+	return 0;
+
+failure:
+	nss_ipv6_conn_cfg = saved_nss_ipv6_conn_cfg;
 	return -EINVAL;
 }
 
@@ -537,3 +598,4 @@ EXPORT_SYMBOL(nss_ipv6_register_handler);
 EXPORT_SYMBOL(nss_ipv6_register_sysctl);
 EXPORT_SYMBOL(nss_ipv6_unregister_sysctl);
 EXPORT_SYMBOL(nss_ipv6_msg_init);
+EXPORT_SYMBOL(nss_ipv6_update_conn_count);
