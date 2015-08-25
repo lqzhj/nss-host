@@ -1566,6 +1566,7 @@ static inline void nss_gmac_tx_desc_init_ring(struct dma_desc *desc,
 
 void nss_gmac_init_rx_desc_base(struct nss_gmac_dev *gmacdev);
 void nss_gmac_init_tx_desc_base(struct nss_gmac_dev *gmacdev);
+void nss_gmac_tx_rx_desc_release(struct nss_gmac_dev *gmacdev);
 void nss_gmac_set_owner_dma(struct dma_desc *desc);
 void nss_gmac_set_desc_sof(struct dma_desc *desc);
 void nss_gmac_set_desc_eof(struct dma_desc *desc);
@@ -1987,7 +1988,6 @@ static inline void nss_gmac_reset_rx_qptr(struct nss_gmac_dev *gmacdev)
 	 */
 	(gmacdev->busy_rx_desc)--;
 }
-
 
 /**
  * Clears all the pending interrupts.

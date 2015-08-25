@@ -1106,6 +1106,12 @@ int nss_gmac_override_data_plane(struct net_device *netdev,
 		nss_gmac_reset_netdev_features(netdev);
 	}
 
+	/*
+	 * If slowpath started before, we need to free the resource
+	 */
+	if (gmacdev->data_plane_ops == &nss_gmac_slowpath_ops)
+		nss_gmac_tx_rx_desc_release(gmacdev);
+
 	/* Recored the data_plane_ctx, data_plane_ops */
 	gmacdev->data_plane_ctx = ctx;
 	gmacdev->data_plane_ops = dp_ops;

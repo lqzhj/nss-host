@@ -164,9 +164,6 @@ uint32_t nss_gmac_wakeup_filter_config3[] = {
  */
 static void nss_gmac_giveup_rx_desc_queue(struct nss_gmac_dev *gmacdev,
 				struct device *dev,
-				uint32_t desc_mode) __attribute__((unused));
-static void nss_gmac_giveup_rx_desc_queue(struct nss_gmac_dev *gmacdev,
-				struct device *dev,
 				uint32_t desc_mode)
 {
 	int32_t i;
@@ -220,9 +217,6 @@ static void nss_gmac_giveup_rx_desc_queue(struct nss_gmac_dev *gmacdev,
  */
 static void nss_gmac_giveup_tx_desc_queue(struct nss_gmac_dev *gmacdev,
 				  struct device *dev,
-				  uint32_t desc_mode) __attribute__((unused));
-static void nss_gmac_giveup_tx_desc_queue(struct nss_gmac_dev *gmacdev,
-				  struct device *dev,
 				  uint32_t desc_mode)
 {
 	int32_t i;
@@ -252,6 +246,19 @@ static void nss_gmac_giveup_tx_desc_queue(struct nss_gmac_dev *gmacdev,
 	gmacdev->tx_desc_dma = 0;
 }
 
+/**
+ * @brief Release the memory allocated for the gmac descriptor ring
+ * @param[in] pointer to nss_gmac_dev.
+ * @return void
+ */
+void nss_gmac_tx_rx_desc_release(struct nss_gmac_dev *gmacdev)
+{
+	struct net_device *netdev = gmacdev->netdev;
+	struct device *dev = &netdev->dev;
+
+	nss_gmac_giveup_rx_desc_queue(gmacdev, dev, RINGMODE);
+	nss_gmac_giveup_tx_desc_queue(gmacdev, dev, RINGMODE);
+}
 
 /**
  * @brief Initialize tx/rx descriptors
@@ -280,7 +287,6 @@ void nss_gmac_tx_rx_desc_init(struct nss_gmac_dev *gmacdev)
 	nss_gmac_take_desc_ownership_rx(gmacdev);
 	nss_gmac_take_desc_ownership_tx(gmacdev);
 }
-
 
 /**
  * @brief Function provides the network interface statistics.
