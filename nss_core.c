@@ -437,7 +437,6 @@ static inline void nss_core_handle_buffer_pkt(struct nss_ctx_instance *nss_ctx,
 {
 	struct nss_top_instance *nss_top = nss_ctx->nss_top;
 	struct nss_subsystem_dataplane_register *subsys_dp_reg = &nss_top->subsys_dp_register[interface_num];
-	uint32_t netif_flags = subsys_dp_reg->features;
 	struct net_device *ndev = NULL;
 	nss_phys_if_rx_callback_t cb;
 
@@ -457,7 +456,7 @@ static inline void nss_core_handle_buffer_pkt(struct nss_ctx_instance *nss_ctx,
 		/*
 		 * Packet was received on Physical interface
 		 */
-		if (nss_core_skb_needs_linearize(nbuf, netif_flags) && __skb_linearize(nbuf)) {
+		if (nss_core_skb_needs_linearize(nbuf, ndev->features) && __skb_linearize(nbuf)) {
 			/*
 			 * We needed to linearize, but __skb_linearize() failed. So free the nbuf.
 			 */
@@ -479,7 +478,6 @@ static inline void nss_core_handle_buffer_pkt(struct nss_ctx_instance *nss_ctx,
 		 *
 		 * TODO: Change to gro receive later
 		 */
-		ndev = subsys_dp_reg->ndev;
 		if (ndev) {
 			dev_hold(ndev);
 			nbuf->dev = ndev;
@@ -512,7 +510,6 @@ static inline void nss_core_handle_ext_buffer_pkt(struct nss_ctx_instance *nss_c
 {
 	struct nss_top_instance *nss_top = nss_ctx->nss_top;
 	struct nss_subsystem_dataplane_register *subsys_dp_reg = &nss_top->subsys_dp_register[interface_num];
-	uint32_t netif_flags = subsys_dp_reg->features;
 	struct net_device *ndev = NULL;
 	nss_phys_if_rx_ext_data_callback_t ext_cb;
 
@@ -529,7 +526,7 @@ static inline void nss_core_handle_ext_buffer_pkt(struct nss_ctx_instance *nss_c
 	ndev = subsys_dp_reg->ndev;
 	ext_cb = subsys_dp_reg->ext_cb;
 	if (likely(ext_cb) && likely(ndev)) {
-		if (nss_core_skb_needs_linearize(nbuf, netif_flags) && __skb_linearize(nbuf)) {
+		if (nss_core_skb_needs_linearize(nbuf, ndev->features) && __skb_linearize(nbuf)) {
 			/*
 			 * We needed to linearize, but __skb_linearize() failed. So free the nbuf.
 			 */
