@@ -90,6 +90,7 @@ enum nss_wifi_vdev_cmd {
 	NSS_WIFI_VDEV_DECAP_TYPE_CMD,		/**< command to configure decap mode of vap */
 	NSS_WIFI_VDEV_ENABLE_ME_CMD,		/**< command to enable multicast enhancement */
 	NSS_WIFI_VDEV_NAWDS_MODE_CMD,		/**< command to configure NAWDS on vap */
+	NSS_WIFI_VDEV_EXTAP_CONFIG_CMD,		/**< command to configure EXTAP mode on ap */
 };
 
 /**
