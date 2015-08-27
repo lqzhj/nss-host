@@ -525,8 +525,8 @@ static int nss_n2h_set_water_mark(ctl_table *ctl, int write,
 		goto failure;
 	}
 
-	if ((*low > (NSS_N2H_DEFAULT_EMPTY_POOL_BUF_SZ * 2)) ||
-		(*high > (NSS_N2H_DEFAULT_EMPTY_POOL_BUF_SZ * 2))) {
+	if ((*low > (NSS_N2H_DEFAULT_EMPTY_POOL_BUF_SZ * 5)) ||
+		(*high > (NSS_N2H_DEFAULT_EMPTY_POOL_BUF_SZ * 5))) {
 		nss_warning("%p: core %d setting %d, %d is > upper limit",
 				nss_ctx, core_num, *low, *high);
 		goto failure;
