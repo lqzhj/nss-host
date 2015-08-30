@@ -590,6 +590,12 @@ extern void nss_ipv4_unregister_sysctl(void);
 extern void nss_ipv4_msg_init(struct nss_ipv4_msg *nim, uint16_t if_num, uint32_t type, uint32_t len,
 			nss_ipv4_msg_callback_t cb, void *app_data);
 
+/**
+ * @brief Set max number of IPv4 connections.
+ *
+ * @return 0 on success
+ */
+extern int nss_ipv4_update_conn_count(int ipv4_max_conn);
 
 #endif /*__KERNEL__ */
 #endif /* __NSS_IPV4_H */
