@@ -1527,6 +1527,16 @@ clk_complete:
 	nss_hal_core_reset(nss_dev->id, nss_ctx->nmap, nss_ctx->load, nss_top->clk_src);
 #endif
 	/*
+	 * Initialize max buffer size for NSS core
+	 */
+	nss_ctx->max_buf_size = NSS_NBUF_PAYLOAD_SIZE;
+
+        /*
+	 * Increment number of cores
+	 */
+	nss_top->num_nss++;
+
+	/*
 	 * Enable interrupts for NSS core
 	 */
 	nss_hal_enable_interrupt(nss_ctx->nmap, nss_ctx->int_ctx[0].irq,
@@ -1537,10 +1547,6 @@ clk_complete:
 					nss_ctx->int_ctx[1].shift_factor, NSS_HAL_SUPPORTED_INTERRUPTS);
 	}
 
-	/*
-	 * Initialize max buffer size for NSS core
-	 */
-	nss_ctx->max_buf_size = NSS_NBUF_PAYLOAD_SIZE;
 	nss_info("%p: All resources initialized and nss core%d has been brought out of reset", nss_ctx, nss_dev->id);
 	goto err_init_0;
 

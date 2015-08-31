@@ -34,7 +34,10 @@ qca-nss-drv-objs := \
 			nss_pm.o \
 			nss_log.o \
 			nss_profiler.o \
-			nss_eth_rx.o
+			nss_eth_rx.o  \
+			nss_wifi.o \
+			nss_wifi_vdev.o \
+			nss_wifi_if.o
 
 
 #
