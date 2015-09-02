@@ -485,6 +485,7 @@ enum nss_stats_n2h {
 	NSS_STATS_N2H_N2H_DATA_PACKETS,		/* Data packets sent to HLOS */
 	NSS_STATS_N2H_N2H_DATA_BYTES,		/* Data bytes sent to HLOS */
 	NSS_STATS_N2H_N2H_TOT_PAYLOADS,		/* No. of payloads in NSS */
+	NSS_STATS_N2H_N2H_INTERFACE_INVALID,	/* No. of bad interface access */
 
 	NSS_STATS_N2H_MAX,
 };

@@ -105,6 +105,8 @@ static void nss_n2h_stats_sync(struct nss_ctx_instance *nss_ctx, struct nss_n2h_
 	 */
 	nss_ctx->stats_n2h[NSS_STATS_N2H_N2H_TOT_PAYLOADS] = nnss->tot_payloads;
 
+	nss_ctx->stats_n2h[NSS_STATS_N2H_N2H_INTERFACE_INVALID] += nnss->data_interface_invalid;
+
 	spin_unlock_bh(&nss_top->stats_lock);
 }
 
