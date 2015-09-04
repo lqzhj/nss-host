@@ -9,3 +9,4 @@ obj ?= .
 
 ccflags-y += -I$(obj)/../include
 ccflags-y += -I$(obj)/
+ccflags-y += -DNSS_CFI_DEBUG_LEVEL=3
