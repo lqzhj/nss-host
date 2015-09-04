@@ -22,7 +22,6 @@
  */
 static void nss_wifi_vdev_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm, __attribute__((unused))void *app_data)
 {
-	void *ctx;
 	nss_wifi_vdev_msg_callback_t cb;
 
 	nss_info("%p: NSS->HLOS message for wifi vdev on interface:%d", nss_ctx, ncm->interface);
@@ -37,18 +36,6 @@ static void nss_wifi_vdev_handler(struct nss_ctx_instance *nss_ctx, struct nss_c
 		return;
 	}
 
-	if (ncm->len > sizeof(struct nss_wifi_vdev_msg)) {
-		nss_warning("%p: invalid length %d specified for wifi vdev interface", nss_ctx, ncm->len);
-		return;
-	}
-
-	/*
-	 * Update the callback and app_data for NOTIFY messages, wifi sends all notify messages
-	 * to the same callback/app_data.
-	 */
-	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
-		ncm->cb = (uint32_t)nss_ctx->nss_top->if_rx_msg_callback[ncm->interface];
-	}
 
 	/*
 	 * Log failures
@@ -56,29 +43,28 @@ static void nss_wifi_vdev_handler(struct nss_ctx_instance *nss_ctx, struct nss_c
 	nss_core_log_msg_failures(nss_ctx, ncm);
 
 	/*
-	 * Do we have a call back
-	 */
-	if (!ncm->cb) {
-		nss_info("%p: cb null for wifi vdev %d", nss_ctx, ncm->interface);
-		return;
-	}
-
-	/*
 	 * callback
 	 */
-	cb = (nss_wifi_vdev_msg_callback_t)ncm->cb;
-	ctx =  nss_ctx->nss_top->subsys_dp_register[ncm->interface].ndev;
+	if (!nss_ctx->nss_top->subsys_dp_register[ncm->interface].ndev) {
+		nss_warning("%p: Event received wifi vdev interface %d before registration", nss_ctx, ncm->interface);
+		return;
+
+	}
+
+	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
+		ncm->cb = (uint32_t)nss_ctx->nss_top->if_rx_msg_callback[ncm->interface];
+		ncm->app_data = (uint32_t)nss_ctx->nss_top->subsys_dp_register[ncm->interface].ndev;
+	}
 
 	/*
-	 * call wifi vdev callback
+	 * Do we have a callback?
 	 */
-	if (!ctx) {
-
-		nss_warning("%p: Event received for wifi vdev interface %d before registration", nss_ctx, ncm->interface);
+	if (!ncm->cb) {
 		return;
 	}
 
-	cb(ctx, ncm);
+	cb = (nss_wifi_vdev_msg_callback_t)ncm->cb;
+	cb((void *)ncm->app_data, ncm);
 }
 
 /*
