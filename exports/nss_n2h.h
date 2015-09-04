@@ -149,6 +149,7 @@ struct nss_n2h_stats_sync {
 	uint32_t n2h_data_pkts;		/* Data packets sent to HLOS */
 	uint32_t n2h_data_bytes;	/* Data bytes sent to HLOS */
 	uint32_t tot_payloads;		/* Total number of payloads in NSS FW */
+	uint32_t data_interface_invalid;	/* Number of data packets received from host with an invalid interface */
 };
 
 /*

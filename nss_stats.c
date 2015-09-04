@@ -151,6 +151,7 @@ static int8_t *nss_stats_str_n2h[NSS_STATS_N2H_MAX] = {
 	"n2h_data_packets",
 	"n2h_data_bytes",
 	"n2h_tot_payloads",
+	"n2h_data_interface_invalid",
 };
 
 /*
