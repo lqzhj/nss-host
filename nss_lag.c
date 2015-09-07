@@ -75,7 +75,8 @@ void *nss_register_lag_if(uint32_t if_num,
 {
 	uint32_t features = 0;
 
-	nss_assert((if_num == NSS_LAG0_INTERFACE_NUM) || (if_num == NSS_LAG1_INTERFACE_NUM));
+	nss_assert((if_num == NSS_LAG0_INTERFACE_NUM) || (if_num == NSS_LAG1_INTERFACE_NUM) ||
+		   (if_num == NSS_LAG2_INTERFACE_NUM) || (if_num == NSS_LAG3_INTERFACE_NUM));
 
 	nss_top_main.subsys_dp_register[if_num].ndev = netdev;
 	nss_top_main.subsys_dp_register[if_num].cb = lag_cb;
@@ -97,7 +98,8 @@ EXPORT_SYMBOL(nss_register_lag_if);
  */
 void nss_unregister_lag_if(uint32_t if_num)
 {
-	nss_assert((if_num == NSS_LAG0_INTERFACE_NUM) || (if_num == NSS_LAG1_INTERFACE_NUM));
+	nss_assert((if_num == NSS_LAG0_INTERFACE_NUM) || (if_num == NSS_LAG1_INTERFACE_NUM) ||
+		   (if_num == NSS_LAG2_INTERFACE_NUM) || (if_num == NSS_LAG3_INTERFACE_NUM));
 
 	nss_top_main.subsys_dp_register[if_num].cb = NULL;
 	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
@@ -121,7 +123,9 @@ void nss_lag_handler(struct nss_ctx_instance *nss_ctx,
 	nss_lag_event_callback_t cb;
 
 	BUG_ON(ncm->interface != NSS_LAG0_INTERFACE_NUM
-	       && ncm->interface != NSS_LAG1_INTERFACE_NUM);
+	       && ncm->interface != NSS_LAG1_INTERFACE_NUM
+		&& ncm->interface != NSS_LAG2_INTERFACE_NUM
+		&& ncm->interface != NSS_LAG3_INTERFACE_NUM);
 
 	if (ncm->type >= NSS_TX_METADATA_LAG_MAX) {
 		nss_warning("%p: received invalid message %d for LAG interface", nss_ctx, ncm->type);
@@ -170,6 +174,8 @@ void nss_lag_register_handler(void)
 {
 	nss_core_register_handler(NSS_LAG0_INTERFACE_NUM, nss_lag_handler, NULL);
 	nss_core_register_handler(NSS_LAG1_INTERFACE_NUM, nss_lag_handler, NULL);
+	nss_core_register_handler(NSS_LAG2_INTERFACE_NUM, nss_lag_handler, NULL);
+	nss_core_register_handler(NSS_LAG3_INTERFACE_NUM, nss_lag_handler, NULL);
 }
 
 /**

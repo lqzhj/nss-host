@@ -84,7 +84,7 @@
 #define NSS_MAX_PHYSICAL_INTERFACES 4
 #define NSS_MAX_VIRTUAL_INTERFACES 16
 #define NSS_MAX_TUNNEL_INTERFACES 4
-#define NSS_MAX_SPECIAL_INTERFACES 30
+#define NSS_MAX_SPECIAL_INTERFACES 34
 #define NSS_MAX_WIFI_RADIO_INTERFACES 3
 
 /**
@@ -114,8 +114,8 @@
 #define NSS_IPV6_RX_INTERFACE (NSS_SPECIAL_IF_START + 7) /* Special IF number for IPv6 */
 #define NSS_PROFILER_INTERFACE (NSS_SPECIAL_IF_START + 8) /* Special IF number for profile */
 #define NSS_CRYPTO_INTERFACE (NSS_SPECIAL_IF_START + 9) /* Special IF number for Crypto */
-#define NSS_LAG0_INTERFACE_NUM (NSS_SPECIAL_IF_START + 10) /* Special IF number for LAG0 */
-#define NSS_LAG1_INTERFACE_NUM (NSS_SPECIAL_IF_START + 11) /* Special IF number for LAG1 */
+#define NSS_RESERVED_INTERFACE1 (NSS_SPECIAL_IF_START + 10) /* Reserved Interface 1 */
+#define NSS_RESERVED_INTERFACE2 (NSS_SPECIAL_IF_START + 11) /* Reserved Interface 2 */
 #define NSS_C2C_TX_INTERFACE (NSS_SPECIAL_IF_START + 12) /* Virtual Interface Number for IPSec Tunnel */
 #define NSS_IPSEC_RULE_INTERFACE (NSS_SPECIAL_IF_START + 18) /* Virtual Interface Number for IPSec rule */
 #define NSS_COREFREQ_INTERFACE (NSS_SPECIAL_IF_START + 19) /* Virtual Interface Number for Corefreq */
@@ -129,6 +129,10 @@
 #define NSS_WIFI_INTERFACE1 (NSS_SPECIAL_IF_START + 27) /* Special Interface Number for WIFI radi0 1 */
 #define NSS_WIFI_INTERFACE2 (NSS_SPECIAL_IF_START + 28) /* Special Interface Number for WIFI radio 2 */
 #define NSS_IPV6_REASM_INTERFACE (NSS_SPECIAL_IF_START + 29) /* Special IF number for IPv6 reassembly */
+#define NSS_LAG0_INTERFACE_NUM (NSS_SPECIAL_IF_START + 30) /* Special IF number for LAG0 */
+#define NSS_LAG1_INTERFACE_NUM (NSS_SPECIAL_IF_START + 31) /* Special IF number for LAG1 */
+#define NSS_LAG2_INTERFACE_NUM (NSS_SPECIAL_IF_START + 32) /* Special IF number for LAG2 */
+#define NSS_LAG3_INTERFACE_NUM (NSS_SPECIAL_IF_START + 33) /* Special IF number for LAG3 */
 
 /**
  * This macro converts format for IPv6 address (from Linux to NSS)
