@@ -150,6 +150,55 @@ nss_tx_status_t nss_wifi_vdev_tx_msg(struct nss_ctx_instance *nss_ctx, struct ns
 }
 
 /*
+ * nss_wifi_vdev_tx_msg_ext()
+ * 	Send special data packet with metadata for vap processing
+ */
+nss_tx_status_t nss_wifi_vdev_tx_msg_ext(struct nss_ctx_instance *nss_ctx, struct sk_buff *os_buf)
+{
+	struct nss_wifi_vdev_msg *nm;
+	struct nss_cmn_msg *ncm;
+	nss_tx_status_t status;
+
+	NSS_VERIFY_CTX_MAGIC(nss_ctx);
+
+	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
+		nss_warning("%p: wifi vdev message dropped as core not ready", nss_ctx);
+		return NSS_TX_FAILURE_NOT_READY;
+	}
+
+	nm = (struct nss_wifi_vdev_msg *) os_buf->data;
+	ncm = &nm->cm;
+
+	nss_trace("%p: Sending wifi vdev message on interface :%d", nss_ctx, ncm->interface);
+
+	/*
+	 * Interface shall be of dynamic interface type
+	 */
+	if ((ncm->interface < NSS_DYNAMIC_IF_START) || (ncm->interface >= (NSS_DYNAMIC_IF_START + NSS_MAX_DYNAMIC_INTERFACES))) {
+		nss_warning("%p: wifi vdev tx request for invalid interface: %d", nss_ctx, ncm->interface);
+		return NSS_TX_FAILURE;
+	}
+
+	if (ncm->type > NSS_WIFI_VDEV_MAX_MSG) {
+		nss_warning("%p: wifi vdev message type out of range: %d", nss_ctx, ncm->type);
+		return NSS_TX_FAILURE;
+	}
+
+	status = nss_core_send_buffer(nss_ctx, 0, os_buf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
+	if (status != NSS_CORE_STATUS_SUCCESS) {
+		nss_warning("%p: Unable to enqueue 'wifi vdev message'", nss_ctx);
+		return NSS_TX_FAILURE;
+	}
+
+	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
+			NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
+
+	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_CMD_REQ]);
+
+	return status;
+}
+
+/*
  * nss_wifi_vdev_tx_buf
  * 	Send data packet for vap processing
  */
@@ -237,6 +286,7 @@ void nss_unregister_wifi_vdev_if(uint32_t if_num)
 	nss_core_unregister_handler(if_num);
 }
 
+EXPORT_SYMBOL(nss_wifi_vdev_tx_msg_ext);
 EXPORT_SYMBOL(nss_wifi_vdev_msg_init);
 EXPORT_SYMBOL(nss_wifi_vdev_tx_msg);
 EXPORT_SYMBOL(nss_wifi_vdev_tx_buf);

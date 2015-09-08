@@ -42,6 +42,9 @@ enum nss_wifi_vdev_msg_types {
 	NSS_WIFI_VDEV_SNOOPLIST_DENY_LIST_DUMP_MSG,
 	NSS_WIFI_VDEV_SNOOPLIST_DUMP_MSG,
 	NSS_WIFI_VDEV_SNOOPLIST_RESET_MSG,
+	NSS_WIFI_VDEV_SPECIAL_DATA_TX_MSG,
+	NSS_WIFI_VDEV_VOW_DBG_CFG_MSG,
+	NSS_WIFI_VDEV_VOW_DBG_STATS_REQ_MSG,
 	NSS_WIFI_VDEV_MAX_MSG
 };
 
@@ -69,7 +72,9 @@ enum {
 	NSS_WIFI_VDEV_SNOOPTABLE_GRP_LIST_EXIST,	/**< grp_list already exists in snooplist */
 	NSS_WIFI_VDEV_ME_ENOMEM,			/**< error in allocating memory for multicast enhancement instance */
 	NSS_WIFI_VDEV_EINV_NAWDS_CFG,			/**< error in nawds config */
-	NSS_WIFI_VDEV_EINV_EXTAP_CFG			/**< error in extap config */
+	NSS_WIFI_VDEV_EINV_EXTAP_CFG,			/**< error in extap config */
+	NSS_WIFI_VDEV_EINV_VOW_DBG_CFG,			/**< error in VOW Debug stats config */
+	NSS_WIFI_VDEV_EINV_MAX_CFG
 };
 
 /**
@@ -79,6 +84,7 @@ enum nss_wifi_vdev_ext_data_pkt_type {
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_NONE = 0,
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_IGMP = 1,		/**< igmp packets */
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_MESH = 2,		/**< mesh packets */
+	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_INSPECT = 3,	/**< host inspect packets */
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_MAX
 };
 
@@ -92,6 +98,10 @@ enum nss_wifi_vdev_cmd {
 	NSS_WIFI_VDEV_ENABLE_ME_CMD,		/**< command to enable multicast enhancement */
 	NSS_WIFI_VDEV_NAWDS_MODE_CMD,		/**< command to configure NAWDS on vap */
 	NSS_WIFI_VDEV_EXTAP_CONFIG_CMD,		/**< command to configure EXTAP mode on ap */
+	NSS_WIFI_VDEV_CFG_BSTEER_CMD,		/**< command to configure BSTEER related reporting on vap */
+	NSS_WIFI_VDEV_VOW_DBG_MODE_CMD,		/**< command to enable VOW DEBUG on vap */
+	NSS_WIFI_VDEV_VOW_DBG_RST_STATS_CMD,	/**< command to reset VOW DEBUG stats on vap */
+	NSS_WIFI_VDEV_MAX_CMD
 };
 
 /**
@@ -190,6 +200,31 @@ struct nss_wifi_vdev_snooplist_deny_member_add_msg {
 };
 
 /**
+ * WiFi Tx special data message
+ */
+struct nss_wifi_vdev_txmsg {
+	uint16_t peer_id;       /**< peer id */
+	uint16_t tid;	        /**< tid */
+};
+
+/**
+ * Wifi VoW debug stats config.
+ */
+struct nss_wifi_vdev_vow_dbg_stats {
+	uint32_t rx_vow_dbg_counters;		/**< VoW rx debug counter */
+	uint32_t tx_vow_dbg_counters[8];	/**< VoW tx debug counter */
+};
+
+/**
+ * Wifi VoW debug stats config.
+ */
+struct nss_wifi_vdev_vow_dbg_cfg_msg {
+	uint8_t vow_peer_list_idx;
+	uint8_t tx_dbg_vow_peer_mac4;
+	uint8_t tx_dbg_vow_peer_mac5;
+};
+
+/**
  * Wifi per packet metadata for IGMP packets.
  */
 struct nss_wifi_vdev_igmp_per_packet_metadata {
@@ -208,6 +243,14 @@ struct nss_wifi_vdev_mesh_per_packet_metadata {
 };
 
 /**
+ * Wifi per packet metadata for Tx inspect packets
+ */
+struct nss_wifi_vdev_inspect_per_packet_metadata {
+	uint16_t peer_id;		/**< peer_id */
+	uint16_t tid;		    /**< tid */
+};
+
+/**
  * wifi per packet metadata content
  */
 struct nss_wifi_vdev_per_packet_metadata {
@@ -215,6 +258,7 @@ struct nss_wifi_vdev_per_packet_metadata {
 	union {
 		struct nss_wifi_vdev_igmp_per_packet_metadata igmp_metadata;
 		struct nss_wifi_vdev_mesh_per_packet_metadata mesh_metadata;
+		struct nss_wifi_vdev_inspect_per_packet_metadata inspect_metadata;
 	} metadata;
 };
 
@@ -258,6 +302,9 @@ struct nss_wifi_vdev_msg {
 		struct nss_wifi_vdev_snooplist_grp_member_remove_msg vdev_grp_member_remove;
 		struct nss_wifi_vdev_snooplist_grp_member_update_msg vdev_grp_member_update;
 		struct nss_wifi_vdev_snooplist_deny_member_add_msg vdev_deny_member_add;
+		struct nss_wifi_vdev_txmsg vdev_txmsgext;
+		struct nss_wifi_vdev_vow_dbg_cfg_msg vdev_vow_dbg_cfg;
+		struct nss_wifi_vdev_vow_dbg_stats vdev_vow_dbg_stats;
 	} msg;
 };
 
@@ -343,4 +390,15 @@ uint32_t nss_register_wifi_vdev_if(struct nss_ctx_instance *nss_ctx, int32_t if_
  * @return void
  */
 void nss_unregister_wifi_vdev_if(uint32_t if_num);
+
+/**
+ * @brief Send WIFI data packet along with metadata as msg to NSS
+ *
+ * @param nss_ctx NSS core context
+ * @param os_buf data buffer
+ * @param msg message
+ *
+ * @return status
+ */
+nss_tx_status_t nss_wifi_vdev_tx_msg_ext(struct nss_ctx_instance *nss_ctx, struct sk_buff *os_buf);
 #endif /* __NSS_WIFI_VDEV_H */

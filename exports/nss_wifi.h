@@ -25,6 +25,8 @@
 #define NSS_WIFI_MGMT_DATA_LEN  128
 #define NSS_WIFI_FW_STATS_DATA_LEN  480
 #define NSS_WIFI_RAWDATA_MAX_LEN  64
+#define NSS_WIFI_RX_EXT_INV_PEER_TYPE 0
+#define NSS_WIFI_RX_EXT_PKTLOG_TYPE 1
 
 /**
  * wifi interface request/response types
@@ -47,6 +49,10 @@ enum nss_wifi_metadata_types {
 	NSS_WIFI_SEND_RRA_MEMORY_REQUEST_MSG,
 	NSS_WIFI_FW_STATS_MSG,
 	NSS_WIFI_MONITOR_FILTER_SET_MSG,
+	NSS_WIFI_PEER_BS_STATE_MSG,
+	NSS_WIFI_MSDU_TTL_SET_MSG,
+	NSS_WIFI_RX_VOW_EXTSTATS_SET_MSG,
+	NSS_WIFI_PKTLOG_CFG_MSG,
 	NSS_WIFI_MAX_MSG
 };
 
@@ -196,6 +202,23 @@ struct nss_wifi_stop_msg {
 };
 
 /**
+ * wifi pktlog cfg message
+ */
+struct nss_wifi_pktlog_cfg_msg {
+	uint32_t enable;			/* enable/disable*/
+	uint32_t bufsize; 			/* pkt log buffer size */
+};
+
+/**
+ * wifi ext data plane recieve common meta data
+ */
+struct nss_wifi_rx_ext_metadata{
+	uint8_t fwreserve ;				/* Type of meta data*/
+	uint8_t type ;					/* reserve field */
+	uint16_t value;					/* Value of metadata */
+};
+
+/**
  * wifi statistics sync message structure.
  */
 struct nss_wifi_stats_sync_msg {
@@ -230,6 +253,29 @@ struct nss_wifi_rx_reorder_array_freelist_append_msg {
 	uint32_t num_rra;			/**< max number of rx_reorder array entries supported in pool */
 };
 
+/*
+ *  wifi_bs_peer_inactivity
+ *   peer state related info to denote active state of peer
+ */
+struct nss_wifi_bs_peer_activity {
+	uint16_t nentries;	/**< number of entries in the peer_id array */
+	uint16_t peer_id[1];	/**< array holding the peer id's */
+};
+
+/**
+ * nss_wifi_msdu_ttl_set message
+ */
+struct nss_wifi_msdu_ttl_set_msg {
+	uint32_t msdu_ttl;			/**< ttl value to be set */
+};
+
+/**
+ * wifi VoW extended stats set message structure
+ */
+struct nss_wifi_rx_vow_extstats_set_msg {
+	uint32_t vow_extstats_en;                       /**< vow ext stats */
+};
+
 /**
  * Message structure to send/receive wifi messages
  */
@@ -249,6 +295,10 @@ struct nss_wifi_msg {
 		struct nss_wifi_rx_reorder_array_freelist_append_msg rx_reorder_array_freelist_append;
 		struct nss_wifi_fw_stats_msg fwstatsmsg;
 		struct nss_wifi_monitor_set_filter_msg monitor_filter_msg;
+		struct nss_wifi_bs_peer_activity peer_activity;
+		struct nss_wifi_msdu_ttl_set_msg msdu_ttl_set_msg;
+		struct nss_wifi_rx_vow_extstats_set_msg vow_extstats_msg;
+		struct nss_wifi_pktlog_cfg_msg pcm_msg;
 	} msg;
 };
 
