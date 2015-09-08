@@ -985,6 +985,8 @@ extern int32_t nss_core_send_crypto(struct nss_ctx_instance *nss_ctx, void *buf,
 extern void nss_wq_function( struct work_struct *work);
 extern uint32_t nss_core_register_handler(uint32_t interface, nss_core_rx_callback_t cb, void *app_data);
 extern uint32_t nss_core_unregister_handler(uint32_t interface);
+extern int nss_core_max_ipv4_conn_get(void);
+extern int nss_core_max_ipv6_conn_get(void);
 
 static inline uint32_t nss_core_get_max_buf_size(struct nss_ctx_instance *nss_ctx)
 {

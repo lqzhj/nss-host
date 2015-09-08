@@ -30,7 +30,7 @@ static struct  nss_conn_cfg_pvt i4cfgp;
  */
 int nss_ipv4_max_conn_count(void)
 {
-	return nss_ipv4_conn_cfg;
+	return nss_core_max_ipv4_conn_get();
 }
 EXPORT_SYMBOL(nss_ipv4_max_conn_count);
 

@@ -64,6 +64,24 @@ struct nss_rx_cb_list {
 static struct nss_rx_cb_list nss_rx_interface_handlers[NSS_MAX_NET_INTERFACES];
 
 /*
+ * nss_core_max_ipv4_conn_get()
+ *	Get the maximum number of configured IPv4 connections
+ */
+int nss_core_max_ipv4_conn_get(void)
+{
+	return max_ipv4_conn;
+}
+
+/*
+ * nss_core_max_ipv6_conn_get()
+ *	Get the maximum number of configured IPv6 connections
+ */
+int nss_core_max_ipv6_conn_get(void)
+{
+	return max_ipv6_conn;
+}
+
+/*
  * nss_core_set_jumbo_mru()
  *	Set the jumbo_mru to the specified value
  */
@@ -1137,6 +1155,8 @@ static void nss_core_init_nss(struct nss_ctx_instance *nss_ctx, struct nss_if_me
 	 * Configure the maximum number of IPv4/IPv6
 	 * connections supported by the accelerator.
 	 */
+	nss_ipv4_conn_cfg = max_ipv4_conn;
+	nss_ipv6_conn_cfg = max_ipv6_conn;
 	if ((nss_ctx->id == 0) &&
 	    ((max_ipv4_conn_update_done == 0) || (max_ipv6_conn_update_done == 0))) {
 		if (max_ipv4_conn_update_done == 0) {

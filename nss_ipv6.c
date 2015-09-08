@@ -29,7 +29,7 @@ static struct  nss_conn_cfg_pvt i6cfgp;
  */
 int nss_ipv6_max_conn_count(void)
 {
-	return nss_ipv6_conn_cfg;
+	return nss_core_max_ipv6_conn_get();
 }
 EXPORT_SYMBOL(nss_ipv6_max_conn_count);
 
