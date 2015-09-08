@@ -175,26 +175,26 @@
  */
 #define NSS_FREQ_110		110000000	/* Frequency in hz */
 #define NSS_FREQ_110_MIN	0x03000		/* Instructions Per ms Min */
-#define NSS_FREQ_110_MAX	0x05000		/* Instructions Per ms Max */
+#define NSS_FREQ_110_MAX	0x07000		/* Instructions Per ms Max */
 
 #define NSS_FREQ_275		275000000	/* Frequency in hz */
 #define NSS_FREQ_275_MIN	0x03000		/* Instructions Per ms Min */
-#define NSS_FREQ_275_MAX	0x05000		/* Instructions Per ms Max */
+#define NSS_FREQ_275_MAX	0x07000		/* Instructions Per ms Max */
 
 #define NSS_FREQ_550		550000000	/* Frequency in hz */
-#define NSS_FREQ_550_MIN	0x05000		/* Instructions Per ms Min */
+#define NSS_FREQ_550_MIN	0x07000		/* Instructions Per ms Min */
 #define NSS_FREQ_550_MAX	0x08000		/* Instructions Per ms Max */
 
 #define NSS_FREQ_600		600000000	/* Frequency in hz */
-#define NSS_FREQ_600_MIN	0x05000		/* Instructions Per ms Min */
+#define NSS_FREQ_600_MIN	0x07000		/* Instructions Per ms Min */
 #define NSS_FREQ_600_MAX	0x08000		/* Instructions Per ms Max */
 
 #define NSS_FREQ_733		733000000	/* Frequency in hz */
-#define NSS_FREQ_733_MIN	0x05000		/* Instructions Per ms Min */
+#define NSS_FREQ_733_MIN	0x07000		/* Instructions Per ms Min */
 #define NSS_FREQ_733_MAX	0x25000		/* Instructions Per ms Max */
 
 #define NSS_FREQ_800		800000000	/* Frequency in hz */
-#define NSS_FREQ_800_MIN	0x05000		/* Instructions Per ms Min */
+#define NSS_FREQ_800_MIN	0x07000		/* Instructions Per ms Min */
 #define NSS_FREQ_800_MAX	0x25000		/* Instructions Per ms Max */
 
 #if (NSS_DT_SUPPORT == 1)
@@ -212,7 +212,7 @@
 #define NSS_FABRIC1_TURBO	266000000
 #define NSS_FABRIC0_NOMINAL	400000000
 #define NSS_FABRIC1_NOMINAL	200000000
-#define NSS_FABRIC0_IDLE	5000000
+#define NSS_FABRIC0_IDLE	133000000
 #define NSS_FABRIC1_IDLE	133000000
 #endif
 

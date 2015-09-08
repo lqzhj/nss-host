@@ -234,7 +234,7 @@ static void nss_freq_handle_core_stats(struct nss_ctx_instance *nss_ctx, struct 
 		/*
 		 * Reset the down scale counter based on running average, so can idle properlly
 		 */
-		if (sample > maximum) {
+		if (nss_runtime_samples.average > maximum) {
 			nss_trace("down scale timeout reset running average:%x\n", nss_runtime_samples.average);
 			nss_runtime_samples.freq_scale_rate_limit_down = 0;
 		}
@@ -252,7 +252,7 @@ static void nss_freq_handle_core_stats(struct nss_ctx_instance *nss_ctx, struct 
 			/*
 			 * If fail to decrease frequency, increase index
 			 */
-			nss_trace("frequency decrease to %d inst:%x < minumum:%x\n", nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].frequency, sample, minimum);
+			nss_trace("frequency decrease to %d inst:%x < minumum:%x\n", nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].frequency, nss_runtime_samples.average, minimum);
 			if (nss_freq_queue_work()) {
 				nss_runtime_samples.freq_scale_index++;
 			}
