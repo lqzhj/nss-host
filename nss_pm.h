@@ -121,8 +121,8 @@ struct nss_pm_global_ctx {
 		{ \
 			.src =  MSM_BUS_MASTER_NSS_CRYPTO5_0, \
 			.dst = MSM_BUS_SLAVE_NSS_TCM, \
-			.ab = (_desc_bw) * 8 * 1000000ULL, \
-			.ib = (_desc_bw) * 8 * 1000000ULL, \
+			.ab = 0, \
+			.ib = 0, \
 		}, \
 	}, \
 	.num_paths = 2, \
