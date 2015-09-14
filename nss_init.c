@@ -281,15 +281,13 @@ static int nss_current_freq_handler (ctl_table *ctl, int write, void __user *buf
  * nss_auto_scale_handler()
  *	Enables or Disable Auto Scaling
  */
-static int nss_auto_scale_handler (ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+static int nss_auto_scale_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	int ret;
 
 	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
 
 	if (!*lenp || (*ppos && !write)) {
-		printk("Autoscale Set to %d\n", nss_cmd_buf.auto_scale);
-		*lenp = 0;
 		return ret;
 	}
 
