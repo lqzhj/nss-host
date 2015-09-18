@@ -24,25 +24,31 @@ void nss_wifi_stats_sync(struct nss_ctx_instance *nss_ctx,
 		struct nss_wifi_stats_sync_msg *stats, uint16_t interface)
 {
 	struct nss_top_instance *nss_top = nss_ctx->nss_top;
+	uint32_t radio_id = interface - NSS_WIFI_INTERFACE0;
+
+	if (radio_id >= NSS_MAX_WIFI_RADIO_INTERFACES) {
+		nss_warning("%p: invalid interface: %d", nss_ctx, interface);
+		return;
+	}
 
 	spin_lock_bh(&nss_top->stats_lock);
 
 	/*
 	 * Tx/Rx stats
 	 */
-	nss_top->stats_wifi[interface][NSS_STATS_WIFI_RX_PKTS] += stats->node_stats.rx_packets;
-	nss_top->stats_wifi[interface][NSS_STATS_WIFI_RX_DROPPED] += stats->node_stats.rx_dropped;
-	nss_top->stats_wifi[interface][NSS_STATS_WIFI_TX_PKTS] += stats->node_stats.tx_packets;
-	nss_top->stats_wifi[interface][NSS_STATS_WIFI_TX_DROPPED] += stats->tx_transmit_dropped;
-	nss_top->stats_wifi[interface][NSS_STATS_WIFI_TX_COMPLETED] += stats->tx_transmit_completions;
-	nss_top->stats_wifi[interface][NSS_STATS_WIFI_MGMT_RCV_CNT] += stats->tx_mgmt_rcv_cnt;
-	nss_top->stats_wifi[interface][NSS_STATS_WIFI_MGMT_TX_PKTS] += stats->tx_mgmt_pkts;
-	nss_top->stats_wifi[interface][NSS_STATS_WIFI_MGMT_TX_DROPPED] += stats->tx_mgmt_dropped;
-	nss_top->stats_wifi[interface][NSS_STATS_WIFI_MGMT_TX_COMPLETIONS] += stats->tx_mgmt_completions;
-	nss_top->stats_wifi[interface][NSS_STATS_WIFI_RX_INV_PEER_ENQUEUE_CNT] += stats->tx_inv_peer_enq_cnt;
-	nss_top->stats_wifi[interface][NSS_STATS_WIFI_RX_INV_PEER_RCV_CNT] += stats->rx_inv_peer_rcv_cnt;
-	nss_top->stats_wifi[interface][NSS_STATS_WIFI_RX_PN_CHECK_FAILED] += stats->rx_pn_check_failed;
-	nss_top->stats_wifi[interface][NSS_STATS_WIFI_RX_DELIVERED] += stats->rx_pkts_deliverd;
+	nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_RX_PKTS] += stats->node_stats.rx_packets;
+	nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_RX_DROPPED] += stats->node_stats.rx_dropped;
+	nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_TX_PKTS] += stats->node_stats.tx_packets;
+	nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_TX_DROPPED] += stats->tx_transmit_dropped;
+	nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_TX_COMPLETED] += stats->tx_transmit_completions;
+	nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_MGMT_RCV_CNT] += stats->tx_mgmt_rcv_cnt;
+	nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_MGMT_TX_PKTS] += stats->tx_mgmt_pkts;
+	nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_MGMT_TX_DROPPED] += stats->tx_mgmt_dropped;
+	nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_MGMT_TX_COMPLETIONS] += stats->tx_mgmt_completions;
+	nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_RX_INV_PEER_ENQUEUE_CNT] += stats->tx_inv_peer_enq_cnt;
+	nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_RX_INV_PEER_RCV_CNT] += stats->rx_inv_peer_rcv_cnt;
+	nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_RX_PN_CHECK_FAILED] += stats->rx_pn_check_failed;
+	nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_RX_DELIVERED] += stats->rx_pkts_deliverd;
 
 	spin_unlock_bh(&nss_top->stats_lock);
 }
