@@ -104,6 +104,15 @@ void *nss_crypto_mem_realloc(void *src, size_t src_len, size_t dst_len)
 }
 
 /*
+ * nss_crypto_clear_cblk()
+ * 	this updates CMD block mask to indicate valid bits to write in the registers
+ */
+static inline void nss_crypto_update_cblk_mask(struct nss_crypto_bam_cmd *cmd, bool clr)
+{
+	cmd->mask = clr ? 0 : CRYPTO_MASK_ALL;
+}
+
+/*
  * nss_crypto_write_cblk()
  * 	load CMD block with data
  *
@@ -155,6 +164,10 @@ static void nss_crypto_setup_cmd_config(struct nss_crypto_cmd_config *cfg, uint3
 	nss_crypto_write_cblk(&cfg->config_0, CRYPTO_CONFIG + base_addr, cfg_value);
 	nss_crypto_write_cblk(&cfg->encr_seg_cfg, CRYPTO_ENCR_SEG_CFG + base_addr, encr->cfg);
 	nss_crypto_write_cblk(&cfg->auth_seg_cfg, CRYPTO_AUTH_SEG_CFG + base_addr, auth->cfg);
+
+	nss_crypto_update_cblk_mask(&cfg->encr_seg_cfg, !encr->cfg);
+	nss_crypto_update_cblk_mask(&cfg->auth_seg_cfg, !auth->cfg);
+
 	nss_crypto_write_cblk(&cfg->encr_ctr_msk, CRYPTO_ENCR_CNTR_MASK + base_addr, 0xffffffff);
 
 	/*
@@ -162,6 +175,7 @@ static void nss_crypto_setup_cmd_config(struct nss_crypto_cmd_config *cfg, uint3
 	 */
 	for (i = 0; i < NSS_CRYPTO_AUTH_IV_REGS; i++) {
 		nss_crypto_write_cblk(&cfg->auth_iv[i], CRYPTO_AUTH_IVn(i) + base_addr, auth->iv[i]);
+		nss_crypto_update_cblk_mask(&cfg->auth_iv[i], !auth->cfg);
 	}
 
 	/*
@@ -182,6 +196,7 @@ static void nss_crypto_setup_cmd_config(struct nss_crypto_cmd_config *cfg, uint3
 		key_val = cpu_to_be32(*key_ptr);
 
 		nss_crypto_write_cblk(&cfg->keys.auth[i], CRYPTO_AUTH_KEYn(i) + base_addr, key_val);
+		nss_crypto_update_cblk_mask(&cfg->keys.auth[i], !auth->cfg);
 	}
 
 }
@@ -855,6 +870,7 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
 	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
 	struct nss_crypto_encr_cfg encr_cfg;
 	struct nss_crypto_auth_cfg auth_cfg;
+	enum nss_crypto_cipher cipher_algo;
 	nss_crypto_status_t status;
 	bool first_idx;
 	uint32_t idx;
@@ -920,7 +936,8 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
 
 	*session_idx = idx;
 
-	nss_crypto_reset_session(idx, NSS_CRYPTO_SESSION_STATE_ACTIVE);
+	cipher_algo = cipher ? cipher->algo : NSS_CRYPTO_CIPHER_NULL;
+	nss_crypto_send_session_update(idx, NSS_CRYPTO_SESSION_STATE_ACTIVE, cipher_algo);
 
 	spin_unlock_bh(&ctrl->lock); /* index unlock*/
 
@@ -964,7 +981,7 @@ nss_crypto_status_t nss_crypto_session_free(nss_crypto_handle_t crypto, uint32_t
 	 * timer for delayed freeing of the session. After the timeout
 	 * resources attached to session index will be deallocated
 	 */
-	nss_crypto_reset_session(session_idx, NSS_CRYPTO_SESSION_STATE_FREE);
+	nss_crypto_send_session_update(session_idx, NSS_CRYPTO_SESSION_STATE_FREE, NSS_CRYPTO_CIPHER_NULL);
 
 	return NSS_CRYPTO_STATUS_OK;
 }

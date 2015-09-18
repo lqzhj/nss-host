@@ -415,10 +415,10 @@ static void crypto_bench_dump_addr(uint8_t *addr, uint32_t len, uint8_t *str)
 
 	crypto_bench_debug("%s:\n", str);
 
-	crypto_bench_debug("0x%02x,%s", addr[0]," ");
+	/* crypto_bench_debug("0x%02x,%s", addr[0]," "); */
 
-	for (i = 1; i < len; i++) {
-		crypto_bench_debug("0x%02x,%s", addr[i], ((i % 4) == 0) ? " " : "\n");
+	for (i = 0; i < len; i = i+4) {
+		crypto_bench_debug("0x%02x, 0x%02x, 0x%02x, 0x%02x, %s", addr[i], addr[i+1], addr[i+2], addr[i+3], "\n");
 	}
 	crypto_bench_debug("\n");
 }
@@ -472,7 +472,7 @@ static void crypto_bench_init_param(enum crypto_bench_type type)
 	chk_n_set((param.bam_len > CRYPTO_BENCH_MAX_BAM_SZ), param.bam_len, CRYPTO_BENCH_MAX_BAM_SZ);
 
 	chk_n_set((param.ciph_algo == 0), param.ciph_algo, 1);
-	chk_n_set((param.auth_algo == 0), param.auth_algo, 1);
+	/* chk_n_set((param.auth_algo == 0), param.auth_algo, 1); */
 
 	chk_n_set((param.max_sids > NSS_CRYPTO_MAX_IDXS), param.max_sids, def_param.max_sids);
 	chk_n_set((param.max_sids == 0), param.max_sids, def_param.max_sids);
@@ -491,7 +491,7 @@ static void crypto_bench_init_param(enum crypto_bench_type type)
 		param.bench_mode = 0;
 		param.mcmp_mode = 1;
 
-		chk_n_set((param.auth_op == 0), param.auth_op, 1);
+		/* chk_n_set((param.auth_op == 0), param.auth_op, 1); */
 		chk_n_set((param.cipher_op == 0), param.cipher_op, 1);
 
 		param.hash_len = 12;
@@ -551,6 +551,8 @@ static int32_t crypto_bench_prep_op(void)
 {
 	struct nss_crypto_key c_key = {0};
 	struct nss_crypto_key a_key = {0};
+	struct nss_crypto_key *c_key_ptr = NULL;
+	struct nss_crypto_key *a_key_ptr = NULL;
 	struct nss_crypto_params crypto_params = {0};
 	struct crypto_op *op = NULL;
 	nss_crypto_status_t status;
@@ -573,6 +575,7 @@ static int32_t crypto_bench_prep_op(void)
 		a_key.algo = NSS_CRYPTO_AUTH_SHA1_HMAC;
 		a_key.key_len = NSS_CRYPTO_MAX_KEYLEN_SHA1;
 		a_key.key = &auth_key[0];
+		a_key_ptr = &a_key;
 
 		str = "SHA1_HMAC";
 		break;
@@ -586,10 +589,7 @@ static int32_t crypto_bench_prep_op(void)
 		break;
 
 	default:
-		a_key.algo = NSS_CRYPTO_AUTH_NONE;
-		a_key.key = &auth_key[0];
-		a_key.key_len = 0;
-
+		a_key_ptr = NULL;
 		str = param.auth_op ? "unsupported" : "none";
 		break;
 	}
@@ -604,6 +604,8 @@ static int32_t crypto_bench_prep_op(void)
 		chk_n_set((param.key_len <= 16), param.key_len, 16);
 		chk_n_set((param.key_len > 16), param.key_len, 32);
 		c_key.key_len = param.key_len;
+
+		c_key_ptr = &c_key;
 
 		str = "AES";
 		break;
@@ -620,10 +622,7 @@ static int32_t crypto_bench_prep_op(void)
 		break;
 
 	default:
-		c_key.algo = NSS_CRYPTO_CIPHER_NONE;
-		c_key.key = &cipher_key[0];
-		c_key.key_len = 0;
-
+		c_key_ptr = NULL;
 		str = param.ciph_algo ? "unsupported" : "none";
 		break;
 	}
@@ -642,11 +641,12 @@ static int32_t crypto_bench_prep_op(void)
 	}
 
 	for (i = 0; i < param.max_sids; i++) {
-		status = nss_crypto_session_alloc(crypto_hdl, &c_key, &a_key, &crypto_sid[i]);
+		status = nss_crypto_session_alloc(crypto_hdl, c_key_ptr, a_key_ptr, &crypto_sid[i]);
 		if (status != NSS_CRYPTO_STATUS_OK) {
 			crypto_bench_error("UNABLE TO ALLOCATE CRYPTO SESSION\n");
 			return CRYPTO_BENCH_NOT_OK;
 		}
+
 		nss_crypto_session_update(crypto_hdl, crypto_sid[i], &crypto_params);
 	}
 
@@ -702,6 +702,8 @@ static int32_t crypto_bench_prep_buf(struct crypto_op *op)
 {
 	struct nss_crypto_buf *buf;
 	static int curr_sid;
+	uint8_t *iv_addr;
+	uint16_t iv_len;
 
 	buf = nss_crypto_buf_alloc(crypto_hdl);
 	if (buf == NULL) {
@@ -709,24 +711,15 @@ static int32_t crypto_bench_prep_buf(struct crypto_op *op)
 		return CRYPTO_BENCH_NOT_OK;
 	}
 
-	buf->cb_ctx = (uint32_t)op;
-	buf->cb_fn = crypto_bench_done;
+	nss_crypto_set_cb(buf, crypto_bench_done, op);
+	nss_crypto_set_session_idx(buf, crypto_sid[curr_sid]);
 
-	curr_sid = (curr_sid + 1) % param.max_sids;
-	buf->session_idx = crypto_sid[curr_sid];
+	iv_addr = nss_crypto_get_ivaddr(buf);
+	iv_len = (param.ciph_algo == 2) ? NSS_CRYPTO_MAX_IVLEN_DES : NSS_CRYPTO_MAX_IVLEN_AES;
+	memcpy(iv_addr, cipher_iv, iv_len);
 
-	buf->iv_offset = op->iv_offset;
-
-	buf->iv_len = (param.ciph_algo == 2) ? NSS_CRYPTO_MAX_IVLEN_DES : NSS_CRYPTO_MAX_IVLEN_AES;
-
-	buf->hash_offset = op->hash_offset;
-
-	buf->data = op->data_vaddr;
-	buf->data_len = op->data_len + param.hash_len;
-
-	buf->cipher_len = op->cipher_len;
-
-	buf->auth_len = op->auth_len;
+	nss_crypto_set_data(buf, op->data_vaddr, op->data_vaddr, op->data_len + param.hash_len);
+	nss_crypto_set_transform_len(buf, op->cipher_len, op->auth_len);
 
 	op->buf = buf;
 
@@ -747,6 +740,7 @@ void crypto_bench_mcmp(void)
 	chk_n_set((param.ciph_algo > 1), encr_text, &triple_des_encr_text[0]);
 	chk_n_set((param.ciph_algo > 1), hash_text, &triple_des_sha1_hash[0]);
 
+
 	list_for_each(ptr, &op_head) {
 		op = list_entry(ptr, struct crypto_op, node);
 
@@ -757,9 +751,6 @@ void crypto_bench_mcmp(void)
 			hash_res = memcmp(op->data_vaddr + op->hash_offset, hash_text, param.hash_len);
 			param.mcmp_hash = param.mcmp_hash + !!(hash_res);
 		}
-
-		crypto_bench_dump_addr(op->data_vaddr + op->cipher_skip, op->cipher_len, "data");
-		crypto_bench_dump_addr(op->data_vaddr + op->hash_offset, param.hash_len, "hash");
 
 		memcpy(op->data_vaddr + op->cipher_skip, data_ptr, op->cipher_len);
 	}
@@ -803,6 +794,8 @@ static int crypto_bench_tx(void *arg)
 			if (crypto_bench_prep_buf(op) != CRYPTO_BENCH_OK) {
 				continue;
 			}
+
+			crypto_bench_dump_addr((uint8_t *)op->buf->data_addr, op->buf->data_len, "Before transformation");
 
 			status = nss_crypto_transform_payload(crypto_hdl, op->buf);
 			if (status != NSS_CRYPTO_STATUS_OK) {
@@ -862,8 +855,16 @@ static int crypto_bench_tx(void *arg)
 static void crypto_bench_done(struct nss_crypto_buf *buf)
 {
 	struct crypto_op *op;
+	uint8_t *hash_addr;
 
-	op = (struct crypto_op *)buf->cb_ctx;
+	op = (struct crypto_op *)nss_crypto_get_cb_ctx(buf);
+
+	hash_addr = nss_crypto_get_hash_addr(buf);
+	memcpy(op->data_vaddr + op->hash_offset, hash_addr, param.hash_len);
+
+	crypto_bench_dump_addr(op->data_vaddr + op->cipher_skip, op->cipher_len, "bench_done: data");
+	crypto_bench_dump_addr(hash_addr, 128, "bench_done: hash");
+
 
 	nss_crypto_buf_free(crypto_hdl, buf);
 

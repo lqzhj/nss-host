@@ -207,12 +207,12 @@ nss_crypto_status_t nss_crypto_idx_init(struct nss_crypto_ctrl_eng *eng, struct 
 void nss_crypto_ctrl_init(void);
 
 /**
- * @brief Reset session specific parameteres.
+ * @brief update IV parameters
  *
  * @param session_idx[IN] session index
- * @param state[IN] session stats (ALLOC/FREE)
+ * @param cipher[IN] cipher algorithm
  */
-void nss_crypto_reset_session(uint32_t session_idx, enum nss_crypto_session_state state);
+void nss_crypto_send_session_update(uint32_t session_idx, enum nss_crypto_session_state state, enum nss_crypto_cipher cipher);
 
 /**
  * @brief reallocate memory.

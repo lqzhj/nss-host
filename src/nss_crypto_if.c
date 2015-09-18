@@ -46,6 +46,7 @@ struct nss_crypto_drv_ctx gbl_ctx = {0};
 struct nss_crypto_buf_node {
 	struct llist_node node;			/* lockless node */
 	struct nss_crypto_buf buf;		/* crypto buffer */
+	uint8_t results[NSS_CRYPTO_RESULTS_SZ] __attribute__((aligned(L1_CACHE_BYTES)));
 };
 
 /*
@@ -77,7 +78,14 @@ static uint32_t pool_seed = 1024;
  */
 static inline void nss_crypto_buf_init(struct nss_crypto_buf *buf)
 {
+	struct nss_crypto_buf_node *entry;
+	entry = container_of(buf, struct nss_crypto_buf_node, buf);
+
+	BUG_ON(((uint32_t)entry->results % L1_CACHE_BYTES));
+
 	buf->origin = NSS_CRYPTO_BUF_ORIGIN_HOST;
+	buf->iv_addr = (uint32_t)entry->results;
+	buf->hash_addr = (uint32_t) entry->results;
 }
 
 void nss_crypto_user_attach_all(struct nss_crypto_ctrl *ctrl)
@@ -241,7 +249,7 @@ struct nss_crypto_buf *nss_crypto_buf_alloc(nss_crypto_handle_t hdl)
 
 	if (node) {
 		entry = container_of(node, struct nss_crypto_buf_node, node);
-		return &entry->buf;
+		goto done;
 	}
 
 	/*
@@ -256,6 +264,7 @@ struct nss_crypto_buf *nss_crypto_buf_alloc(nss_crypto_handle_t hdl)
 		goto fail;
 	}
 
+done:
 	nss_crypto_buf_init(&entry->buf);
 	return &entry->buf;
 
@@ -275,8 +284,10 @@ void nss_crypto_buf_free(nss_crypto_handle_t hdl, struct nss_crypto_buf *buf)
 	struct nss_crypto_buf_node *entry;
 
 	user = (struct nss_crypto_user *)hdl;
-
 	entry = container_of(buf, struct nss_crypto_buf_node, buf);
+
+	memset(buf, 0, sizeof(struct nss_crypto_buf));
+	memset(entry->results, 0, NSS_CRYPTO_MAX_HASHLEN);
 
 	llist_add(&entry->node, &user->pool_head);
 
@@ -294,9 +305,16 @@ EXPORT_SYMBOL(nss_crypto_buf_free);
 void nss_crypto_transform_done(void *app_data __attribute((unused)), void *buffer, uint32_t paddr, uint16_t len)
 {
 	struct nss_crypto_buf *buf = (struct nss_crypto_buf *)buffer;
+	struct nss_crypto_buf_node *entry;
 
 	dma_unmap_single(NULL, paddr, sizeof(struct nss_crypto_buf), DMA_FROM_DEVICE);
-	dma_unmap_single(NULL, buf->data_paddr, buf->data_len, DMA_FROM_DEVICE);
+	dma_unmap_single(NULL, buf->data_in, buf->data_len, DMA_FROM_DEVICE);
+	dma_unmap_single(NULL, buf->data_out, buf->data_len, DMA_FROM_DEVICE);
+	dma_unmap_single(NULL, buf->hash_addr, L1_CACHE_BYTES, DMA_BIDIRECTIONAL);
+
+	entry = container_of(buf, struct nss_crypto_buf_node, buf);
+	buf->iv_addr = 0;
+	buf->hash_addr = (uint32_t)entry->results;
 
 	buf->cb_fn(buf);
 }
@@ -364,11 +382,11 @@ void nss_crypto_process_event(void *app_data, struct nss_crypto_msg *nim)
 
 		break;
 
-	case NSS_CRYPTO_MSG_TYPE_RESET_SESSION:
+	case NSS_CRYPTO_MSG_TYPE_UPDATE_SESSION:
 		session = &nim->msg.session;
 
 		if (nim->cm.response != NSS_CMN_RESPONSE_ACK) {
-			nss_crypto_err("unable to reset session: resp code (%d), error code (%d)\n",
+			nss_crypto_err("unable to update session: resp code (%d), error code (%d)\n",
 					nim->cm.response, nim->cm.error);
 
 			return;
@@ -400,10 +418,40 @@ void nss_crypto_process_event(void *app_data, struct nss_crypto_msg *nim)
  */
 nss_crypto_status_t nss_crypto_transform_payload(nss_crypto_handle_t crypto, struct nss_crypto_buf *buf)
 {
+	struct nss_crypto_buf_node *entry;
 	nss_tx_status_t nss_status;
 	uint32_t paddr;
+	void *vaddr;
+	size_t len;
 
-	buf->data_paddr = dma_map_single(NULL, buf->data, buf->data_len, DMA_TO_DEVICE);
+	entry = container_of(buf, struct nss_crypto_buf_node, buf);
+	/*
+	 * map data IN address
+	 */
+	vaddr = (void *)buf->data_in;
+	len = buf->data_len;
+	paddr = dma_map_single(NULL, vaddr, len, DMA_TO_DEVICE);
+	buf->data_in = paddr;
+
+	/*
+	 * map data OUT address
+	 */
+	vaddr = (void *)buf->data_out;
+	len = buf->data_len;
+	paddr = dma_map_single(NULL, vaddr, len, DMA_FROM_DEVICE);
+	buf->data_out = paddr;
+
+	/*
+	 * map IV & Hash address
+	 */
+	vaddr = entry->results;
+	len = L1_CACHE_BYTES; /* flush 1 cache line */
+	paddr = dma_map_single(NULL, vaddr, len, DMA_BIDIRECTIONAL);
+	buf->iv_addr = buf->hash_addr = paddr;
+
+	/*
+	 * map buffer
+	 */
 	paddr = dma_map_single(NULL, buf, sizeof(struct nss_crypto_buf), DMA_TO_DEVICE);
 
 	nss_status = nss_crypto_tx_buf(nss_drv_hdl, buf, paddr, sizeof(struct nss_crypto_buf));
@@ -498,46 +546,64 @@ int nss_crypto_engine_init(uint32_t eng_num)
 }
 
 /*
- * nss_crypto_reset_session()
+ * nss_crypto_send_session_update()
  * 	reset session specific state (alloc or free)
  */
-void nss_crypto_reset_session(uint32_t session_idx, enum nss_crypto_session_state state)
+void nss_crypto_send_session_update(uint32_t session_idx, enum nss_crypto_session_state state, enum nss_crypto_cipher algo)
 {
 	struct nss_crypto_msg nim;
 	struct nss_cmn_msg *ncm = &nim.cm;
 	struct nss_crypto_config_session *session = &nim.msg.session;
 	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
+	uint32_t iv_len = 0;
 
 	switch (state) {
 	case NSS_CRYPTO_SESSION_STATE_ACTIVE:
 		nss_crypto_debugfs_add_session(ctrl, session_idx);
-
 		break;
 
 	case NSS_CRYPTO_SESSION_STATE_FREE:
 		nss_crypto_debugfs_del_session(ctrl, session_idx);
-
 		break;
 
 	default:
 		nss_crypto_err("incorrect session state = %d\n", state);
+		return;
+	}
 
+	switch (algo) {
+	case NSS_CRYPTO_CIPHER_AES:
+		iv_len = NSS_CRYPTO_MAX_IVLEN_AES;
+		break;
+
+	case NSS_CRYPTO_CIPHER_DES:
+		iv_len = NSS_CRYPTO_MAX_IVLEN_DES;
+		break;
+
+	case NSS_CRYPTO_CIPHER_NULL:
+		iv_len = NSS_CRYPTO_MAX_IVLEN_NULL;
+		break;
+
+	default:
+		nss_crypto_err("invalid cipher\n");
 		return;
 	}
 
 	memset(&nim, 0, sizeof(struct nss_crypto_msg));
 	nss_cmn_msg_init(ncm,
 			NSS_CRYPTO_INTERFACE,
-			NSS_CRYPTO_MSG_TYPE_RESET_SESSION,
+			NSS_CRYPTO_MSG_TYPE_UPDATE_SESSION,
 			NSS_CRYPTO_MSG_LEN,
 			nss_crypto_process_event,
 			(void *)session_idx);
 
 	session->idx = session_idx;
 	session->state = state;
+	session->iv_len = iv_len;
 
 	/*
 	 * send reset stats config message to NSS crypto
 	 */
 	nss_crypto_tx_msg(nss_drv_hdl, &nim);
 }
+

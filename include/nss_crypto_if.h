@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -77,6 +77,7 @@ enum nss_crypto_max_blocklen {
 enum nss_crypto_max_hashlen {
 	NSS_CRYPTO_MAX_HASHLEN_SHA1 = 20,	/**< max hash size for SHA1 (bytes) */
 	NSS_CRYPTO_MAX_HASHLEN_SHA256 = 32,	/**< max hash size for SHA256 (bytes) */
+	NSS_CRYPTO_MAX_HASHLEN = 32,		/**< max hash size (bytes) */
 };
 
 /**
@@ -107,6 +108,7 @@ enum nss_crypto_sync_type {
 	NSS_CRYPTO_SYNC_TYPE_STATS = 3,			/**< stats sync */
 	NSS_CRYPTO_SYNC_TYPE_MAX
 };
+
 
 struct nss_crypto_buf;
 /**
@@ -145,41 +147,35 @@ struct nss_crypto_params {
  *        +------+----+-----------------+--------------+----------------------+
  *        |      | IV |     CIPHER      |     HASH     | extra space for H/W  |
  *        +------+----+-----------------+--------------+----------------------+
- *        <-------- hash offset ------->
  *        <----------------- data len ----------------->
  *      				<------- 128 bytes of tailroom ------->
  */
 struct nss_crypto_buf {
-	/* private fields*/
 	struct nss_crypto_buf *next;	/**< next buffer */
+
 	uint32_t ctx_0; 		/**< private context(0) per buf */
 	uint32_t ctx_1;  		/**< private context(1) per buf */
-
-	uint16_t state;  		/**< buffer operation specific state */
-	uint16_t origin;		/**< crypto_req originator */
-
-	/* public fields*/
 	uint32_t cb_ctx;		/**< completion callback context */
+
 	nss_crypto_comp_t cb_fn;	/**< completion callback function */
 
-	uint32_t session_idx;		/**< session index */
+	uint32_t data_in;		/**< Data IN address (virtual/physical) */
+	uint32_t data_out;		/**< Data OUT address (virtual/physical) */
 
-	uint8_t *data;			/**< Data address (virtual) */
-	uint32_t data_paddr;		/**< Data address (physical) */
+	uint32_t iv_addr;		/**< location inside data where IV is available */
+	uint32_t hash_addr;		/**< location inside data where HASH is generated */
 
-	uint16_t iv_offset;		/**< location inside data where IV is available */
-	uint16_t iv_len;		/**< IV length */
-
-	uint16_t cipher_len;		/**< Length of data to encrypt */
-	uint16_t auth_len;		/**< bytes to authenticate inside data */
-
-	uint16_t hash_offset;		/**< location inside data where HASH is generated */
 	uint16_t data_len;		/**< Data length */
+	uint16_t cipher_len;		/**< Length of data to encrypt */
 
-	uint16_t magic;			/**< crypto magic number for validation checks */
+	uint16_t auth_len;		/**< bytes to authenticate inside data */
+	uint16_t session_idx;		/**< session index */
 
-	uint8_t pad[12];		/**< 32-byte cacheline alignment */
+	uint8_t state;  		/**< buffer operation specific state */
+	uint8_t origin;			/**< crypto_req originator */
+	uint8_t res[2];			/**< reserved for NSS usage */
 };
+
 
 typedef void *nss_crypto_user_ctx_t;	/**< crypto driver user's context */
 typedef void *nss_crypto_handle_t;	/**< crypto driver handle for its users */
@@ -280,6 +276,19 @@ nss_crypto_status_t nss_crypto_session_update(nss_crypto_handle_t crypto, uint32
 nss_crypto_status_t nss_crypto_session_free(nss_crypto_handle_t crypto, uint32_t session_idx);
 
 /**
+ * @brief Apply cipher (as in encrypt or decrypt) and or authenticate the given
+ *        buf
+ *
+ * @param crypto[IN] crypto device handle
+ * @param buf[IN] buffer for crypto operation
+ *
+ * @return status of the call
+ * @note completion callback will happen after the crypto operation on the
+ *       buffer has completed
+ */
+nss_crypto_status_t nss_crypto_transform_payload(nss_crypto_handle_t crypto, struct nss_crypto_buf *buf);
+
+/**
  * @brief retrieve the cipher algorithm associated with the session index
  *
  * @param session_idx[IN] session index
@@ -325,17 +334,64 @@ enum nss_crypto_auth nss_crypto_get_auth(uint32_t session_idx);
 uint32_t nss_crypto_get_auth_keylen(uint32_t session_idx);
 
 /**
- * @brief Apply cipher (as in encrypt or decrypt) and or authenticate the given
- *        buf
- *
- * @param crypto[IN] crypto device handle
- * @param buf[IN] buffer for crypto operation
- *
- * @return status of the call
- * @note completion callback will happen after the crypto operation on the
- *       buffer has completed
+ * @brief crypto buf get api for IV address
  */
-nss_crypto_status_t nss_crypto_transform_payload(nss_crypto_handle_t crypto, struct nss_crypto_buf *buf);
+static inline uint8_t *nss_crypto_get_ivaddr(struct nss_crypto_buf *buf)
+{
+	return (uint8_t *)buf->iv_addr;
+}
+
+/**
+ * @brief crypto buf get api for hash address
+ */
+static inline uint8_t *nss_crypto_get_hash_addr(struct nss_crypto_buf *buf)
+{
+	return (uint8_t *)buf->hash_addr;
+}
+
+/**
+ * @brief crypto buf get api for callback context
+ */
+static inline uint8_t *nss_crypto_get_cb_ctx(struct nss_crypto_buf *buf)
+{
+	return (uint8_t *)buf->cb_ctx;
+}
+
+/**
+ * @brief crypto buf set api for registering callback
+ */
+static inline void nss_crypto_set_cb(struct nss_crypto_buf *buf, nss_crypto_comp_t fn, void *ctx)
+{
+	buf->cb_fn = fn;
+	buf->cb_ctx = (uint32_t)ctx;
+}
+
+/**
+ * @brief crypto buf set api for data in and out addresses
+ */
+static inline void nss_crypto_set_data(struct nss_crypto_buf *buf, uint8_t *in, uint8_t *out, uint16_t len)
+{
+	buf->data_in  = (uint32_t)in;
+	buf->data_out = (uint32_t)out;
+	buf->data_len = len;
+}
+
+/**
+ * @brief crypto buf set api for session index
+ */
+static inline void nss_crypto_set_session_idx(struct nss_crypto_buf *buf, uint32_t session_idx)
+{
+	buf->session_idx = session_idx;
+}
+
+/**
+ * @brief crypto buf set api for cipher, auth and total len
+ */
+static inline void nss_crypto_set_transform_len(struct nss_crypto_buf *buf, uint16_t cip_len, uint16_t auth_len)
+{
+	buf->cipher_len = cip_len;
+	buf->auth_len = auth_len;
+}
 
 #endif /* __KERNEL__ */
 #endif /* __NSS_CRYPTO_IF_H */
