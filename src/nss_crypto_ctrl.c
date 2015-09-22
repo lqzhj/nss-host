@@ -1169,6 +1169,8 @@ void nss_crypto_ctrl_init(void)
 
 	spin_lock_init(&ctrl->lock);
 
+	mutex_init(&ctrl->mutex);
+
 	ctrl->idx_bitmap = 0;
 	ctrl->num_eng = 0;
 	ctrl->num_idxs = 0;

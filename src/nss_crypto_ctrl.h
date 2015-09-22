@@ -35,6 +35,16 @@ enum nss_crypto_keylen_supp {
 	NSS_CRYPTO_KEYLEN_3DES = 24,		/**< 3DES-192 bit */
 };
 
+/**
+ * @brief NSS Crypto state
+ */
+enum nss_crypto_state {
+	NSS_CRYPTO_STATE_NOT_READY = 0,      /**< Crypto state is not Ready */
+	NSS_CRYPTO_STATE_READY,              /**< Crypto state is ready */
+	NSS_CRYPTO_STATE_INITIALIZED,        /**< Crypto engines are initialized */
+	NSS_CRYPTO_STATE_MAX
+};
+
 struct nss_crypto_encr_cfg {
 	uint32_t cfg;
 	uint8_t key[NSS_CRYPTO_CKEY_SZ];
@@ -103,7 +113,11 @@ struct nss_crypto_ctrl {
 
 	uint32_t num_idxs;			/**< number of allocated indexes */
 	uint32_t num_eng;			/**< number of available engines */
+
+	atomic_t crypto_state;			/**< crypto devices initialized or not */
+
 	spinlock_t lock;			/**< lock */
+	struct mutex mutex;			/**< mutex lock */
 
 	struct delayed_work crypto_work;	/**< crypto_work structure */
 
@@ -140,6 +154,30 @@ static inline void nss_crypto_set_idx_state(uint32_t *map, uint32_t idx)
 static inline void nss_crypto_clear_idx_state(uint32_t *map, uint32_t idx)
 {
 	*map &= ~(0x1 << idx);
+}
+
+/*
+ * @brief set crypto state
+ */
+static inline void nss_crypto_set_state(struct nss_crypto_ctrl *ctrl, enum nss_crypto_state state)
+{
+	atomic_set(&ctrl->crypto_state, state);
+}
+
+/*
+ * @brief check crypto state
+ */
+static inline bool nss_crypto_check_state(struct nss_crypto_ctrl *ctrl, enum nss_crypto_state state)
+{
+	return atomic_read(&ctrl->crypto_state) == state;
+}
+
+/*
+ * @brief reset crypto state
+ */
+static inline void nss_crypto_reset_state(struct nss_crypto_ctrl *ctrl)
+{
+	atomic_set(&ctrl->crypto_state, NSS_CRYPTO_STATE_NOT_READY);
 }
 
 /**

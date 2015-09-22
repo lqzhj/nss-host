@@ -59,8 +59,9 @@ extern struct nss_ctx_instance *nss_drv_hdl;
 
 static int eng_count;
 
-void nss_crypto_engine_init(uint32_t eng_count);
+int nss_crypto_engine_init(uint32_t eng_count);
 void nss_crypto_init(void);
+void nss_crypto_user_attach_all(struct nss_crypto_ctrl *ctrl);
 
 /*
  * nss_crypto_bam_init()
@@ -104,6 +105,11 @@ static int nss_crypto_probe(struct platform_device *pdev)
 	uint32_t bam_ee = 0;
 	size_t old_sz;
 	size_t new_sz;
+
+	if (nss_crypto_check_state(&gbl_crypto_ctrl, NSS_CRYPTO_STATE_NOT_READY)) {
+		nss_crypto_info_always("exiting probe due to previous error\n");
+		return -ENOMEM;
+	}
 
 	nss_crypto_info_always("probing engine - %d\n", eng_count);
 	nss_crypto_assert(eng_count < NSS_CRYPTO_MAX_ENGINES);
@@ -164,7 +170,7 @@ static int nss_crypto_probe(struct platform_device *pdev)
 	new_sz = old_sz + sizeof(struct nss_crypto_ctrl_eng);
 
 	eng_ptr = nss_crypto_mem_realloc(eng_ptr, old_sz, new_sz);
-	if (eng_ptr == NULL) {
+	if (!eng_ptr) {
 		return -ENOMEM;
 	}
 
@@ -192,7 +198,12 @@ static int nss_crypto_probe(struct platform_device *pdev)
 	 * intialize the BAM and the engine
 	 */
 	nss_crypto_bam_init(e_ctrl->bam_base);
-	nss_crypto_engine_init(eng_count);
+
+	if (nss_crypto_engine_init(eng_count) != NSS_CRYPTO_STATUS_OK) {
+		nss_crypto_info_always("Error in Engine Init\n");
+		nss_crypto_reset_state(&gbl_crypto_ctrl);
+		return -ENOMEM;
+	}
 
 	eng_count++;
 	gbl_crypto_ctrl.num_eng = eng_count;
@@ -261,15 +272,26 @@ void nss_crypto_delayed_init(struct work_struct *work)
 	ctrl->idx_bitmap = 0;
 
 	status = platform_driver_register(&nss_crypto_drv);
-	if (status != 0) {
+	if (status) {
 		nss_crypto_err("unable to register the driver : %d\n", status);
 		return;
 	}
 
 	/*
+	 * If crypto probe has failed, no need for further initialization
+	 */
+	if (nss_crypto_check_state(ctrl, NSS_CRYPTO_STATE_NOT_READY)) {
+		nss_crypto_warn("%p:NSS Crypto probe failed, num_eng (%d)\n", ctrl, gbl_crypto_ctrl.num_eng);
+		return;
+	}
+
+	nss_crypto_set_state(ctrl, NSS_CRYPTO_STATE_INITIALIZED);
+	nss_crypto_user_attach_all(ctrl);
+
+	/*
 	 * Initialize the engine stats
 	 */
-	for (i = 0; i < gbl_crypto_ctrl.num_eng ; i++)
+	for (i = 0; i < ctrl->num_eng ; i++)
 		nss_crypto_debugfs_add_engine(ctrl, i);
 }
 
@@ -279,10 +301,21 @@ void nss_crypto_delayed_init(struct work_struct *work)
  */
 static int __init nss_crypto_module_init(void)
 {
+	struct device_node *np;
 
 	nss_crypto_info("module loaded (platform - IPQ806x, build - %s:%s)\n", __DATE__, __TIME__);
 
+	nss_crypto_reset_state(&gbl_crypto_ctrl);
+
+	np = of_find_compatible_node(NULL, NULL, "qcom,nss-crypto");
+	if (!np) {
+		nss_crypto_info_always("qca-nss-crypto.ko is loaded for symbol link\n");
+		return 0;
+	}
+
 	nss_crypto_init();
+
+	nss_crypto_set_state(&gbl_crypto_ctrl, NSS_CRYPTO_STATE_READY);
 
 	nss_crypto_info_always("Register with NSS driver-\n");
 

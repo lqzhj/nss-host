@@ -80,24 +80,53 @@ static inline void nss_crypto_buf_init(struct nss_crypto_buf *buf)
 	buf->origin = NSS_CRYPTO_BUF_ORIGIN_HOST;
 }
 
+void nss_crypto_user_attach_all(struct nss_crypto_ctrl *ctrl)
+{
+	struct nss_crypto_user *user;
+
+	BUG_ON(!(nss_crypto_check_state(ctrl, NSS_CRYPTO_STATE_INITIALIZED)));
+
+	mutex_lock(&ctrl->mutex);
+
+	/*
+	 * Walk the list of users and call the attach if they are not called yet
+	 */
+	list_for_each_entry(user, &user_head, node) {
+		if (user->ctx) {
+			continue;
+		}
+		mutex_unlock(&ctrl->mutex);
+		user->ctx = user->attach(user);
+		mutex_lock(&ctrl->mutex);
+	}
+
+	mutex_unlock(&ctrl->mutex);
+}
 /*
  * nss_crypto_register_user()
  * 	register a new user of the crypto driver
  */
 void nss_crypto_register_user(nss_crypto_attach_t attach, nss_crypto_detach_t detach, uint8_t *user_name)
 {
+	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
 	struct nss_crypto_user *user;
 	struct nss_crypto_buf_node *entry;
 	int i;
 
-	user = vmalloc(sizeof(struct nss_crypto_user));
-	nss_crypto_assert(user);
+	if (nss_crypto_check_state(ctrl, NSS_CRYPTO_STATE_NOT_READY)) {
+		nss_crypto_warn("%p: Crypto Device is not ready\n", ctrl);
+		return;
+	}
 
-	memset(user, 0, sizeof(struct nss_crypto_user));
+	user = vzalloc(sizeof(struct nss_crypto_user));
+	if (!user) {
+		return;
+	}
 
 	user->attach = attach;
-	user->ctx = user->attach(user);
 	user->detach = detach;
+	user->ctx = NULL;
+
 	strlcpy(user->zone_name, NSS_CRYPTO_ZONE_DEFAULT_NAME, NSS_CRYPTO_ZONE_NAME_LEN);
 
 	/*
@@ -111,14 +140,41 @@ void nss_crypto_register_user(nss_crypto_attach_t attach, nss_crypto_detach_t de
 	 */
 	strlcat(user->zone_name, user_name, NSS_CRYPTO_ZONE_NAME_LEN);
 	user->zone = kmem_cache_create(user->zone_name, sizeof(struct nss_crypto_buf_node), 0, SLAB_HWCACHE_ALIGN, NULL);
+	if (!user->zone) {
+		nss_crypto_info_always("failed to create crypto_buf for user\n");
+		goto fail;
+	}
 
 	for (i = 0; i < pool_seed; i++) {
+		/*
+		 * Try allocating till the seed value. If, the
+		 * system returned less buffers then it will be
+		 * taken care by the alloc routine by allocating
+		 * the addtional buffers.
+		 */
 		entry = kmem_cache_alloc(user->zone, GFP_KERNEL);
+		if (!entry) {
+			nss_crypto_info_always("failed to allocate memory");
+			break;
+		}
+
 		llist_add(&entry->node, &user->pool_head);
 		nss_crypto_buf_init(&entry->buf);
 	}
 
+	mutex_lock(&ctrl->mutex);
 	list_add_tail(&user->node, &user_head);
+
+	if (nss_crypto_check_state(ctrl, NSS_CRYPTO_STATE_INITIALIZED)) {
+		user->ctx = user->attach(user);
+	}
+
+	mutex_unlock(&ctrl->mutex);
+
+	return;
+fail:
+	vfree(user);
+	return;
 }
 EXPORT_SYMBOL(nss_crypto_register_user);
 
@@ -395,7 +451,7 @@ void nss_crypto_init(void)
  * - initialize the control component for all pipes in that engine
  * - send the open message to the NSS crypto
  */
-void nss_crypto_engine_init(uint32_t eng_num)
+int nss_crypto_engine_init(uint32_t eng_num)
 {
 	struct nss_crypto_msg nim;
 	struct nss_cmn_msg *ncm = &nim.cm;
@@ -427,7 +483,7 @@ void nss_crypto_engine_init(uint32_t eng_num)
 
 	if (nss_crypto_idx_init(e_ctrl, open->idx) != NSS_CRYPTO_STATUS_OK) {
 		nss_crypto_err("failed to initiallize\n");
-		return;
+		return NSS_CRYPTO_STATUS_FAIL;
 	}
 
 	/*
@@ -435,8 +491,10 @@ void nss_crypto_engine_init(uint32_t eng_num)
 	 */
 	if (nss_crypto_tx_msg(nss_drv_hdl, &nim) != NSS_TX_SUCCESS) {
 		nss_crypto_err("Failed to send the message to NSS\n");
-		return;
+		return NSS_CRYPTO_STATUS_FAIL;
 	}
+
+	return NSS_CRYPTO_STATUS_OK;
 }
 
 /*
