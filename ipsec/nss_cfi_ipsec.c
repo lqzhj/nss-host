@@ -19,6 +19,7 @@
 /* nss_cfi_ipsec.c
  *	NSS IPsec offload glue for Openswan/KLIPS
  */
+#include <linux/version.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -496,7 +497,11 @@ static void nss_cfi_ipsec_ev_cb(void *ctx, struct nss_ipsecmgr_event *ev)
  */
 static int nss_cfi_ipsec_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
 {
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3, 10, 0))
 	struct net_device *hlos_dev = (struct net_device *)ptr;
+#else
+	struct net_device *hlos_dev = netdev_notifier_info_to_dev(ptr);
+#endif
 	struct net_device *nss_dev;
 	int16_t index = 0;
 
