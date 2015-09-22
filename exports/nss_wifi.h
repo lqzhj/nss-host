@@ -233,6 +233,9 @@ struct nss_wifi_stats_sync_msg {
 	uint32_t rx_inv_peer_rcv_cnt;           /**< number of packets received from wifi with invalid peer id */
 	uint32_t rx_pn_check_failed;            /**< number of rx packets which failed packet number check */
 	uint32_t rx_pkts_deliverd;              /**< number of rx packets that NSS wifi driver could successfully process */
+	uint32_t rx_bytes_deliverd;		/**< number of rx bytes that NSS wifi driver could successfully process */
+	uint32_t tx_bytes_transmit_completions;	/**< number of bytes for which transmission completion received */
+
 };
 
 /**
