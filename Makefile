@@ -45,5 +45,10 @@ endif
 # L2TPv2 manager
 obj-y+=l2tp/l2tpv2/
 
+#NSS PPTP
+ifneq ($(findstring 3.4, $(KERNELVERSION)),)
+obj-y+= pptp/
+endif
+
 obj ?= .
 
