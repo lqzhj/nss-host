@@ -527,6 +527,16 @@ enum nss_stats_wifi {
 	NSS_STATS_WIFI_RX_BYTES_DELIVERED,		/* Number of rx bytes that NSS wifi offload path could successfully process */
 	NSS_STATS_WIFI_TX_BYTES_COMPLETED,		/* Number of bytes for which transmission completion received */
 	NSS_STATS_WIFI_RX_DELIVER_UNALIGNED_DROP_CNT,	/* Number of rx packets that dropped beacause of alignment mismatch*/
+	NSS_STATS_WIFI_TIDQ_ENQUEUE_CNT,		/* Number of packets enqueued to  TIDQ */
+	NSS_STATS_WIFI_TIDQ_DEQUEUE_CNT = NSS_STATS_WIFI_TIDQ_ENQUEUE_CNT + 8,		/* Number of packets dequeued from  TIDQ */
+	NSS_STATS_WIFI_TIDQ_ENQUEUE_FAIL_CNT = NSS_STATS_WIFI_TIDQ_DEQUEUE_CNT + 8,	/* Enqueue fail count */
+	NSS_STATS_WIFI_TIDQ_TTL_EXPIRE_CNT = NSS_STATS_WIFI_TIDQ_ENQUEUE_FAIL_CNT + 8,	/* Number of packets expired from  TIDQ */
+	NSS_STATS_WIFI_TIDQ_DEQUEUE_REQ_CNT = NSS_STATS_WIFI_TIDQ_TTL_EXPIRE_CNT + 8,	/* Dequeue reuest count from wifi fw */
+	NSS_STATS_WIFI_TOTAL_TIDQ_DEPTH = NSS_STATS_WIFI_TIDQ_DEQUEUE_REQ_CNT + 8,	/* Tidq depth */
+	NSS_STATS_WIFI_RX_HTT_FETCH_CNT,	/* Total number of HTT Fetch Messages received from wifi fw */
+	NSS_STATS_WIFI_TOTAL_TIDQ_BYPASS_CNT,	/* Total number of packets which have bypassed tidq and sent to wifi fw */
+	NSS_STATS_WIFI_GLOBAL_Q_FULL_CNT,	/* Total number of packets dropped due to global queue full condition */
+	NSS_STATS_WIFI_TIDQ_FULL_CNT,		/* Total number of packets dropped due to TID queue full condition */
 	NSS_STATS_WIFI_MAX,
 };
 
