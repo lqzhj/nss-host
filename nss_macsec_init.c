@@ -224,11 +224,6 @@ static int nss_macsec_dt_init(uint32_t dev_id)
 	unsigned int len = 0;
 	char dev_name[32];
 
-	if (nss_macsec_pre_init_flag == 0) {
-		nss_macsec_pre_init();
-		nss_macsec_pre_init_flag = 1;
-	}
-
 	memset(dev_name, 0, sizeof(dev_name));
 	snprintf(dev_name, sizeof(dev_name), "nss-macsec%d", dev_id);
 
@@ -269,6 +264,11 @@ static int nss_macsec_dt_init(uint32_t dev_id)
 	if (macsec_notifier_register_status == 0) {
 		nss_gmac_link_state_change_notify_register(&macsec_notifier);
 		macsec_notifier_register_status = 1;
+	}
+
+	if (nss_macsec_pre_init_flag == 0) {
+		nss_macsec_pre_init();
+		nss_macsec_pre_init_flag = 1;
 	}
 
 	macsec_trace("macsec.%d probe done\n", dev_id);
