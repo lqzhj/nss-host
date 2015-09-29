@@ -173,6 +173,7 @@ static int8_t *nss_stats_str_drv[NSS_STATS_DRV_MAX] = {
 	"tx_buffers_pkt",
 	"tx_buffers_cmd",
 	"tx_buffers_crypto",
+	"tx_buffers_reuse",
 	"rx_buffers_empty",
 	"rx_buffers_pkt",
 	"rx_buffers_cmd_resp",

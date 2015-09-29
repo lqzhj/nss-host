@@ -1657,6 +1657,10 @@ static inline int32_t nss_core_send_buffer_simple_skb(struct nss_ctx_instance *n
 	struct h2n_descriptor *desc;
 	uint16_t bit_flags;
 	uint16_t mask;
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3, 6, 0))
+	uint32_t cur;
+	uint32_t desired;
+#endif
 
 	bit_flags = flags | H2N_BIT_FLAG_FIRST_SEGMENT | H2N_BIT_FLAG_LAST_SEGMENT;
 
@@ -1673,16 +1677,51 @@ static inline int32_t nss_core_send_buffer_simple_skb(struct nss_ctx_instance *n
 		(uint32_t)nbuf, (uint16_t)(nbuf->data - nbuf->head), nbuf->len,
 		(uint16_t)(nbuf->end - nbuf->head), (uint32_t)nbuf->priority, mss, bit_flags);
 
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3,6,0))
-	if (unlikely(!nss_cmn_interface_is_virtual(nss_ctx, if_num))) {
-		if (likely(nbuf->destructor == NULL)) {
-			if (likely(skb_recycle_check(nbuf, nss_ctx->max_buf_size))) {
-				bit_flags |= H2N_BIT_FLAG_BUFFER_REUSE;
-				desc->buffer_len = nss_ctx->max_buf_size + NET_SKB_PAD;
-				desc->bit_flags = bit_flags;
-			}
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3, 6, 0))
+	/*
+	 * Don't re-use if this is a virtual interface.
+	 */
+	if (nss_cmn_interface_is_virtual(nss_ctx, if_num)) {
+		goto no_reuse;
+	}
+
+	/*
+	 * If we have to call a destructor, we can't re-use the buffer?
+	 */
+	if (unlikely(nbuf->destructor != NULL)) {
+		goto no_reuse;
+	}
+
+	/*
+	 * Will Linux allow us to re-use the buffer?
+	 */
+	if (unlikely(!skb_recycle_check(nbuf, nss_ctx->max_buf_size))) {
+		goto no_reuse;
+	}
+
+	/*
+	 * We are allowed to re-use but we might not have dmap_map_single() all of the
+	 * buffer. Check this and map more if needed.
+	 */
+	cur = nbuf->tail - nbuf->head;
+	desired = nss_ctx->max_buf_size + NET_SKB_PAD;
+	if (cur < desired) {
+		uint32_t pa = (uint32_t)dma_map_single(NULL, nbuf->tail, (desired - cur), DMA_TO_DEVICE);
+		if (unlikely(dma_mapping_error(NULL, pa))) {
+			nss_warning("%p: DMA mapping failed for re-use buffer", nss_ctx);
+			goto no_reuse;
 		}
 	}
+
+	/*
+	 * We are allowed to re-use the packet
+	 */
+	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_BUFFER_REUSE]);
+	bit_flags |= H2N_BIT_FLAG_BUFFER_REUSE;
+	desc->buffer_len = nss_ctx->max_buf_size + NET_SKB_PAD;
+	desc->bit_flags = bit_flags;
+
+no_reuse:
 #endif
 	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_SIMPLE]);
 	return 1;
