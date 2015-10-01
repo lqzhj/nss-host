@@ -1646,24 +1646,46 @@ static inline void nss_core_write_one_descriptor(struct h2n_descriptor *desc,
 }
 
 /*
+* nss_core_send_unwind_dma()
+*	It unwinds (or unmap) DMA from descriptors
+*/
+static inline void nss_core_send_unwind_dma(struct h2n_desc_if_instance *desc_if,
+	uint16_t hlos_index, int16_t count, bool is_fraglist)
+{
+	struct h2n_descriptor *desc_ring = desc_if->desc;
+	struct h2n_descriptor *desc;
+	int16_t i, mask;
+
+	mask = desc_if->size - 1;
+	for (i = 0; i < count; i++) {
+		desc = &desc_ring[hlos_index];
+		if (is_fraglist) {
+			dma_unmap_single(NULL, desc->buffer, desc->buffer_len, DMA_TO_DEVICE);
+		} else {
+			dma_unmap_page(NULL, desc->buffer, desc->buffer_len, DMA_TO_DEVICE);
+		}
+		hlos_index = (hlos_index + 1) & mask;
+	}
+}
+
+/*
  * nss_core_send_buffer_simple_skb()
  *	Sends one skb to NSS FW
  */
 static inline int32_t nss_core_send_buffer_simple_skb(struct nss_ctx_instance *nss_ctx,
-	struct h2n_desc_if_instance *desc_if, uint32_t if_num, uint32_t frag0phyaddr,
+	struct h2n_desc_if_instance *desc_if, uint32_t if_num,
 	struct sk_buff *nbuf, uint16_t hlos_index, uint16_t flags, uint8_t buffer_type, uint16_t mss)
 {
 	struct h2n_descriptor *desc_ring = desc_if->desc;
 	struct h2n_descriptor *desc;
 	uint16_t bit_flags;
 	uint16_t mask;
+	uint32_t frag0phyaddr;
 #if (LINUX_VERSION_CODE <= KERNEL_VERSION(3, 6, 0))
-	uint32_t cur;
-	uint32_t desired;
+	uint16_t sz;
 #endif
 
 	bit_flags = flags | H2N_BIT_FLAG_FIRST_SEGMENT | H2N_BIT_FLAG_LAST_SEGMENT;
-
 	if (likely(nbuf->ip_summed == CHECKSUM_PARTIAL)) {
 		bit_flags |= H2N_BIT_FLAG_GEN_IP_TRANSPORT_CHECKSUM;
 	} else if (nbuf->ip_summed == CHECKSUM_UNNECESSARY) {
@@ -1672,10 +1694,6 @@ static inline int32_t nss_core_send_buffer_simple_skb(struct nss_ctx_instance *n
 
 	mask = desc_if->size - 1;
 	desc = &desc_ring[hlos_index];
-
-	nss_core_write_one_descriptor(desc, buffer_type, frag0phyaddr, if_num,
-		(uint32_t)nbuf, (uint16_t)(nbuf->data - nbuf->head), nbuf->len,
-		(uint16_t)(nbuf->end - nbuf->head), (uint32_t)nbuf->priority, mss, bit_flags);
 
 #if (LINUX_VERSION_CODE <= KERNEL_VERSION(3, 6, 0))
 	/*
@@ -1693,36 +1711,52 @@ static inline int32_t nss_core_send_buffer_simple_skb(struct nss_ctx_instance *n
 	}
 
 	/*
-	 * Will Linux allow us to re-use the buffer?
+	 * Check if the skb is recyclable without resetting its fields.
 	 */
-	if (unlikely(!skb_recycle_check(nbuf, nss_ctx->max_buf_size))) {
+	if (unlikely(!skb_is_recycleable(nbuf, nss_ctx->max_buf_size))) {
 		goto no_reuse;
 	}
 
 	/*
-	 * We are allowed to re-use but we might not have dmap_map_single() all of the
-	 * buffer. Check this and map more if needed.
-	 */
-	cur = nbuf->tail - nbuf->head;
-	desired = nss_ctx->max_buf_size + NET_SKB_PAD;
-	if (cur < desired) {
-		uint32_t pa = (uint32_t)dma_map_single(NULL, nbuf->tail, (desired - cur), DMA_TO_DEVICE);
-		if (unlikely(dma_mapping_error(NULL, pa))) {
-			nss_warning("%p: DMA mapping failed for re-use buffer", nss_ctx);
-			goto no_reuse;
-		}
+	* We are going to do both Tx and then Rx on this buffer, unmap the Tx
+	* and then map Rx over the entire buffer.
+	*/
+	sz = max((uint16_t)(nbuf->tail - nbuf->head), (uint16_t)(nss_ctx->max_buf_size + NET_SKB_PAD));
+	frag0phyaddr = (uint32_t)dma_map_single(NULL, nbuf->head, sz, DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(NULL, frag0phyaddr))) {
+		goto no_reuse;
 	}
 
 	/*
-	 * We are allowed to re-use the packet
-	 */
-	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_BUFFER_REUSE]);
+	* We are allowed to re-use the packet
+	*/
 	bit_flags |= H2N_BIT_FLAG_BUFFER_REUSE;
-	desc->buffer_len = nss_ctx->max_buf_size + NET_SKB_PAD;
-	desc->bit_flags = bit_flags;
+	nss_core_write_one_descriptor(desc, buffer_type, frag0phyaddr, if_num,
+		(uint32_t)nbuf, (uint16_t)(nbuf->data - nbuf->head), nbuf->len,
+		sz, (uint32_t)nbuf->priority, mss, bit_flags);
+
+	/*
+	 * We are done using the skb fields and can recycle it now
+	 */
+	skb_recycle(nbuf);
+
+	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_BUFFER_REUSE]);
+	return 1;
 
 no_reuse:
 #endif
+
+	frag0phyaddr = 0;
+	frag0phyaddr = (uint32_t)dma_map_single(NULL, nbuf->head, (nbuf->tail - nbuf->head), DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(NULL, frag0phyaddr))) {
+		nss_warning("%p: DMA mapping failed for virtual address = %x", nss_ctx, (uint32_t)nbuf->head);
+		return 0;
+	}
+
+	nss_core_write_one_descriptor(desc, buffer_type, frag0phyaddr, if_num,
+		(uint32_t)nbuf, (uint16_t)(nbuf->data - nbuf->head), nbuf->len,
+		(uint16_t)(nbuf->end - nbuf->head), (uint32_t)nbuf->priority, mss, bit_flags);
+
 	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_SIMPLE]);
 	return 1;
 }
@@ -1735,8 +1769,8 @@ no_reuse:
  * Used to differentiate from FRAGLIST
  */
 static inline int32_t nss_core_send_buffer_nr_frags(struct nss_ctx_instance *nss_ctx,
-	struct h2n_desc_if_instance *desc_if, uint32_t if_num, uint32_t frag0phyaddr,
-	struct sk_buff *nbuf, uint16_t hlos_index, uint16_t flags, uint8_t buffer_type, uint16_t mss)
+	struct h2n_desc_if_instance *desc_if, uint32_t if_num,
+	struct sk_buff *nbuf, uint16_t hlos_index, uint16_t flags, uint8_t buffer_type, uint16_t mss, bool is_fraglist)
 {
 	struct h2n_descriptor *desc_ring = desc_if->desc;
 	struct h2n_descriptor *desc;
@@ -1746,6 +1780,13 @@ static inline int32_t nss_core_send_buffer_nr_frags(struct nss_ctx_instance *nss
 	uint16_t bit_flags;
 	int16_t i;
 	uint16_t mask;
+
+	uint32_t frag0phyaddr = 0;
+	frag0phyaddr = (uint32_t)dma_map_single(NULL, nbuf->head, (nbuf->tail - nbuf->head), DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(NULL, frag0phyaddr))) {
+		nss_warning("%p: DMA mapping failed for virtual address = %x", nss_ctx, (uint32_t)nbuf->head);
+		return 0;
+	}
 
 	/*
 	 * Set the appropriate flags.
@@ -1776,6 +1817,7 @@ static inline int32_t nss_core_send_buffer_nr_frags(struct nss_ctx_instance *nss
 		buffer = skb_frag_dma_map(NULL, frag, 0, skb_frag_size(frag), DMA_TO_DEVICE);
 		if (unlikely(dma_mapping_error(NULL, buffer))) {
 			nss_warning("%p: DMA mapping failed for fragment", nss_ctx);
+			nss_core_send_unwind_dma(desc_if, hlos_index, i + 1, is_fraglist);
 			return -(i + 1);
 		}
 
@@ -1811,8 +1853,8 @@ static inline int32_t nss_core_send_buffer_nr_frags(struct nss_ctx_instance *nss
  * Used to differentiate from FRAGS
  */
 static inline int32_t nss_core_send_buffer_fraglist(struct nss_ctx_instance *nss_ctx,
-	struct h2n_desc_if_instance *desc_if, uint32_t if_num, uint32_t frag0phyaddr,
-	struct sk_buff *nbuf, uint16_t hlos_index, uint16_t flags, uint8_t buffer_type, uint16_t mss)
+	struct h2n_desc_if_instance *desc_if, uint32_t if_num,
+	struct sk_buff *nbuf, uint16_t hlos_index, uint16_t flags, uint8_t buffer_type, uint16_t mss, bool is_fraglist)
 {
 	struct h2n_descriptor *desc_ring = desc_if->desc;
 	struct h2n_descriptor *desc;
@@ -1821,6 +1863,13 @@ static inline int32_t nss_core_send_buffer_fraglist(struct nss_ctx_instance *nss
 	struct sk_buff *iter;
 	uint16_t bit_flags;
 	int16_t i;
+
+	uint32_t frag0phyaddr = 0;
+	frag0phyaddr = (uint32_t)dma_map_single(NULL, nbuf->head, (nbuf->tail - nbuf->head), DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(NULL, frag0phyaddr))) {
+		nss_warning("%p: DMA mapping failed for virtual address = %x", nss_ctx, (uint32_t)nbuf->head);
+		return 0;
+	}
 
 	/*
 	 * Copy and Set bit flags
@@ -1855,6 +1904,7 @@ static inline int32_t nss_core_send_buffer_fraglist(struct nss_ctx_instance *nss
 		buffer = (uint32_t)dma_map_single(NULL, iter->head, (iter->tail - iter->head), DMA_TO_DEVICE);
 		if (unlikely(dma_mapping_error(NULL, buffer))) {
 			nss_warning("%p: DMA mapping failed for virtual address = %x", nss_ctx, (uint32_t)iter->head);
+			nss_core_send_unwind_dma(desc_if, hlos_index, i + 1, is_fraglist);
 			return -(i+1);
 		}
 
@@ -1865,6 +1915,7 @@ static inline int32_t nss_core_send_buffer_fraglist(struct nss_ctx_instance *nss
 		nr_frags = skb_shinfo(iter)->nr_frags;
 		if (unlikely(nr_frags > 0)) {
 			nss_warning("%p: fraglist with page data are not supported: %p\n", nss_ctx, iter);
+			nss_core_send_unwind_dma(desc_if, hlos_index, i + 1, is_fraglist);
 			return -(i+1);
 		}
 
@@ -1885,28 +1936,8 @@ static inline int32_t nss_core_send_buffer_fraglist(struct nss_ctx_instance *nss
 	 * Update bit flag for last descriptor.
 	 */
 	desc->bit_flags |= H2N_BIT_FLAG_LAST_SEGMENT;
-
 	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_FRAGLIST]);
 	return i+1;
-}
-
-/*
- * nss_core_send_unwind_dma()
- *	It unwinds (or unmap) DMA from descriptors
- */
-static inline void nss_core_send_unwind_dma(struct h2n_desc_if_instance *desc_if,
-	uint16_t hlos_index, int16_t count)
-{
-	struct h2n_descriptor *desc_ring = desc_if->desc;
-	struct h2n_descriptor *desc;
-	int16_t i, mask;
-
-	mask = desc_if->size - 1;
-	for (i = 0; i < count; i++) {
-		desc = &desc_ring[hlos_index];
-		dma_unmap_single(NULL, desc->buffer, desc->buffer_len, DMA_TO_DEVICE);
-		hlos_index = (hlos_index + 1) & mask;
-	}
 }
 
 /*
@@ -1925,7 +1956,6 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	struct h2n_descriptor *desc;
 	struct nss_if_mem_map *if_map = (struct nss_if_mem_map *)nss_ctx->vmap;
 	uint16_t mss = 0;
-	uint32_t frag0phyaddr = 0;
 	bool is_bounce = ((buffer_type == H2N_BUFFER_SHAPER_BOUNCE_INTERFACE) || (buffer_type == H2N_BUFFER_SHAPER_BOUNCE_BRIDGE));
 
 
@@ -1933,11 +1963,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	size = desc_if->size;
 	mask = size - 1;
 
-	frag0phyaddr = (uint32_t)dma_map_single(NULL, nbuf->head, (nbuf->tail - nbuf->head), DMA_TO_DEVICE);
-	if (unlikely(dma_mapping_error(NULL, frag0phyaddr))) {
-		nss_warning("%p: DMA mapping failed for virtual address = %x", nss_ctx,(uint32_t)nbuf->head);
-		return NSS_CORE_STATUS_FAILURE;
-	}
+
 
 	/*
 	 * If nbuf does not have fraglist, then update nr_frags
@@ -2038,22 +2064,21 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	 */
 	count = 0;
 	if (likely((segments == 0) || is_bounce)) {
-		count = nss_core_send_buffer_simple_skb(nss_ctx, desc_if, if_num, frag0phyaddr,
+		count = nss_core_send_buffer_simple_skb(nss_ctx, desc_if, if_num,
 			nbuf, hlos_index, flags, buffer_type, mss);
 	} else if (skb_has_frag_list(nbuf)) {
-		count = nss_core_send_buffer_fraglist(nss_ctx, desc_if, if_num, frag0phyaddr,
-			nbuf, hlos_index, flags, buffer_type, mss);
+		count = nss_core_send_buffer_fraglist(nss_ctx, desc_if, if_num,
+			nbuf, hlos_index, flags, buffer_type, mss, true);
 	} else {
-		count = nss_core_send_buffer_nr_frags(nss_ctx, desc_if, if_num, frag0phyaddr,
-			nbuf, hlos_index, flags, buffer_type, mss);
+		count = nss_core_send_buffer_nr_frags(nss_ctx, desc_if, if_num,
+			nbuf, hlos_index, flags, buffer_type, mss, false);
 	}
 
-	if (unlikely(count < 0)) {
+	if (unlikely(count <= 0)) {
 		/*
 		 * We failed and hence we need to unmap dma regions
 		 */
 		nss_warning("%p: failed to map DMA regions:%d", nss_ctx, -count);
-		nss_core_send_unwind_dma(desc_if, hlos_index, -count);
 		spin_unlock_bh(&nss_ctx->h2n_desc_rings[qid].lock);
 		return NSS_CORE_STATUS_FAILURE;
 	}
