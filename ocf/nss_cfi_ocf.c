@@ -181,6 +181,8 @@ static bool nss_cfi_ocf_get_buf(struct cryptop *crp, uint8_t **data, uint32_t *l
  */
 static int nss_cfi_ocf_newsession(device_t dev, uint32_t *sidp, struct cryptoini *cri)
 {
+	struct nss_cfi_crypto_info cfi_crypto = {.cipher_algo = NSS_CRYPTO_CIPHER_NULL,
+						 .auth_algo = NSS_CRYPTO_AUTH_NULL};
 	struct nss_cfi_ocf *sc = device_get_softc(dev);
 	struct nss_crypto_key cip = {0};
 	struct nss_crypto_key auth = {0};
@@ -190,11 +192,10 @@ static int nss_cfi_ocf_newsession(device_t dev, uint32_t *sidp, struct cryptoini
 	struct cryptoini *auth_ini = NULL;
 	nss_crypto_status_t status;
 	int alg;
-	struct nss_cfi_crypto_info cfi_crypto = {.cipher_algo = NSS_CRYPTO_CIPHER_NULL, .auth_algo = NSS_CRYPTO_AUTH_NULL};
 
-	nss_cfi_assert(sidp != NULL);
-	nss_cfi_assert(cri != NULL);
-	nss_cfi_assert(sc != NULL);
+	nss_cfi_assert(sidp);
+	nss_cfi_assert(cri);
+	nss_cfi_assert(sc);
 
 	/*
 	 * Check that the first cri parameter has a valid key length
@@ -326,18 +327,59 @@ static int nss_cfi_ocf_freesession(device_t dev, uint64_t tid)
 static void nss_cfi_ocf_process_done(struct nss_crypto_buf *buf)
 {
 	struct cryptop *crp = NULL;
+	uint8_t *hash_addr;
+	uint16_t hash_len;
+	uint32_t len;
+	uint8_t *data;
+	struct cryptodesc *auth_crd = NULL;
+	struct cryptodesc *cip_crd = NULL;
+	struct cryptodesc *crd = NULL;
 	uint32_t req_type = nss_crypto_get_reqtype(buf->session_idx);
 
 	nss_cfi_assert(buf);
 
+
 	crp = (struct cryptop *)buf->cb_ctx;
+	crd = crp->crp_desc;
+
+	switch (cfi_algo[crd->crd_alg].flag) {
+	case NSS_CFI_OCF_ALGO_TYPE_IS_AUTH:
+		auth_crd = crd;
+		cip_crd  = crd->crd_next;
+		break;
+
+	case NSS_CFI_OCF_ALGO_TYPE_IS_CIPHER:
+		cip_crd = crd;
+		auth_crd = crd->crd_next;
+		break;
+
+	default:
+		nss_cfi_err("wrong cipher or auth algo %d\n", crd->crd_alg);
+	}
+
+	if (auth_crd && cip_crd) {
+		hash_addr = nss_crypto_get_hash_addr(buf);
+		hash_len = (auth_crd->crd_mlen == 0) ? cfi_algo[auth_crd->crd_alg].max_hashlen : auth_crd->crd_mlen;
+
+		nss_cfi_ocf_get_buf(crp, &data, &len);
+
+		if (cip_crd->crd_flags & CRD_F_ENCRYPT) {
+			memcpy(data + auth_crd->crd_inject, hash_addr, hash_len);
+		} else {
+			if (memcmp(data + auth_crd->crd_inject, hash_addr, hash_len)) {
+				nss_cfi_err("Authentication failed\n");
+				crp->crp_etype = ENOENT;
+				goto done;
+			}
+		}
+	}
 
 	if (((req_type & NSS_CRYPTO_REQ_TYPE_DECRYPT) == NSS_CRYPTO_REQ_TYPE_DECRYPT) && (crp->crp_flags & CRYPTO_F_SKBUF)) {
 		g_cfi_ocf.decrypt_fn((struct sk_buff *)crp->crp_buf, &gbl_crypto_info[buf->session_idx]);
 	}
 
+done:
 	nss_crypto_buf_free(g_cfi_ocf.crypto, buf);
-
 	crypto_done(crp);
 }
 
@@ -366,12 +408,12 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 	uint8_t *data;
 	int flag = 0;
 	int ivsize;
+	uint16_t cipher_len = 0, auth_len = 0;
 	struct nss_crypto_params params;
 	nss_crypto_status_t status;
 
-	nss_cfi_assert(crp != NULL);
-	nss_cfi_assert(crp->crp_callback != NULL);
-	nss_cfi_assert(sc != NULL);
+	nss_cfi_assert(!crp);
+	nss_cfi_assert(!sc);
 
 	crp->crp_etype = 0;
 	len  = 0;
@@ -389,7 +431,7 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 	 * finding out cipher and auth descriptor.
 	 */
 	crd = crp->crp_desc;
-	nss_cfi_assert(crd != NULL);
+	nss_cfi_assert(crd);
 
 	switch (cfi_algo[crd->crd_alg].flag) {
 	case NSS_CFI_OCF_ALGO_TYPE_IS_AUTH:
@@ -460,13 +502,14 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 	/*
 	 *  filling up buffer entries
 	 */
-	buf->cb_ctx = (uint32_t)crp;
-	buf->cb_fn = nss_cfi_ocf_process_done;
-	buf->session_idx = NSS_CFI_OCF_SESSION(crp->crp_sid);
+
+	nss_crypto_set_cb(buf, nss_cfi_ocf_process_done, crp);
+	nss_crypto_set_session_idx(buf, NSS_CFI_OCF_SESSION(crp->crp_sid));
 
 	memset(&params, 0, sizeof(struct nss_crypto_params));
 
 	if (cip_crd) {
+		uint8_t *iv_addr;
 		flag = NSS_CRYPTO_REQ_TYPE_DECRYPT;
 		ivsize = cfi_algo[cip_crd->crd_alg].max_ivlen;
 
@@ -479,13 +522,14 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 			flag = NSS_CRYPTO_REQ_TYPE_ENCRYPT;
 		}
 
-		buf->cipher_len = cip_crd->crd_len;
-		buf->iv_offset = cip_crd->crd_inject;
-		buf->iv_len = ivsize;
+		cipher_len = cip_crd->crd_len;
+		iv_addr = nss_crypto_get_ivaddr(buf);
+		memcpy(iv_addr, data + cip_crd->crd_inject, ivsize);
+
 		params.cipher_skip = cip_crd->crd_skip;
 
-		nss_cfi_dbg("cipher len %d cipher skip %d iv_offset %d\n",
-				buf->cipher_len, buf->cipher_skip, buf->iv_offset);
+		nss_cfi_dbg("cipher len %d cipher skip %d iv_addr %p\n",
+				cipher_len, params.cipher_skip, iv_addr);
 	}
 
 	if (auth_crd) {
@@ -494,13 +538,12 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 		hash_len = (auth_crd->crd_mlen == 0) ?
 				cfi_algo[auth_crd->crd_alg].max_hashlen : auth_crd->crd_mlen;
 
-		buf->auth_len = auth_crd->crd_len;
-		buf->hash_offset = auth_crd->crd_inject;
+		auth_len = auth_crd->crd_len;
 		gbl_crypto_info[buf->session_idx].hash_len = hash_len;
 		params.auth_skip = auth_crd->crd_skip;
 
-		nss_cfi_dbg("auth len %d auth skip %d hash_offset %d\n",
-				buf->auth_len, buf->auth_skip, buf->hash_offset);
+		nss_cfi_dbg("auth len %d auth skip %d \n",
+				auth_len, params.auth_skip);
 	}
 
 	/*
@@ -516,8 +559,8 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 	 * The physical buffer data length provided to crypto will include
 	 * space for authentication hash
 	 */
-	buf->data_len = len + hash_len;
-	buf->data = data;
+	nss_crypto_set_data(buf, data, data, len + hash_len);
+	nss_crypto_set_transform_len(buf, cipher_len, auth_len);
 
 	/*
 	 * Update the crypto session data

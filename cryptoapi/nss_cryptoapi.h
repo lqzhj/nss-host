@@ -57,6 +57,15 @@ struct nss_cryptoapi_ctx {
 	uint16_t rsvd;
 };
 
+/**
+ *  * @brief key lengths for supported algorithms
+ **/
+enum nss_cryptoapi_keylen {
+	NSS_CRYPTOAPI_KEYLEN_AES128 = 16,
+	NSS_CRYPTOAPI_KEYLEN_AES256 = 32,
+	NSS_CRYPTOAPI_KEYLEN_3DES = 24,
+};
+
 #define NSS_CRYPTOAPI_DEBUGFS_NAME_SZ 64
 
 #define CRYPTOAPI_MAX_KEY_SIZE 64
@@ -106,4 +115,56 @@ static inline uint32_t nss_cryptoapi_get_iv_sz(struct aead_request *req)
 {
 	return crypto_aead_ivsize(crypto_aead_reqtfm(req));
 }
+
+/*
+ * nss_cryptoapi_check_unalign()
+ * 	Cryptoapi verify if length is aligned to boundary.
+ */
+static inline bool nss_cryptoapi_check_unalign(uint32_t len, uint32_t boundary)
+{
+	return !!(len & (boundary - 1));
+}
+
+/*
+ * function prototypes
+ */
+
+/* Debug fs */
+void nss_cryptoapi_debugfs_add_stats(struct dentry *parent, struct nss_cryptoapi_ctx *session_ctx);
+void nss_cryptoapi_debugfs_add_session(struct nss_cryptoapi *gbl_ctx, struct nss_cryptoapi_ctx *session_ctx);
+void nss_cryptoapi_debugfs_del_session(struct nss_cryptoapi_ctx *session_ctx);
+void nss_cryptoapi_debugfs_init(struct nss_cryptoapi *gbl_ctx);
+void nss_cryptoapi_debugfs_exit(struct nss_cryptoapi *gbl_ctx);
+
+/* AEAD */
+int nss_cryptoapi_aead_init(struct crypto_tfm *tfm);
+void nss_cryptoapi_aead_exit(struct crypto_tfm *tfm);
+int nss_cryptoapi_sha1_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsigned int keylen);
+int nss_cryptoapi_sha256_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsigned int keylen);
+int nss_cryptoapi_sha1_3des_setkey(struct crypto_aead *tfm, const u8 *key, unsigned int keylen);
+int nss_cryptoapi_sha256_3des_setkey(struct crypto_aead *tfm, const u8 *key, unsigned int keylen);
+int nss_cryptoapi_aead_setauthsize(struct crypto_aead *authenc, unsigned int authsize);
+int nss_cryptoapi_sha1_aes_encrypt(struct aead_request *req);
+int nss_cryptoapi_sha256_aes_encrypt(struct aead_request *req);
+int nss_cryptoapi_sha1_3des_encrypt(struct aead_request *req);
+int nss_cryptoapi_sha256_3des_encrypt(struct aead_request *req);
+int nss_cryptoapi_sha1_aes_decrypt(struct aead_request *req);
+int nss_cryptoapi_sha256_aes_decrypt(struct aead_request *req);
+int nss_cryptoapi_sha1_3des_decrypt(struct aead_request *req);
+int nss_cryptoapi_sha256_3des_decrypt(struct aead_request *req);
+int nss_cryptoapi_sha1_aes_geniv_encrypt(struct aead_givcrypt_request *req);
+int nss_cryptoapi_sha256_aes_geniv_encrypt(struct aead_givcrypt_request *req);
+int nss_cryptoapi_sha1_3des_geniv_encrypt(struct aead_givcrypt_request *req);
+int nss_cryptoapi_sha256_3des_geniv_encrypt(struct aead_givcrypt_request *req);
+
+/* ablkcipher */
+int nss_cryptoapi_ablkcipher_init(struct crypto_tfm *tfm);
+void nss_cryptoapi_ablkcipher_exit(struct crypto_tfm *tfm);
+int nss_cryptoapi_aes_cbc_setkey(struct crypto_ablkcipher *cipher, const u8 *key, unsigned int len);
+int nss_cryptoapi_3des_cbc_setkey(struct crypto_ablkcipher *cipher, const u8 *key, unsigned int len);
+int nss_cryptoapi_aes_cbc_encrypt(struct ablkcipher_request *req);
+int nss_cryptoapi_aes_cbc_decrypt(struct ablkcipher_request *req);
+int nss_cryptoapi_3des_cbc_encrypt(struct ablkcipher_request *req);
+int nss_cryptoapi_3des_cbc_decrypt(struct ablkcipher_request *req);
+
 
