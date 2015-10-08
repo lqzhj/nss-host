@@ -101,6 +101,7 @@ enum nss_wifi_vdev_cmd {
 	NSS_WIFI_VDEV_CFG_BSTEER_CMD,		/**< command to configure BSTEER related reporting on vap */
 	NSS_WIFI_VDEV_VOW_DBG_MODE_CMD,		/**< command to enable VOW DEBUG on vap */
 	NSS_WIFI_VDEV_VOW_DBG_RST_STATS_CMD,	/**< command to reset VOW DEBUG stats on vap */
+	NSS_WIFI_VDEV_FILTER_NEIGH_PEERS_CMD,	/**< command to set filter_neigh_peer */
 	NSS_WIFI_VDEV_MAX_CMD
 };
 
@@ -117,8 +118,10 @@ struct nss_wifi_vdev_config_msg {
 	uint32_t hdrcache[NSS_WIFI_HTT_TRANSFER_HDRSIZE_WORD];
 	uint32_t opmode;		/**< VAP Opmode - AP or STA? */
 	uint32_t mesh_mode_en;		/**< Mesh mode enabled */
-	uint8_t  is_mpsta;		/**< is this vap is mpsta */
-	uint8_t  is_psta;		/**< this is a proxy station*/
+	uint8_t is_mpsta;		/**< is this vap is mpsta */
+	uint8_t is_psta;		/**< this is a proxy station*/
+	uint8_t special_vap_mode;	/**< special vap used for monitoring rx mgmt packets */
+	uint8_t smartmesh_mode_en;	/**< vap is configures as smart monitor vap */
 };
 
 /**
