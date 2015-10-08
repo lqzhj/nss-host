@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -121,8 +121,8 @@ struct nss_pm_global_ctx {
 		{ \
 			.src =  MSM_BUS_MASTER_NSS_CRYPTO5_0, \
 			.dst = MSM_BUS_SLAVE_NSS_TCM, \
-			.ab = 0, \
-			.ib = 0, \
+			.ab = (_desc_bw) * 8 * 1000000ULL, \
+			.ib = (_desc_bw) * 8 * 1000000ULL, \
 		}, \
 	}, \
 	.num_paths = 2, \
