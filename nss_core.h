@@ -731,6 +731,7 @@ struct nss_top_instance {
 	uint8_t frequency_handler_id;
 	uint8_t sjack_handler_id;
 	uint8_t capwap_handler_id;
+	uint8_t tstamp_handler_id;
 
 	/* subsystem registration data */
 	struct nss_subsystem_dataplane_register subsys_dp_register[NSS_MAX_NET_INTERFACES];
@@ -962,6 +963,7 @@ struct nss_platform_data {
 	enum nss_feature_enabled shaping_enabled;	/* Does this core handle shaping ? */
 	enum nss_feature_enabled gmac_enabled[4];	/* Does this core handle GMACs? */
 	enum nss_feature_enabled wifioffload_enabled;   /* Does this core handle WIFI OFFLOAD? */
+	enum nss_feature_enabled tstamp_enabled;	/* Does this core handle timestamping? */
 };
 #endif
 
