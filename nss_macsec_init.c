@@ -258,17 +258,17 @@ static int nss_macsec_dt_init(uint32_t dev_id)
 
 	macsec_ctx.macsec_base[dev_id] = mmap_io_addr;
 
+	if (nss_macsec_pre_init_flag == 0) {
+		nss_macsec_pre_init();
+		nss_macsec_pre_init_flag = 1;
+	}
+
 	/* Invoke Macsec Initialization API */
 	nss_macsec_secy_init(dev_id);
 
 	if (macsec_notifier_register_status == 0) {
 		nss_gmac_link_state_change_notify_register(&macsec_notifier);
 		macsec_notifier_register_status = 1;
-	}
-
-	if (nss_macsec_pre_init_flag == 0) {
-		nss_macsec_pre_init();
-		nss_macsec_pre_init_flag = 1;
 	}
 
 	macsec_trace("macsec.%d probe done\n", dev_id);
