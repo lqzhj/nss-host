@@ -30,6 +30,13 @@ qca-nss-ipsecmgr-objs := nss_ipsecmgr.o
 ccflags-y += -DNSS_IPSECMGR_DEBUG_LEVEL=3
 endif
 
+ifneq ($(findstring 3.14, $(KERNELVERSION)),)
+obj-m += qca-nss-ipsecmgr.o
+qca-nss-ipsecmgr-objs := nss_ipsecmgr.o
+ccflags-y += -DNSS_IPSECMGR_DEBUG_LEVEL=3
+endif
+
+
 #NSS NETLINK
 ifneq ($(findstring 3.4, $(KERNELVERSION)),)
 obj-y+= netlink/
