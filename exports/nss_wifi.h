@@ -112,6 +112,7 @@ struct nss_wifi_init_msg {
 						/**< Transmit CE info */
 	struct nss_wifi_ce_state_msg ce_rx_state;
 						/**< Recieve CE info */
+	uint32_t bypass_nw_process;		/**< Is nw processing to be bypassed in NSS for this radio */
 };
 
 /**
