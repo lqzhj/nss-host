@@ -956,6 +956,8 @@ static int32_t nss_gmac_of_get_pdata(struct device_node *np,
 
 	if (of_property_read_u32(np, "qcom,socver", &gmaccfg->socver))
 		gmaccfg->socver = 0;
+	if (of_property_read_u32(np, "qcom,mmds-mask", &gmaccfg->mmds_mask))
+		gmaccfg->mmds_mask = 0;
 
 	of_property_read_u32(np, "qcom,aux-clk-freq", &gmacdev->aux_clk_freq);
 
