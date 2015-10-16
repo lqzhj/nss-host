@@ -23,6 +23,7 @@
 
 #define NSS_WIFI_HTT_TRANSFER_HDRSIZE_WORD 6
 #define NSS_WIFI_VDEV_PER_PACKET_METADATA_OFFSET 4
+#define NSS_WIFI_VDEV_DSCP_MAP_LEN 64
 
 /**
  * WIFI VDEV messages
@@ -45,6 +46,7 @@ enum nss_wifi_vdev_msg_types {
 	NSS_WIFI_VDEV_SPECIAL_DATA_TX_MSG,
 	NSS_WIFI_VDEV_VOW_DBG_CFG_MSG,
 	NSS_WIFI_VDEV_VOW_DBG_STATS_REQ_MSG,
+	NSS_WIFI_VDEV_DSCP_TID_MAP_MSG,
 	NSS_WIFI_VDEV_MAX_MSG
 };
 
@@ -102,6 +104,7 @@ enum nss_wifi_vdev_cmd {
 	NSS_WIFI_VDEV_VOW_DBG_MODE_CMD,		/**< command to enable VOW DEBUG on vap */
 	NSS_WIFI_VDEV_VOW_DBG_RST_STATS_CMD,	/**< command to reset VOW DEBUG stats on vap */
 	NSS_WIFI_VDEV_FILTER_NEIGH_PEERS_CMD,	/**< command to set filter_neigh_peer */
+	NSS_WIFI_VDEV_CFG_DSCP_OVERRIDE_CMD,	/**< command to set dscp override */
 	NSS_WIFI_VDEV_MAX_CMD
 };
 
@@ -228,6 +231,15 @@ struct nss_wifi_vdev_vow_dbg_cfg_msg {
 };
 
 /**
+ * Wifi dscp to tid mapping.
+ */
+struct nss_wifi_vdev_dscp_tid_map {
+	uint32_t dscp_tid_map[NSS_WIFI_VDEV_DSCP_MAP_LEN];
+				/**< array holding the dscp to tid mapping */
+};
+
+
+/**
  * Wifi per packet metadata for IGMP packets.
  */
 struct nss_wifi_vdev_igmp_per_packet_metadata {
@@ -308,6 +320,7 @@ struct nss_wifi_vdev_msg {
 		struct nss_wifi_vdev_txmsg vdev_txmsgext;
 		struct nss_wifi_vdev_vow_dbg_cfg_msg vdev_vow_dbg_cfg;
 		struct nss_wifi_vdev_vow_dbg_stats vdev_vow_dbg_stats;
+		struct nss_wifi_vdev_dscp_tid_map vdev_dscp_tid_map;
 	} msg;
 };
 
