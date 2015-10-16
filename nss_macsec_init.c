@@ -39,7 +39,7 @@
 
 /* NSS MACSEC Base Addresses */
 #define NSS_MACSEC_BASE			0x37800000
-#define NSS_MACSEC_REG_LEN		0x00600000
+#define NSS_MACSEC_REG_LEN		0x00200000
 #define MACSEC_DEVICE_NUM 3
 
 static struct sock *sdk_nl_sk = NULL;
@@ -275,6 +275,23 @@ static int nss_macsec_dt_init(uint32_t dev_id)
 	return ret;
 
 }
+
+static int nss_macsec_clean(void)
+{
+	uint32_t dev_id = 0;
+
+	if (macsec_notifier_register_status) {
+		nss_gmac_link_state_change_notify_unregister(&macsec_notifier);
+		macsec_notifier_register_status = 0;
+	}
+
+	for (dev_id = 0; dev_id < MACSEC_DEVICE_NUM; dev_id++) {
+		iounmap(macsec_ctx.macsec_base[dev_id]);
+		release_mem_region(NSS_MACSEC_BASE+(NSS_MACSEC_REG_LEN*dev_id),
+				    NSS_MACSEC_REG_LEN);
+	}
+
+}
 #endif
 
 static int nss_macsec_probe(struct platform_device *pdev)
@@ -388,6 +405,8 @@ static void __exit nss_macsec_fini(void)
 	nss_macsec_mutex_destroy();
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
 	platform_driver_unregister(&nss_macsec_drv);
+#else
+	nss_macsec_clean();
 #endif
 	if (nss_macsec_pre_init_flag) {
 		nss_macsec_pre_exit();
