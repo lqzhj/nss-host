@@ -24,6 +24,7 @@
 #define NSS_WIFI_HTT_TRANSFER_HDRSIZE_WORD 6
 #define NSS_WIFI_VDEV_PER_PACKET_METADATA_OFFSET 4
 #define NSS_WIFI_VDEV_DSCP_MAP_LEN 64
+#define NSS_WIFI_IPV6_ADDR_LENGTH 16
 
 /**
  * WIFI VDEV messages
@@ -154,48 +155,68 @@ struct nss_wifi_vdev_cmd_msg {
  * wifi snooplist create grp_list
  */
 struct nss_wifi_vdev_snooplist_grp_list_create_msg {
-	uint32_t grp_ipaddr;			/**< multicast group ip address */
-	uint8_t grp_addr[ETH_ALEN];		/**< multicast group mac address */
+	uint32_t ether_type;					/**< multicast group ether_type */
+	union {
+		uint32_t grpaddr_ip4;				/**< ipv4 address */
+		uint8_t grpaddr_ip6[NSS_WIFI_IPV6_ADDR_LENGTH];	/**< ipv6 address */
+	}u;							/**< multicast group ip address */
+	uint8_t grp_addr[ETH_ALEN];				/**< multicast group mac address */
 };
 
 /**
  * wifi snooplist delete grp_list
  */
 struct nss_wifi_vdev_snooplist_grp_list_delete_msg {
-	uint32_t grp_ipaddr;			/**< multicast group ip address */
-	uint8_t grp_addr[ETH_ALEN];		/**< multicast group mac address */
+	uint32_t ether_type;					/**< multicast group ether_type */
+	union {
+		uint32_t grpaddr_ip4;				/**< ipv4 address */
+		uint8_t grpaddr_ip6[NSS_WIFI_IPV6_ADDR_LENGTH];	/**< ipv6 address */
+	}u;							/**< multicast group ip address */
+	uint8_t grp_addr[ETH_ALEN];				/**< multicast group mac address */
 };
 
 /**
  * wifi snooplist add grp_member
  */
 struct nss_wifi_vdev_snooplist_grp_member_add_msg {
-	uint32_t src_ip_addr;			/**< source ip address */
-	uint32_t grpaddr;			/**< multicast group ip address */
-	uint32_t peer_id;			/**< peer_id */
-	uint8_t grp_addr[ETH_ALEN];		/**< multicast group mac address */
-	uint8_t grp_member_addr[ETH_ALEN];	/**< multicast group member mac address */
-	uint8_t mode;				/**< mode */
+	uint32_t src_ip_addr;					/**< source ip address */
+	uint32_t ether_type;					/**< multicast group ether_type */
+	union {
+		uint32_t grpaddr_ip4;				/**< ipv4 address */
+		uint8_t grpaddr_ip6[NSS_WIFI_IPV6_ADDR_LENGTH];	/**< ipv6 address */
+	}u;							/**< multicast group ip address */
+	uint32_t peer_id;					/**< peer_id */
+	uint8_t grp_addr[ETH_ALEN];				/**< multicast group mac address */
+	uint8_t grp_member_addr[ETH_ALEN];			/**< multicast group member mac address */
+	uint8_t mode;						/**< mode */
 };
 
 /**
  * wifi snooplist remove grp_member
  */
 struct nss_wifi_vdev_snooplist_grp_member_remove_msg {
-	uint32_t grp_ipaddr;			/**< multicast group ip address */
-	uint8_t grp_addr[ETH_ALEN];		/**< multicast group mac address */
-	uint8_t grp_member_addr[ETH_ALEN];	/**< multicast group member mac address */
+	uint32_t ether_type;					/**< multicast group ether_type */
+	union {
+		uint32_t grpaddr_ip4;				/**< ipv4 address */
+		uint8_t grpaddr_ip6[NSS_WIFI_IPV6_ADDR_LENGTH];	/**< ipv6 address */
+	}u;							/**< multicast group ip address */
+	uint8_t grp_addr[ETH_ALEN];				/**< multicast group mac address */
+	uint8_t grp_member_addr[ETH_ALEN];			/**< multicast group member mac address */
 };
 
 /**
  * Wifi snooplist update grp_member.
  */
 struct nss_wifi_vdev_snooplist_grp_member_update_msg {
-	uint32_t src_ip_addr;			/**< source ip address */
-	uint32_t grpaddr;			/**< multicast group ip address */
-	uint8_t grp_addr[ETH_ALEN];		/**< multicast group mac address */
-	uint8_t grp_member_addr[ETH_ALEN];	/**< multicast group member mac address */
-	uint8_t mode;				/**< mode */
+	uint32_t src_ip_addr;					/**< source ip address */
+	uint32_t ether_type;					/**< multicast group ether_type */
+	union {
+		uint32_t grpaddr_ip4;				/**< ipv4 address */
+		uint8_t grpaddr_ip6[NSS_WIFI_IPV6_ADDR_LENGTH];	/**< ipv6 address */
+	}u;							/**< multicast group ip address */
+	uint8_t grp_addr[ETH_ALEN];				/**< multicast group mac address */
+	uint8_t grp_member_addr[ETH_ALEN];			/**< multicast group member mac address */
+	uint8_t mode;						/**< mode */
 };
 
 /**
