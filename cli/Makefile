@@ -19,10 +19,10 @@ endif
 
 
 
-CFLAGS += -I$(PRJ_PATH)/cli/include/ -I$(PRJ_PATH)/cli/include/dal $(QCA_NSS_MACSEC_INCLUDE)
+EXTRA_CFLAGS += -I$(PRJ_PATH)/cli/include/ -I$(PRJ_PATH)/cli/include/dal $(QCA_NSS_MACSEC_INCLUDE)
 
 %.o:%.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -c -o $@ $<
 
 CLI_US_OBJ := shell_main.o \
            shell_entity.o \

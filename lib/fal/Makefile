@@ -21,7 +21,7 @@ ifndef CFLAGS
 CFLAGS = -MMD -O2 -Wall -g
 endif
 
-CFLAGS += -I$(PRJ_PATH)/cli/include $(QCA_NSS_MACSEC_INCLUDE)
+EXTRA_CFLAGS += -I$(PRJ_PATH)/cli/include $(QCA_NSS_MACSEC_INCLUDE)
 
 ALL=fal.so
 
@@ -30,7 +30,7 @@ all:$(ALL)
 FAL_OBJ :=  nss_macsec_fal_api.o
 
 %.o:%.c
-	$(CC) $(CFLAGS) -c -o   $@ $< -fPIC
+	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -c -o   $@ $< -fPIC
 
 fal.so: $(FAL_OBJ)
 	$(CC) $(LDFLAGS) -o libfal.so -shared -rdynamic -lpthread -fPIC $^
