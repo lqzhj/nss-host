@@ -65,7 +65,7 @@ enum nss_crypto_msg_type {
 	NSS_CRYPTO_MSG_TYPE_NONE = 0,		/**< sync type none */
 	NSS_CRYPTO_MSG_TYPE_OPEN_ENG = 1,	/**< open engine sync */
 	NSS_CRYPTO_MSG_TYPE_CLOSE_ENG = 2,	/**< close engine sync */
-	NSS_CRYPTO_MSG_TYPE_RESET_SESSION = 3,	/**< reset session */
+	NSS_CRYPTO_MSG_TYPE_UPDATE_SESSION = 3,	/**< reset session */
 	NSS_CRYPTO_MSG_TYPE_STATS = 4,		/**< stats sync */
 	NSS_CRYPTO_MSG_TYPE_MAX
 };
@@ -127,6 +127,7 @@ struct nss_crypto_config_eng {
 struct nss_crypto_config_session {
 	uint32_t idx;				/**< session idx on which will be reset */
 	uint32_t state;				/**< session idx state */
+	uint32_t iv_len;			/**< length of initialization vector */
 };
 
 /*
