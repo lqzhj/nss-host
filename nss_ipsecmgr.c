@@ -19,6 +19,7 @@
  */
 #include <linux/types.h>
 #include <linux/ip.h>
+#include <linux/of.h>
 #include <linux/ipv6.h>
 #include <linux/skbuff.h>
 #include <linux/module.h>
@@ -1307,6 +1308,14 @@ EXPORT_SYMBOL(nss_ipsecmgr_sa_flush);
 
 static int __init nss_ipsecmgr_init(void)
 {
+#ifdef CONFIG_OF
+	/*
+	 * If the node is not compatible, don't do anything.
+	 */
+	if (!of_find_node_by_name(NULL, "nss-common")) {
+		return 0;
+	}
+#endif
 	nss_ipsecmgr_info("NSS IPsec manager loaded: Build date %s\n", __DATE__);
 
 	memset(&gbl_drv_ctx, 0, sizeof(struct nss_ipsecmgr_drv));
@@ -1319,6 +1328,14 @@ static int __init nss_ipsecmgr_init(void)
 
 static void __exit nss_ipsecmgr_exit(void)
 {
+#ifdef CONFIG_OF
+	/*
+	 * If the node is not compatible, don't do anything.
+	 */
+	if (!of_find_node_by_name(NULL, "nss-common")) {
+		return;
+	}
+#endif
 	nss_ipsecmgr_info("NSS IPsec manager unloader\n");
 }
 

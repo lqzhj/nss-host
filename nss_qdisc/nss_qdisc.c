@@ -2171,6 +2171,14 @@ static struct notifier_block nss_qdisc_device_notifier = {
 static int __init nss_qdisc_module_init(void)
 {
 	int ret;
+#ifdef CONFIG_OF
+	/*
+	 * If the node is not compatible, don't do anything.
+	 */
+	if (!of_find_node_by_name(NULL, "nss-common")) {
+		return 0;
+	}
+#endif
 	nss_qdisc_info("Module initializing");
 	nss_qdisc_ctx = nss_shaper_register_shaping();
 
@@ -2249,6 +2257,14 @@ static int __init nss_qdisc_module_init(void)
 
 static void __exit nss_qdisc_module_exit(void)
 {
+#ifdef CONFIG_OF
+	/*
+	 * If the node is not compatible, don't do anything.
+	 */
+	if (!of_find_node_by_name(NULL, "nss-common")) {
+		return;
+	}
+#endif
 	unregister_qdisc(&nss_pfifo_qdisc_ops);
 	nss_qdisc_info("nsspfifo unregistered");
 

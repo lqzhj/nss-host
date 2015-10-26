@@ -16,6 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/of.h>
 #include <linux/types.h>
 #include <linux/version.h>
 #include <linux/if.h>
@@ -260,6 +261,14 @@ static int __init nss_nl_init(void)
 	struct nss_nl_family *family = NULL;
 	int i = 0;
 
+#ifdef CONFIG_OF
+	/*
+	 * If the node is not compatible, don't do anything.
+	 */
+	if (!of_find_node_by_name(NULL, "nss-common")) {
+		return 0;
+	}
+#endif
 	nss_nl_info_always("NSS Netlink manager loaded: Build date %s\n", __DATE__);
 
 	/*
@@ -295,6 +304,14 @@ static void __exit nss_nl_exit(void)
 	struct nss_nl_family *family = NULL;
 	int i = 0;
 
+#ifdef CONFIG_OF
+	/*
+	 * If the node is not compatible, don't do anything.
+	 */
+	if (!of_find_node_by_name(NULL, "nss-common")) {
+		return;
+	}
+#endif
 	nss_nl_info_always("NSS Netlink manager unloaded\n");
 
 	/*

@@ -25,6 +25,7 @@
 #include <linux/version.h>
 #include <linux/types.h>
 #include <linux/ip.h>
+#include <linux/of.h>
 #include <linux/tcp.h>
 #include <linux/module.h>
 #include <linux/skbuff.h>
@@ -412,6 +413,14 @@ struct notifier_block nss_tun6rd_notifier = {
  */
 int __init nss_tun6rd_init_module(void)
 {
+#ifdef CONFIG_OF
+	/*
+	 * If the node is not compatible, don't do anything.
+	 */
+	if (!of_find_node_by_name(NULL, "nss-common")) {
+		return 0;
+	}
+#endif
 	nss_tun6rd_info("module (platform - IPQ806x , Build - %s:%s) loaded\n",
 			__DATE__, __TIME__);
 
@@ -427,6 +436,14 @@ int __init nss_tun6rd_init_module(void)
  */
 void __exit nss_tun6rd_exit_module(void)
 {
+#ifdef CONFIG_OF
+	/*
+	 * If the node is not compatible, don't do anything.
+	 */
+	if (!of_find_node_by_name(NULL, "nss-common")) {
+		return;
+	}
+#endif
 	unregister_netdevice_notifier(&nss_tun6rd_notifier);
 	nss_tun6rd_info("module unloaded\n");
 }

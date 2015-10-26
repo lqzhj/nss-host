@@ -25,6 +25,7 @@
 #include <linux/version.h>
 #include <linux/types.h>
 #include <linux/ip.h>
+#include <linux/of.h>
 #include <linux/tcp.h>
 #include <linux/module.h>
 #include <linux/skbuff.h>
@@ -389,6 +390,14 @@ void nss_tunipip6_event_receive(void *if_ctx, struct nss_tunipip6_msg *tnlmsg)
  */
 int __init nss_tunipip6_init_module(void)
 {
+#ifdef CONFIG_OF
+	/*
+	 * If the node is not compatible, don't do anything.
+	 */
+	if (!of_find_node_by_name(NULL, "nss-common")) {
+		return 0;
+	}
+#endif
 	nss_tunipip6_info("module (platform - IPQ806x , Build - %s:%s) loaded\n",
 			__DATE__, __TIME__);
 
@@ -410,6 +419,14 @@ int __init nss_tunipip6_init_module(void)
  */
 void __exit nss_tunipip6_exit_module(void)
 {
+#ifdef CONFIG_OF
+	/*
+	 * If the node is not compatible, don't do anything.
+	 */
+	if (!of_find_node_by_name(NULL, "nss-common")) {
+		return;
+	}
+#endif
 
 	unregister_netdevice_notifier(&nss_tunipip6_notifier);
 	nss_tunipip6_info("module unloaded\n");

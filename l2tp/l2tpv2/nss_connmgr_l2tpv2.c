@@ -23,6 +23,7 @@
 #include <linux/types.h>
 #include <linux/ip.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <net/ipv6.h>
 #include <linux/rwlock_types.h>
 #include <linux/if_pppox.h>
@@ -731,6 +732,14 @@ struct notifier_block nss_connmgr_l2tpv2_notifier = {
  */
 int __init nss_connmgr_l2tpv2_init_module(void)
 {
+#ifdef CONFIG_OF
+	/*
+	 * If the node is not compatible, don't do anything.
+	 */
+	if (!of_find_node_by_name(NULL, "nss-common")) {
+		return 0;
+	}
+#endif
 	register_netdevice_notifier(&nss_connmgr_l2tpv2_notifier);
 	return 0;
 }
@@ -741,6 +750,14 @@ int __init nss_connmgr_l2tpv2_init_module(void)
  */
 void __exit nss_connmgr_l2tpv2_exit_module(void)
 {
+#ifdef CONFIG_OF
+	/*
+	 * If the node is not compatible, don't do anything.
+	 */
+	if (!of_find_node_by_name(NULL, "nss-common")) {
+		return;
+	}
+#endif
 	unregister_netdevice_notifier(&nss_connmgr_l2tpv2_notifier);
 }
 
