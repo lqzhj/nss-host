@@ -199,6 +199,7 @@ extern void nss_lso_rx_register_handler(void);
 extern void nss_sjack_register_handler(void);
 extern void nss_wifi_register_handler(void);
 extern void nss_tstamp_register_handler(void);
+extern void nss_portid_register_handler(void);
 
 /*
  * nss_if_msg_handler()

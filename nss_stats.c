@@ -411,6 +411,14 @@ static int8_t *nss_stats_str_wifi[NSS_STATS_WIFI_MAX] = {
 };
 
 /*
+ * nss_stats_str_portid
+ *	PortID statistics strings
+ */
+static int8_t *nss_stats_str_portid[NSS_STATS_PORTID_MAX] = {
+	"RX_INVALID_HEADER",
+};
+
+/*
  * nss_stats_str_l2tpv2_session_stats
  *	l2tpv2 statistics strings for nss session stats
  */
@@ -1449,6 +1457,79 @@ static ssize_t nss_stats_sjack_read(struct file *fp, char __user *ubuf, size_t s
 }
 
 /*
+ * nss_stats_portid_read()
+ *	Read PortID stats
+ */
+static ssize_t nss_stats_portid_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
+{
+	int32_t i;
+	/*
+	 * max output lines = #stats + start tag line + end tag line + three blank lines
+	 */
+	uint32_t max_output_lines = NSS_STATS_NODE_MAX + NSS_STATS_PORTID_MAX + 5;
+	size_t size_al = NSS_STATS_MAX_STR_LENGTH * max_output_lines;
+	size_t size_wr = 0;
+	ssize_t bytes_read = 0;
+	uint64_t *stats_shadow;
+
+	char *lbuf = kzalloc(size_al, GFP_KERNEL);
+	if (unlikely(lbuf == NULL)) {
+		nss_warning("Could not allocate memory for local statistics buffer");
+		return 0;
+	}
+
+	stats_shadow = kzalloc(NSS_STATS_NODE_MAX * 8, GFP_KERNEL);
+	if (unlikely(stats_shadow == NULL)) {
+		nss_warning("Could not allocate memory for local shadow buffer");
+		kfree(lbuf);
+		return 0;
+	}
+
+	size_wr = scnprintf(lbuf, size_al, "portid stats start:\n\n");
+
+	/*
+	 * Common node stats
+	 */
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "common node stats:\n\n");
+	spin_lock_bh(&nss_top_main.stats_lock);
+	for (i = 0; (i < NSS_STATS_NODE_MAX); i++) {
+		stats_shadow[i] = nss_top_main.stats_node[NSS_PORTID_INTERFACE][i];
+	}
+
+	spin_unlock_bh(&nss_top_main.stats_lock);
+
+	for (i = 0; (i < NSS_STATS_NODE_MAX); i++) {
+		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+					"%s = %llu\n", nss_stats_str_node[i], stats_shadow[i]);
+	}
+
+	/*
+	 * PortID node stats
+	 */
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nportid node stats:\n\n");
+
+	spin_lock_bh(&nss_top_main.stats_lock);
+	for (i = 0; (i < NSS_STATS_PORTID_MAX); i++) {
+		stats_shadow[i] = nss_top_main.stats_portid[i];
+	}
+
+	spin_unlock_bh(&nss_top_main.stats_lock);
+
+	for (i = 0; (i < NSS_STATS_PORTID_MAX); i++) {
+		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+					"%s = %llu\n", nss_stats_str_portid[i], stats_shadow[i]);
+	}
+
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nportid stats end\n\n");
+
+	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, strlen(lbuf));
+	kfree(lbuf);
+	kfree(stats_shadow);
+
+	return bytes_read;
+}
+
+/*
  * Make a row for CAPWAP encap stats.
  */
 static ssize_t nss_stats_capwap_encap(char *line, int len, int i, struct nss_capwap_tunnel_stats *s)
@@ -2138,6 +2219,11 @@ NSS_STATS_DECLARE_FILE_OPERATIONS(gre_redir)
  */
 NSS_STATS_DECLARE_FILE_OPERATIONS(sjack)
 
+/*
+ * portid_ops
+ */
+NSS_STATS_DECLARE_FILE_OPERATIONS(portid)
+
 NSS_STATS_DECLARE_FILE_OPERATIONS(wifi_if)
 
 NSS_STATS_DECLARE_FILE_OPERATIONS(virt_if)
@@ -2318,6 +2404,16 @@ void nss_stats_init(void)
 						nss_top_main.stats_dentry, &nss_top_main, &nss_stats_sjack_ops);
 	if (unlikely(nss_top_main.sjack_dentry == NULL)) {
 		nss_warning("Failed to create qca-nss-drv/stats/sjack file in debugfs");
+		return;
+	}
+
+	/*
+	 * PORTID stats
+	 */
+	nss_top_main.portid_dentry = debugfs_create_file("portid", 0400,
+						nss_top_main.stats_dentry, &nss_top_main, &nss_stats_portid_ops);
+	if (unlikely(nss_top_main.portid_dentry == NULL)) {
+		nss_warning("Failed to create qca-nss-drv/stats/portid file in debugfs");
 		return;
 	}
 
