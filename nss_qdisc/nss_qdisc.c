@@ -1034,7 +1034,7 @@ int nss_qdisc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 			return NET_XMIT_SUCCESS;
 		}
 
-		nss_qdisc_warning("%s: Qdisc %p (type %d): failed to bounce for bridge %d, skb: %p\n",
+		nss_qdisc_trace("%s: Qdisc %p (type %d): failed to bounce for bridge %d, skb: %p\n",
 					__func__, sch, nq->type, nq->nss_interface_number, skb);
 		goto enqueue_drop;
 	}
@@ -1052,7 +1052,7 @@ int nss_qdisc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 	/*
 	 * We failed to bounce the packet for shaping on a virtual interface
 	 */
-	nss_qdisc_warning("%s: Qdisc %p (type %d): failed to bounce for "
+	nss_qdisc_trace("%s: Qdisc %p (type %d): failed to bounce for "
 		"interface: %d, skb: %p\n", __func__, sch, nq->type,
 		nq->nss_interface_number, skb);
 
@@ -2001,7 +2001,7 @@ static void nss_qdisc_basic_stats_callback(void *app_data,
 	 */
 	nq->stats_get_timer.expires += HZ;
 	if (nq->stats_get_timer.expires <= jiffies) {
-		nss_qdisc_warning("losing time %lu, jiffies = %lu\n",
+		nss_qdisc_info("losing time %lu, jiffies = %lu\n",
 				nq->stats_get_timer.expires, jiffies);
 		nq->stats_get_timer.expires = jiffies + HZ;
 	}
