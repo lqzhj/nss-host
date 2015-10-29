@@ -1166,8 +1166,7 @@ int nss_qdisc_set_default(struct nss_qdisc *nq)
 
 	/*
 	 * Wait until cleanup operation is complete at which point the state
-	 * shall become idle. NOTE: This relies on the NSS driver to be able
-	 * to operate asynchronously which means kernel preemption is required.
+	 * shall become non-idle.
 	 */
 	while (NSS_QDISC_STATE_IDLE == (state = atomic_read(&nq->state))) {
 		yield();
@@ -1259,8 +1258,7 @@ int nss_qdisc_node_attach(struct nss_qdisc *nq, struct nss_qdisc *nq_child,
 
 	/*
 	 * Wait until cleanup operation is complete at which point the state
-	 * shall become idle. NOTE: This relies on the NSS driver to be able
-	 * to operate asynchronously which means kernel preemption is required.
+	 * shall become non-idle.
 	 */
 	while (NSS_QDISC_STATE_IDLE == (state = atomic_read(&nq->state))) {
 		yield();
@@ -1347,9 +1345,7 @@ int nss_qdisc_node_detach(struct nss_qdisc *nq, struct nss_qdisc *nq_child,
 	}
 
 	/*
-	 * Wait until cleanup operation is complete at which point the state shall become idle.
-	 * NOTE: This relies on the NSS driver to be able to operate asynchronously which means
-	 * kernel preemption is required.
+	 * Wait until cleanup operation is complete at which point the state shall become non-idle.
 	 */
 	while (NSS_QDISC_STATE_IDLE == (state = atomic_read(&nq->state))) {
 		yield();
@@ -1436,8 +1432,7 @@ int nss_qdisc_configure(struct nss_qdisc *nq,
 
 	/*
 	 * Wait until cleanup operation is complete at which point the state
-	 * shall become idle. NOTE: This relies on the NSS driver to be able
-	 * to operate asynchronously which means kernel preemption is required.
+	 * shall become non-idle.
 	 */
 	while (NSS_QDISC_STATE_IDLE == (state = atomic_read(&nq->state))) {
 		yield();
@@ -1503,8 +1498,7 @@ void nss_qdisc_destroy(struct nss_qdisc *nq)
 
 	/*
 	 * Wait until cleanup operation is complete at which point the state
-	 * shall become idle. NOTE: This relies on the NSS driver to be able
-	 * to operate asynchronously which means kernel preemption is required.
+	 * shall become idle.
 	 */
 	while (NSS_QDISC_STATE_IDLE != (state = atomic_read(&nq->state))) {
 		yield();
@@ -1698,8 +1692,6 @@ int nss_qdisc_init(struct Qdisc *sch, struct nss_qdisc *nq, nss_shaper_node_type
 
 		/*
 		 * Wait until init operation is complete.
-		 * NOTE: This relies on the NSS driver to be able to operate
-		 * asynchronously which means kernel preemption is required.
 		 */
 		while (NSS_QDISC_STATE_IDLE == (state = atomic_read(&nq->state))) {
 			yield();
@@ -1846,8 +1838,6 @@ int nss_qdisc_init(struct Qdisc *sch, struct nss_qdisc *nq, nss_shaper_node_type
 
 	/*
 	 * Wait until init operation is complete.
-	 * NOTE: This relies on the NSS driver to be able to operate asynchronously which means
-	 * kernel preemption is required.
 	 */
 	nss_qdisc_info("%s: Qdisc %p (type %d): Waiting on response from NSS for "
 			"shaper assign message\n", __func__, nq->qdisc, nq->type);
@@ -1932,21 +1922,6 @@ static void nss_qdisc_basic_stats_callback(void *app_data,
 	 * Record latest basic stats
 	 */
 	nq->basic_stats_latest = nim->msg.shaper_configure.config.msg.shaper_node_basic_stats_get;
-
-	/*
-	 * Get the right stats pointers based on whether it is a class
-	 * or a qdisc.
-	 */
-	if (nq->is_class) {
-		bstats = &nq->bstats;
-		qstats = &nq->qstats;
-		refcnt = &nq->refcnt;
-	} else {
-		bstats = &qdisc->bstats;
-		qstats = &qdisc->qstats;
-		refcnt = &qdisc->refcnt;
-		qdisc->q.qlen = nq->basic_stats_latest.qlen_packets;
-	}
 
 	/*
 	 * Get the right stats pointers based on whether it is a class

@@ -129,7 +129,7 @@ static int nss_bf_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
 		}
 
 		/*
-		 * Set qos_tag of parent to which the class needs to e attached to.
+		 * Set qos_tag of parent to which the class needs to be attached to.
 		 */
 		nim_attach.msg.shaper_configure.config.msg.shaper_node_config.qos_tag = q->nq.qos_tag;
 
