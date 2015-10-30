@@ -1119,17 +1119,6 @@ int nss_qdisc_set_default(struct nss_qdisc *nq)
 	int32_t state, rc;
 	int msg_type;
 	struct nss_if_msg nim;
-	struct nss_qdisc *nq_root;
-
-	/*
-	 * Get root nss qdisc
-	 */
-	if (nq->is_root) {
-		nq_root = nq;
-	} else {
-		struct Qdisc *root = qdisc_root(nq->qdisc);
-		nq_root = qdisc_priv(root);
-	}
 
 	nss_qdisc_info("%s: Setting qdisc %p (type %d) as default\n", __func__,
 			nq->qdisc, nq->type);
@@ -1178,13 +1167,6 @@ int nss_qdisc_set_default(struct nss_qdisc *nq)
 		atomic_set(&nq->state, NSS_QDISC_STATE_READY);
 		return -1;
 	}
-
-	/*
-	 * Save the default nss qdisc pointer
-	 */
-	spin_lock_bh(&nq_root->lock);
-	nq_root->default_nq = nq;
-	spin_unlock_bh(&nq_root->lock);
 
 	nss_qdisc_info("%s: Qdisc %p (type %d): shaper node default complete\n",
 			__func__, nq->qdisc, nq->type);
