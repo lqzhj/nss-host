@@ -87,29 +87,6 @@ static inline int nss_qdisc_get_interface_msg(bool is_bridge, uint32_t msg_type)
 }
 
 /*
- * nss_qdisc_get_br_port()
- * 	Returns the bridge port structure of the bridge to which the device is attached to.
- */
-static inline struct net_bridge_port *nss_qdisc_get_br_port(const struct net_device *dev)
-{
-	struct net_bridge_port *br_port;
-
-	if (!dev) {
-		return NULL;
-	}
-
-	rcu_read_lock();
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0))
-	br_port = br_port_get_rcu(dev);
-#else
-	br_port = rcu_dereference(dev->br_port);
-#endif
-	rcu_read_unlock();
-
-	return br_port;
-}
-
-/*
  * nss_qdisc_attach_bshaper_callback()
  *	Call back funtion for bridge shaper attach to an interface.
  */
@@ -289,12 +266,22 @@ static int nss_qdisc_refresh_bshaper_assignment(struct Qdisc *br_qdisc,
 
 	read_lock(&dev_base_lock);
 	dev = first_net_device(&init_net);
+
 	while(dev) {
-		struct net_bridge_port *br_port = nss_qdisc_get_br_port(dev);
+		struct net_bridge_port *br_port;
 		int nss_if_num;
 
 		nss_qdisc_info("%s: Scanning device %s", __func__, dev->name);
+
+		rcu_read_lock();
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0))
+		br_port = br_port_get_rcu(dev);
+#else
+		br_port = rcu_dereference(dev->br_port);
+#endif
+
 		if (!br_port || !br_port->br) {
+			rcu_read_unlock();
 			goto nextdev;
 		}
 
@@ -303,8 +290,11 @@ static int nss_qdisc_refresh_bshaper_assignment(struct Qdisc *br_qdisc,
 		 * bridge that is of concern.
 		 */
 		if (br_port->br->dev != br_dev) {
+			rcu_read_unlock();
 			goto nextdev;
 		}
+
+		rcu_read_unlock();
 
 		/*
 		 * If the interface is known to NSS then we will have to shape it.
