@@ -94,7 +94,6 @@
 struct nss_qdisc {
 	struct Qdisc *qdisc;			/* Handy pointer back to containing qdisc */
 	struct nss_qdisc *parent;		/* Pointer to parent nss qdisc */
-	struct nss_qdisc *default_nq;		/* Default enqueue node */
 	void *nss_shaping_ctx;			/* NSS context for general operations */
 	int32_t nss_interface_number;		/* NSS Interface number we are shaping on */
 	nss_shaper_node_type_t type;		/* Type of shaper node */
