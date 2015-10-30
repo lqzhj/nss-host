@@ -88,6 +88,7 @@ enum nss_wifi_vdev_ext_data_pkt_type {
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_IGMP = 1,		/**< igmp packets */
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_MESH = 2,		/**< mesh packets */
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_INSPECT = 3,	/**< host inspect packets */
+	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_TXINFO = 4,		/**< tx completion info packets */
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_MAX
 };
 
@@ -279,11 +280,21 @@ struct nss_wifi_vdev_mesh_per_packet_metadata {
 };
 
 /**
- * Wifi per packet metadata for Tx inspect packets
+ * Wifi per packet metadata for Tx completion info packets
  */
-struct nss_wifi_vdev_inspect_per_packet_metadata {
-	uint16_t peer_id;		/**< peer_id */
-	uint16_t tid;		    /**< tid */
+struct nss_wifi_vdev_txinfo_per_packet_metadata {
+	uint32_t status;			/**< tx completion status */
+	uint16_t msdu_count;			/**< count of msdu in msdu list */
+	uint16_t num_msdu;			/**< number of msdu in msdu list */
+	uint32_t msdu_q_time;			/**< time spend by msdu in wifi fw */
+	uint32_t ppdu_rate;			/**< ppdu rate in ratecode */
+	uint8_t ppdu_num_mpdus_success;		/**< number of successful mpdus */
+	uint8_t ppdu_num_mpdus_fail;		/**< number of failed mpdus */
+	uint16_t ppdu_num_msdus_success;	/**< number of successfull msdus */
+	uint32_t ppdu_bytes_success;		/**< number of successfull bytes */
+	uint32_t ppdu_duration;			/**< ppdu estimated air time */
+	uint8_t ppdu_retries;			/**< number of times ppdu is retried */
+	uint8_t ppdu_is_aggregate;		/**< flag to chack if ppdu is aggregate or not */
 };
 
 /**
@@ -294,7 +305,7 @@ struct nss_wifi_vdev_per_packet_metadata {
 	union {
 		struct nss_wifi_vdev_igmp_per_packet_metadata igmp_metadata;
 		struct nss_wifi_vdev_mesh_per_packet_metadata mesh_metadata;
-		struct nss_wifi_vdev_inspect_per_packet_metadata inspect_metadata;
+		struct nss_wifi_vdev_txinfo_per_packet_metadata txinfo_metadata;
 	} metadata;
 };
 

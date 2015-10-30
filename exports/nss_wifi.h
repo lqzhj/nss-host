@@ -53,6 +53,7 @@ enum nss_wifi_metadata_types {
 	NSS_WIFI_MSDU_TTL_SET_MSG,
 	NSS_WIFI_RX_VOW_EXTSTATS_SET_MSG,
 	NSS_WIFI_PKTLOG_CFG_MSG,
+	NSS_WIFI_ENABLE_PERPKT_TXSTATS_MSG,
 	NSS_WIFI_MAX_MSG
 };
 
@@ -206,17 +207,24 @@ struct nss_wifi_stop_msg {
  * wifi pktlog cfg message
  */
 struct nss_wifi_pktlog_cfg_msg {
-	uint32_t enable;			/* enable/disable*/
-	uint32_t bufsize; 			/* pkt log buffer size */
+	uint32_t enable;			/**< enable/disable*/
+	uint32_t bufsize;			/**< pkt log buffer size */
+};
+
+/**
+ * wifi enable/disable perpkt txstats msg
+ */
+struct nss_wifi_enable_perpkt_txstats_msg {
+	uint32_t perpkt_txstats_flag;		/**< flag to enable/disable txstats */
 };
 
 /**
  * wifi ext data plane recieve common meta data
  */
 struct nss_wifi_rx_ext_metadata{
-	uint8_t fwreserve ;				/* Type of meta data*/
-	uint8_t type ;					/* reserve field */
-	uint16_t value;					/* Value of metadata */
+	uint8_t fwreserve ;				/**< Type of meta data*/
+	uint8_t type ;					/**< reserve field */
+	uint16_t value;					/**< Value of metadata */
 };
 
 /**
@@ -303,6 +311,7 @@ struct nss_wifi_msg {
 		struct nss_wifi_msdu_ttl_set_msg msdu_ttl_set_msg;
 		struct nss_wifi_rx_vow_extstats_set_msg vow_extstats_msg;
 		struct nss_wifi_pktlog_cfg_msg pcm_msg;
+		struct nss_wifi_enable_perpkt_txstats_msg ept_msg;
 	} msg;
 };
 
