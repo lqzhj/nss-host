@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -253,6 +253,7 @@ void nss_crypto_debugfs_del_session(struct nss_crypto_ctrl *ctrl, uint32_t idx)
 	}
 
 	debugfs_remove_recursive(idx_info->stats_dentry);
+	idx_info->stats_dentry = NULL;
 
 	if (idx_info->cfg_dentry == NULL)  {
 		nss_crypto_err("Unable to find the file\n");
@@ -260,4 +261,5 @@ void nss_crypto_debugfs_del_session(struct nss_crypto_ctrl *ctrl, uint32_t idx)
 	}
 
 	debugfs_remove_recursive(idx_info->cfg_dentry);
+	idx_info->cfg_dentry = NULL;
 }
