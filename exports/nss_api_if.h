@@ -40,6 +40,7 @@
 #include "nss_cmn.h"
 #include "nss_tun6rd.h"
 #include "nss_l2tpv2.h"
+#include "nss_pptp.h"
 #include "nss_tunipip6.h"
 #include "nss_lag.h"
 #include "nss_ipv4.h"
@@ -136,6 +137,7 @@
 #define NSS_LAG3_INTERFACE_NUM (NSS_SPECIAL_IF_START + 33) /* Special IF number for LAG3 */
 #define NSS_L2TPV2_INTERFACE (NSS_SPECIAL_IF_START + 34) /* Special L2TPv2 UDP encap interface */
 #define NSS_TSTAMP_INTERFACE (NSS_SPECIAL_IF_START + 35) /* Special IF number for Tstamp interface */
+#define NSS_PPTP_INTERFACE (NSS_SPECIAL_IF_START + 36) /* Special PPTP-Decap interface */
 
 /**
  * This macro converts format for IPv6 address (from Linux to NSS)

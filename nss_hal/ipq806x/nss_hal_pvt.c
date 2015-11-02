@@ -885,6 +885,7 @@ static struct nss_platform_data *nss_hal_of_get_pdata(struct device_node *np,
 	    || of_property_read_u32(np, "qcom,tun6rd_enabled", &npd->tun6rd_enabled)
 	    || of_property_read_u32(np, "qcom,l2tpv2_enabled", &npd->l2tpv2_enabled)
 	    || of_property_read_u32(np, "qcom,tunipip6_enabled", &npd->tunipip6_enabled)
+	    || of_property_read_u32(np, "qcom,pptp_enabled", &npd->tunipip6_enabled)
 	    || of_property_read_u32(np, "qcom,shaping_enabled", &npd->shaping_enabled)) {
 		pr_warn("%s: error reading non-critical device node properties\n", np->name);
 	}
@@ -1419,6 +1420,11 @@ clk_complete:
 
 	if (npd->tun6rd_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->tun6rd_handler_id = nss_dev->id;
+	}
+
+	if (npd->pptp_enabled == NSS_FEATURE_ENABLED) {
+		nss_top->pptp_handler_id = nss_dev->id;
+		nss_pptp_register_handler();
 	}
 
 	if (npd->l2tpv2_enabled == NSS_FEATURE_ENABLED) {

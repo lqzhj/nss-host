@@ -543,6 +543,24 @@ struct nss_stats_l2tpv2_session_debug {
 };
 
 /*
+ * PPTP debug stats
+ */
+enum nss_stats_pptp_session {
+	NSS_STATS_PPTP_SESSION_RX_DROPPED,	/* Number of received packets dropped */
+	NSS_STATS_PPTP_SESSION_TX_DROPPED,	/* Number of packets dropped in trasmit direction */
+	NSS_STATS_PPTP_SESSION_RX_PPP_LCP_PKTS,	/* Number of ppp lcp packets received */
+	NSS_STATS_PPTP_SESSION_RX_EXP_DATA_PKTS,	/* Number of RX exceptioned packets */
+	NSS_STATS_PPTP_SESSION_MAX
+};
+
+struct nss_stats_pptp_session_debug {
+	uint64_t stats[NSS_STATS_PPTP_SESSION_MAX];
+	int32_t if_index;
+	uint32_t if_num; /* nss interface number */
+	bool valid;
+};
+
+/*
  * NSS core state
  */
 enum nss_core_state {
@@ -696,6 +714,7 @@ struct nss_top_instance {
 	struct dentry *lso_rx_dentry;	/* LSO_RX stats dentry */
 	struct dentry *drv_dentry;	/* HLOS driver stats dentry */
 	struct dentry *pppoe_dentry;	/* PPPOE stats dentry */
+	struct dentry *pptp_dentry;	/* PPTP  stats dentry */
 	struct dentry *l2tpv2_dentry;	/* L2TPV2  stats dentry */
 	struct dentry *gmac_dentry;	/* GMAC ethnode stats dentry */
 	struct dentry *capwap_decap_dentry;     /* CAPWAP decap ethnode stats dentry */
@@ -726,6 +745,7 @@ struct nss_top_instance {
 	uint8_t wlan_handler_id;
 	uint8_t tun6rd_handler_id;
 	uint8_t wifi_handler_id;
+	uint8_t pptp_handler_id;
 	uint8_t l2tpv2_handler_id;
 	uint8_t tunipip6_handler_id;
 	uint8_t frequency_handler_id;
@@ -765,6 +785,8 @@ struct nss_top_instance {
 					/* l2tP tunnel interface event callback function */
 	nss_tunipip6_msg_callback_t tunipip6_msg_callback;
 					/* ipip6 tunnel interface event callback function */
+	nss_pptp_msg_callback_t pptp_msg_callback;
+					/* PPTP tunnel interface event callback function */
 	struct nss_shaper_bounce_registrant bounce_interface_registrants[NSS_MAX_NET_INTERFACES];
 					/* Registrants for interface shaper bounce operations */
 	struct nss_shaper_bounce_registrant bounce_bridge_registrants[NSS_MAX_NET_INTERFACES];
@@ -957,6 +979,7 @@ struct nss_platform_data {
 	enum nss_feature_enabled ipsec_enabled;		/* Does this core handle IPsec? */
 	enum nss_feature_enabled wlanredirect_enabled;	/* Does this core handle WLAN redirect? */
 	enum nss_feature_enabled tun6rd_enabled;	/* Does this core handle 6rd Tunnel ? */
+	enum nss_feature_enabled pptp_enabled;		/* Does this core handle pptp Tunnel ? */
 	enum nss_feature_enabled l2tpv2_enabled;	/* Does this core handle l2tpv2 Tunnel ? */
 	enum nss_feature_enabled tunipip6_enabled;	/* Does this core handle ipip6 Tunnel ? */
 	enum nss_feature_enabled gre_redir_enabled;	/* Does this core handle gre_redir Tunnel ? */

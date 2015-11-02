@@ -422,6 +422,17 @@ static int8_t *nss_stats_str_l2tpv2_session_debug_stats[NSS_STATS_L2TPV2_SESSION
 };
 
 /*
+ * nss_stats_str_ppt_session_stats
+ *	PPTP statistics strings for nss session stats
+ */
+static int8_t *nss_stats_str_pptp_session_debug_stats[NSS_STATS_PPTP_SESSION_MAX] = {
+	"RX_DROPPED",
+	"TX_DROPPED",
+	"ENCAP_PBUF_ALLOC_FAIL",
+	"DECAP_PBUF_ALLOC_FAIL"
+};
+
+/*
  * nss_stats_ipv4_read()
  *	Read IPV4 stats
  */
@@ -1316,6 +1327,72 @@ static ssize_t nss_stats_l2tpv2_read(struct file *fp, char __user *ubuf, size_t 
 }
 
 /*
+ * nss_stats_pptp_read()
+ *	Read pptp statistics
+ */
+static ssize_t nss_stats_pptp_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
+{
+
+	uint32_t max_output_lines = 2 /* header & footer for session stats */
+					+ NSS_MAX_PPTP_DYNAMIC_INTERFACES * (NSS_STATS_PPTP_SESSION_MAX + 2) /*session stats */
+					+ 2;
+	size_t size_al = NSS_STATS_MAX_STR_LENGTH * max_output_lines ;
+	size_t size_wr = 0;
+	ssize_t bytes_read = 0;
+	struct net_device *dev;
+	struct nss_stats_pptp_session_debug pptp_session_stats[NSS_MAX_PPTP_DYNAMIC_INTERFACES];
+	int id, i;
+
+	char *lbuf = kzalloc(size_al, GFP_KERNEL);
+	if (unlikely(lbuf == NULL)) {
+		nss_warning("Could not allocate memory for local statistics buffer");
+		return 0;
+	}
+
+	memset(&pptp_session_stats, 0, sizeof(struct nss_stats_pptp_session_debug) * NSS_MAX_PPTP_DYNAMIC_INTERFACES);
+
+	/*
+	 * Get all stats
+	 */
+	nss_pptp_session_debug_stats_get((void *)&pptp_session_stats);
+
+	/*
+	 * Session stats
+	 */
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\npptp session stats start:\n\n");
+	for (id = 0; id < NSS_MAX_PPTP_DYNAMIC_INTERFACES; id++) {
+
+			if (!pptp_session_stats[id].valid) {
+				break;
+			}
+
+			dev = dev_get_by_index(&init_net, pptp_session_stats[id].if_index);
+			if (likely(dev)) {
+
+				size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "%d. nss interface id=%d, netdevice=%s\n", id,
+						pptp_session_stats[id].if_num, dev->name);
+				dev_put(dev);
+			} else {
+				size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "%d. nss interface id=%d\n", id,
+						pptp_session_stats[id].if_num);
+			}
+
+			for (i = 0; i < NSS_STATS_PPTP_SESSION_MAX; i++) {
+				size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+						     "\t%s = %llu\n", nss_stats_str_pptp_session_debug_stats[i],
+						      pptp_session_stats[id].stats[i]);
+			}
+			size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\n");
+	}
+
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\npptp session stats end\n");
+	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, size_wr);
+
+	kfree(lbuf);
+	return bytes_read;
+}
+
+/*
  * nss_stats_sjack_read()
  *	Read SJACK stats
  */
@@ -2031,6 +2108,11 @@ NSS_STATS_DECLARE_FILE_OPERATIONS(pppoe)
 NSS_STATS_DECLARE_FILE_OPERATIONS(l2tpv2)
 
 /*
+ * pptp_stats_ops
+ */
+NSS_STATS_DECLARE_FILE_OPERATIONS(pptp)
+
+/*
  * gmac_stats_ops
  */
 NSS_STATS_DECLARE_FILE_OPERATIONS(gmac)
@@ -2282,6 +2364,17 @@ void nss_stats_init(void)
 		nss_warning("Failed to create qca-nss-drv/stats/l2tpv2 file in debugfs");
 		return;
 	}
+
+	/*
+	 *  PPTP Stats
+	 */
+	nss_top_main.pptp_dentry = debugfs_create_file("pptp", 0400,
+						nss_top_main.stats_dentry, &nss_top_main, &nss_stats_pptp_ops);
+	if (unlikely(nss_top_main.pptp_dentry == NULL)) {
+		nss_warning("Failed to create qca-nss-drv/stats/pptp file in debugfs");
+		return;
+	}
+
 	nss_log_init();
 }
 
