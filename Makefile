@@ -49,5 +49,9 @@ ifneq ($(VERSION).$(PATCHLEVEL), 4.4)
 obj-y+= ipsecmgr/
 endif
 
-obj ?= .
+# MAP-T manager
+ifneq ($(findstring 3.14, $(KERNELVERSION)),)
+obj-y+=map/map-t/
+endif
 
+obj ?= .
