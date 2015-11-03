@@ -21,6 +21,7 @@
  */
 
 #include <linux/platform_device.h>
+#include <linux/of.h>
 #include <linux/export.h>
 #include <linux/module.h>
 #include <linux/seq_file.h>
@@ -775,6 +776,14 @@ void netap_profile_release_resource(void)
  */
 int __init netap_profile_init_module(void)
 {
+#ifdef CONFIG_OF
+	/*
+	 * If the node is not compatible, don't do anything.
+	 */
+	if (!of_find_node_by_name(NULL, "nss-common")) {
+		return 0;
+	}
+#endif
 	/*
 	 * we need N nodes, not one node + N ctx, for N cores
 	 */
@@ -828,6 +837,14 @@ int __init netap_profile_init_module(void)
  */
 void __exit netap_profile_exit_module(void)
 {
+#ifdef CONFIG_OF
+	/*
+	 * If the node is not compatible, don't do anything.
+	 */
+	if (!of_find_node_by_name(NULL, "nss-common")) {
+		return;
+	}
+#endif
 	nss_profiler_notify_unregister(NSS_CORE_0);
 #if NSS_MAX_CORES > 1
 	nss_profiler_notify_unregister(NSS_CORE_1);
