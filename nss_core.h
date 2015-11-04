@@ -604,6 +604,36 @@ struct nss_stats_pptp_session_debug {
 };
 
 /*
+ * MAP-T debug error types
+ */
+enum nss_stats_map_t_instance {
+	NSS_STATS_MAP_T_V4_TO_V6_PBUF_EXCEPTION,
+	NSS_STATS_MAP_T_V4_TO_V6_PBUF_NO_MATCHING_RULE,
+	NSS_STATS_MAP_T_V4_TO_V6_PBUF_NOT_TCP_OR_UDP,
+	NSS_STATS_MAP_T_V4_TO_V6_RULE_ERR_LOCAL_PSID_MISMATCH,
+	NSS_STATS_MAP_T_V4_TO_V6_RULE_ERR_LOCAL_IPV6,
+	NSS_STATS_MAP_T_V4_TO_V6_RULE_ERR_REMOTE_PSID,
+	NSS_STATS_MAP_T_V4_TO_V6_RULE_ERR_REMOTE_EA_BITS,
+	NSS_STATS_MAP_T_V4_TO_V6_RULE_ERR_REMOTE_IPV6,
+	NSS_STATS_MAP_T_V6_TO_V4_PBUF_EXCEPTION,
+	NSS_STATS_MAP_T_V6_TO_V4_PBUF_NO_MATCHING_RULE,
+	NSS_STATS_MAP_T_V6_TO_V4_PBUF_NOT_TCP_OR_UDP,
+	NSS_STATS_MAP_T_V6_TO_V4_RULE_ERR_LOCAL_IPV4,
+	NSS_STATS_MAP_T_V6_TO_V4_RULE_ERR_REMOTE_IPV4,
+	NSS_STATS_MAP_T_MAX
+};
+
+/*
+ * NSS core stats -- for H2N/N2H map_t debug stats
+ */
+struct nss_stats_map_t_instance_debug {
+	uint64_t stats[NSS_STATS_MAP_T_MAX];
+	int32_t if_index;
+	uint32_t if_num; /* nss interface number */
+	bool valid;
+};
+
+/*
  * NSS core state
  */
 enum nss_core_state {
@@ -760,6 +790,7 @@ struct nss_top_instance {
 	struct dentry *pptp_dentry;	/* PPTP  stats dentry */
 	struct dentry *l2tpv2_dentry;	/* L2TPV2  stats dentry */
 	struct dentry *dtls_dentry;     /* DTLS stats dentry */
+	struct dentry *map_t_dentry;	/* MAP-T stats dentry */
 	struct dentry *gmac_dentry;	/* GMAC ethnode stats dentry */
 	struct dentry *capwap_decap_dentry;     /* CAPWAP decap ethnode stats dentry */
 	struct dentry *capwap_encap_dentry;     /* CAPWAP encap ethnode stats dentry */
@@ -793,6 +824,7 @@ struct nss_top_instance {
 	uint8_t pptp_handler_id;
 	uint8_t l2tpv2_handler_id;
 	uint8_t dtls_handler_id;
+	uint8_t map_t_handler_id;
 	uint8_t tunipip6_handler_id;
 	uint8_t frequency_handler_id;
 	uint8_t sjack_handler_id;
@@ -832,6 +864,9 @@ struct nss_top_instance {
 	nss_l2tpv2_msg_callback_t l2tpv2_msg_callback;
 					/* l2tP tunnel interface event callback function */
 	nss_dtls_msg_callback_t dtls_msg_callback; /* dtls interface event callback */
+
+	nss_map_t_msg_callback_t map_t_msg_callback;
+					/* map-t interface event callback function */
 	nss_tunipip6_msg_callback_t tunipip6_msg_callback;
 					/* ipip6 tunnel interface event callback function */
 	nss_pptp_msg_callback_t pptp_msg_callback;
@@ -1036,6 +1071,7 @@ struct nss_platform_data {
 	enum nss_feature_enabled pptp_enabled;		/* Does this core handle pptp Tunnel ? */
 	enum nss_feature_enabled l2tpv2_enabled;	/* Does this core handle l2tpv2 Tunnel ? */
 	enum nss_feature_enabled dtls_enabled;		/* Does this core handle DTLS sessions ? */
+	enum nss_feature_enabled map_t_enabled;		/* Does this core handle map-t */
 	enum nss_feature_enabled tunipip6_enabled;	/* Does this core handle ipip6 Tunnel ? */
 	enum nss_feature_enabled gre_redir_enabled;	/* Does this core handle gre_redir Tunnel ? */
 	enum nss_feature_enabled shaping_enabled;	/* Does this core handle shaping ? */

@@ -527,6 +527,26 @@ static int8_t *nss_stats_str_l2tpv2_session_debug_stats[NSS_STATS_L2TPV2_SESSION
 };
 
 /*
+ * nss_stats_str_map_t_instance_stats
+ *	map_t statistics strings for nss session stats
+ */
+static int8_t *nss_stats_str_map_t_instance_debug_stats[NSS_STATS_MAP_T_MAX] = {
+	"MAP_T_V4_TO_V6_PBUF_EXCEPTION_PKTS",
+	"MAP_T_V4_TO_V6_PBUF_NO_MATCHING_RULE",
+	"MAP_T_V4_TO_V6_PBUF_NOT_TCP_OR_UDP",
+	"MAP_T_V4_TO_V6_RULE_ERR_LOCAL_PSID_MISMATCH",
+	"MAP_T_V4_TO_V6_RULE_ERR_LOCAL_IPV6",
+	"MAP_T_V4_TO_V6_RULE_ERR_REMOTE_PSID",
+	"MAP_T_V4_TO_V6_RULE_ERR_REMOTE_EA_BITS",
+	"MAP_T_V4_TO_V6_RULE_ERR_REMOTE_IPV6",
+	"MAP_T_V6_TO_V4_PBUF_EXCEPTION_PKTS",
+	"MAP_T_V6_TO_V4_PBUF_NO_MATCHING_RULE",
+	"MAP_T_V6_TO_V4_PBUF_NOT_TCP_OR_UDP",
+	"MAP_T_V6_TO_V4_RULE_ERR_LOCAL_IPV4",
+	"MAP_T_V6_TO_V4_RULE_ERR_REMOTE_IPV4"
+};
+
+/*
  * nss_stats_str_ppt_session_stats
  *	PPTP statistics strings for nss session stats
  */
@@ -1459,7 +1479,6 @@ static ssize_t nss_stats_dtls_read(struct file *fp, char __user *ubuf,
 	return bytes_read;
 }
 
-
 /*
  * nss_stats_l2tpv2_read()
  *	Read l2tpv2 statistics
@@ -1520,6 +1539,72 @@ static ssize_t nss_stats_l2tpv2_read(struct file *fp, char __user *ubuf, size_t 
 	}
 
 	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nl2tp v2 session stats end\n");
+	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, size_wr);
+
+	kfree(lbuf);
+	return bytes_read;
+}
+
+/*
+ * nss_stats_map_t_read()
+ *	Read map_t statistics
+ */
+static ssize_t nss_stats_map_t_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
+{
+
+	uint32_t max_output_lines = 2 /* header & footer for instance stats */
+					+ NSS_MAX_MAP_T_DYNAMIC_INTERFACES * (NSS_STATS_MAP_T_MAX + 2) /*instance stats */
+					+ 2;
+	size_t size_al = NSS_STATS_MAX_STR_LENGTH * max_output_lines;
+	size_t size_wr = 0;
+	ssize_t bytes_read = 0;
+	struct net_device *dev;
+	struct nss_stats_map_t_instance_debug map_t_instance_stats[NSS_MAX_MAP_T_DYNAMIC_INTERFACES];
+	int id, i;
+
+	char *lbuf = kzalloc(size_al, GFP_KERNEL);
+	if (unlikely(!lbuf)) {
+		nss_warning("Could not allocate memory for local statistics buffer");
+		return 0;
+	}
+
+	memset(&map_t_instance_stats, 0, sizeof(struct nss_stats_map_t_instance_debug) * NSS_MAX_MAP_T_DYNAMIC_INTERFACES);
+
+	/*
+	 * Get all stats
+	 */
+	nss_map_t_instance_debug_stats_get((void *)&map_t_instance_stats);
+
+	/*
+	 * Session stats
+	 */
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nmap_t instance stats start:\n\n");
+	for (id = 0; id < NSS_MAX_MAP_T_DYNAMIC_INTERFACES; id++) {
+
+			if (!map_t_instance_stats[id].valid) {
+				break;
+			}
+
+			dev = dev_get_by_index(&init_net, map_t_instance_stats[id].if_index);
+			if (likely(dev)) {
+
+				size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "%d. nss interface id=%d, netdevice=%s\n", id,
+						map_t_instance_stats[id].if_num, dev->name);
+				dev_put(dev);
+			} else {
+				size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "%d. nss interface id=%d\n", id,
+						map_t_instance_stats[id].if_num);
+			}
+
+			for (i = 0; i < NSS_STATS_MAP_T_MAX; i++) {
+				size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+						     "\t%s = %llu\n", nss_stats_str_map_t_instance_debug_stats[i],
+						      map_t_instance_stats[id].stats[i]);
+			}
+			size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\n");
+	}
+
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nmap_t instance stats end\n");
 	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, size_wr);
 
 	kfree(lbuf);
@@ -2380,6 +2465,11 @@ NSS_STATS_DECLARE_FILE_OPERATIONS(pppoe)
 NSS_STATS_DECLARE_FILE_OPERATIONS(l2tpv2)
 
 /*
+ * map_t_stats_ops
+ */
+NSS_STATS_DECLARE_FILE_OPERATIONS(map_t)
+
+/*
  * pptp_stats_ops
  */
 NSS_STATS_DECLARE_FILE_OPERATIONS(pptp)
@@ -2654,6 +2744,16 @@ void nss_stats_init(void)
 						nss_top_main.stats_dentry, &nss_top_main, &nss_stats_l2tpv2_ops);
 	if (unlikely(nss_top_main.l2tpv2_dentry == NULL)) {
 		nss_warning("Failed to create qca-nss-drv/stats/l2tpv2 file in debugfs");
+		return;
+	}
+
+	/*
+	 *  Map-t Stats
+	 */
+	nss_top_main.map_t_dentry = debugfs_create_file("map_t", 0400,
+						nss_top_main.stats_dentry, &nss_top_main, &nss_stats_map_t_ops);
+	if (unlikely(nss_top_main.map_t_dentry == NULL)) {
+		nss_warning("Failed to create qca-nss-drv/stats/map_t file in debugfs");
 		return;
 	}
 

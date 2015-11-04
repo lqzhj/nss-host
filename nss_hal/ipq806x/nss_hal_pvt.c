@@ -884,6 +884,9 @@ static struct nss_platform_data *nss_hal_of_get_pdata(struct device_node *np,
 	of_property_read_u32(np, "qcom,wlanredirect_enabled", &npd->wlanredirect_enabled);
 	of_property_read_u32(np, "qcom,tun6rd_enabled", &npd->tun6rd_enabled);
 	of_property_read_u32(np, "qcom,l2tpv2_enabled", &npd->l2tpv2_enabled);
+#if (NSS_MAP_T_SUPPORT == 1)
+	of_property_read_u32(np, "qcom,map_t_enabled", &npd->map_t_enabled);
+#endif
 	of_property_read_u32(np, "qcom,tunipip6_enabled", &npd->tunipip6_enabled);
 	of_property_read_u32(np, "qcom,pptp_enabled", &npd->pptp_enabled);
 	of_property_read_u32(np, "qcom,shaping_enabled", &npd->shaping_enabled);
@@ -1462,6 +1465,13 @@ clk_complete:
 		nss_top->dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_DTLS] = nss_dev->id;
 		nss_dtls_register_handler();
 	}
+
+#if (NSS_MAP_T_SUPPORT == 1)
+	if (npd->map_t_enabled == NSS_FEATURE_ENABLED) {
+		nss_top->map_t_handler_id = nss_dev->id;
+		nss_map_t_register_handler();
+	}
+#endif
 
 	if (npd->tunipip6_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->tunipip6_handler_id = nss_dev->id;

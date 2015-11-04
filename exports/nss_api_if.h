@@ -41,6 +41,7 @@
 #include "nss_tun6rd.h"
 #include "nss_l2tpv2.h"
 #include "nss_pptp.h"
+#include "nss_map_t.h"
 #include "nss_tunipip6.h"
 #include "nss_lag.h"
 #include "nss_ipv4.h"
@@ -89,7 +90,7 @@
 #define NSS_MAX_PHYSICAL_INTERFACES 4
 #define NSS_MAX_VIRTUAL_INTERFACES 16
 #define NSS_MAX_TUNNEL_INTERFACES 4
-#define NSS_MAX_SPECIAL_INTERFACES 39
+#define NSS_MAX_SPECIAL_INTERFACES 40
 #define NSS_MAX_WIFI_RADIO_INTERFACES 3
 
 /**
@@ -140,9 +141,10 @@
 #define NSS_LAG3_INTERFACE_NUM (NSS_SPECIAL_IF_START + 33) /* Special IF number for LAG3 */
 #define NSS_L2TPV2_INTERFACE (NSS_SPECIAL_IF_START + 34) /* Special L2TPv2 UDP encap interface */
 #define NSS_TSTAMP_INTERFACE (NSS_SPECIAL_IF_START + 35) /* Special IF number for Tstamp interface */
-#define NSS_PPTP_INTERFACE (NSS_SPECIAL_IF_START + 36) /* Special PPTP-Decap interface */
+#define NSS_PPTP_INTERFACE (NSS_SPECIAL_IF_START + 36)	/* Special PPTP-Decap interface */
 #define NSS_PORTID_INTERFACE (NSS_SPECIAL_IF_START + 37) /* Special IF number for PortID interface */
 #define NSS_OAM_INTERFACE (NSS_SPECIAL_IF_START + 38) /* Special IF number for oam interface */
+#define NSS_MAP_T_INTERFACE (NSS_SPECIAL_IF_START + 39)  /* Special MAP-T interface */
 
 /**
  * This macro converts format for IPv6 address (from Linux to NSS)

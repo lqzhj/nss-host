@@ -31,6 +31,7 @@ qca-nss-drv-objs := \
 			nss_tun6rd.o \
 			nss_pptp.o \
 			nss_l2tpv2.o \
+			nss_map_t.o \
 			nss_tunipip6.o \
 			nss_virt_if.o \
 			nss_shaper.o \
@@ -62,11 +63,11 @@ NSS_CCFLAGS = -DNSS_DT_SUPPORT=1 -DNSS_FW_DBG_SUPPORT=0 -DNSS_PM_SUPPORT=0 -DNSS
 ccflags-y += -I$(obj)
 endif
 
-# Only the 3.14 Kernel implements fabric scaling framework.
+# Only the 3.14 Kernel implements fabric scaling framework and map-t
 ifneq ($(findstring 3.14, $(KERNELVERSION)),)
-NSS_CCFLAGS += -DNSS_FABRIC_SCALING_SUPPORT=1
+NSS_CCFLAGS += -DNSS_FABRIC_SCALING_SUPPORT=1 -DNSS_MAP_T_SUPPORT=1
 else
-NSS_CCFLAGS += -DNSS_FABRIC_SCALING_SUPPORT=0
+NSS_CCFLAGS += -DNSS_FABRIC_SCALING_SUPPORT=0 -DNSS_MAP_T_SUPPORT=0
 endif
 
 # Disable Frequency scaling
