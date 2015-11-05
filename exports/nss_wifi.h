@@ -54,6 +54,7 @@ enum nss_wifi_metadata_types {
 	NSS_WIFI_RX_VOW_EXTSTATS_SET_MSG,
 	NSS_WIFI_PKTLOG_CFG_MSG,
 	NSS_WIFI_ENABLE_PERPKT_TXSTATS_MSG,
+	NSS_WIFI_IGMP_MLD_TOS_OVERRIDE_MSG,
 	NSS_WIFI_MAX_MSG
 };
 
@@ -63,18 +64,22 @@ enum nss_wifi_metadata_types {
 enum wifi_error_types {
 	NSS_WIFI_EMSG_NONE = 0,
 	NSS_WIFI_EMSG_UNKNOWN,
-	NSS_WIFI_EMSG_MGMT_DLEN,		/**< invalid management data length */
-	NSS_WIFI_EMSG_MGMT_SEND,		/**< error in sending management data */
-	NSS_WIFI_EMSG_CE_INIT_FAIL,		/**< error in ce init */
-	NSS_WIFI_EMSG_PDEV_INIT_FAIL,		/**< error in pdev init */
-	NSS_WIFI_EMSG_HTT_INIT_FAIL,		/**< error in htt dev init */
-	NSS_WIFI_EMSG_PEER_ADD,			/**< error in wds peer add */
-	NSS_WIFI_EMSG_TARGET_NOT_SUPPORTED,	/**< invalid traget type passed */
-	NSS_WIFI_EMSG_STATE_NOT_RESET,		/**< reset failed */
-	NSS_WIFI_EMSG_STATE_NOT_INIT_DONE,	/**< init failed */
-	NSS_WIFI_EMSG_STATE_NULL_CE_HANDLE,	/**< invalid ce handle */
-	NSS_WIFI_EMSG_STATE_NOT_CE_READY,	/**< ce is not ready */
-	NSS_WIFI_EMSG_STATE_NOT_HTT_READY,	/**< htt is not ready */
+	NSS_WIFI_EMSG_MGMT_DLEN,			/**< invalid management data length */
+	NSS_WIFI_EMSG_MGMT_SEND,			/**< error in sending management data */
+	NSS_WIFI_EMSG_CE_INIT_FAIL,			/**< error in ce init */
+	NSS_WIFI_EMSG_PDEV_INIT_FAIL,			/**< error in pdev init */
+	NSS_WIFI_EMSG_HTT_INIT_FAIL,			/**< error in htt dev init */
+	NSS_WIFI_EMSG_PEER_ADD,					/**< error in wds peer add */
+	NSS_WIFI_EMSG_TARGET_NOT_SUPPORTED,		/**< invalid traget type passed */
+	NSS_WIFI_EMSG_STATE_NOT_RESET,			/**< reset failed */
+	NSS_WIFI_EMSG_STATE_NOT_INIT_DONE,		/**< init failed */
+	NSS_WIFI_EMSG_STATE_NULL_CE_HANDLE,		/**< invalid ce handle */
+	NSS_WIFI_EMSG_STATE_NOT_CE_READY,		/**< ce is not ready */
+	NSS_WIFI_EMSG_STATE_NOT_HTT_READY,		/**< htt is not ready */
+	NSS_WIFI_EMSG_FW_STATS_DLEN,			/**< invalid wifi fw stats data length */
+	NSS_WIFI_EMSG_FW_STATS_SEND,			/**< error in sending wifi fw stats data */
+	NSS_WIFI_EMSG_STATE_TX_INIT_FAILED,		/**< Tx init failed */
+	NSS_WIFI_EMSG_IGMP_MLD_TOS_OVERRIDE_CFG,/**< Invalid IGMP/MLD tos override config */
 };
 
 /*
@@ -288,6 +293,15 @@ struct nss_wifi_rx_vow_extstats_set_msg {
 	uint32_t vow_extstats_en;                       /**< vow ext stats */
 };
 
+/*
+ * nss_wifi_igmp_mld_override_tos_msg
+ */
+struct nss_wifi_igmp_mld_override_tos_msg {
+	uint8_t igmp_mld_ovride_tid_en;		/**< igmp/mld tid override cfg enable */
+	uint8_t igmp_mld_ovride_tid_val;	/**< igmp/mld tid override tid value */
+	uint8_t res[2];						/**< reserved */
+};
+
 /**
  * Message structure to send/receive wifi messages
  */
@@ -312,6 +326,7 @@ struct nss_wifi_msg {
 		struct nss_wifi_rx_vow_extstats_set_msg vow_extstats_msg;
 		struct nss_wifi_pktlog_cfg_msg pcm_msg;
 		struct nss_wifi_enable_perpkt_txstats_msg ept_msg;
+		struct nss_wifi_igmp_mld_override_tos_msg wigmpmldtm_msg;
 	} msg;
 };
 
