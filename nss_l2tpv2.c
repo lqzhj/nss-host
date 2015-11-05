@@ -36,7 +36,6 @@ void nss_l2tpv2_session_debug_stats_sync(struct nss_ctx_instance *nss_ctx, struc
 		if (nss_l2tpv2_session_debug_stats[i].if_num == if_num) {
 			nss_l2tpv2_session_debug_stats[i].stats[NSS_STATS_L2TPV2_SESSION_RX_PPP_LCP_PKTS] += stats_msg->debug_stats.rx_ppp_lcp_pkts;
 			nss_l2tpv2_session_debug_stats[i].stats[NSS_STATS_L2TPV2_SESSION_RX_EXP_DATA_PKTS] += stats_msg->debug_stats.rx_exception_data_pkts;
-			nss_l2tpv2_session_debug_stats[i].stats[NSS_STATS_L2TPV2_SESSION_RX_EXP_DATA_PKTS] += stats_msg->debug_stats.rx_exception_data_pkts;
 			nss_l2tpv2_session_debug_stats[i].stats[NSS_STATS_L2TPV2_SESSION_ENCAP_PBUF_ALLOC_FAIL_PKTS] += stats_msg->debug_stats.encap_pbuf_alloc_fail;
 			nss_l2tpv2_session_debug_stats[i].stats[NSS_STATS_L2TPV2_SESSION_DECAP_PBUF_ALLOC_FAIL_PKTS] += stats_msg->debug_stats.decap_pbuf_alloc_fail;
 			break;

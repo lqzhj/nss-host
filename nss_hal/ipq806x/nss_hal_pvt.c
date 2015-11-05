@@ -883,6 +883,7 @@ static struct nss_platform_data *nss_hal_of_get_pdata(struct device_node *np,
 	    || of_property_read_u32(np, "qcom,ipsec_enabled", &npd->ipsec_enabled)
 	    || of_property_read_u32(np, "qcom,wlanredirect_enabled", &npd->wlanredirect_enabled)
 	    || of_property_read_u32(np, "qcom,tun6rd_enabled", &npd->tun6rd_enabled)
+	    || of_property_read_u32(np, "qcom,l2tpv2_enabled", &npd->l2tpv2_enabled)
 	    || of_property_read_u32(np, "qcom,tunipip6_enabled", &npd->tunipip6_enabled)
 	    || of_property_read_u32(np, "qcom,shaping_enabled", &npd->shaping_enabled)) {
 		pr_warn("%s: error reading non-critical device node properties\n", np->name);
