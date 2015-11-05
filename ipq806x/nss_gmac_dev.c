@@ -1361,8 +1361,10 @@ int32_t nss_gmac_check_phy_init(struct nss_gmac_dev *gmacdev)
 	 * Get the GMAC speed from the PHY for RGMII
 	 * interfaces
 	 */
-	gmacdev->speed = phydev->speed;
-	gmacdev->duplex_mode = phydev->duplex;
+	if (phydev) {
+		gmacdev->speed = phydev->speed;
+		gmacdev->duplex_mode = phydev->duplex;
+	}
 
 out:
 	/*
