@@ -455,7 +455,7 @@ bool nss_debug_log_buffer_alloc(uint8_t nss_id, uint32_t nentry)
 	bool err = false;
 	bool old_state = false;
 
-	if (nss_id > NSS_MAX_CORES) {
+	if (nss_id >= NSS_MAX_CORES) {
 		return false;
 	}
 

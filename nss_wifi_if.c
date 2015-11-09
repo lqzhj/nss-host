@@ -273,15 +273,19 @@ static nss_tx_status_t nss_wifi_if_tx_msg_sync(struct nss_wifi_if_handle *handle
  */
 static int nss_wifi_if_handle_destroy(struct nss_wifi_if_handle *handle)
 {
+	int32_t if_num;
+	int32_t index;
+	struct nss_ctx_instance *nss_ctx;
 	nss_tx_status_t status;
-	int32_t if_num = handle->if_num;
-	int32_t index = NSS_WIFI_IF_GET_INDEX(if_num);
-	struct nss_ctx_instance *nss_ctx = handle->nss_ctx;
 
 	if (!handle) {
 		nss_warning("Destroy failed as wifi_if handle is NULL\n");
 		return NSS_TX_FAILURE_BAD_PARAM;
 	}
+
+	if_num = handle->if_num;
+	index = NSS_WIFI_IF_GET_INDEX(if_num);
+	nss_ctx = handle->nss_ctx;
 
 	spin_lock_bh(&wifi_if_lock);
 	wifi_handle[index] = NULL;
