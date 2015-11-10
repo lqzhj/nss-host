@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -59,6 +59,7 @@ struct nss_gmac_data_plane_ops {
 	int (*change_mtu)(void *ctx, uint32_t mtu);
 	int (*xmit)(void *ctx, struct sk_buff *os_buf);
 	void (*set_features)(struct net_device *netdev);
+	int (*pause_on_off)(void *ctx, uint32_t pause_on);
 };
 
 /*
@@ -114,6 +115,7 @@ struct nss_gmac_stats {
 	uint32_t gmac_total_ticks;	/**< Total clock ticks spend inside the GMAC */
 	uint32_t gmac_worst_case_ticks;	/**< Worst case iteration of the GMAC in ticks */
 	uint32_t gmac_iterations;	/**< Number of iterations around the GMAC */
+	uint32_t tx_pause_frames;	/**< Number of pause frames sent by the GMAC */
 };
 
 extern void nss_gmac_receive(struct net_device *netdev, struct sk_buff *skb,

@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -38,6 +38,9 @@
 
 #include <nss_gmac_dev.h>
 #include <nss_gmac_network_interface.h>
+
+/* Pause is 5000 slot-times where slot-time is the time taken to transmit 64 bytes on GMII */
+#define NSS_GMAC_PAUSE_TIME 0x13880000
 
 /*
  * Function to check the current link status
@@ -879,12 +882,18 @@ void nss_gmac_rx_pause_enable(struct nss_gmac_dev *gmacdev)
 {
 	netdev_dbg(gmacdev->netdev, "%s: enable Rx flow control\n", __func__);
 
-	nss_gmac_clear_reg_bits(gmacdev->dma_base, dma_control,
-			dma_en_hw_flow_ctrl | dma_rx_flow_ctrl_act3K |
-			dma_rx_flow_ctrl_deact4K);
+	if (gmacdev->data_plane_ops->pause_on_off(gmacdev->data_plane_ctx, 1)
+							!= NSS_GMAC_SUCCESS) {
+		netdev_dbg(gmacdev->netdev, "%s: rx flow control enable failed\n", __func__);
+		return;
+	}
+
+	nss_gmac_set_reg_bits(gmacdev->dma_base, dma_control,
+				dma_rx_frame_flush | dma_en_hw_flow_ctrl |
+				dma_rx_flow_ctrl_act7K | dma_rx_flow_ctrl_deact7K);
 
 	nss_gmac_set_reg_bits(gmacdev->mac_base,
-			      gmac_flow_control, gmac_rx_flow_control);
+				gmac_flow_control, NSS_GMAC_PAUSE_TIME | gmac_rx_flow_control);
 }
 
 /*
@@ -983,6 +992,7 @@ void nss_gmac_ts_disable (struct nss_gmac_dev *gmacdev)
 	nss_gmac_clear_reg_bits(gmacdev->mac_base, gmac_ts_control, gmac_ts_init_mask);
 	clear_bit(__NSS_GMAC_TSTAMP, &gmacdev->flags);
 };
+
 /*
  * Disable pause frame generation.
  * @param[in] pointer to nss_gmac_dev.
@@ -992,13 +1002,18 @@ void nss_gmac_rx_pause_disable(struct nss_gmac_dev *gmacdev)
 {
 	netdev_dbg(gmacdev->netdev, "%s: disable Rx flow control\n", __func__);
 
+	if (gmacdev->data_plane_ops->pause_on_off(gmacdev->data_plane_ctx, 0)
+							!= NSS_GMAC_SUCCESS) {
+		netdev_dbg(gmacdev->netdev, "%s: rx flow control disable failed\n", __func__);
+		return;
+	}
+
 	nss_gmac_clear_reg_bits(gmacdev->dma_base,dma_control,
 						dma_en_hw_flow_ctrl);
 
 	nss_gmac_clear_reg_bits(gmacdev->mac_base,
 				gmac_flow_control, gmac_rx_flow_control);
 }
-
 
 /*
  * Flush Dma Tx fifo.

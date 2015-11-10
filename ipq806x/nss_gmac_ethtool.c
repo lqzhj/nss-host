@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -97,6 +97,7 @@ static const struct nss_gmac_ethtool_stats gmac_gstrings_stats[] = {
 	{"gmac_total_ticks", NSS_GMAC_STAT(gmac_total_ticks)},
 	{"gmac_worst_case_ticks", NSS_GMAC_STAT(gmac_worst_case_ticks)},
 	{"gmac_iterations", NSS_GMAC_STAT(gmac_iterations)},
+	{"tx_pause_frames", NSS_GMAC_STAT(tx_pause_frames)},
 };
 
 /**

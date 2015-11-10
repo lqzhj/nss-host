@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -277,7 +277,7 @@ static inline int nss_gmac_rx(struct nss_gmac_dev *gmacdev, int budget)
 }
 
 /*
- * nss_gmac_process_tx_complete
+ * nss_gmac_process_tx_complete()
  *	Xmit complete, clear descriptor and free the skb
  */
 static inline void nss_gmac_process_tx_complete(struct nss_gmac_dev *gmacdev)
@@ -336,7 +336,7 @@ static inline void nss_gmac_process_tx_complete(struct nss_gmac_dev *gmacdev)
 }
 
 /*
- * nss_gmac_poll
+ * nss_gmac_poll()
  *	Scheduled by napi to process RX and TX complete
  */
 static int nss_gmac_poll(struct napi_struct *napi, int budget)
@@ -357,7 +357,7 @@ static int nss_gmac_poll(struct napi_struct *napi, int budget)
 }
 
 /*
- * nss_gmac_handle_irq
+ * nss_gmac_handle_irq()
  *	Process IRQ and schedule napi
  */
 static irqreturn_t nss_gmac_handle_irq(int irq, void *ctx)
@@ -371,7 +371,7 @@ static irqreturn_t nss_gmac_handle_irq(int irq, void *ctx)
 }
 
 /*
- * nss_gmac_slowpath_if_open
+ * nss_gmac_slowpath_if_open()
  *	Do slow path data plane open
  */
 static int nss_gmac_slowpath_if_open(void *app_data, uint32_t tx_desc_ring,
@@ -380,11 +380,18 @@ static int nss_gmac_slowpath_if_open(void *app_data, uint32_t tx_desc_ring,
 	return NSS_GMAC_SUCCESS;
 }
 
+/*
+ * nss_gmac_slowpath_if_close()
+ *	Do slow path data plane close
+ */
 static int nss_gmac_slowpath_if_close(void *app_data)
 {
 	return NSS_GMAC_SUCCESS;
 }
 
+/*
+ * nss_gmac_slowpath_if_link_state()
+ */
 static int nss_gmac_slowpath_if_link_state(void *app_data, uint32_t link_state)
 {
 	struct net_device *netdev = (struct net_device *)app_data;
@@ -402,15 +409,25 @@ static int nss_gmac_slowpath_if_link_state(void *app_data, uint32_t link_state)
 	return NSS_GMAC_SUCCESS;
 }
 
+/*
+ * nss_gmac_slowpath_if_mac_addr()
+ */
 static int nss_gmac_slowpath_if_mac_addr(void *app_data, uint8_t *addr)
 {
 	return NSS_GMAC_SUCCESS;
 }
+
+/*
+ * nss_gmac_slowpath_if_change_mtu()
+ */
 static int nss_gmac_slowpath_if_change_mtu(void *app_data, uint32_t mtu)
 {
 	return NSS_GMAC_SUCCESS;
 }
 
+/*
+ * nss_gmac_slowpath_if_xmit()
+ */
 static int nss_gmac_slowpath_if_xmit(void *app_data, struct sk_buff *skb)
 {
 	struct net_device *netdev = (struct net_device *)app_data;
@@ -462,6 +479,17 @@ static void nss_gmac_slowpath_if_set_features(struct net_device *netdev)
 	netdev->wanted_features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
 }
 
+/*
+ * nss_gmac_slowpath_if_pause_on_off()
+ *	Set pause frames on or off
+ *
+ * No need to send a message if we defaulted to slow path.
+ */
+static int nss_gmac_slowpath_if_pause_on_off(void *app_data, uint32_t pause_on)
+{
+	return NSS_GMAC_SUCCESS;
+}
+
 struct nss_gmac_data_plane_ops nss_gmac_slowpath_ops = {
 	.open		= nss_gmac_slowpath_if_open,
 	.close		= nss_gmac_slowpath_if_close,
@@ -470,6 +498,7 @@ struct nss_gmac_data_plane_ops nss_gmac_slowpath_ops = {
 	.change_mtu	= nss_gmac_slowpath_if_change_mtu,
 	.xmit		= nss_gmac_slowpath_if_xmit,
 	.set_features	= nss_gmac_slowpath_if_set_features,
+	.pause_on_off	= nss_gmac_slowpath_if_pause_on_off,
 };
 
 /**
@@ -1092,7 +1121,8 @@ int nss_gmac_override_data_plane(struct net_device *netdev,
 	BUG_ON(!gmacdev);
 
 	if (!dp_ops->open || !dp_ops->close || !dp_ops->link_state
-		|| !dp_ops->mac_addr || !dp_ops->change_mtu || !dp_ops->xmit || !dp_ops->set_features) {
+		|| !dp_ops->mac_addr || !dp_ops->change_mtu || !dp_ops->xmit
+		|| !dp_ops->set_features || !dp_ops->pause_on_off) {
 		netdev_dbg(netdev, "%s: All the op functions must be present, reject this registeration\n",
 								__func__);
 		return NSS_GMAC_FAILURE;
