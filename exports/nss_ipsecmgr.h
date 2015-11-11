@@ -38,7 +38,7 @@
  * Space required in the head and tail of the buffer
  */
 #define NSS_IPSECMGR_TUN_HEADROOM 128
-#define NSS_IPSECMGR_TUN_TAILROOM 128
+#define NSS_IPSECMGR_TUN_TAILROOM 192
 
 #define NSS_IPSECMGR_TUN_MTU(x) (x - NSS_IPSECMGR_TUN_MAX_HDR_LEN)
 
