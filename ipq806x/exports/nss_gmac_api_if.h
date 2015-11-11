@@ -44,6 +44,7 @@
  */
 #define NSS_GMAC_MODE0	0	/* gmac mode 0 */
 #define NSS_GMAC_MODE1	1	/* gmac mode 1 */
+#define NSS_GMAC_MODE2	2	/* gmac mode 2 */
 
 /*
  * NSS GMAC data plane ops, default would be slowpath and can be overridden by
