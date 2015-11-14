@@ -59,6 +59,7 @@
 #include "nss_wifi_vdev.h"
 #include "nss_n2h.h"
 #include "nss_wifi_if.h"
+#include "nss_portid.h"
 
 /*
  * Interface numbers are reserved in the
@@ -86,7 +87,7 @@
 #define NSS_MAX_PHYSICAL_INTERFACES 4
 #define NSS_MAX_VIRTUAL_INTERFACES 16
 #define NSS_MAX_TUNNEL_INTERFACES 4
-#define NSS_MAX_SPECIAL_INTERFACES 36
+#define NSS_MAX_SPECIAL_INTERFACES 38
 #define NSS_MAX_WIFI_RADIO_INTERFACES 3
 
 /**
@@ -138,6 +139,7 @@
 #define NSS_L2TPV2_INTERFACE (NSS_SPECIAL_IF_START + 34) /* Special L2TPv2 UDP encap interface */
 #define NSS_TSTAMP_INTERFACE (NSS_SPECIAL_IF_START + 35) /* Special IF number for Tstamp interface */
 #define NSS_PPTP_INTERFACE (NSS_SPECIAL_IF_START + 36) /* Special PPTP-Decap interface */
+#define NSS_PORTID_INTERFACE (NSS_SPECIAL_IF_START + 37) /* Special IF number for PortID interface */
 
 /**
  * This macro converts format for IPv6 address (from Linux to NSS)

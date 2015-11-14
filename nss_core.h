@@ -535,6 +535,14 @@ enum nss_stats_l2tpv2_session {
 	NSS_STATS_L2TPV2_SESSION_MAX
 };
 
+/*
+ * PortID statistics
+ */
+enum nss_stats_portid {
+	NSS_STATS_PORTID_RX_INVALID_HEADER,
+	NSS_STATS_PORTID_MAX,
+};
+
 struct nss_stats_l2tpv2_session_debug {
 	uint64_t stats[NSS_STATS_L2TPV2_SESSION_MAX];
 	int32_t if_index;
@@ -721,6 +729,7 @@ struct nss_top_instance {
 	struct dentry *capwap_encap_dentry;     /* CAPWAP encap ethnode stats dentry */
 	struct dentry *gre_redir_dentry;	/* gre_redir ethnode stats dentry */
 	struct dentry *sjack_dentry;		/* sjack stats dentry */
+	struct dentry *portid_dentry;		/* portid stats dentry */
 	struct dentry *wifi_dentry;		/* wifi stats dentry */
 	struct dentry *logs_dentry;	/* NSS FW logs directory */
 	struct dentry *core_log_dentry;	/* NSS Core's FW log file */
@@ -752,6 +761,7 @@ struct nss_top_instance {
 	uint8_t sjack_handler_id;
 	uint8_t capwap_handler_id;
 	uint8_t tstamp_handler_id;
+	uint8_t portid_handler_id;
 
 	/* subsystem registration data */
 	struct nss_subsystem_dataplane_register subsys_dp_register[NSS_MAX_NET_INTERFACES];
@@ -840,6 +850,8 @@ struct nss_top_instance {
 					/* IPv6 protocol exception events per interface */
 	uint64_t stats_if_exception_pppoe[NSS_MAX_PHYSICAL_INTERFACES + 1][NSS_PPPOE_NUM_SESSION_PER_INTERFACE + 1][NSS_PPPOE_EXCEPTION_EVENT_MAX];
 					/* PPPoE exception events for per session on per interface. Interface and session indexes start with 1. */
+	uint64_t stats_portid[NSS_STATS_PORTID_MAX];
+					/* PortID statistics */
 #if (NSS_DT_SUPPORT == 1)
 	void *nss_fpb_base;			/* Virtual address of FPB base */
 	bool nss_hal_common_init_done;
@@ -987,6 +999,7 @@ struct nss_platform_data {
 	enum nss_feature_enabled gmac_enabled[4];	/* Does this core handle GMACs? */
 	enum nss_feature_enabled wifioffload_enabled;   /* Does this core handle WIFI OFFLOAD? */
 	enum nss_feature_enabled tstamp_enabled;	/* Does this core handle timestamping? */
+	enum nss_feature_enabled portid_enabled;	/* Does this core handle portid? */
 };
 #endif
 

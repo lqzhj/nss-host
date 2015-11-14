@@ -887,7 +887,8 @@ static struct nss_platform_data *nss_hal_of_get_pdata(struct device_node *np,
 	    || of_property_read_u32(np, "qcom,tunipip6_enabled", &npd->tunipip6_enabled)
 	    || of_property_read_u32(np, "qcom,pptp_enabled", &npd->tunipip6_enabled)
 	    || of_property_read_u32(np, "qcom,shaping_enabled", &npd->shaping_enabled)
-	    || of_property_read_u32(np, "qcom,wlan_dataplane_offload_enabled", &npd->wifioffload_enabled)) {
+	    || of_property_read_u32(np, "qcom,wlan_dataplane_offload_enabled", &npd->wifioffload_enabled)
+	    || of_property_read_u32(np, "qcom,portid_enabled", &npd->portid_enabled)) {
 		pr_warn("%s: error reading non-critical device node properties\n", np->name);
 	}
 
@@ -1443,6 +1444,12 @@ clk_complete:
 		nss_top->dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_GRE_REDIR] =  nss_dev->id;
 		nss_gre_redir_register_handler();
 		nss_sjack_register_handler();
+	}
+
+	if (npd->portid_enabled == NSS_FEATURE_ENABLED) {
+		nss_top->portid_handler_id = nss_dev->id;
+		nss_top->dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_PORTID] = nss_dev->id;
+		nss_portid_register_handler();
 	}
 
         if (npd->wifioffload_enabled == NSS_FEATURE_ENABLED) {

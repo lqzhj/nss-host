@@ -502,6 +502,9 @@ nss_tx_status_t nss_phys_if_open(struct nss_ctx_instance *nss_ctx, uint32_t tx_d
 	} else if(mode == NSS_GMAC_MODE1) {
 		nio->rx_forward_if = NSS_SJACK_INTERFACE;
 		nio->alignment_mode = NSS_IF_DATA_ALIGN_4BYTE;
+	} else if(mode == NSS_GMAC_MODE2) {
+		nio->rx_forward_if = NSS_PORTID_INTERFACE;
+		nio->alignment_mode = NSS_IF_DATA_ALIGN_2BYTE;
 	} else {
 		nss_info("%p: Phys If Open, unknown mode %d\n", nss_ctx, mode);
 		return NSS_GMAC_FAILURE;

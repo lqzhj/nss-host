@@ -48,6 +48,7 @@ qca-nss-drv-objs := \
 			nss_virt_if.o \
 			nss_shaper.o \
 			nss_pppoe.o \
+			nss_portid.o \
 			nss_capwap.o \
 			nss_eth_rx.o \
 			nss_n2h.o \
