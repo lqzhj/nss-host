@@ -27,6 +27,7 @@ qca-nss-drv-objs := \
 			nss_phys_if.o \
 			nss_stats.o \
 			nss_tun6rd.o \
+			nss_pptp.o \
 			nss_l2tpv2.o \
 			nss_tunipip6.o \
 			nss_virt_if.o \
