@@ -237,7 +237,9 @@ static struct nss_platform_data *nss_hal_of_get_pdata(struct device_node *np,
 	}
 
 	npd->ipv4_enabled = of_property_read_bool(np, "qcom,ipv4-enabled");
+	npd->ipv4_reasm_enabled = of_property_read_bool(np, "qcom,ipv4-reasm-enabled");
 	npd->ipv6_enabled = of_property_read_bool(np, "qcom,ipv6-enabled");
+	npd->ipv6_reasm_enabled = of_property_read_bool(np, "qcom,ipv6-reasm-enabled");
 	npd->crypto_enabled = of_property_read_bool(np, "qcom,crypto-enabled");
 	npd->l2switch_enabled = of_property_read_bool(np, "qcom,l2switch_enabled");
 	npd->ipsec_enabled = of_property_read_bool(np, "qcom,ipsec-enabled");
