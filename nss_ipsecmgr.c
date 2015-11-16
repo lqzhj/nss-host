@@ -887,6 +887,7 @@ static netdev_tx_t nss_ipsecmgr_tunnel_xmit(struct sk_buff *skb, struct net_devi
 {
 	struct nss_ipsecmgr_priv *priv;
 	struct nss_ipsecmgr_tbl *encap;
+	bool expand_skb = false;
 	int nhead, ntail;
 	uint32_t if_num;
 
@@ -911,26 +912,25 @@ static netdev_tx_t nss_ipsecmgr_tunnel_xmit(struct sk_buff *skb, struct net_devi
 	}
 
 	/*
-	 * Check and expand the packet head room and tail room
-	 */
-	if ((skb_headroom(skb) < nhead) && pskb_expand_head(skb, nhead, ntail, GFP_KERNEL)) {
-		nss_ipsecmgr_error("%p: unable to expand headroom & tailroom(0x%p)\n", priv->nss_ctx, skb);
-		goto fail;
-	}
-
-	/*
-	 * Check and expand the packet tail room only
-	 */
-	if ((skb_tailroom(skb) < ntail) && pskb_expand_head(skb, 0, ntail, GFP_KERNEL)) {
-		nss_ipsecmgr_error("%p: unable to expand tailroom(0x%p)\n", priv->nss_ctx, skb);
-		goto fail;
-	}
-
-	/*
 	 * Check if packet is given starting from network header
 	 */
 	if (skb->data != skb_network_header(skb)) {
 		nss_ipsecmgr_error("%p: 'Skb data is not starting from IP header", priv->nss_ctx);
+		goto fail;
+	}
+
+	/*
+	 * For all these cases
+	 * - create a writable copy of buffer
+	 * - increase the head room
+	 * - increase the tail room
+	 */
+	if (skb_cloned(skb) || (skb_headroom(skb) < nhead) || (skb_tailroom(skb) < ntail)) {
+		expand_skb = true;
+	}
+
+	if (expand_skb && pskb_expand_head(skb, nhead, ntail, GFP_KERNEL)) {
+		nss_ipsecmgr_error("%p: unable to expand buffer\n", priv->nss_ctx);
 		goto fail;
 	}
 
@@ -965,7 +965,9 @@ static netdev_tx_t nss_ipsecmgr_tunnel_xmit(struct sk_buff *skb, struct net_devi
 	return NETDEV_TX_OK;
 
 fail:
-	return NETDEV_TX_BUSY;
+	dev_kfree_skb_any(skb);
+	encap->total_dropped++;
+	return NETDEV_TX_OK;
 }
 
 /*
