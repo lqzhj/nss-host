@@ -412,8 +412,8 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 	struct nss_crypto_params params;
 	nss_crypto_status_t status;
 
-	nss_cfi_assert(!crp);
-	nss_cfi_assert(!sc);
+	nss_cfi_assert(crp);
+	nss_cfi_assert(sc);
 
 	crp->crp_etype = 0;
 	len  = 0;
