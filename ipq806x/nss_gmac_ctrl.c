@@ -57,7 +57,6 @@
 
 #define NSS_GMAC_PHY_FIXUP_UID		0x004D0000
 #define NSS_GMAC_PHY_FIXUP_MASK		0xFFFF0000
-#define NSS_GMAC_COMMON_DEVICE_NODE	"nss-gmac-common"
 
 /* Prototypes */
 
@@ -1084,6 +1083,7 @@ nss_gmac_cmn_init_ok:
 #endif
 	return ret;
 }
+
 /**
  * @brief Function to initialize the Linux network interface.
  * Linux dependent Network interface is setup here. This provides

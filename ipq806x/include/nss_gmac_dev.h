@@ -107,6 +107,7 @@
 /* MMD device addresses */
 #define ATH_MMD_DEVADDR_3				3
 #define ATH_MMD_DEVADDR_7				7
+#define NSS_GMAC_COMMON_DEVICE_NODE	"nss-gmac-common"
 
 static const uint8_t nss_gmac_driver_string[] =
 	"NSS GMAC Driver for RTL v" NSS_GMAC_RTL_VER;
