@@ -84,7 +84,9 @@ static int nss_panic_handler(struct notifier_block *nb,
 	}
 
 	/*
-	 * wait for FW coredump done: 200ms each round and maximum 6 sec.
+	 * wait for FW coredump done: maximum 2 rounds for each core
+	 * 200ms per round -- 16MB * 10 over 200MHz 32-bit memory bus
+	 * panic will take another 3-5 seconds to reboot, so longer enough.
 	 */
 	dumped = timed = 0;
 	do {
@@ -102,10 +104,10 @@ static int nss_panic_handler(struct notifier_block *nb,
 			nss_warning("NSS FW dump completed\n");
 			break;
 		}
-	} while (timed++ < 30);
+	} while (timed++ < nss_top_main.num_nss * 2);
 
-	if (timed >= 30)
-		nss_warning("get %d FW dumped", dumped);
+	if (timed >= nss_top_main.num_nss * 2)
+		nss_warning("might get %d FW dumped", dumped);
 
 	return	NOTIFY_DONE;
 }
