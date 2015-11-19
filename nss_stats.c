@@ -1777,8 +1777,7 @@ static ssize_t nss_stats_gre_redir(char *line, int len, int i, struct nss_gre_re
 		tcnt = s->node_stats.rx_dropped;
 		break;
 	default:
-		i = 6;
-		break;
+		return 0;
 	}
 
 	return (snprintf(line, len, "%s = %llu\n", header[i], tcnt));

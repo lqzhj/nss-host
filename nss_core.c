@@ -128,7 +128,7 @@ uint32_t nss_core_register_handler(uint32_t interface, nss_core_rx_callback_t cb
 	/*
 	 * Validate interface id
 	 */
-	if (interface > NSS_MAX_NET_INTERFACES) {
+	if (interface >= NSS_MAX_NET_INTERFACES) {
 		printk("Error - Interface %d not Supported\n", interface);
 		return NSS_CORE_STATUS_FAILURE;
 	}
@@ -152,7 +152,7 @@ uint32_t nss_core_unregister_handler(uint32_t interface)
 	/*
 	 * Validate interface id
 	 */
-	if (interface > NSS_MAX_NET_INTERFACES) {
+	if (interface >= NSS_MAX_NET_INTERFACES) {
 		printk("Error - Interface %d not Supported\n", interface);
 		return NSS_CORE_STATUS_FAILURE;
 	}
@@ -207,7 +207,7 @@ void nss_core_handle_nss_status_pkt(struct nss_ctx_instance *nss_ctx, struct sk_
 	/*
 	 * Check for validity of interface number
 	 */
-	if (nss_if > NSS_MAX_NET_INTERFACES) {
+	if (nss_if >= NSS_MAX_NET_INTERFACES) {
 		nss_warning("%p: Message %d received with invalid interface number %d", nss_ctx, ncm->type, nss_if);
 		return;
 	}
