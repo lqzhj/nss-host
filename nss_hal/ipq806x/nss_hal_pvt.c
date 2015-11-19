@@ -877,7 +877,9 @@ static struct nss_platform_data *nss_hal_of_get_pdata(struct device_node *np,
 	}
 
 	if (of_property_read_u32(np, "qcom,ipv4_enabled", &npd->ipv4_enabled)
+	    || of_property_read_u32(np, "qcom,ipv4_reasm_enabled", &npd->ipv4_reasm_enabled)
 	    || of_property_read_u32(np, "qcom,ipv6_enabled", &npd->ipv6_enabled)
+	    || of_property_read_u32(np, "qcom,ipv6_reasm_enabled", &npd->ipv6_reasm_enabled)
 	    || of_property_read_u32(np, "qcom,l2switch_enabled", &npd->l2switch_enabled)
 	    || of_property_read_u32(np, "qcom,crypto_enabled", &npd->crypto_enabled)
 	    || of_property_read_u32(np, "qcom,ipsec_enabled", &npd->ipsec_enabled)
