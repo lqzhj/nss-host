@@ -26,6 +26,10 @@
 #include <net/route.h>
 #include <linux/if_pppox.h>
 
+#ifdef CONFIG_OF
+#include <linux/of.h>
+#endif
+
 #include <nss_api_if.h>
 #include <nss_dynamic_interface.h>
 #include "nss_connmgr_pptp.h"
@@ -539,11 +543,11 @@ struct notifier_block nss_connmgr_pptp_notifier = {
 int __init nss_connmgr_pptp_init_module(void)
 {
 #ifdef CONFIG_OF
-	 /*
-	* If the node is not compatible, don't do anything.
+	/*
+	 * If the node is not compatible, don't do anything.
 	 */
 	if (!of_find_node_by_name(NULL, "nss-common")) {
-	return 0;
+		return 0;
 	}
 #endif
 
@@ -562,7 +566,7 @@ void __exit nss_connmgr_pptp_exit_module(void)
 	 * If the node is not compatible, don't do anything.
 	 */
 	if (!of_find_node_by_name(NULL, "nss-common")) {
-		return 0;
+		return;
 	}
 #endif
 
