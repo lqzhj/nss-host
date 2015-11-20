@@ -519,7 +519,7 @@ static int nss_nlipsec_op_create_tunnel(struct sk_buff *skb, struct genl_info *i
 	struct nss_nlipsec_rule *nl_rule;
 	struct nss_nlcmn *nl_cm;
 	struct net_device *dev;
-	struct sk_buff *copy;
+	struct sk_buff *resp;
 	uint32_t pid;
 
 	/*
@@ -556,24 +556,33 @@ static int nss_nlipsec_op_create_tunnel(struct sk_buff *skb, struct genl_info *i
 	/*
 	 * Response message
 	 */
-	copy  = nss_nl_copy_msg(skb);
-	if (!copy) {
+	resp  = nss_nl_copy_msg(skb);
+	if (!resp) {
 		nss_nl_error("unable to copy incoming message\n");
 		goto free_dev;
 	}
+
+	/*
+	 * overload the nl_rule with the new response address
+	 */
+	nl_rule = nss_nl_get_data(resp);
+
+	/*
+	 * Init the command
+	 */
+	nss_nlipsec_rule_init(nl_rule, NSS_NLIPSEC_CMD_CREATE_TUNNEL);
 
 	/*
 	 * We need to send the  name to the user; copy
 	 * the tunnel I/F name into the same rule and send it
 	 * as part of the response for the create operation
 	 */
-	nl_rule = container_of(nl_cm, struct nss_nlipsec_rule, cm);
 	strncpy(nl_rule->ifname, dev->name, IFNAMSIZ);
 
 	/*
 	 * Send to userspace
 	 */
-	nss_nl_ucast_resp(copy);
+	nss_nl_ucast_resp(resp);
 
 	return 0;
 

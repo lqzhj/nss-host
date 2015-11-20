@@ -509,6 +509,13 @@ static void nss_nlipv4_process_resp(void *app_data, struct nss_ipv4_msg *nim)
 	nl_nim = &nl_rule->nim;
 
 	/*
+	 * clear NSS common message items that are not useful to uspace
+	 */
+	nim->cm.interface = 0;
+	nim->cm.cb = (uint32_t)NULL;
+	nim->cm.app_data = (uint32_t)NULL;
+
+	/*
 	 * copy the message response data into the NL message buffer. If, FW
 	 * has updated the message then we must updated the same into the NL
 	 * message as the NL message buffer is different from what was sent
