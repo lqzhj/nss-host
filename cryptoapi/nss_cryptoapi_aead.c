@@ -221,6 +221,12 @@ int nss_cryptoapi_sha1_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsign
 
 	nss_cryptoapi_debugfs_add_session(sc, ctx);
 
+	/*
+	 * Initialize IV for this session
+	 */
+	get_random_bytes(ctx->ctx_iv, AES_BLOCK_SIZE);
+
+
 	nss_cfi_info("session id created: %d\n", ctx->sid);
 
 	ctx->cip_alg = NSS_CRYPTO_CIPHER_AES;
@@ -299,6 +305,11 @@ int nss_cryptoapi_sha256_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsi
 
 	nss_cryptoapi_debugfs_add_session(sc, ctx);
 
+	/*
+	 * Initialize IV for this session
+	 */
+	get_random_bytes(ctx->ctx_iv, AES_BLOCK_SIZE);
+
 	nss_cfi_info("session id created: %d\n", ctx->sid);
 
 	ctx->cip_alg = NSS_CRYPTO_CIPHER_AES;
@@ -376,6 +387,11 @@ int nss_cryptoapi_sha1_3des_setkey(struct crypto_aead *tfm, const u8 *key, unsig
 
 	nss_cryptoapi_debugfs_add_session(sc, ctx);
 
+	/*
+	 * Initialize IV for this session
+	 */
+	get_random_bytes(ctx->ctx_iv, DES3_EDE_BLOCK_SIZE);
+
 	nss_cfi_info("session id created: %d\n", ctx->sid);
 
 	ctx->cip_alg = NSS_CRYPTO_CIPHER_DES;
@@ -452,6 +468,11 @@ int nss_cryptoapi_sha256_3des_setkey(struct crypto_aead *tfm, const u8 *key, uns
 	}
 
 	nss_cryptoapi_debugfs_add_session(sc, ctx);
+
+	/*
+	 * Initialize IV for this session
+	 */
+	get_random_bytes(ctx->ctx_iv, DES3_EDE_BLOCK_SIZE);
 
 	nss_cfi_info("session id created: %d\n", ctx->sid);
 
@@ -1313,7 +1334,8 @@ int nss_cryptoapi_sha1_aes_geniv_encrypt(struct aead_givcrypt_request *req)
 	/*
 	 * fill in iv.
 	 */
-	get_random_bytes(req->giv, AES_BLOCK_SIZE);
+	memcpy(req->giv, ctx->ctx_iv, AES_BLOCK_SIZE);
+	*(__be64 *)req->giv ^= cpu_to_be64(req->seq);
 
 	info.iv = req->giv;
 	info.params = &params;
@@ -1381,7 +1403,8 @@ int nss_cryptoapi_sha256_aes_geniv_encrypt(struct aead_givcrypt_request *req)
 	/*
 	 * fill in iv.
 	 */
-	get_random_bytes(req->giv, AES_BLOCK_SIZE);
+	memcpy(req->giv, ctx->ctx_iv, AES_BLOCK_SIZE);
+	*(__be64 *)req->giv ^= cpu_to_be64(req->seq);
 
 	info.iv = req->giv;
 	info.params = &params;
@@ -1449,7 +1472,8 @@ int nss_cryptoapi_sha1_3des_geniv_encrypt(struct aead_givcrypt_request *req)
 	/*
 	 * fill in iv.
 	 */
-	get_random_bytes(req->giv, DES3_EDE_BLOCK_SIZE);
+	memcpy(req->giv, ctx->ctx_iv, DES3_EDE_BLOCK_SIZE);
+	*(__be64 *)req->giv ^= cpu_to_be64(req->seq);
 
 	info.iv = req->giv;
 	info.params = &params;
@@ -1517,7 +1541,8 @@ int nss_cryptoapi_sha256_3des_geniv_encrypt(struct aead_givcrypt_request *req)
 	/*
 	 * fill in iv.
 	 */
-	get_random_bytes(req->giv, DES3_EDE_BLOCK_SIZE);
+	memcpy(req->giv, ctx->ctx_iv, DES3_EDE_BLOCK_SIZE);
+	*(__be64 *)req->giv ^= cpu_to_be64(req->seq);
 
 	info.iv = req->giv;
 	info.params = &params;

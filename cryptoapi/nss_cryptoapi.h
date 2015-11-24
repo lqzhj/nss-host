@@ -16,6 +16,9 @@
  *
  */
 
+#ifndef __NSS_CRYPTOAPI_H
+#define __NSS_CRYPTOAPI_H
+
 /**
  * nss_cryptoapi.h
  * 	Cryptoapi (Linux Crypto API framework) specific nss cfi header file
@@ -54,6 +57,7 @@ struct nss_cryptoapi_ctx {
 	struct dentry *session_dentry;
 	atomic_t refcnt;
 	uint16_t magic;
+	uint8_t ctx_iv[AES_BLOCK_SIZE];
 	uint16_t rsvd;
 };
 
@@ -167,4 +171,5 @@ int nss_cryptoapi_aes_cbc_decrypt(struct ablkcipher_request *req);
 int nss_cryptoapi_3des_cbc_encrypt(struct ablkcipher_request *req);
 int nss_cryptoapi_3des_cbc_decrypt(struct ablkcipher_request *req);
 
+#endif /* __NSS_CRYPTOAPI_H */
 
