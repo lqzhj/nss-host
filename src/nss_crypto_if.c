@@ -49,6 +49,11 @@ struct nss_crypto_buf_node {
 	uint8_t results[NSS_CRYPTO_RESULTS_SZ] __attribute__((aligned(L1_CACHE_BYTES)));
 };
 
+#define NSS_CRYPTO_BUF_MAP_LEN \
+	(offsetof(struct nss_crypto_buf_node, results) - offsetof(struct nss_crypto_buf_node, buf))
+
+#define NSS_CRYPTO_RESULTS_MAP_LEN L1_CACHE_BYTES
+
 /*
  * users of crypto driver
  */
@@ -84,8 +89,7 @@ static inline void nss_crypto_buf_init(struct nss_crypto_buf *buf)
 	BUG_ON(((uint32_t)entry->results % L1_CACHE_BYTES));
 
 	buf->origin = NSS_CRYPTO_BUF_ORIGIN_HOST;
-	buf->iv_addr = (uint32_t)entry->results;
-	buf->hash_addr = (uint32_t) entry->results;
+	buf->hash_addr = buf->iv_addr = virt_to_phys(entry->results);
 }
 
 void nss_crypto_user_attach_all(struct nss_crypto_ctrl *ctrl)
@@ -307,10 +311,13 @@ void nss_crypto_transform_done(void *app_data __attribute((unused)), void *buffe
 	struct nss_crypto_buf *buf = (struct nss_crypto_buf *)buffer;
 	struct nss_crypto_buf_node *entry;
 
-	dma_unmap_single(NULL, paddr, sizeof(struct nss_crypto_buf), DMA_FROM_DEVICE);
-	dma_unmap_single(NULL, buf->data_in, buf->data_len, DMA_FROM_DEVICE);
-	dma_unmap_single(NULL, buf->data_out, buf->data_len, DMA_FROM_DEVICE);
-	dma_unmap_single(NULL, buf->hash_addr, L1_CACHE_BYTES, DMA_BIDIRECTIONAL);
+	dma_unmap_single(NULL, paddr,  NSS_CRYPTO_BUF_MAP_LEN + NSS_CRYPTO_RESULTS_MAP_LEN, DMA_BIDIRECTIONAL);
+	if (likely(buf->data_in == buf->data_out)) {
+		dma_unmap_single(NULL, buf->data_in, buf->data_len, DMA_BIDIRECTIONAL);
+	} else {
+		dma_unmap_single(NULL, buf->data_in, buf->data_len, DMA_TO_DEVICE);
+		dma_unmap_single(NULL, buf->data_out, buf->data_len, DMA_FROM_DEVICE);
+	}
 
 	entry = container_of(buf, struct nss_crypto_buf_node, buf);
 	buf->iv_addr = 0;
@@ -433,26 +440,19 @@ nss_crypto_status_t nss_crypto_transform_payload(nss_crypto_handle_t crypto, str
 	paddr = dma_map_single(NULL, vaddr, len, DMA_TO_DEVICE);
 	buf->data_in = paddr;
 
-	/*
-	 * map data OUT address
-	 */
-	vaddr = (void *)buf->data_out;
-	len = buf->data_len;
-	paddr = dma_map_single(NULL, vaddr, len, DMA_FROM_DEVICE);
-	buf->data_out = paddr;
+	if (vaddr == (void *)buf->data_out) {
+		buf->data_out = buf->data_in;
+	} else {
+		/*
+		 * map data OUT address
+		 */
+		vaddr = (void *)buf->data_out;
+		len = buf->data_len;
+		paddr = dma_map_single(NULL, vaddr, len, DMA_FROM_DEVICE);
+		buf->data_out = paddr;
+	}
 
-	/*
-	 * map IV & Hash address
-	 */
-	vaddr = entry->results;
-	len = L1_CACHE_BYTES; /* flush 1 cache line */
-	paddr = dma_map_single(NULL, vaddr, len, DMA_BIDIRECTIONAL);
-	buf->iv_addr = buf->hash_addr = paddr;
-
-	/*
-	 * map buffer
-	 */
-	paddr = dma_map_single(NULL, buf, sizeof(struct nss_crypto_buf), DMA_TO_DEVICE);
+	paddr = dma_map_single(NULL, buf, NSS_CRYPTO_BUF_MAP_LEN + NSS_CRYPTO_RESULTS_MAP_LEN, DMA_BIDIRECTIONAL);
 
 	nss_status = nss_crypto_tx_buf(nss_drv_hdl, buf, paddr, sizeof(struct nss_crypto_buf));
 	if (nss_status != NSS_TX_SUCCESS) {
@@ -606,4 +606,28 @@ void nss_crypto_send_session_update(uint32_t session_idx, enum nss_crypto_sessio
 	 */
 	nss_crypto_tx_msg(nss_drv_hdl, &nim);
 }
+
+/**
+ * @brief crypto buf get api for IV address
+ */
+uint8_t *nss_crypto_get_ivaddr(struct nss_crypto_buf *buf)
+{
+	struct nss_crypto_buf_node *entry;
+
+	entry = container_of(buf, struct nss_crypto_buf_node, buf);
+	return (uint8_t *)entry->results;
+}
+EXPORT_SYMBOL(nss_crypto_get_ivaddr);
+
+/**
+ * @brief crypto buf get api for hash address
+ */
+uint8_t *nss_crypto_get_hash_addr(struct nss_crypto_buf *buf)
+{
+	struct nss_crypto_buf_node *entry;
+
+	entry = container_of(buf, struct nss_crypto_buf_node, buf);
+	return (uint8_t *)entry->results;
+}
+EXPORT_SYMBOL(nss_crypto_get_hash_addr);
 
