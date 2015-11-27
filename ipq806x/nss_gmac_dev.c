@@ -1372,7 +1372,7 @@ out:
 	 * Otherwise the link speed must have been forced, so
 	 * print the GMAC (xMII) forced speed
 	 */
-	if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags)) {
+	if (test_bit(__NSS_GMAC_LINKPOLL, &gmacdev->flags) && phydev) {
 		phy_link_speed = phydev->speed;
 		phy_link_duplex = phydev->duplex;
 	} else {
