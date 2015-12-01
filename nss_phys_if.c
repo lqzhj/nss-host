@@ -482,7 +482,7 @@ void nss_phys_if_register_handler(uint32_t if_num)
  * nss_phys_if_open()
  *	Send open command to physical interface
  */
-nss_tx_status_t nss_phys_if_open(struct nss_ctx_instance *nss_ctx, uint32_t tx_desc_ring, uint32_t rx_desc_ring, uint32_t mode, uint32_t if_num)
+nss_tx_status_t nss_phys_if_open(struct nss_ctx_instance *nss_ctx, uint32_t tx_desc_ring, uint32_t rx_desc_ring, uint32_t mode, uint32_t if_num, uint32_t bypass_nw_process)
 {
 	struct nss_phys_if_msg nim;
 	struct nss_if_open *nio;
@@ -496,6 +496,7 @@ nss_tx_status_t nss_phys_if_open(struct nss_ctx_instance *nss_ctx, uint32_t tx_d
 	nio = &nim.msg.if_msg.open;
 	nio->tx_desc_ring = tx_desc_ring;
 	nio->rx_desc_ring = rx_desc_ring;
+
 	if (mode == NSS_GMAC_MODE0) {
 		nio->rx_forward_if = NSS_ETH_RX_INTERFACE;
 		nio->alignment_mode = NSS_IF_DATA_ALIGN_2BYTE;
@@ -508,6 +509,15 @@ nss_tx_status_t nss_phys_if_open(struct nss_ctx_instance *nss_ctx, uint32_t tx_d
 	} else {
 		nss_info("%p: Phys If Open, unknown mode %d\n", nss_ctx, mode);
 		return NSS_GMAC_FAILURE;
+	}
+
+	/*
+	 * If Network processing in NSS is bypassed
+	 * update next hop and alignment accordingly
+	 */
+	if (bypass_nw_process) {
+		nio->rx_forward_if = NSS_N2H_INTERFACE;
+		nio->alignment_mode = NSS_IF_DATA_ALIGN_2BYTE;
 	}
 
 	return nss_phys_if_msg_sync(nss_ctx, &nim);
