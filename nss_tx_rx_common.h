@@ -198,7 +198,8 @@ extern void nss_gre_redir_register_handler(void);
 extern void nss_lso_rx_register_handler(void);
 extern void nss_sjack_register_handler(void);
 extern void nss_wifi_register_handler(void);
-extern void nss_tstamp_register_handler(void);
+extern struct net_device *nss_tstamp_register_netdev(void);
+extern void nss_tstamp_register_handler(struct net_device *ndev);
 extern void nss_portid_register_handler(void);
 
 /*
