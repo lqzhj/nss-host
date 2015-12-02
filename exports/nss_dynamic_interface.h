@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, 2015 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -41,6 +41,7 @@ enum nss_dynamic_interface_type {
 	NSS_DYNAMIC_INTERFACE_TYPE_L2TPV2,		/* L2TPV2 Interface Type */
 	NSS_DYNAMIC_INTERFACE_TYPE_PPTP,		/* PPTP VPN Interface Type */
 	NSS_DYNAMIC_INTERFACE_TYPE_PORTID,		/* PortID Interface Type */
+	NSS_DYNAMIC_INTERFACE_TYPE_DTLS,                /* DTLS Interface Type */
 	NSS_DYNAMIC_INTERFACE_TYPE_MAX
 };
 

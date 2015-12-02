@@ -61,6 +61,7 @@
 #include "nss_wifi_if.h"
 #include "nss_portid.h"
 #include "nss_oam.h"
+#include "nss_dtls.h"
 
 /*
  * Interface numbers are reserved in the
@@ -118,7 +119,7 @@
 #define NSS_IPV6_RX_INTERFACE (NSS_SPECIAL_IF_START + 7) /* Special IF number for IPv6 */
 #define NSS_PROFILER_INTERFACE (NSS_SPECIAL_IF_START + 8) /* Special IF number for profile */
 #define NSS_CRYPTO_INTERFACE (NSS_SPECIAL_IF_START + 9) /* Special IF number for Crypto */
-#define NSS_RESERVED_INTERFACE1 (NSS_SPECIAL_IF_START + 10) /* Reserved Interface 1 */
+#define NSS_DTLS_INTERFACE (NSS_SPECIAL_IF_START + 10) /* Special IF number for DTLS */
 #define NSS_RESERVED_INTERFACE2 (NSS_SPECIAL_IF_START + 11) /* Reserved Interface 2 */
 #define NSS_C2C_TX_INTERFACE (NSS_SPECIAL_IF_START + 12) /* Virtual Interface Number for IPSec Tunnel */
 #define NSS_IPSEC_RULE_INTERFACE (NSS_SPECIAL_IF_START + 18) /* Virtual Interface Number for IPSec rule */

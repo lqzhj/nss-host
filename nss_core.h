@@ -731,6 +731,7 @@ struct nss_top_instance {
 	struct dentry *pppoe_dentry;	/* PPPOE stats dentry */
 	struct dentry *pptp_dentry;	/* PPTP  stats dentry */
 	struct dentry *l2tpv2_dentry;	/* L2TPV2  stats dentry */
+	struct dentry *dtls_dentry;     /* DTLS stats dentry */
 	struct dentry *gmac_dentry;	/* GMAC ethnode stats dentry */
 	struct dentry *capwap_decap_dentry;     /* CAPWAP decap ethnode stats dentry */
 	struct dentry *capwap_encap_dentry;     /* CAPWAP encap ethnode stats dentry */
@@ -763,6 +764,7 @@ struct nss_top_instance {
 	uint8_t wifi_handler_id;
 	uint8_t pptp_handler_id;
 	uint8_t l2tpv2_handler_id;
+	uint8_t dtls_handler_id;
 	uint8_t tunipip6_handler_id;
 	uint8_t frequency_handler_id;
 	uint8_t sjack_handler_id;
@@ -801,6 +803,7 @@ struct nss_top_instance {
 					/* wifi interface event callback function */
 	nss_l2tpv2_msg_callback_t l2tpv2_msg_callback;
 					/* l2tP tunnel interface event callback function */
+	nss_dtls_msg_callback_t dtls_msg_callback; /* dtls interface event callback */
 	nss_tunipip6_msg_callback_t tunipip6_msg_callback;
 					/* ipip6 tunnel interface event callback function */
 	nss_pptp_msg_callback_t pptp_msg_callback;
@@ -1004,6 +1007,7 @@ struct nss_platform_data {
 	enum nss_feature_enabled tun6rd_enabled;	/* Does this core handle 6rd Tunnel ? */
 	enum nss_feature_enabled pptp_enabled;		/* Does this core handle pptp Tunnel ? */
 	enum nss_feature_enabled l2tpv2_enabled;	/* Does this core handle l2tpv2 Tunnel ? */
+	enum nss_feature_enabled dtls_enabled;		/* Does this core handle DTLS sessions ? */
 	enum nss_feature_enabled tunipip6_enabled;	/* Does this core handle ipip6 Tunnel ? */
 	enum nss_feature_enabled gre_redir_enabled;	/* Does this core handle gre_redir Tunnel ? */
 	enum nss_feature_enabled shaping_enabled;	/* Does this core handle shaping ? */

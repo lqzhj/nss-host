@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -23,6 +23,13 @@
 #define __NSS_CMN_H
 
 struct nss_ctx_instance;
+
+/*
+ * The first 8 bits of an interfaces number is
+ * representing the core_id, 0 means local core
+ */
+#define NSS_CORE_ID_SHIFT 24
+#define NSS_INTERFACE_NUM_APPEND_COREID(nss_ctx, interface) ((interface) | ((nss_ctx->id + 1) << NSS_CORE_ID_SHIFT))
 
 /**
  * Common enumerations

@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013,2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2015-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -887,6 +887,7 @@ static struct nss_platform_data *nss_hal_of_get_pdata(struct device_node *np,
 	of_property_read_u32(np, "qcom,shaping_enabled", &npd->shaping_enabled);
 	of_property_read_u32(np, "qcom,wlan_dataplane_offload_enabled", &npd->wifioffload_enabled);
 	of_property_read_u32(np, "qcom,portid_enabled", &npd->portid_enabled);
+	of_property_read_u32(np, "qcom,dtls_enabled", &npd->dtls_enabled);
 
 	return npd;
 
@@ -1428,6 +1429,12 @@ clk_complete:
 	if (npd->l2tpv2_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->l2tpv2_handler_id = nss_dev->id;
 		nss_l2tpv2_register_handler();
+	}
+
+	if (npd->dtls_enabled == NSS_FEATURE_ENABLED) {
+		nss_top->dtls_handler_id = nss_dev->id;
+		nss_top->dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_DTLS] = nss_dev->id;
+		nss_dtls_register_handler();
 	}
 
 	if (npd->tunipip6_enabled == NSS_FEATURE_ENABLED) {

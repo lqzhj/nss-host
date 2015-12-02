@@ -21,6 +21,7 @@
  */
 
 #include "nss_core.h"
+#include "nss_dtls_stats.h"
 
 /*
  * Maximum string length:
@@ -414,6 +415,46 @@ static int8_t *nss_stats_str_wifi[NSS_STATS_WIFI_MAX] = {
  */
 static int8_t *nss_stats_str_portid[NSS_STATS_PORTID_MAX] = {
 	"RX_INVALID_HEADER",
+};
+
+/*
+ * nss_stats_str_dtls_session_stats
+ *	DTLS statistics strings for nss session stats
+ */
+static int8_t *nss_stats_str_dtls_session_debug_stats[NSS_STATS_DTLS_SESSION_MAX] = {
+	"RX_PKTS",
+	"TX_PKTS",
+	"RX_DROPPED",
+	"RX_AUTH_DONE",
+	"TX_AUTH_DONE",
+	"RX_CIPHER_DONE",
+	"TX_CIPHER_DONE",
+	"RX_CBUF_ALLOC_FAIL",
+	"TX_CBUF_ALLOC_FAIL",
+	"TX_CENQUEUE_FAIL",
+	"RX_CENQUEUE_FAIL",
+	"TX_DROPPED_HROOM",
+	"TX_DROPPED_TROOM",
+	"TX_FORWARD_ENQUEUE_FAIL",
+	"RX_FORWARD_ENQUEUE_FAIL",
+	"RX_INVALID_VERSION",
+	"RX_INVALID_EPOCH",
+	"RX_MALFORMED",
+	"RX_CIPHER_FAIL",
+	"RX_AUTH_FAIL",
+	"RX_CAPWAP_CLASSIFY_FAIL",
+	"RX_SINGLE_REC_DGRAM",
+	"RX_MULTI_REC_DGRAM",
+	"RX_REPLAY_FAIL",
+	"RX_REPLAY_DUPLICATE",
+	"RX_REPLAY_OUT_OF_WINDOW",
+	"OUTFLOW_QUEUE_FULL",
+	"DECAP_QUEUE_FULL",
+	"PBUF_ALLOC_FAIL",
+	"PBUF_COPY_FAIL",
+	"EPOCH",
+	"TX_SEQ_HIGH",
+	"TX_SEQ_LOW",
 };
 
 /*
@@ -1265,6 +1306,84 @@ static ssize_t nss_stats_wifi_read(struct file *fp, char __user *ubuf, size_t sz
 
 	return bytes_read;
 }
+
+/*
+ * nss_stats_dtls_read()
+ * 	Read DTLS session statistics
+ */
+static ssize_t nss_stats_dtls_read(struct file *fp, char __user *ubuf,
+				   size_t sz, loff_t *ppos)
+{
+	uint32_t max_output_lines = 2 + (NSS_MAX_DTLS_SESSIONS
+					* (NSS_STATS_DTLS_SESSION_MAX + 2)) + 2;
+	size_t size_al = NSS_STATS_MAX_STR_LENGTH * max_output_lines;
+	size_t size_wr = 0;
+	ssize_t bytes_read = 0;
+	struct net_device *dev;
+	int id, i;
+	struct nss_stats_dtls_session_debug *dtls_session_stats = NULL;
+
+	char *lbuf = kzalloc(size_al, GFP_KERNEL);
+	if (unlikely(lbuf == NULL)) {
+		nss_warning("Could not allocate memory for local statistics buffer");
+		return 0;
+	}
+
+	dtls_session_stats = kzalloc((sizeof(struct nss_stats_dtls_session_debug)
+				     * NSS_MAX_DTLS_SESSIONS), GFP_KERNEL);
+	if (unlikely(dtls_session_stats == NULL)) {
+		nss_warning("Could not allocate memory for populating DTLS stats");
+		kfree(lbuf);
+		return 0;
+	}
+
+	/*
+	 * Get all stats
+	 */
+	nss_dtls_session_debug_stats_get(dtls_session_stats);
+
+	/*
+	 * Session stats
+	 */
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+			     "\nDTLS session stats start:\n\n");
+
+	for (id = 0; id < NSS_MAX_DTLS_SESSIONS; id++) {
+		if (!dtls_session_stats[id].valid)
+			break;
+
+		dev = dev_get_by_index(&init_net, dtls_session_stats[id].if_index);
+		if (likely(dev)) {
+			size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+					     "%d. nss interface id=%d, netdevice=%s\n",
+					     id, dtls_session_stats[id].if_num,
+					     dev->name);
+			dev_put(dev);
+		} else {
+			size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+					     "%d. nss interface id=%d\n", id,
+					     dtls_session_stats[id].if_num);
+		}
+
+		for (i = 0; i < NSS_STATS_DTLS_SESSION_MAX; i++) {
+			size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+					     "\t%s = %llu\n",
+					     nss_stats_str_dtls_session_debug_stats[i],
+					     dtls_session_stats[id].stats[i]);
+		}
+
+		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\n");
+	}
+
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+			     "\nDTLS session stats end\n");
+	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, size_wr);
+
+	kfree(dtls_session_stats);
+	kfree(lbuf);
+	return bytes_read;
+}
+
 
 /*
  * nss_stats_l2tpv2_read()
@@ -2233,6 +2352,11 @@ NSS_STATS_DECLARE_FILE_OPERATIONS(tx_rx_virt_if)
 NSS_STATS_DECLARE_FILE_OPERATIONS(wifi)
 
 /*
+ * dtls_stats_ops
+ */
+NSS_STATS_DECLARE_FILE_OPERATIONS(dtls)
+
+/*
  * nss_stats_init()
  * 	Enable NSS statistics
  */
@@ -2465,6 +2589,17 @@ void nss_stats_init(void)
 						nss_top_main.stats_dentry, &nss_top_main, &nss_stats_pptp_ops);
 	if (unlikely(nss_top_main.pptp_dentry == NULL)) {
 		nss_warning("Failed to create qca-nss-drv/stats/pptp file in debugfs");
+	}
+
+	/*
+	 *  DTLS Stats
+	 */
+	nss_top_main.dtls_dentry = debugfs_create_file("dtls", 0400,
+							nss_top_main.stats_dentry,
+							&nss_top_main,
+							&nss_stats_dtls_ops);
+	if (unlikely(nss_top_main.dtls_dentry == NULL)) {
+		nss_warning("Failed to create qca-nss-drv/stats/dtls file in debugfs");
 		return;
 	}
 
