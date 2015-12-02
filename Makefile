@@ -6,6 +6,11 @@ obj-y+= profiler/
 obj-y+= nss_qdisc/
 obj-y+= ipsecmgr/
 
+# DTLS manager
+ifneq ($(findstring 3.4, $(KERNELVERSION)),)
+obj-y+=dtls/
+endif
+
 # CAPWAP Manager
 ifneq ($(findstring 3.4, $(KERNELVERSION)),)
 obj-y+= capwapmgr/
