@@ -212,8 +212,10 @@ struct nss_wifi_stop_msg {
  * wifi pktlog cfg message
  */
 struct nss_wifi_pktlog_cfg_msg {
-	uint32_t enable;			/**< enable/disable*/
+	uint32_t enable;			/**< enable/disable */
 	uint32_t bufsize;			/**< pkt log buffer size */
+	uint32_t hdrsize;			/**< pktlog header size */
+	uint32_t msdu_id_offset;		/**< offset for msdu id in msg */
 };
 
 /**
@@ -221,6 +223,19 @@ struct nss_wifi_pktlog_cfg_msg {
  */
 struct nss_wifi_enable_perpkt_txstats_msg {
 	uint32_t perpkt_txstats_flag;		/**< flag to enable/disable txstats */
+};
+
+/**
+ * wifi pktlog metadata info
+ */
+struct nss_wifi_pl_metadata {
+	uint32_t len;				/**< length of single buffer in msdu */
+	uint32_t msdu_len;			/**< total msdu length */
+	uint16_t da_tail;			/**< dest address tail bytes */
+	uint16_t sa_tail;			/**< source address tail bytes */
+	uint8_t vdev_id;			/**< vdev id */
+	uint8_t res1;				/**< reserved 1 */
+	uint16_t res2;				/**< reserved 2 */
 };
 
 /**
