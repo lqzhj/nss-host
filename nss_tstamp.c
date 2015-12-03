@@ -126,22 +126,17 @@ static void nss_tstamp_buf_receive(struct net_device *ndev, struct sk_buff *skb,
 }
 
 /*
- * nss_tstamp_register_handler()
+ * nss_tstamp_register_netdev()
  */
-void nss_tstamp_register_handler(void)
+struct net_device *nss_tstamp_register_netdev(void)
 {
 	struct net_device *ndev;
 	uint32_t err = 0;
-	uint32_t features = 0;
 
-	struct nss_ctx_instance *nss_ctx;
-
-	nss_ctx = &nss_top_main.nss[nss_top_main.tstamp_handler_id];
-	ndev = alloc_netdev(sizeof(struct netdev_priv_instance),
-			"qca-nss-tstamp", nss_tstamp_ndev_setup);
+	ndev = alloc_netdev(sizeof(struct netdev_priv_instance), "qca-nss-tstamp", nss_tstamp_ndev_setup);
 	if (!ndev) {
 		nss_warning("Tstamp: Could not allocate tstamp net_device ");
-		return;
+		return NULL;
 	}
 
 	ndev->netdev_ops = &nss_tstamp_ndev_ops;
@@ -150,9 +145,21 @@ void nss_tstamp_register_handler(void)
 	if (err) {
 		nss_warning("Tstamp: Could not register tstamp net_device ");
 		free_netdev(ndev);
-		return;
+		return NULL;
 	}
 
+	return ndev;
+}
+
+/*
+ * nss_tstamp_register_handler()
+ */
+void nss_tstamp_register_handler(struct net_device *ndev)
+{
+	uint32_t features = 0;
+	struct nss_ctx_instance *nss_ctx;
+
+	nss_ctx = &nss_top_main.nss[nss_top_main.tstamp_handler_id];
 	nss_ctx->nss_top->subsys_dp_register[NSS_TSTAMP_INTERFACE].cb = nss_tstamp_buf_receive;
 	nss_ctx->nss_top->subsys_dp_register[NSS_TSTAMP_INTERFACE].app_data = NULL;
 	nss_ctx->nss_top->subsys_dp_register[NSS_TSTAMP_INTERFACE].ndev = ndev;

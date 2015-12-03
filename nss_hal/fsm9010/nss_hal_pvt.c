@@ -275,6 +275,7 @@ int nss_hal_probe(struct platform_device *nss_dev)
 	struct nss_ctx_instance *nss_ctx = NULL;
 	struct nss_platform_data *npd = NULL;
 	struct netdev_priv_instance *ndev_priv;
+	struct net_device *tstamp_ndev = NULL;
 	int i, err = 0;
 
 	struct device_node *np = NULL;
@@ -422,6 +423,17 @@ int nss_hal_probe(struct platform_device *nss_dev)
 		nss_ctx->int_ctx[1].napi_active = true;
 	}
 
+	/*
+	 * Allocate tstamp net_device and register the net_device
+	 */
+	if (npd->tstamp_enabled == NSS_FEATURE_ENABLED) {
+		tstamp_ndev = nss_tstamp_register_netdev();
+		if (!tstamp_ndev) {
+			nss_warning("%p: Unable to register the TSTAMP net_device", nss_ctx);
+			npd->tstamp_enabled = NSS_FEATURE_NOT_ENABLED;
+		}
+	}
+
 	spin_lock_bh(&(nss_top->lock));
 
 	/*
@@ -434,7 +446,7 @@ int nss_hal_probe(struct platform_device *nss_dev)
 
 	if (npd->tstamp_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->tstamp_handler_id = nss_dev->id;
-		nss_tstamp_register_handler();
+		nss_tstamp_register_handler(tstamp_ndev);
 	}
 
 	if (npd->ipv4_enabled == NSS_FEATURE_ENABLED) {
