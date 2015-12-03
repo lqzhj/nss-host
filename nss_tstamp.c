@@ -76,7 +76,7 @@ static void nss_tstamp_buf_receive(struct net_device *ndev, struct sk_buff *skb,
 {
 	struct nss_tstamp_data *ntm = (struct nss_tstamp_data *)skb->data;
 	struct nss_ctx_instance *nss_ctx;
-	struct net_device *gmac_ndev;
+	struct net_device *dev;
 	uint32_t tstamp_sz;
 
 	BUG_ON(!ntm);
@@ -87,14 +87,14 @@ static void nss_tstamp_buf_receive(struct net_device *ndev, struct sk_buff *skb,
 
 	skb_pull(skb, tstamp_sz);
 
-	gmac_ndev = nss_cmn_get_interface_dev(nss_ctx, ntm->ts_ifnum);
-	if (!gmac_ndev) {
+	dev = nss_cmn_get_interface_dev(nss_ctx, ntm->ts_ifnum);
+	if (!dev) {
 		nss_warning("Tstamp: Invalid net device\n");
 		dev_kfree_skb_any(skb);
 		return;
 	}
 
-	skb->dev = gmac_ndev;
+	skb->dev = dev;
 
 	/*
 	 * copy the time stamp and convert into ktime_t
@@ -117,7 +117,27 @@ static void nss_tstamp_buf_receive(struct net_device *ndev, struct sk_buff *skb,
 	/*
 	 * We are in RX Path
 	 */
-	skb->protocol = eth_type_trans(skb, gmac_ndev);
+	switch(dev->type) {
+	case NSS_IPSEC_ARPHRD_IPSEC:
+		/*
+		 * It seems like the data came over IPsec, hence indicate
+		 * it to the Linux over this interface
+		 */
+		skb_reset_network_header(skb);
+		skb_reset_mac_header(skb);
+
+		skb->pkt_type = PACKET_HOST;
+		skb->protocol = cpu_to_be16(ETH_P_IP);
+		skb->skb_iif = dev->ifindex;
+		break;
+
+	default:
+		/*
+		 * This is a plain non-encrypted data packet.
+		 */
+		skb->protocol = eth_type_trans(skb, dev);
+		break;
+	}
 
 	netif_receive_skb(skb);
 
