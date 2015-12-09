@@ -19,6 +19,10 @@
  *	NSS generic APIs
  */
 
+#if (NSS_DT_SUPPORT == 1)
+#include <linux/of.h>
+#endif
+
 #include "nss_tx_rx_common.h"
 
 /*
@@ -198,6 +202,30 @@ nss_cb_unregister_status_t nss_cmn_unregister_queue_decongestion(struct nss_ctx_
 	return NSS_CB_UNREGISTER_FAILED;
 }
 
+/*
+ * nss_cmn_get_nss_enabled()
+ * 	Check if NSS mode is supported on platform
+ *
+ * This API checks the device tree parameter to decide on whether
+ * NSS mode is enabled. On older kernels this will always return true
+ */
+bool nss_cmn_get_nss_enabled(void)
+{
+#if (NSS_DT_SUPPORT == 1)
+	struct device_node *cmn = NULL;
+
+	/*
+	 * Get reference to NSS common device node
+	 */
+	cmn = of_find_node_by_name(NULL, "nss-common");
+	if (!cmn) {
+		nss_info_always("nss is not enabled on this platform\n");
+		return false;
+	}
+#endif
+	return true;
+}
+
 EXPORT_SYMBOL(nss_cmn_get_interface_number);
 EXPORT_SYMBOL(nss_cmn_get_interface_dev);
 EXPORT_SYMBOL(nss_cmn_get_state);
@@ -207,4 +235,5 @@ EXPORT_SYMBOL(nss_cmn_get_interface_number_by_dev);
 
 EXPORT_SYMBOL(nss_cmn_register_queue_decongestion);
 EXPORT_SYMBOL(nss_cmn_unregister_queue_decongestion);
+EXPORT_SYMBOL(nss_cmn_get_nss_enabled);
 
