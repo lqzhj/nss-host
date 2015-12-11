@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -341,6 +341,30 @@ int32_t nss_gmac_get_phy_profile(void)
 #endif
 
 /**
+ * @brief PCS Reset
+ *
+ * @param[in] nss_gmac_global_ctx *
+ * @return void
+ */
+static void nss_gmac_clk_ctl_pcs_reset(struct nss_gmac_global_ctx *ctx)
+{
+	uint32_t val;
+
+	/* Apply reset to PCS and release */
+	nss_gmac_write_reg((uint32_t *)(ctx->clk_ctl_base),
+					NSS_RESET_SPARE, 0x3FFFFFF);
+	udelay(100);
+	nss_gmac_write_reg((uint32_t *)(ctx->clk_ctl_base),
+					NSS_RESET_SPARE, 0x0);
+
+	val = nss_gmac_read_reg((uint32_t *)(ctx->clk_ctl_base),
+							NSS_RESET_SPARE);
+	pr_debug("%s: qsgmii_base(0x%x) + NSS_RESET_SPARE(0x%x): 0x%x\n",
+					__func__, (uint32_t)(ctx->clk_ctl_base),
+					(uint32_t)NSS_RESET_SPARE, val);
+}
+
+/**
  * @brief QSGMII common init
  *
  * @param[in] nss_gmac_dev *
@@ -408,18 +432,10 @@ out:
 	nss_gmac_set_reg_bits(qsgmii_base, PCS_MODE_CTL,
 						PCS_MODE_CTL_SGMII_MAC);
 
-	/* Apply reset to PCS and release */
-	nss_gmac_write_reg((uint32_t *)(ctx->clk_ctl_base),
-					NSS_RESET_SPARE, 0x3FFFFFF);
-	udelay(100);
-	nss_gmac_write_reg((uint32_t *)(ctx->clk_ctl_base),
-					NSS_RESET_SPARE, 0x0);
-
-	val = nss_gmac_read_reg((uint32_t *)(ctx->clk_ctl_base),
-							NSS_RESET_SPARE);
-	pr_debug("%s: qsgmii_base(0x%x) + NSS_RESET_SPARE(0x%x): 0x%x\n",
-					__func__, (uint32_t)(ctx->clk_ctl_base),
-					(uint32_t)NSS_RESET_SPARE, val);
+	/* Apply PCS reset if needed in host driver for this platform */
+	if (ctx->msm_clk_ctl_enabled) {
+		nss_gmac_clk_ctl_pcs_reset(ctx);
+	}
 
 	/* signal detect and channel enable */
 	nss_gmac_write_reg(qsgmii_base,
@@ -442,6 +458,36 @@ out:
 
 }
 
+/**
+ * @brief GMAC AHB and MACSEC memory reset
+ *
+ * @param[in] nss_gmac_global_ctx *
+ * @return void
+ */
+static void nss_gmac_clk_ctl_common_init(struct nss_gmac_global_ctx *ctx)
+{
+	uint32_t val;
+	/*
+	 * Deaassert GMAC AHB reset
+	 */
+	nss_gmac_clear_reg_bits((uint32_t *)(ctx->clk_ctl_base),
+							GMAC_AHB_RESET, 0x1);
+	val = nss_gmac_read_reg(ctx->clk_ctl_base, GMAC_AHB_RESET);
+	pr_debug("%s: ctx->clk_ctl_base(0x%x) + GMAC_AHB_RESET(0x%x): 0x%x\n",
+					__func__, (uint32_t)ctx->clk_ctl_base,
+					(uint32_t)GMAC_AHB_RESET, val);
+
+	/*
+	 * Initialize ACC_GMAC_CUST field of NSS_ACC_REG register
+	 * for GMAC and MACSEC memories.
+	 */
+	nss_gmac_clear_reg_bits((uint32_t *)(ctx->clk_ctl_base), NSS_ACC_REG,
+							GMAC_ACC_CUST_MASK);
+	val = nss_gmac_read_reg(ctx->clk_ctl_base, NSS_ACC_REG);
+	pr_debug("%s: ctx->clk_ctl_base(0x%x) + NSS_ACC_REG(0x%x): 0x%x\n",
+					__func__, (uint32_t)ctx->clk_ctl_base,
+					(uint32_t)NSS_ACC_REG, val);
+}
 
 /*
  * @brief Initialization commom to all GMACs.
@@ -472,14 +518,11 @@ int32_t nss_gmac_common_init(struct nss_gmac_global_ctx *ctx)
 	 */
 
 	/*
-	 * Deaassert GMAC AHB reset
+	 * MSM Clock control related initialization if needed in host driver for this platform
 	 */
-	nss_gmac_clear_reg_bits((uint32_t *)(ctx->clk_ctl_base),
-							GMAC_AHB_RESET, 0x1);
-	val = nss_gmac_read_reg(ctx->clk_ctl_base, GMAC_AHB_RESET);
-	pr_debug("%s: ctx->clk_ctl_base(0x%x) + GMAC_AHB_RESET(0x%x): 0x%x\n",
-					__func__, (uint32_t)ctx->clk_ctl_base,
-					(uint32_t)GMAC_AHB_RESET, val);
+	if (ctx->msm_clk_ctl_enabled) {
+		nss_gmac_clk_ctl_common_init(ctx);
+	}
 
 	/* Bypass MACSEC */
 	nss_gmac_set_reg_bits((uint32_t *)(ctx->nss_base), NSS_MACSEC_CTL,
@@ -492,17 +535,6 @@ int32_t nss_gmac_common_init(struct nss_gmac_global_ctx *ctx)
 					(uint32_t)NSS_MACSEC_CTL, val);
 
 	nss_gmac_qsgmii_common_init(ctx);
-
-	/*
-	 * Initialize ACC_GMAC_CUST field of NSS_ACC_REG register
-	 * for GMAC and MACSEC memories.
-	 */
-	nss_gmac_clear_reg_bits((uint32_t *)(ctx->clk_ctl_base), NSS_ACC_REG,
-							GMAC_ACC_CUST_MASK);
-	val = nss_gmac_read_reg(ctx->clk_ctl_base, NSS_ACC_REG);
-	pr_debug("%s: ctx->clk_ctl_base(0x%x) + NSS_ACC_REG(0x%x): 0x%x\n",
-					__func__, (uint32_t)ctx->clk_ctl_base,
-					(uint32_t)NSS_ACC_REG, val);
 
 	return 0;
 }
@@ -753,17 +785,16 @@ int32_t nss_gmac_dev_set_speed(struct nss_gmac_dev *gmacdev)
 }
 
 /**
- * @brief GMAC device initializaton.
+ * @brief GMAC Core clock control
+ *
  * @param[in] nss_gmac_dev *
  * @return void
  */
-void nss_gmac_dev_init(struct nss_gmac_dev *gmacdev)
+static void nss_gmac_clk_ctl_dev_init(struct nss_gmac_dev *gmacdev)
 {
-	uint32_t val = 0;
-	uint32_t div = 0;
-	uint32_t id = gmacdev->macid;
-	uint32_t *nss_base = (uint32_t *)(gmacdev->ctx->nss_base);
+	uint32_t val;
 	struct nss_gmac_global_ctx *ctx = gmacdev->ctx;
+	uint32_t id = gmacdev->macid;
 
 	/*
 	 * Initialize wake and sleep counter values of
@@ -773,7 +804,7 @@ void nss_gmac_dev_init(struct nss_gmac_dev *gmacdev)
 							 GMAC_FS_S_W_VAL);
 	val = nss_gmac_read_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_FS(id));
 	netdev_dbg(gmacdev->netdev, "%s: ctx->clk_ctl_base(0x%x) + GMAC_COREn_CLK_FS(%d)(0x%x): 0x%x\n",
-		       __func__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_FS(id), val);
+			__func__, (uint32_t)ctx->clk_ctl_base, id, (uint32_t)GMAC_COREn_CLK_FS(id), val);
 
 	/*
 	 * Bring up GMAC core clock
@@ -784,7 +815,7 @@ void nss_gmac_dev_init(struct nss_gmac_dev *gmacdev)
 				GMAC_CLK_ROOT_ENA |
 				GMAC_CLK_LOW_PWR_ENA);
 	nss_gmac_set_reg_bits(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC_CTL(id),
-			      GMAC_CLK_ROOT_ENA);
+				GMAC_CLK_ROOT_ENA);
 
 	val = nss_gmac_read_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC_CTL(id));
 	netdev_dbg(gmacdev->netdev, "%s: ctx->clk_ctl_base(0x%x) + GMAC_COREn_CLK_SRC_CTL(%d)(0x%x): 0x%x\n",
@@ -795,9 +826,9 @@ void nss_gmac_dev_init(struct nss_gmac_dev *gmacdev)
 	nss_gmac_write_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC0_MD(id), 0);
 	nss_gmac_write_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC1_MD(id), 0);
 	nss_gmac_set_reg_bits(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC0_MD(id),
-			      GMAC_CORE_CLK_M_VAL | GMAC_CORE_CLK_D_VAL);
+				GMAC_CORE_CLK_M_VAL | GMAC_CORE_CLK_D_VAL);
 	nss_gmac_set_reg_bits(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC1_MD(id),
-			      GMAC_CORE_CLK_M_VAL | GMAC_CORE_CLK_D_VAL);
+				GMAC_CORE_CLK_M_VAL | GMAC_CORE_CLK_D_VAL);
 
 	val = nss_gmac_read_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC0_MD(id));
 	netdev_dbg(gmacdev->netdev, "%s: ctx->clk_ctl_base(0x%x) + GMAC_COREn_CLK_SRC0_MD(%d)(0x%x): 0x%x\n",
@@ -812,17 +843,17 @@ void nss_gmac_dev_init(struct nss_gmac_dev *gmacdev)
 	nss_gmac_write_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC0_NS(id), 0);
 	nss_gmac_write_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC1_NS(id), 0);
 	nss_gmac_set_reg_bits(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC0_NS(id),
-			      GMAC_CORE_CLK_N_VAL
-			      | GMAC_CORE_CLK_MNCNTR_EN
-			      | GMAC_CORE_CLK_MNCNTR_MODE_DUAL
-			      | GMAC_CORE_CLK_PRE_DIV_SEL_BYP
-			      | GMAC_CORE_CLK_SRC_SEL_PLL0);
+				GMAC_CORE_CLK_N_VAL
+				| GMAC_CORE_CLK_MNCNTR_EN
+				| GMAC_CORE_CLK_MNCNTR_MODE_DUAL
+				| GMAC_CORE_CLK_PRE_DIV_SEL_BYP
+				| GMAC_CORE_CLK_SRC_SEL_PLL0);
 	nss_gmac_set_reg_bits(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC1_NS(id),
-			      GMAC_CORE_CLK_N_VAL
-			      | GMAC_CORE_CLK_MNCNTR_EN
-			      | GMAC_CORE_CLK_MNCNTR_MODE_DUAL
-			      | GMAC_CORE_CLK_PRE_DIV_SEL_BYP
-			      | GMAC_CORE_CLK_SRC_SEL_PLL0);
+				GMAC_CORE_CLK_N_VAL
+				| GMAC_CORE_CLK_MNCNTR_EN
+				| GMAC_CORE_CLK_MNCNTR_MODE_DUAL
+				| GMAC_CORE_CLK_PRE_DIV_SEL_BYP
+				| GMAC_CORE_CLK_SRC_SEL_PLL0);
 
 	val = nss_gmac_read_reg(ctx->clk_ctl_base, GMAC_COREn_CLK_SRC0_NS(id));
 	netdev_dbg(gmacdev->netdev, "%s: ctx->clk_ctl_base(0x%x) + GMAC_COREn_CLK_SRC0_NS(%d)(0x%x): 0x%x\n",
@@ -852,6 +883,32 @@ void nss_gmac_dev_init(struct nss_gmac_dev *gmacdev)
 				__func__, (uint32_t)ctx->clk_ctl_base, id,
 				(uint32_t)GMAC_COREn_CLK_CTL(id), val);
 
+	/*
+	 * Deassert GMACn power on reset
+	 */
+	nss_gmac_clear_reg_bits(ctx->clk_ctl_base, GMAC_COREn_RESET(id), 0x1);
+}
+
+/**
+ * @brief GMAC device initializaton.
+ * @param[in] nss_gmac_dev *
+ * @return void
+ */
+void nss_gmac_dev_init(struct nss_gmac_dev *gmacdev)
+{
+	uint32_t val = 0;
+	uint32_t div = 0;
+	uint32_t id = gmacdev->macid;
+	uint32_t *nss_base = (uint32_t *)(gmacdev->ctx->nss_base);
+	struct nss_gmac_global_ctx *ctx = gmacdev->ctx;
+
+	/*
+	 * MSM Clock control initialization if needed in host driver for this platform
+	 */
+	if (ctx->msm_clk_ctl_enabled) {
+		nss_gmac_clk_ctl_dev_init(gmacdev);
+	}
+
 	/* Set GMACn Ctl: Phy interface select, IFG, AXI low power request
 	 * signal (CSYSREQ)
 	 */
@@ -868,16 +925,6 @@ void nss_gmac_dev_init(struct nss_gmac_dev *gmacdev)
 	netdev_dbg(gmacdev->netdev, "%s: nss_base(0x%x) + NSS_GMACn_CTL(%d)(0x%x): 0x%x\n",
 					__func__, (uint32_t)nss_base, id,
 					(uint32_t)NSS_GMACn_CTL(id), val);
-
-	/*
-	 * Optionally enable/disable MACSEC bypass.
-	 * We are doing this in nss_gmac_plat_init()
-	 */
-
-	/*
-	 * Deassert GMACn power on reset
-	 */
-	nss_gmac_clear_reg_bits(ctx->clk_ctl_base, GMAC_COREn_RESET(id), 0x1);
 
 	/* Configure clock dividers for 1000Mbps default */
 	gmacdev->speed = SPEED_1000;

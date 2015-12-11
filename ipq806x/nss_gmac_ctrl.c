@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -1014,6 +1014,11 @@ static int32_t nss_gmac_do_common_init(struct platform_device *pdev)
 		ret = -EFAULT;
 		goto nss_gmac_cmn_init_fail;
 	}
+
+	/*
+	 * Enable clock control for MSM Boards with DT support
+	 */
+	ctx.msm_clk_ctl_enabled = !!of_machine_is_compatible("qcom,ipq8064");
 #else
 	res_nss_base.start = NSS_REG_BASE;
 	res_nss_base.end = NSS_REG_BASE + NSS_REG_LEN - 1;
@@ -1026,6 +1031,11 @@ static int32_t nss_gmac_do_common_init(struct platform_device *pdev)
 	res_clk_ctl_base.start = IPQ806X_CLK_CTL_PHYS;
 	res_clk_ctl_base.end = IPQ806X_CLK_CTL_PHYS + IPQ806X_CLK_CTL_SIZE - 1;
 	res_clk_ctl_base.flags = IORESOURCE_MEM;
+
+	/*
+	 * Enable clock control for MSM Boards without DT support
+	 */
+	ctx.msm_clk_ctl_enabled = true;
 #endif
 
 	ctx.nss_base = (uint8_t *)ioremap_nocache(res_nss_base.start,
@@ -1474,6 +1484,7 @@ static struct platform_driver nss_gmac_drv = {
 int32_t __init nss_gmac_register_driver(void)
 {
 	ctx.common_init_done = false;
+	ctx.msm_clk_ctl_enabled = false;
 
 	ctx.gmac_workqueue =
 			create_singlethread_workqueue(NSS_GMAC_WORKQUEUE_NAME);

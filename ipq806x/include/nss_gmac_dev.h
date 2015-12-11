@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -113,7 +113,7 @@ static const uint8_t nss_gmac_driver_string[] =
 	"NSS GMAC Driver for RTL v" NSS_GMAC_RTL_VER;
 static const uint8_t nss_gmac_driver_version[] = "1.0";
 static const uint8_t nss_gmac_copyright[] =
-	"Copyright (c) 2013-2015 The Linux Foundation. All rights reserved.";
+	"Copyright (c) 2013-2016 The Linux Foundation. All rights reserved.";
 
 /**
  * @brief DMA Descriptor Structure
@@ -277,14 +277,16 @@ extern struct nss_gmac_global_ctx ctx;
 struct nss_gmac_global_ctx {
 	struct workqueue_struct *gmac_workqueue;
 	char *gmac_workqueue_name;
-	uint8_t *nss_base;	/* Base address of NSS GMACs'
-				   global interface registers */
+	uint8_t *nss_base;		/* Base address of NSS GMACs'
+					   global interface registers */
 	uint32_t *qsgmii_base;
-	uint32_t *clk_ctl_base;	/* Base address of platform
-				   clock control registers */
-	uint32_t socver;	/* SOC version */
+	uint32_t *clk_ctl_base;		/* Base address of platform
+					   clock control registers */
+	uint32_t socver;		/* SOC version */
+	bool msm_clk_ctl_enabled;	/* Is MSM clock control initialization
+					   needed for this platform? */
 	struct nss_gmac_dev *nss_gmac[NSS_MAX_GMACS];
-	bool common_init_done;	/* Flag to hold common init done state */
+	bool common_init_done;		/* Flag to hold common init done state */
 };
 
 
