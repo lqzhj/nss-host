@@ -505,21 +505,22 @@ enum nss_stats_lso_rx {
  * wifi statistics
  */
 enum nss_stats_wifi {
-	NSS_STATS_WIFI_RX_PKTS,
-	NSS_STATS_WIFI_RX_DROPPED,
-	NSS_STATS_WIFI_TX_PKTS,
-	NSS_STATS_WIFI_TX_DROPPED,
-	NSS_STATS_WIFI_TX_COMPLETED,
-	NSS_STATS_WIFI_MGMT_RCV_CNT,
-	NSS_STATS_WIFI_MGMT_TX_PKTS,
-	NSS_STATS_WIFI_MGMT_TX_DROPPED,
-	NSS_STATS_WIFI_MGMT_TX_COMPLETIONS,
-	NSS_STATS_WIFI_RX_INV_PEER_ENQUEUE_CNT,
-	NSS_STATS_WIFI_RX_INV_PEER_RCV_CNT,
-	NSS_STATS_WIFI_RX_PN_CHECK_FAILED,
-	NSS_STATS_WIFI_RX_DELIVERED,
-	NSS_STATS_WIFI_RX_BYTES_DELIVERED,
-	NSS_STATS_WIFI_TX_BYTES_COMPLETED,
+	NSS_STATS_WIFI_RX_PKTS,				/* Number of packets enqueud to wifi */
+	NSS_STATS_WIFI_RX_DROPPED,			/* Number of packet dropped during enqueue to wifi */
+	NSS_STATS_WIFI_TX_PKTS,				/* Number of packets transmited out to wifi */
+	NSS_STATS_WIFI_TX_DROPPED,			/* Number of packets dropped during transmission */
+	NSS_STATS_WIFI_TX_COMPLETED,			/* Number of packets for which transmission completion received */
+	NSS_STATS_WIFI_MGMT_RCV_CNT,			/* Number of management packets received from host for transmission */
+	NSS_STATS_WIFI_MGMT_TX_PKTS,			/* Number of management packets transmitted over wifi */
+	NSS_STATS_WIFI_MGMT_TX_DROPPED,			/* Number of management packets dropped because of transmission failure */
+	NSS_STATS_WIFI_MGMT_TX_COMPLETIONS,		/* Number of management packets for which tx completions are received */
+	NSS_STATS_WIFI_TX_INV_PEER_ENQUEUE_CNT,		/* Number of packets for which tx enqueue failed because of invalid peer */
+	NSS_STATS_WIFI_RX_INV_PEER_RCV_CNT,		/* Number of packets received from wifi with invalid peer id */
+	NSS_STATS_WIFI_RX_PN_CHECK_FAILED,		/* Number of rx packets which failed packet number check */
+	NSS_STATS_WIFI_RX_DELIVERED,			/* Number of rx packets that NSS wifi offload path could successfully process */
+	NSS_STATS_WIFI_RX_BYTES_DELIVERED,		/* Number of rx bytes that NSS wifi offload path could successfully process */
+	NSS_STATS_WIFI_TX_BYTES_COMPLETED,		/* Number of bytes for which transmission completion received */
+	NSS_STATS_WIFI_RX_DELIVER_UNALIGNED_DROP_CNT,	/* Number of rx packets that dropped beacause of alignment mismatch*/
 	NSS_STATS_WIFI_MAX,
 };
 

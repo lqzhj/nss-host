@@ -85,10 +85,12 @@ enum {
  */
 enum nss_wifi_vdev_ext_data_pkt_type {
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_NONE = 0,
-	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_IGMP = 1,		/**< igmp packets */
-	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_MESH = 2,		/**< mesh packets */
+	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_IGMP = 1,	/**< igmp packets */
+	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_MESH = 2,	/**< mesh packets */
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_INSPECT = 3,	/**< host inspect packets */
-	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_TXINFO = 4,		/**< tx completion info packets */
+	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_TXINFO = 4,	/**< tx completion info packets */
+	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_MPSTA_TX = 5,	/**< mpsta tx meta data */
+	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_MPSTA_RX = 6,	/**< mpsta rx meta data */
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_MAX
 };
 
@@ -260,7 +262,6 @@ struct nss_wifi_vdev_dscp_tid_map {
 				/**< array holding the dscp to tid mapping */
 };
 
-
 /**
  * Wifi per packet metadata for IGMP packets.
  */
@@ -298,6 +299,31 @@ struct nss_wifi_vdev_txinfo_per_packet_metadata {
 };
 
 /**
+ * wifi per packet metadata types for qwrap tx packets
+ */
+enum nss_wifi_vdev_qwrap_tx_metadata_types {
+	NSS_WIFI_VDEV_QWRAP_TYPE_NONE = 0,	/**< qwrap type none */
+	NSS_WIFI_VDEV_QWRAP_TYPE_TX = 1,	/**< qwrap tx frame to be sent over wifi */
+	NSS_WIFI_VDEV_QWRAP_TYPE_RX_TO_TX = 2	/**< qwrap rx to tx frame to be sent over eth_rx */
+};
+
+/**
+ * wifi transmit meta data for mpsta
+ */
+struct nss_wifi_vdev_mpsta_per_packet_tx_metadata {
+	uint16_t vdev_id;		/**< vdev_id */
+	uint16_t metadata_type;		/**< tx metadata type */
+};
+
+/**
+ * wifi recieve meta data for mpsta
+ */
+struct nss_wifi_vdev_mpsta_per_packet_rx_metadata {
+	uint16_t vdev_id;		/**< vdev_id */
+	uint16_t peer_id;		/**< peer_id */
+};
+
+/**
  * wifi per packet metadata content
  */
 struct nss_wifi_vdev_per_packet_metadata {
@@ -306,23 +332,9 @@ struct nss_wifi_vdev_per_packet_metadata {
 		struct nss_wifi_vdev_igmp_per_packet_metadata igmp_metadata;
 		struct nss_wifi_vdev_mesh_per_packet_metadata mesh_metadata;
 		struct nss_wifi_vdev_txinfo_per_packet_metadata txinfo_metadata;
+		struct nss_wifi_vdev_mpsta_per_packet_tx_metadata mpsta_tx_metadata;
+		struct nss_wifi_vdev_mpsta_per_packet_rx_metadata mpsta_rx_metadata;
 	} metadata;
-};
-
-/**
- * wifi transmit meta data for mpsta
- */
-struct nss_wifi_mpsta_tx_metadata {
-	uint16_t vdev_id;		/**< vdev_id */
-	uint16_t reserve;
-};
-
-/**
- * wifi recieve meta data for mpsta
- */
-struct nss_wifi_mpsta_rx_metadata {
-	uint16_t vdev_id;		/**< vdev_id */
-	uint16_t peer_id;		/**< peer_id */
 };
 
 /**
