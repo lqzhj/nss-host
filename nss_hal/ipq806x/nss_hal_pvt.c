@@ -876,23 +876,21 @@ static struct nss_platform_data *nss_hal_of_get_pdata(struct device_node *np,
 		}
 	}
 
-	if (of_property_read_u32(np, "qcom,ipv4_enabled", &npd->ipv4_enabled)
-	    || of_property_read_u32(np, "qcom,ipv4_reasm_enabled", &npd->ipv4_reasm_enabled)
-	    || of_property_read_u32(np, "qcom,ipv6_enabled", &npd->ipv6_enabled)
-	    || of_property_read_u32(np, "qcom,ipv6_reasm_enabled", &npd->ipv6_reasm_enabled)
-	    || of_property_read_u32(np, "qcom,l2switch_enabled", &npd->l2switch_enabled)
-	    || of_property_read_u32(np, "qcom,crypto_enabled", &npd->crypto_enabled)
-	    || of_property_read_u32(np, "qcom,ipsec_enabled", &npd->ipsec_enabled)
-	    || of_property_read_u32(np, "qcom,wlanredirect_enabled", &npd->wlanredirect_enabled)
-	    || of_property_read_u32(np, "qcom,tun6rd_enabled", &npd->tun6rd_enabled)
-	    || of_property_read_u32(np, "qcom,l2tpv2_enabled", &npd->l2tpv2_enabled)
-	    || of_property_read_u32(np, "qcom,tunipip6_enabled", &npd->tunipip6_enabled)
-	    || of_property_read_u32(np, "qcom,pptp_enabled", &npd->pptp_enabled)
-	    || of_property_read_u32(np, "qcom,shaping_enabled", &npd->shaping_enabled)
-	    || of_property_read_u32(np, "qcom,wlan_dataplane_offload_enabled", &npd->wifioffload_enabled)
-	    || of_property_read_u32(np, "qcom,portid_enabled", &npd->portid_enabled)) {
-		pr_warn("%s: error reading non-critical device node properties\n", np->name);
-	}
+	of_property_read_u32(np, "qcom,ipv4_enabled", &npd->ipv4_enabled);
+	of_property_read_u32(np, "qcom,ipv4_reasm_enabled", &npd->ipv4_reasm_enabled);
+	of_property_read_u32(np, "qcom,ipv6_enabled", &npd->ipv6_enabled);
+	of_property_read_u32(np, "qcom,ipv6_reasm_enabled", &npd->ipv6_reasm_enabled);
+	of_property_read_u32(np, "qcom,l2switch_enabled", &npd->l2switch_enabled);
+	of_property_read_u32(np, "qcom,crypto_enabled", &npd->crypto_enabled);
+	of_property_read_u32(np, "qcom,ipsec_enabled", &npd->ipsec_enabled);
+	of_property_read_u32(np, "qcom,wlanredirect_enabled", &npd->wlanredirect_enabled);
+	of_property_read_u32(np, "qcom,tun6rd_enabled", &npd->tun6rd_enabled);
+	of_property_read_u32(np, "qcom,l2tpv2_enabled", &npd->l2tpv2_enabled);
+	of_property_read_u32(np, "qcom,tunipip6_enabled", &npd->tunipip6_enabled);
+	of_property_read_u32(np, "qcom,pptp_enabled", &npd->pptp_enabled);
+	of_property_read_u32(np, "qcom,shaping_enabled", &npd->shaping_enabled);
+	of_property_read_u32(np, "qcom,wlan_dataplane_offload_enabled", &npd->wifioffload_enabled);
+	of_property_read_u32(np, "qcom,portid_enabled", &npd->portid_enabled);
 
 	return npd;
 
