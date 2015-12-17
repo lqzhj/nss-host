@@ -55,6 +55,7 @@ enum nss_wifi_metadata_types {
 	NSS_WIFI_PKTLOG_CFG_MSG,
 	NSS_WIFI_ENABLE_PERPKT_TXSTATS_MSG,
 	NSS_WIFI_IGMP_MLD_TOS_OVERRIDE_MSG,
+	NSS_WIFI_OL_STATS_CFG_MSG,
 	NSS_WIFI_MAX_MSG
 };
 
@@ -219,6 +220,13 @@ struct nss_wifi_pktlog_cfg_msg {
 };
 
 /**
+ * wifi ol_stats cfg message
+ */
+struct nss_wifi_ol_stats_cfg_msg {
+	uint32_t stats_cfg;			/**< enable/disable*/
+};
+
+/**
  * wifi enable/disable perpkt txstats msg
  */
 struct nss_wifi_enable_perpkt_txstats_msg {
@@ -242,9 +250,9 @@ struct nss_wifi_pl_metadata {
  * wifi ext data plane recieve common meta data
  */
 struct nss_wifi_rx_ext_metadata{
-	uint8_t fwreserve ;				/**< Type of meta data*/
-	uint8_t type ;					/**< reserve field */
-	uint16_t value;					/**< Value of metadata */
+	uint16_t peer_id;				/**< peer_id */
+	uint8_t htt_rx_status;				/**< htt_rx_status*/
+	uint8_t type;					/**< reserve field */
 };
 
 /**
@@ -343,6 +351,7 @@ struct nss_wifi_msg {
 		struct nss_wifi_pktlog_cfg_msg pcm_msg;
 		struct nss_wifi_enable_perpkt_txstats_msg ept_msg;
 		struct nss_wifi_igmp_mld_override_tos_msg wigmpmldtm_msg;
+		struct nss_wifi_ol_stats_cfg_msg scm_msg;
 	} msg;
 };
 
