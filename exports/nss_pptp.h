@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -37,6 +37,25 @@ enum nss_pptp_metadata_types {
 };
 
 /**
+ * PPTP encap/decap packet exception events.
+ *
+ */
+enum nss_pptp_exception_events {
+	PPTP_EXCEPTION_EVENT_ENCAP_HEADROOM_ERR,
+	PPTP_EXCEPTION_EVENT_ENCAP_SMALL_SIZE,
+	PPTP_EXCEPTION_EVENT_ENCAP_PNODE_ENQUEUE_FAIL,
+	PPTP_EXCEPTION_EVENT_DECAP_NO_SEQ_NOR_ACK,
+	PPTP_EXCEPTION_EVENT_DECAP_INVAL_GRE_FLAGS,
+	PPTP_EXCEPTION_EVENT_DECAP_INVAL_GRE_PROTO,
+	PPTP_EXCEPTION_EVENT_DECAP_WRONG_SEQ,
+	PPTP_EXCEPTION_EVENT_DECAP_INVAL_PPP_HDR,
+	PPTP_EXCEPTION_EVENT_DECAP_PPP_LCP,
+	PPTP_EXCEPTION_EVENT_DECAP_UNSUPPORTED_PPP_PROTO,
+	PPTP_EXCEPTION_EVENT_DECAP_PNODE_ENQUEUE_FAIL,
+	PPTP_EXCEPTION_EVENT_MAX,
+};
+
+/**
  * PPTP session configuration message structure
  */
 struct nss_pptp_session_configure_msg {
@@ -57,11 +76,9 @@ struct nss_pptp_session_deconfigure_msg {
  * pptp statistics sync message structure.
  */
 struct nss_pptp_sync_session_stats_msg {
-	struct nss_cmn_node_stats node_stats;	/**< common node stats */
-	uint32_t rx_dropped;		/**< rx dropped */
-	uint32_t tx_dropped;		/**< tx dropped */
-	uint32_t rx_ppp_lcp_pkts;	/**< PPP LCP packets received */
-	uint32_t rx_exception_data_pkts;/**< Data packets exceptioned to host */
+	struct nss_cmn_node_stats encap_stats;	/**< common node stats for encap direction */
+	struct nss_cmn_node_stats decap_stats;	/**< common node stats for decap direction */
+	uint32_t exception_events[PPTP_EXCEPTION_EVENT_MAX];	/**< Expception events */
 };
 
 /**
@@ -84,14 +101,25 @@ struct nss_pptp_msg {
 typedef void (*nss_pptp_msg_callback_t)(void *app_data, struct nss_pptp_msg *msg);
 
 /**
- * @brief Send pptp messages
+ * @brief Send pptp messages synchronously
  *
  * @param nss_ctx NSS context
  * @param msg NSS pptp tunnel message
  *
  * @return nss_tx_status_t Tx status
  */
-extern nss_tx_status_t nss_pptp_tx(struct nss_ctx_instance *nss_ctx, struct nss_pptp_msg *msg);
+extern nss_tx_status_t nss_pptp_tx_msg_sync(struct nss_ctx_instance *nss_ctx,
+					    struct nss_pptp_msg *msg);
+/**
+ * @brief Send data packet to FW
+ *
+ * @param nss_ctx NSS context
+ * @param if_num NSS dynamic interface number
+ * @param skb packet buffer
+ *
+ * @return Tx status
+ */
+extern nss_tx_status_t nss_pptp_tx_buf(struct nss_ctx_instance *nss_ctx, uint32_t if_num, struct sk_buff *skb);
 
 /**
  * @brief Get the pptp context used in the nss_pptp_tx
@@ -122,8 +150,8 @@ typedef void (*nss_pptp_callback_t)(struct net_device *netdev, struct sk_buff *s
  *
  * @return nss_ctx_instance* NSS context
  */
-extern struct nss_ctx_instance *nss_register_pptp_if(uint32_t if_num, nss_pptp_callback_t pptp_callback,
-					nss_pptp_msg_callback_t msg_callback, struct net_device *netdev, uint32_t features);
+extern struct nss_ctx_instance *nss_register_pptp_if(uint32_t if_num, nss_pptp_callback_t pptp_data_callback,
+					nss_pptp_msg_callback_t notification_callback, struct net_device *netdev, uint32_t features, void *app_ctx);
 
 /**
  * @brief Unregister pptp tunnel interface with NSS

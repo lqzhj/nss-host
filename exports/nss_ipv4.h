@@ -425,6 +425,13 @@ enum exception_events_ipv4 {
 	NSS_EXCEPTION_EVENT_GRE_IP_FRAGMENT,				/**<  NSS Exception event: IPV4 GRE ip fragment */
 	NSS_EXCEPTION_EVENT_GRE_SMALL_TTL,				/**<  NSS Exception event: IPV4 GRE small ttl */
 	NSS_EXCEPTION_EVENT_GRE_NEEDS_FRAGMENTATION,			/**<  NSS Exception event: IPV4 GRE needs fragmentation */
+	NSS_EXCEPTION_EVENT_IPV4_PPTP_GRE_SESSION_MATCH_FAIL,		/**<  NSS Exception event: IPv4 PPTP GRE session match fail */
+	NSS_EXCEPTION_EVENT_IPV4_PPTP_GRE_INVALID_PROTO,		/**<  NSS Exception event: IPv4 PPTP GRE Invalid/Unknown Protocol */
+	NSS_EXCEPTION_EVENT_IPV4_PPTP_GRE_NO_CME,			/**<  NSS Exception event: IPv4 PPTP GRE No ICME */
+	NSS_EXCEPTION_EVENT_IPV4_PPTP_GRE_IP_OPTION,			/**<  NSS Exception event: IPv4 PPTP GRE IP Option */
+	NSS_EXCEPTION_EVENT_IPV4_PPTP_GRE_IP_FRAGMENT,			/**<  NSS Exception event: IPv4 PPTP GRE IP Fragment */
+	NSS_EXCEPTION_EVENT_IPV4_PPTP_GRE_SMALL_TTL,			/**<  NSS Exception event: IPv4 PPTP GRE Small TTL */
+	NSS_EXCEPTION_EVENT_IPV4_PPTP_GRE_NEEDS_FRAGMENTATION,		/**<  NSS Exception event: IPv4 PPTP GRE Needs Fragmentation */
 	NSS_EXCEPTION_EVENT_IPV4_DESTROY,				/**<  NSS Exception event: IPv4 Destroy */
 	NSS_EXCEPTION_EVENT_IPV4_FRAG_DF_SET,				/**<  NSS Exception event: IPv4 fragmentation needed, but DF set */
 	NSS_EXCEPTION_EVENT_IPV4_FRAG_FAIL,				/**<  NSS Exception event: IPv4 fragmentation failure */
