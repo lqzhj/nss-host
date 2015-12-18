@@ -47,10 +47,6 @@
 #include "nss_pm.h"
 #endif
 
-/*
- * Global declarations
- */
-extern struct nss_top_instance nss_top_main;
 extern struct clk *nss_core0_clk;
 extern struct nss_runtime_sampling nss_runtime_samples;
 

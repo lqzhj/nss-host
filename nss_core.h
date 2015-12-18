@@ -214,6 +214,11 @@
 #endif
 
 /*
+ * Gives us important data from NSS platform data
+ */
+extern struct nss_top_instance nss_top_main;
+
+/*
  * IPV4 node statistics
  *
  * WARNING: There is a 1:1 mapping between values below and corresponding

@@ -861,6 +861,14 @@ static int __init nss_init(void)
 #endif /* NSS_DT_SUPPORT */
 
 	/*
+	 * Initialize data_plane workqueue
+	 */
+	if (nss_data_plane_init_delay_work()) {
+		nss_warning("Error initializing nss_data_plane_workqueue\n");
+		return -EFAULT;
+	}
+
+	/*
 	 * Enable spin locks
 	 */
 	spin_lock_init(&(nss_top_main.lock));
@@ -980,6 +988,8 @@ static void __exit nss_cleanup(void)
 		nss_top_main.nss_fpb_base = 0;
 	}
 #endif
+
+	nss_data_plane_destroy_delay_work();
 
 	platform_driver_unregister(&nss_driver);
 }

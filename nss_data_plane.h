@@ -45,8 +45,14 @@ struct nss_data_plane_param {
 void nss_data_plane_set_enabled(int if_num);
 
 /*
+ * nss_data_plane_schedule_registration()
+ *	Called from nss_init to schedule a work to do data_plane register to nss-gmac
+ */
+bool nss_data_plane_schedule_registration(void);
+
+/*
  * nss_data_plane_register_to_nss_gmac()
- *	Called from nss_init, this keeps the data_plane_ops to be static
+ *	Called from scheduled function to register fast path data plane
  */
 bool nss_data_plane_register_to_nss_gmac(struct nss_ctx_instance *nss_ctx, int if_num);
 
@@ -55,4 +61,16 @@ bool nss_data_plane_register_to_nss_gmac(struct nss_ctx_instance *nss_ctx, int i
  *	Called from nss_remove to ask gmac to restore to slowpath data plane
  */
 void nss_data_plane_unregister_from_nss_gmac(int if_num);
+
+/*
+ * nss_data_plane_init_delay_work()
+ *	Initialize data_plane workqueue
+ */
+int nss_data_plane_init_delay_work(void);
+
+/*
+ * nss_data_plane_destroy_delay_work()
+ *	Destroy data_plane workqueue
+ */
+void nss_data_plane_destroy_delay_work(void);
 #endif

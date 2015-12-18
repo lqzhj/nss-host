@@ -36,11 +36,6 @@
 #include "nss_log.h"
 
 /*
- * Gives us important data from NSS platform data
- */
-extern struct nss_top_instance nss_top_main;
-
-/*
  * Private data for each device file open instance
  */
 struct nss_log_data {
