@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -52,6 +52,14 @@
 #define NSS_CFI_IPSEC_BASE_NAME "ipsec"
 #define NSS_CFI_IPSEC_TUN_IFNAME(x) NSS_CFI_IPSEC_BASE_NAME#x
 
+/* NSS IPsec rule type */
+enum nss_cfi_ipsec_rule_type {
+	NSS_CFI_IPSEC_RULE_TYPE_NONE = 0,
+	NSS_CFI_IPSEC_RULE_TYPE_ENCAP = 1,
+	NSS_CFI_IPSEC_RULE_TYPE_DECAP = 2,
+	NSS_CFI_IPSEC_RULE_TYPE_MAX
+};
+
 /*
  * This is used by KLIPS for communicate the device along with the
  * packet. We need this to derive the mapping of the incoming flow
@@ -65,13 +73,9 @@ struct nss_cfi_ipsec_skb_cb {
  * Per tunnel object created w.r.t the HLOS IPsec stack
  */
 struct nss_cfi_ipsec_sa {
-	enum nss_ipsecmgr_rule_type type;
+	enum nss_cfi_ipsec_rule_type type;
 	struct net_device *nss_dev;
-
-	union {
-		struct nss_ipsecmgr_encap_del encap;
-		struct nss_ipsecmgr_decap_del decap;
-	} rule_del;
+	struct nss_ipsecmgr_sa sa;
 };
 
 /*
@@ -207,14 +211,27 @@ static inline void * nss_cfi_ipsec_get_next_hdr(struct iphdr *ip)
 static int32_t nss_cfi_ipsec_free_session(uint32_t crypto_sid)
 {
 	struct nss_cfi_ipsec_sa *sa;
-	bool status;
 
-	sa = &sa_tbl[crypto_sid];
-
-	status = nss_ipsecmgr_sa_del(sa->nss_dev, (union nss_ipsecmgr_rule *)&sa->rule_del, sa->type);
-	if (status == false) {
+	if (crypto_sid >= NSS_CRYPTO_MAX_IDXS) {
 		return -1;
 	}
+
+	sa = &sa_tbl[crypto_sid];
+	/*
+	 * check whether crypto index correspond to encap/decap and
+	 * send message to ipsecmgr to delete the session
+	 */
+	switch (sa->type) {
+	case NSS_CFI_IPSEC_RULE_TYPE_ENCAP:
+	case NSS_CFI_IPSEC_RULE_TYPE_DECAP:
+		nss_ipsecmgr_sa_flush(sa->nss_dev, &sa->sa);
+		break;
+
+	default:
+		return 0;
+	}
+
+	sa->type = NSS_CFI_IPSEC_RULE_TYPE_NONE;
 
 	return 0;
 }
@@ -225,16 +242,17 @@ static int32_t nss_cfi_ipsec_free_session(uint32_t crypto_sid)
  */
 static int32_t nss_cfi_ipsec_trap_encap(struct sk_buff *skb, struct nss_cfi_crypto_info* crypto)
 {
-	union nss_ipsecmgr_rule rule = {{0}};
-	struct iphdr *outer_ip;
-	struct iphdr *inner_ip;
+	struct nss_ipsecmgr_encap_flow encap_flow = {0};
+	struct nss_ipsecmgr_encap_v4_tuple *v4_tuple;
+	struct nss_ipsecmgr_sa_data data = {0};
+	struct nss_ipsecmgr_sa encap_sa = {0};
+	struct nss_ipsecmgr_sa_v4 *sa_v4;
 	struct ip_esp_hdr *esp = NULL;
-	struct tcphdr *tcp = NULL;
-	struct udphdr *udp = NULL;
 	struct net_device *hlos_dev;
 	struct net_device *nss_dev;
+	struct iphdr *outer_ip;
+	struct iphdr *inner_ip;
 	uint32_t index = 0;
-	struct nss_ipsecmgr_encap_del *encap_del;
 	uint32_t ivsize = 0;
 
 	hlos_dev = nss_cfi_ipsec_get_dev(skb);
@@ -265,40 +283,34 @@ static int32_t nss_cfi_ipsec_trap_encap(struct sk_buff *skb, struct nss_cfi_cryp
 	}
 
 	skb->skb_iif = hlos_dev->ifindex;
+	encap_flow.type = NSS_IPSECMGR_FLOW_TYPE_V4_TUPLE;
 
-	rule.encap_add.inner_ipv4_src = ntohl(inner_ip->saddr);
-	rule.encap_add.inner_ipv4_dst = ntohl(inner_ip->daddr);
+	/*
+	 * construct flow information
+	 */
+	v4_tuple = &encap_flow.data.v4_tuple;
+	v4_tuple->src_ip = ntohl(inner_ip->saddr);
+	v4_tuple->dst_ip = ntohl(inner_ip->daddr);
+	v4_tuple->protocol = inner_ip->protocol;
 
-	rule.encap_add.outer_ipv4_src = ntohl(outer_ip->saddr);
-	rule.encap_add.outer_ipv4_dst = ntohl(outer_ip->daddr);
-	rule.encap_add.esp_spi = ntohl(esp->spi);
+	/*
+	 * construct SA information
+	 */
+	encap_sa.type = NSS_IPSECMGR_SA_TYPE_V4;
+	sa_v4 = &encap_sa.data.v4;
 
-	switch(inner_ip->protocol)
-	{
-		case IPPROTO_TCP:
-			tcp = nss_cfi_ipsec_get_next_hdr(inner_ip);
-			rule.encap_add.inner_src_port = ntohs(tcp->source);
-			rule.encap_add.inner_dst_port = ntohs(tcp->dest);
-			break;
-		case IPPROTO_UDP:
-			udp = nss_cfi_ipsec_get_next_hdr(inner_ip);
-			rule.encap_add.inner_src_port = ntohs(udp->source);
-			rule.encap_add.inner_dst_port = ntohs(udp->dest);
-			break;
-		default:
-			nss_cfi_err("inner IPv4 header mismatch:protocol = %d\n", inner_ip->protocol);
-			return -1;
-	}
+	sa_v4->src_ip = ntohl(outer_ip->saddr);
+	sa_v4->dst_ip = ntohl(outer_ip->daddr);
+	sa_v4->ttl = outer_ip->ttl;
+	sa_v4->spi_index = ntohl(esp->spi);
 
-	/* XXX:All this needs to be fed by CFI */
-	rule.encap_add.cipher_algo = crypto->cipher_algo;
-	rule.encap_add.esp_icv_len = crypto->hash_len;
-	rule.encap_add.auth_algo = crypto->auth_algo;
-	rule.encap_add.crypto_index = crypto->sid;
-	rule.encap_add.nat_t_req = 0;
+	data.esp.icv_len = crypto->hash_len;
+	data.esp.nat_t_req = false;
+	data.esp.seq_skip = false;
+	data.esp.trailer_skip = false;
 
-	rule.encap_add.inner_ipv4_proto = inner_ip->protocol;
-	rule.encap_add.outer_ipv4_ttl = outer_ip->ttl;
+	data.crypto_index = crypto->sid;
+	data.use_pattern = false;
 
 	index = nss_cfi_ipsec_get_index(hlos_dev->name);
 	if (index < 0) {
@@ -307,7 +319,7 @@ static int32_t nss_cfi_ipsec_trap_encap(struct sk_buff *skb, struct nss_cfi_cryp
 
 	nss_dev = tunnel_map[index].nss_dev;
 
-	if(nss_ipsecmgr_sa_add(nss_dev, &rule, NSS_IPSECMGR_RULE_TYPE_ENCAP) == false) {
+	if (nss_ipsecmgr_encap_add(nss_dev, &encap_flow, &encap_sa, &data) == false) {
 		nss_cfi_err("Error in Pushing the Encap Rule \n");
 		return -1;
 	}
@@ -316,17 +328,10 @@ static int32_t nss_cfi_ipsec_trap_encap(struct sk_buff *skb, struct nss_cfi_cryp
 	 * Need to save the selector for deletion as it will for issued for
 	 * session delete
 	 */
-
-	sa_tbl[crypto->sid].type = NSS_IPSECMGR_RULE_TYPE_ENCAP;
+	sa_tbl[crypto->sid].type = NSS_CFI_IPSEC_RULE_TYPE_ENCAP;
 	sa_tbl[crypto->sid].nss_dev = nss_dev;
 
-	encap_del = &sa_tbl[crypto->sid].rule_del.encap;
-
-	encap_del->inner_ipv4_src = rule.encap_add.inner_ipv4_src;
-	encap_del->inner_ipv4_dst = rule.encap_add.inner_ipv4_dst;
-	encap_del->inner_src_port = rule.encap_add.inner_src_port;
-	encap_del->inner_dst_port = rule.encap_add.inner_dst_port;
-	encap_del->inner_ipv4_proto = rule.encap_add.inner_ipv4_proto;
+	memcpy(&sa_tbl[crypto->sid].sa, &encap_sa, sizeof(struct nss_ipsecmgr_sa));
 
 	nss_cfi_dbg("encap pushed rule successfully\n");
 
@@ -339,13 +344,14 @@ static int32_t nss_cfi_ipsec_trap_encap(struct sk_buff *skb, struct nss_cfi_cryp
  */
 static int32_t nss_cfi_ipsec_trap_decap(struct sk_buff *skb, struct nss_cfi_crypto_info* crypto)
 {
-	union nss_ipsecmgr_rule rule = {{0}};
+	struct nss_ipsecmgr_sa decap_sa = {0};
+	struct nss_ipsecmgr_sa_data data = {0};
+	struct nss_ipsecmgr_sa_v4 *sa_v4;
 	struct iphdr *outer_ip;
 	struct iphdr *inner_ip;
 	struct ip_esp_hdr *esp = NULL;
 	struct net_device *hlos_dev;
 	struct net_device *nss_dev;
-	struct nss_ipsecmgr_decap_del *decap_del;
 	uint8_t index = 0;
 	uint32_t ivsize = 0;
 
@@ -368,19 +374,18 @@ static int32_t nss_cfi_ipsec_trap_decap(struct sk_buff *skb, struct nss_cfi_cryp
 	/* XXX: this should use the IV len fed by CFI */
 	inner_ip = (struct iphdr *)(skb->data + sizeof(struct ip_esp_hdr) + ivsize);
 
-	rule.decap_add.outer_ipv4_src = ntohl(outer_ip->saddr);
-	rule.decap_add.outer_ipv4_dst = ntohl(outer_ip->daddr);
+	/*
+	 * construct SA information
+	 */
+	decap_sa.type = NSS_IPSECMGR_SA_TYPE_V4;
+	sa_v4 = &decap_sa.data.v4;
 
-	rule.decap_add.esp_spi = ntohl(esp->spi);
+	sa_v4->src_ip = ntohl(outer_ip->saddr);
+	sa_v4->dst_ip = ntohl(outer_ip->daddr);
+	sa_v4->spi_index = ntohl(esp->spi);
 
-	/* XXX:All this needs to be fed by CFI */
-	rule.decap_add.cipher_algo = crypto->cipher_algo;
-	rule.decap_add.auth_algo = crypto->auth_algo;
-	rule.decap_add.esp_icv_len = crypto->hash_len;
-	rule.decap_add.crypto_index = crypto->sid;
-
-	/* XXX:This needs to come from openswan */
-	rule.decap_add.window_size = 0;
+	data.crypto_index = crypto->sid;
+	data.esp.icv_len = crypto->hash_len;
 
 	index = nss_cfi_ipsec_get_index(hlos_dev->name);
 	if (index < 0) {
@@ -389,7 +394,7 @@ static int32_t nss_cfi_ipsec_trap_decap(struct sk_buff *skb, struct nss_cfi_cryp
 
 	nss_dev = tunnel_map[index].nss_dev;
 
-	if(nss_ipsecmgr_sa_add(nss_dev, &rule, NSS_IPSECMGR_RULE_TYPE_DECAP) == false) {
+	if (nss_ipsecmgr_decap_add(nss_dev, &decap_sa, &data) == false) {
 		nss_cfi_err("Error in Pushing the Decap Rule\n");
 		return -1;
 	}
@@ -398,14 +403,10 @@ static int32_t nss_cfi_ipsec_trap_decap(struct sk_buff *skb, struct nss_cfi_cryp
 	 * Need to save the selector for deletion as it will for issued for
 	 * session delete
 	 */
-	sa_tbl[crypto->sid].type = NSS_IPSECMGR_RULE_TYPE_DECAP;
+	sa_tbl[crypto->sid].type = NSS_CFI_IPSEC_RULE_TYPE_DECAP;
 	sa_tbl[crypto->sid].nss_dev = nss_dev;
 
-	decap_del = &sa_tbl[crypto->sid].rule_del.decap;
-
-	decap_del->outer_ipv4_src = rule.decap_add.outer_ipv4_src;
-	decap_del->outer_ipv4_dst = rule.decap_add.outer_ipv4_dst;
-	decap_del->esp_spi = rule.decap_add.esp_spi;
+	memcpy(&sa_tbl[crypto->sid].sa, &decap_sa, sizeof(struct nss_ipsecmgr_sa));
 
 	nss_cfi_dbg("decap pushed rule successfully\n");
 
@@ -422,10 +423,7 @@ static int32_t nss_cfi_ipsec_trap_decap(struct sk_buff *skb, struct nss_cfi_cryp
 static void nss_cfi_ipsec_data_cb(void *cb_ctx, struct sk_buff *skb)
 {
 	struct net_device *dev = cb_ctx;
-	struct net_device *nss_dev;
 	struct iphdr *ip;
-	int16_t index = 0;
-
 
 	nss_cfi_dbg("exception data ");
 
@@ -448,14 +446,10 @@ static void nss_cfi_ipsec_data_cb(void *cb_ctx, struct sk_buff *skb)
 	}
 
 	if (ip->protocol == IPPROTO_ESP) {
-		index = nss_cfi_ipsec_get_index(dev->name);
-		nss_dev = tunnel_map[index].nss_dev;
-		if (nss_dev == NULL) {
-			nss_cfi_err("NSS IPsec tunnel dev allocation failed for %s\n", dev->name);
-			goto done;
-		}
-
-		nss_ipsecmgr_sa_flush(nss_dev, NSS_IPSECMGR_RULE_TYPE_ENCAP);
+		/*
+		 * TODO: Parse Outer IP and ESP headers to construct SA
+		 * 	call sa flush.
+		 */
 		dev_kfree_skb_any(skb);
 		goto done;
 	}
@@ -502,6 +496,7 @@ static int nss_cfi_ipsec_dev_event(struct notifier_block *this, unsigned long ev
 #else
 	struct net_device *hlos_dev = netdev_notifier_info_to_dev(ptr);
 #endif
+	struct nss_ipsecmgr_callback ipsec_cb;
 	struct net_device *nss_dev;
 	int16_t index = 0;
 
@@ -513,14 +508,17 @@ static int nss_cfi_ipsec_dev_event(struct notifier_block *this, unsigned long ev
 			return NOTIFY_DONE;
 		}
 
+		ipsec_cb.ctx = hlos_dev;
+		ipsec_cb.data_fn = nss_cfi_ipsec_data_cb;
+		ipsec_cb.event_fn = nss_cfi_ipsec_ev_cb;
+
 		nss_cfi_info("IPsec interface being registered: %s\n", hlos_dev->name);
 
-		nss_dev = nss_ipsecmgr_tunnel_add(hlos_dev, nss_cfi_ipsec_data_cb, nss_cfi_ipsec_ev_cb);
+		nss_dev = nss_ipsecmgr_tunnel_add(&ipsec_cb);
 		if (nss_dev == NULL) {
 			nss_cfi_err("NSS IPsec tunnel dev allocation failed for %s\n", hlos_dev->name);
 			return NOTIFY_BAD;
 		}
-
 
 		tunnel_map[index].nss_dev = nss_dev;
 
@@ -563,7 +561,13 @@ static struct notifier_block nss_cfi_ipsec_notifier = {
  */
 int __init nss_cfi_ipsec_init_module(void)
 {
+	int i;
+
 	nss_cfi_info("NSS IPsec (platform - IPQ806x , Build - %s:%s) loaded\n", __DATE__, __TIME__);
+
+	for (i = 0; i < NSS_CRYPTO_MAX_IDXS; i++) {
+		sa_tbl[i].type = NSS_CFI_IPSEC_RULE_TYPE_NONE;
+	}
 
 	register_netdevice_notifier(&nss_cfi_ipsec_notifier);
 
