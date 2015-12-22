@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014,2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -30,7 +30,7 @@
 
 /*
  * This is a rough estimate need to be accurate but large enough to
- * accomodate most usecases
+ * accommodate most use cases
  */
 #define NSS_IPSECMGR_TUN_MAX_HDR_LEN 96
 
@@ -38,131 +38,127 @@
  * Space required in the head and tail of the buffer
  */
 #define NSS_IPSECMGR_TUN_HEADROOM 128
-#define NSS_IPSECMGR_TUN_TAILROOM 192
+#define NSS_IPSECMGR_TUN_TAILROOM 128
 
 #define NSS_IPSECMGR_TUN_MTU(x) (x - NSS_IPSECMGR_TUN_MAX_HDR_LEN)
 
 #define NSS_IPSECMGR_NATT_PORT_DATA 4500
 
 /**
- * @brief Definition of an IPsec encapsulation rule for an add operation
+ * @brief Flow types
  */
-struct nss_ipsecmgr_encap_add {
-	uint32_t inner_ipv4_src;	/**< inner IPv4 source address */
-	uint32_t inner_ipv4_dst;	/**< inner IPv4 destination address */
-
-	uint32_t outer_ipv4_src;	/**< outer IPv4 source address */
-	uint32_t outer_ipv4_dst;	/**< outer IPv4 destination address */
-
-	uint32_t esp_spi;		/**< ESP header's SPI index */
-
-	uint16_t inner_src_port;	/**< inner protocol's source port */
-	uint16_t inner_dst_port;	/**< inner protocol's destination port */
-
-	uint16_t crypto_index;		/**< crypto session index returned by the driver */
-	uint8_t cipher_algo;		/**< Cipher algorithm */
-	uint8_t auth_algo;		/**< Authentication algorithm */
-
-	uint8_t nat_t_req;		/**< apply NAT-T header */
-	uint8_t inner_ipv4_proto;	/**< inner IPv4 protocol */
-	uint8_t outer_ipv4_ttl;		/**< outer IPv4 time to live */
-	uint8_t esp_icv_len;		/**< ESP trailer's ICV length */
-
-	uint8_t esp_seq_skip;		/**< Skip ESP sequence number in header*/
-	uint8_t esp_tail_skip;		/**< Skip ESP trailer*/
-	uint8_t use_pattern;		/**< Use random pattern in hash calculation */
-	uint8_t res;			/**< reserve for 4-byte alignment */
+enum nss_ipsecmgr_flow_type {
+	NSS_IPSECMGR_FLOW_TYPE_NONE = 0,	/**< None */
+	NSS_IPSECMGR_FLOW_TYPE_V4_TUPLE = 1,	/**< IPv4 tuple */
+	NSS_IPSECMGR_FLOW_TYPE_V6_TUPLE = 2,	/**< IPv6 tuple */
+	NSS_IPSECMGR_FLOW_TYPE_V4_SUBNET = 3,	/**< IPv4 Subnet */
+	NSS_IPSECMGR_FLOW_TYPE_V6_SUBNET = 4,	/**< IPv6 Subnet */
+	NSS_IPSECMGR_FLOW_TYPE_MAX
 };
 
 /**
- * @brief Definition of an IPsec encapsulation rule for a delete operation
+ * @brief SA types
  */
-struct nss_ipsecmgr_encap_del {
-	uint32_t inner_ipv4_src;	/**< inner IPv4 source address */
-	uint32_t inner_ipv4_dst;	/**< inner IPv4 destination address */
-
-	uint16_t inner_src_port;	/**< inner protocol's source port */
-	uint16_t inner_dst_port;	/**< inner protocol's destination port */
-
-	uint8_t inner_ipv4_proto;	/**< inner IPv4 protocol */
-	uint8_t use_pattern;		/**< Use random pattern in hash calculation */
-	uint8_t res[2];			/**< reserve for 4-byte alignment */
-};
-
-/**
- * @brief Definition of an IPsec decapsulation rule for an add operation
- */
-struct nss_ipsecmgr_decap_add {
-	uint32_t outer_ipv4_src;	/**< outer IPv4 source address */
-	uint32_t outer_ipv4_dst;	/**< outer IPv4 destination address */
-
-	uint32_t esp_spi;		/**< ESP header's SPI index */
-
-	uint16_t crypto_index;		/**< crypto session index returned by the driver */
-	uint16_t window_size;		/**< sequence number window size for anti-replay */
-
-	uint8_t cipher_algo;		/**< Cipher algorithm */
-	uint8_t auth_algo;		/**< Authentication algorithm */
-	uint8_t esp_icv_len;		/**< ESP trailer's ICV length */
-	uint8_t nat_t_req;		/**< Remove NAT-T header */
-
-	uint8_t esp_seq_skip;		/**< Skip ESP sequence number in header*/
-	uint8_t esp_tail_skip;		/**< Skip ESP trailer*/
-	uint8_t res[2];			/**< reserve for 4-byte alignment */
-};
-
-/**
- * @brief Definition of an IPsec decapsulation rule for a delete operation
- */
-struct nss_ipsecmgr_decap_del {
-	uint32_t outer_ipv4_src;	/**< outer IPv4 source address */
-	uint32_t outer_ipv4_dst;	/**< outer IPv4 destination address */
-
-	uint32_t esp_spi;		/**< ESP header's SPI index */
-};
-
-/**
- * @brief Rule types
- */
-enum nss_ipsecmgr_rule_type {
-	NSS_IPSECMGR_RULE_TYPE_NONE = 0,	/**< Invalid rule type */
-	NSS_IPSECMGR_RULE_TYPE_ENCAP = 1,	/**< rule is for encap */
-	NSS_IPSECMGR_RULE_TYPE_DECAP = 2,	/**< rule is for decap */
-	NSS_IPSECMGR_RULE_TYPE_MAX
-};
-
-/**
- * @brief NSS IPsec manager rule definition
- */
-union nss_ipsecmgr_rule {
-	struct nss_ipsecmgr_encap_add encap_add;	/**< encap rule add */
-	struct nss_ipsecmgr_encap_del encap_del;	/**< encap rule del */
-	struct nss_ipsecmgr_decap_add decap_add;	/**< decap rule add */
-	struct nss_ipsecmgr_decap_del decap_del;	/**< decap rule del */
-};
-
-/**
- * @brief SA stats exported by NSS IPsec manager
- */
-struct nss_ipsecmgr_sa_stats {
-	enum nss_ipsecmgr_rule_type type;		/**< Encap/Decap */
-	uint32_t esp_spi;				/**< ESP SPI */
-	uint32_t seqnum;				/**< SA sequence number */
-	uint32_t crypto_index;				/**< crypto session index */
-	uint32_t pkts_processed;			/**< packets processed */
-	uint32_t pkts_dropped;				/**< packets dropped */
-	uint32_t pkts_failed;				/**< packets failed to be processed */
+enum nss_ipsecmgr_sa_type {
+	NSS_IPSECMGR_SA_TYPE_NONE = 0,	/**< None */
+	NSS_IPSECMGR_SA_TYPE_V4 = 1,	/**< IPv4 SA */
+	NSS_IPSECMGR_SA_TYPE_V6 = 2,	/**< IPv6 SA */
+	NSS_IPSECMGR_SA_TYPE_MAX
 };
 
 /**
  * @brief NSS IPsec manager event type
  */
 enum nss_ipsecmgr_event_type {
-	NSS_IPSECMGR_EVENT_NONE = 0,			/**< invalid event type */
-	NSS_IPSECMGR_EVENT_SA_STATS,			/**< statistics sync */
+	NSS_IPSECMGR_EVENT_NONE = 0,	/**< invalid event type */
+	NSS_IPSECMGR_EVENT_SA_STATS,	/**< statistics sync */
 	NSS_IPSECMGR_EVENT_MAX
 };
 
+/**
+ * @brief SA stats exported by NSS IPsec manager
+ */
+struct nss_ipsecmgr_sa_stats {
+	uint32_t esp_spi;		/**< ESP SPI index */
+	uint32_t seq_num;		/**< current ESP sequence */
+	uint32_t crypto_index;		/**< crypto session index */
+
+	struct {
+		uint32_t processed;	/**< packets processed */
+		uint32_t dropped;	/**< packets dropped */
+		uint32_t failed;	/**< packets failed to be processed */
+	} pkts;
+};
+
+/**
+ * @brief IPv4 Security Association
+ */
+struct nss_ipsecmgr_sa_v4 {
+	uint32_t src_ip;		/**< IPv4 source IP */
+	uint32_t dst_ip;		/**< IPv4 destination IP */
+	uint32_t ttl;			/**< IPv4 time-to-live*/
+
+	uint32_t spi_index;		/**< ESP SPI index */
+};
+
+/**
+ * @brief IPv6 Security Association
+ */
+struct nss_ipsecmgr_sa_v6 {
+	uint32_t src_ip[4];		/**< IPv6 source IP */
+	uint32_t dst_ip[4];		/**< IPv6 destination IP */
+	uint32_t hop_limit;		/**< IPv6 hop limit*/
+	uint32_t spi_index;		/**< ESP SPI index */
+};
+
+struct nss_ipsecmgr_sa_data {
+	uint32_t crypto_index;		/**< crypto session index returned by the driver */
+
+	struct {
+		uint32_t icv_len;	/**< Hash Length */
+		bool nat_t_req;		/**< NAT-T required */
+		bool seq_skip;		/**< Skip ESP sequence for ENCAP */
+		bool trailer_skip;	/**< Skip ESP trailer for ENCAP */
+	} esp;
+
+	bool use_pattern;		/**< Use random pattern in hash calculation */
+};
+
+/**
+ * @brief IPv4 encap flow tuple
+ */
+struct nss_ipsecmgr_encap_v4_tuple {
+	uint32_t src_ip;		/**< source IP */
+	uint32_t dst_ip;		/**< destination IP */
+	uint32_t protocol;		/**< protocol */
+};
+
+/**
+ * @brief IPv6 encap flow tuple
+ */
+struct nss_ipsecmgr_encap_v6_tuple {
+	uint32_t src_ip[4];		/**< source IP */
+	uint32_t dst_ip[4];		/**< destination IP */
+	uint32_t next_hdr;		/**< next header */
+};
+
+/**
+ * @brief IPv4 encap flow subnet
+ */
+struct nss_ipsecmgr_encap_v4_subnet {
+	uint32_t dst_subnet;		/**< destination subnet */
+	uint32_t dst_mask;		/**< destination subnet mask */
+	uint32_t protocol;		/**< protocol */
+};
+
+/**
+ * @brief IPv6 encap flow subnet
+ */
+struct nss_ipsecmgr_encap_v6_subnet {
+	uint32_t dst_subnet[4];		/**< destination subnet */
+	uint32_t dst_mask[4];		/**< destination subnet mask */
+	uint32_t next_hdr;		/**< next header */
+};
 /**
  * @brief NSS IPsec manager event
  */
@@ -173,89 +169,104 @@ struct nss_ipsecmgr_event {
 	}data;
 };
 
-#ifdef __KERNEL__ /* only kernel will use */
+/**
+ * @brief NSS IPsec manager SA
+ */
+struct nss_ipsecmgr_sa {
+	enum nss_ipsecmgr_sa_type type;
+	union {
+		struct nss_ipsecmgr_sa_v4 v4;	/**< IPv4 SA */
+		struct nss_ipsecmgr_sa_v6 v6;	/**< IPv6 SA */
+	} data;
+};
 
 /**
- * @brief Callback function registered by the IPsec tunnel users
- *
- * @param ctx[IN] callback context associated with the tunnel
- * @param skb[IN] the packet
- *
- * @return
+ * @brief NSS IPsec manger encap flow
  */
+struct nss_ipsecmgr_encap_flow {
+	enum nss_ipsecmgr_flow_type type;				/**< type */
+	union {
+		struct nss_ipsecmgr_encap_v4_tuple v4_tuple;		/**< IPv4 tuple */
+		struct nss_ipsecmgr_encap_v4_subnet v4_subnet;		/**< IPv4 subnet */
+		struct nss_ipsecmgr_encap_v6_tuple v6_tuple;		/**< IPv6 tuple */
+		struct nss_ipsecmgr_encap_v6_subnet v6_subnet;		/**< IPv6 subnet */
+	} data;
+};
+
 typedef void (*nss_ipsecmgr_data_cb_t) (void *ctx, struct sk_buff *skb);
-
-/**
- * @brief Callback function registered by the IPsec tunnel users
- * 	  to receive NSS IPsec manager events
- *
- * @param ctx[IN] callback context associated with the tunnel
- * @param ev[IN] IPsec event
- *
- * @return
- */
 typedef void (*nss_ipsecmgr_event_cb_t) (void *ctx, struct nss_ipsecmgr_event *ev);
 
 /**
- * @brief Create a new IPsec tunnel interface
- *
- * @param ctx[IN] context that the caller wants to be stored per tunnel
- * @param cb[IN] the callback function for receiving data
- * @param event_cb[IN] the callback function for receiving events
- *
- * @return Netdevice for the IPsec tunnel interface
- *
- * @note This needs to be created for receiving data from NSS IPsec
- * 	 and sending data to the NSS IPsec (if requried). The need for
- * 	 this is to provide a data interface on Host which can use it
- * 	 to either receive IPsec decapsulated packets or send plain text
- * 	 packets to get IPsec encapsulated. This will help bind SA(s) to
- * 	 tunnels so when the tunnel goes away all associated SA(s)
+ * @brief IPsec manager callback information
  */
-struct net_device *nss_ipsecmgr_tunnel_add(void *ctx, nss_ipsecmgr_data_cb_t data_cb, nss_ipsecmgr_event_cb_t event_cb);
+struct nss_ipsecmgr_callback {
+	void *ctx;				/**< context of caller */
+	nss_ipsecmgr_data_cb_t data_fn;		/**< data callback function */
+	nss_ipsecmgr_event_cb_t event_fn;	/**< event callback function */
+};
+
 
 /**
- * @brief Delete the IPsec tunnel
+ * @brief Add a new IPsec tunnel
  *
- * @param tun[IN] IPsec tunnel device on host
+ * @param cb[IN] Callback info
  *
- * @return true when successful
+ * @return Linux NETDEVICE or NULL
+ */
+struct net_device *nss_ipsecmgr_tunnel_add(struct nss_ipsecmgr_callback *cb);
+
+/**
+ * @brief Delete an existing IPsec tunnel
+ *
+ * @param tun[IN] Linux NETDEVICE
+ *
+ * @return success or failure
  */
 bool nss_ipsecmgr_tunnel_del(struct net_device *tun);
 
-/**
- * @brief Add a new Security Association to the IPsec tunnel
- *
- * @param tun[IN] pseudo IPsec tunnel device
- * @param rule[IN] IPsec rule structure associated with the SA
- * @param type[IN] ingress or egress type
- *
- * @return
- */
-bool nss_ipsecmgr_sa_add(struct net_device *tun, union nss_ipsecmgr_rule *rule, enum nss_ipsecmgr_rule_type type);
 
 /**
- * @brief Delete an existing security association from the IPsec tunnel
+ * @brief Add an ENCAP flow rule to the IPsec offload database
  *
- * @param tun[IN] pseudo IPsec tunnel device
- * @param rule[IN] IPsec rule structure associated with the SA
- * @param type[IN] ingress or egress type
+ * @param tun[IN] IPsec tunnel
+ * @param flow[IN] Flow or Subnet to add
+ * @param sa[IN] Flow Security Association for the flow
+ * @param data[IN] Additional SA Data
  *
- * @return
+ * @return success or failure
  */
-bool nss_ipsecmgr_sa_del(struct net_device *tun, union nss_ipsecmgr_rule *rule, enum nss_ipsecmgr_rule_type type);
-
+bool nss_ipsecmgr_encap_add(struct net_device *tun, struct nss_ipsecmgr_encap_flow *flow, struct nss_ipsecmgr_sa *sa,
+				struct nss_ipsecmgr_sa_data *data);
 
 /**
- * @brief flush rules for all sa belonging to a specific tunnel
+ * @brief Delete an ENCAP flow rule from the IPsec offload database
  *
- * @param dev[IN] pseudo IPsec tunnel device
- * @param skb[IN]  the packet
- * @param type[IN] ingress or egress type
+ * @param tun[IN] IPsec tunnel
+ * @param flow[IN] Flow or Subnet to delete
  *
- * @return true for success
+ * @return sucess or failure
  */
-bool nss_ipsecmgr_sa_flush(struct net_device *dev, enum nss_ipsecmgr_rule_type type);
+bool nss_ipsecmgr_encap_del(struct net_device *tun, struct nss_ipsecmgr_encap_flow *flow, struct nss_ipsecmgr_sa *sa);
 
-#endif /* (__KERNEL__) */
+/**
+ * @brief Add a DECAP SA to offload database
+ *
+ * @param tun[IN] IPsec tunnel
+ * @param sa[IN] Security Association for the DECAP
+ * @param data[IN] SA data
+ *
+ * @return success or failure
+ */
+bool nss_ipsecmgr_decap_add(struct net_device *tun, struct nss_ipsecmgr_sa *sa, struct nss_ipsecmgr_sa_data *data);
+
+/**
+ * @brief Flush the SA and all associated flows/subnets
+ *
+ * @param tun[IN] IPsec tunnel
+ * @param sa[IN] SA to flush
+ *
+ * @return success or failure
+ */
+bool nss_ipsecmgr_sa_flush(struct net_device *tun, struct nss_ipsecmgr_sa *sa);
+
 #endif /* __NSS_IPSECMGR_H */
