@@ -26,6 +26,7 @@
  */
 struct nss_portifmgr_priv {
 	struct nss_ctx_instance *nss_ctx;	/**< Pointer to NSS context */
+	struct net_device *real_dev;		/**< Pointer to the real gmac net_device */
 	int if_num;				/**< Interface number */
 	int port_id;				/**< Switch port id */
 };

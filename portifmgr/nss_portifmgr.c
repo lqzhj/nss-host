@@ -23,6 +23,7 @@
 #include <linux/if_arp.h>
 #include <linux/rtnetlink.h>
 #include <nss_api_if.h>
+#include <nss_gmac_api_if.h>
 
 #include <nss_portifmgr.h>
 
@@ -200,6 +201,22 @@ static struct rtnl_link_stats64 *nss_portifmgr_get_stats(struct net_device *dev,
 }
 
 /*
+ * nss_portifmgr_change_mtu()
+ *	Netdev change mtu function
+ */
+int nss_portifmgr_change_mtu(struct net_device *dev, int new_mtu)
+{
+	struct nss_portifmgr_priv *priv = (struct nss_portifmgr_priv *)netdev_priv(dev);
+
+	if ((new_mtu + NSS_PORTIFMGR_EXTRA_HEADER_SIZE) > priv->real_dev->mtu) {
+		return -ERANGE;
+	}
+
+	dev->mtu = new_mtu;
+	return 0;
+}
+
+/*
  * nss_portifmgr_netdev_ops
  *	Netdev operations.
  */
@@ -208,7 +225,7 @@ static const struct net_device_ops nss_portifmgr_netdev_ops = {
 	.ndo_stop		= nss_portifmgr_close,
 	.ndo_start_xmit		= nss_portifmgr_start_xmit,
 	.ndo_set_mac_address	= eth_mac_addr,
-	.ndo_change_mtu		= eth_change_mtu,
+	.ndo_change_mtu		= nss_portifmgr_change_mtu,
 	.ndo_get_stats64	= nss_portifmgr_get_stats,
 };
 
@@ -218,11 +235,17 @@ static const struct net_device_ops nss_portifmgr_netdev_ops = {
  */
 struct net_device *nss_portifmgr_create_if(int port_id, int gmac_id, const char *name)
 {
-	struct net_device *ndev;
+	struct net_device *ndev, *real_dev;
 	struct nss_ctx_instance *nss_ctx;
 	struct nss_portifmgr_priv *priv;
 	int err, if_num;
 	nss_tx_status_t status;
+
+	real_dev = nss_gmac_get_netdev_by_macid(gmac_id);
+	if (!real_dev) {
+		nss_portifmgr_warn("Underlying gmac%d netdevice does not exist!\n", gmac_id);
+		return NULL;
+	}
 
 	ndev = alloc_etherdev(sizeof(struct nss_portifmgr_priv));
 	if (!ndev) {
@@ -239,6 +262,7 @@ struct net_device *nss_portifmgr_create_if(int port_id, int gmac_id, const char 
 	ndev->hw_features |= NSS_PORTIFMGR_SUPPORTED_FEATURES;
 	ndev->vlan_features |= NSS_PORTIFMGR_SUPPORTED_FEATURES;
 	ndev->wanted_features |= NSS_PORTIFMGR_SUPPORTED_FEATURES;
+	ndev->mtu = real_dev->mtu - NSS_PORTIFMGR_EXTRA_HEADER_SIZE;
 	strncpy(ndev->name, name, IFNAMSIZ);
 
 	/*
@@ -273,6 +297,7 @@ struct net_device *nss_portifmgr_create_if(int port_id, int gmac_id, const char 
 	 */
 	priv = netdev_priv(ndev);
 	priv->nss_ctx = nss_ctx;
+	priv->real_dev = real_dev;
 	priv->if_num = if_num;
 	priv->port_id = port_id;
 
@@ -281,6 +306,7 @@ struct net_device *nss_portifmgr_create_if(int port_id, int gmac_id, const char 
 	 */
 	status = nss_portid_tx_configure_port_if_msg(nss_ctx, if_num, port_id, gmac_id);
 	if (status == NSS_TX_SUCCESS) {
+		dev_hold(real_dev);
 		return ndev;
 	}
 
@@ -306,6 +332,11 @@ void nss_portifmgr_destroy_if(struct net_device *ndev)
 {
 	struct nss_portifmgr_priv *priv = netdev_priv(ndev);
 	nss_tx_status_t status;
+
+	/*
+	 * Release ref for the real gmac net_device
+	 */
+	dev_put(priv->real_dev);
 
 	/*
 	 * Unconfigure port
