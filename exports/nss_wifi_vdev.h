@@ -91,6 +91,7 @@ enum nss_wifi_vdev_ext_data_pkt_type {
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_TXINFO = 4,	/**< tx completion info packets */
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_MPSTA_TX = 5,	/**< mpsta tx meta data */
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_MPSTA_RX = 6,	/**< mpsta rx meta data */
+	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_RX_ERR = 7,	/**< rx error packets meta data */
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_MAX
 };
 
@@ -323,6 +324,17 @@ struct nss_wifi_vdev_mpsta_per_packet_rx_metadata {
 	uint16_t peer_id;		/**< peer_id */
 };
 
+/*
+ * Wifi per packet metadata for rx_err packets.
+ */
+struct nss_wifi_vdev_rx_err_per_packet_metadata {
+	uint8_t peer_mac_addr[ETH_ALEN];	/*< peer mac address */
+	uint8_t tid;    			/*< tid */
+	uint8_t vdev_id;			/*< vdev id */
+	uint8_t err_type;			/*< Error Type */
+	uint8_t rsvd[3];			/*< Reserved for alignment */
+};
+
 /**
  * wifi per packet metadata content
  */
@@ -334,6 +346,7 @@ struct nss_wifi_vdev_per_packet_metadata {
 		struct nss_wifi_vdev_txinfo_per_packet_metadata txinfo_metadata;
 		struct nss_wifi_vdev_mpsta_per_packet_tx_metadata mpsta_tx_metadata;
 		struct nss_wifi_vdev_mpsta_per_packet_rx_metadata mpsta_rx_metadata;
+		struct nss_wifi_vdev_rx_err_per_packet_metadata rx_err_metadata;
 	} metadata;
 };
 
