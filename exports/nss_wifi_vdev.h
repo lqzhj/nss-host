@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -92,6 +92,8 @@ enum nss_wifi_vdev_ext_data_pkt_type {
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_MPSTA_TX = 5,	/**< mpsta tx meta data */
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_MPSTA_RX = 6,	/**< mpsta rx meta data */
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_RX_ERR = 7,	/**< rx error packets meta data */
+	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_EXTAP_TX = 8,	/**< extap tx meta data */
+	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_EXTAP_RX = 9,	/**< extap rx meta data */
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_MAX
 };
 
@@ -309,6 +311,15 @@ enum nss_wifi_vdev_qwrap_tx_metadata_types {
 };
 
 /**
+ * wifi per packet metadata types for extap tx packets
+ */
+enum nss_wifi_vdev_extap_pkt_types {
+	NSS_WIFI_VDEV_EXTAP_PKT_TYPE_NONE = 0,		/**< extap pkt type none */
+	NSS_WIFI_VDEV_EXTAP_PKT_TYPE_TX = 1,		/**< extap tx frame to be sent over wifi */
+	NSS_WIFI_VDEV_EXTAP_PKT_TYPE_RX_TO_TX = 2	/**< extap rx to tx frame to be sent over eth_rx */
+};
+
+/**
  * wifi transmit meta data for mpsta
  */
 struct nss_wifi_vdev_mpsta_per_packet_tx_metadata {
@@ -333,6 +344,14 @@ struct nss_wifi_vdev_rx_err_per_packet_metadata {
 	uint8_t vdev_id;			/*< vdev id */
 	uint8_t err_type;			/*< Error Type */
 	uint8_t rsvd[3];			/*< Reserved for alignment */
+};
+
+/*
+ * Wifi extap per packet metadata
+ */
+struct nss_wifi_vdev_extap_per_packet_metadata {
+	uint16_t pkt_type;	/**< extap pkt type */
+	uint8_t res[2];		/**< res */
 };
 
 /**
