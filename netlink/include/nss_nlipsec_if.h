@@ -36,8 +36,11 @@ enum nss_nlipsec_cmd {
 	NSS_NLIPSEC_CMD_UNSPEC = 0,		/**< unspecified cmd */
 	NSS_NLIPSEC_CMD_CREATE_TUNNEL = 1,	/**< create tunnel */
 	NSS_NLIPSEC_CMD_DESTROY_TUNNEL = 2,	/**< destroy tunnel */
-	NSS_NLIPSEC_CMD_CREATE_RULE = 3,	/**< create rule */
-	NSS_NLIPSEC_CMD_DESTROY_RULE = 4,	/**< destroy rule */
+	NSS_NLIPSEC_CMD_CREATE_ENCAP_FLOW = 3,	/**< create encap flow rule */
+	NSS_NLIPSEC_CMD_DESTROY_ENCAP_FLOW = 4,	/**< delete encap flow rule */
+	NSS_NLIPSEC_CMD_DESTROY_ENCAP_SA = 5,	/**< flush encap SA */
+	NSS_NLIPSEC_CMD_CREATE_DECAP_SA = 6,	/**< create decap flow rule */
+	NSS_NLIPSEC_CMD_DESTROY_DECAP_SA = 7,	/**< delete decap flow rule */
 
 	NSS_NLIPSEC_CMD_MAX
 };
@@ -51,8 +54,9 @@ struct nss_nlipsec_rule {
 	uint8_t ifname[IFNAMSIZ];			/**< IPsec tunnel interface name */
 
 	struct {
-		enum nss_ipsecmgr_rule_type type; 	/**< IPsec rule type */
-		union nss_ipsecmgr_rule data;		/**< IPsec rule data */
+		struct nss_ipsecmgr_encap_flow flow;
+		struct nss_ipsecmgr_sa sa;
+		struct nss_ipsecmgr_sa_data data;
 	} msg;
 
 	struct nss_ipsecmgr_event event;		/**< IPsec event */

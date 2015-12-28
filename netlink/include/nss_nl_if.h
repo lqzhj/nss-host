@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -26,9 +26,6 @@
 #define NSS_NL_VER_SHIFT 8
 
 #define NSS_NL_VER ((NSS_NL_VER_MAJOR << NSS_NL_VER_SHIFT) | NSS_NL_VER_MINOR)
-
-#include "nss_nlcmn_if.h"
-#include "nss_nlipv4_if.h"
 
 #endif /* __NSS_NL_IF_H */
 

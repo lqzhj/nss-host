@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -20,9 +20,6 @@
  */
 #ifndef __NSS_NLIPV4_IF_H
 #define __NSS_NLIPV4_IF_H
-
-#include "nss_cmn.h"
-#include "nss_ipv4.h"
 
 /**
  * IPv4 forwarding Family
