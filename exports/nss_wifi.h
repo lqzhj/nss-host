@@ -56,6 +56,7 @@ enum nss_wifi_metadata_types {
 	NSS_WIFI_ENABLE_PERPKT_TXSTATS_MSG,
 	NSS_WIFI_IGMP_MLD_TOS_OVERRIDE_MSG,
 	NSS_WIFI_OL_STATS_CFG_MSG,
+	NSS_WIFI_OL_STATS_MSG,
 	NSS_WIFI_MAX_MSG
 };
 
@@ -327,6 +328,34 @@ struct nss_wifi_igmp_mld_override_tos_msg {
 };
 
 /**
+ * nss_wifi_peer_ol_stats
+ */
+struct nss_wifi_peer_ol_stats {
+	uint32_t peer_id;            /**< peer id */
+	uint32_t seq_num;            /**< sequence number of ppdu */
+	uint32_t tx_unaggr;          /**< count of unaggregated pkts txed */
+	uint32_t tx_aggr;            /**< count of aggregated pkts txed */
+	uint32_t ppdu_bytes_success; /**< number of successfull bytes */
+	uint32_t tx_mcast;           /**< no of mcast pkts sent */
+	uint32_t tx_ucast;           /**< no of ucat pkts sent */
+	uint32_t tx_data;            /**< no of data pkts sent */
+	uint32_t tx_bytes;           /**< no of bytes sent */
+	uint32_t tx_fail;            /**< no of failed tx pkts */
+	uint32_t thrup_bytes;        /**< trhuput bytes */
+	uint32_t tx_bcast_pkts;      /**< no of bcast pkts sent */
+};
+
+/**
+ * wifi_ol_stats
+ */
+struct nss_wifi_ol_stats_msg {
+	uint32_t bawadv_cnt;    /**< block-ack window advancement count */
+	uint32_t bcn_cnt;       /**< beacon count */
+	uint32_t npeers;        /**< number of entries of peer stats */
+	struct nss_wifi_peer_ol_stats peer_ol_stats[1]; /**< array to hold the peer ol stats */
+};
+
+/**
  * Message structure to send/receive wifi messages
  */
 struct nss_wifi_msg {
@@ -352,6 +381,7 @@ struct nss_wifi_msg {
 		struct nss_wifi_enable_perpkt_txstats_msg ept_msg;
 		struct nss_wifi_igmp_mld_override_tos_msg wigmpmldtm_msg;
 		struct nss_wifi_ol_stats_cfg_msg scm_msg;
+		struct nss_wifi_ol_stats_msg ol_stats_msg;
 	} msg;
 };
 
