@@ -29,11 +29,6 @@
  */
 #define NSS_STATS_MAX_STR_LENGTH 96
 
-/*
- * Global variables/extern declarations
- */
-extern struct nss_top_instance nss_top_main;
-
 extern int32_t nss_tx_rx_virt_if_copy_stats(int32_t if_num, int i, char *line);
 
 uint64_t stats_shadow_pppoe_except[NSS_PPPOE_NUM_SESSION_PER_INTERFACE][NSS_PPPOE_EXCEPTION_EVENT_MAX];

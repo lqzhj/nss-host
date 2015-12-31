@@ -1101,6 +1101,7 @@ static void nss_core_init_nss(struct nss_ctx_instance *nss_ctx, struct nss_if_me
 {
 	int32_t i;
 	struct nss_top_instance *nss_top;
+	bool is_scheduled = false;
 
 	/*
 	 * NOTE: A commonly found error is that sizes and start address of per core
@@ -1144,32 +1145,35 @@ static void nss_core_init_nss(struct nss_ctx_instance *nss_ctx, struct nss_if_me
 	 * If nss core0 is up, then we are ready to hook to nss-gmac
 	 */
 	if (nss_ctx->id == 0) {
-		for (i = 0; i < NSS_MAX_PHYSICAL_INTERFACES; i++) {
-			if (nss_data_plane_register_to_nss_gmac(nss_ctx, i)) {
-				nss_info("Register data plan to gmac%d success\n", i);
-			}
-		}
+		is_scheduled = nss_data_plane_schedule_registration();
 	}
 
-	/*
-	 * Configure the maximum number of IPv4/IPv6
-	 * connections supported by the accelerator.
-	 */
-	nss_ipv4_conn_cfg = max_ipv4_conn;
-	nss_ipv6_conn_cfg = max_ipv6_conn;
-	if ((nss_ctx->id == 0) &&
-	    ((max_ipv4_conn_update_done == 0) || (max_ipv6_conn_update_done == 0))) {
-		if (max_ipv4_conn_update_done == 0) {
-			if (nss_ipv4_update_conn_count(max_ipv4_conn) == 0) {
-				max_ipv4_conn_update_done = 1;
+	if (is_scheduled) {
+		/*
+		 * Configure the maximum number of IPv4/IPv6
+		 * connections supported by the accelerator.
+		 */
+		nss_ipv4_conn_cfg = max_ipv4_conn;
+		nss_ipv6_conn_cfg = max_ipv6_conn;
+		if ((nss_ctx->id == 0) &&
+		    ((max_ipv4_conn_update_done == 0) || (max_ipv6_conn_update_done == 0))) {
+			if (max_ipv4_conn_update_done == 0) {
+				if (nss_ipv4_update_conn_count(max_ipv4_conn) == 0) {
+					max_ipv4_conn_update_done = 1;
+				}
 			}
-		}
 
-		if (max_ipv6_conn_update_done == 0) {
-			if (nss_ipv6_update_conn_count(max_ipv6_conn) == 0) {
-				max_ipv6_conn_update_done = 1;
+			if (max_ipv6_conn_update_done == 0) {
+				if (nss_ipv6_update_conn_count(max_ipv6_conn) == 0) {
+					max_ipv6_conn_update_done = 1;
+				}
 			}
 		}
+	} else {
+		nss_top = nss_ctx->nss_top;
+		spin_lock_bh(&nss_top->lock);
+		nss_ctx->state = NSS_CORE_STATE_UNINITIALIZED;
+		spin_unlock_bh(&nss_top->lock);
 	}
 }
 

@@ -24,6 +24,9 @@ extern int nss_skip_nw_process;
 
 #define NSS_DP_SUPPORTED_FEATURES NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_FRAGLIST | (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO)
 
+static struct delayed_work nss_data_plane_work;
+static struct workqueue_struct *nss_data_plane_workqueue;
+
 struct nss_data_plane_param nss_data_plane_params[NSS_MAX_PHYSICAL_INTERFACES];
 
 /*
@@ -113,6 +116,24 @@ static void nss_data_plane_set_features(struct net_device *netdev)
 }
 
 /*
+ * nss_data_plane_work_function()
+ *	Work function that gets queued to "install" the gmac overlays
+ */
+static void nss_data_plane_work_function(struct work_struct *work)
+{
+	int i;
+	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[NSS_CORE_0];
+
+	for (i = 0; i < NSS_MAX_PHYSICAL_INTERFACES; i++) {
+		if (!nss_data_plane_register_to_nss_gmac(nss_ctx, i)) {
+			nss_warning("%p: Register data plane failed for gmac:%d\n", nss_ctx, i);
+		} else {
+			nss_info("%p: Register data plan to gmac:%d success\n", nss_ctx, i);
+		}
+	}
+}
+
+/*
  * nss offload data plane ops
  */
 static struct nss_gmac_data_plane_ops dp_ops =
@@ -197,6 +218,21 @@ bool nss_data_plane_register_to_nss_gmac(struct nss_ctx_instance *nss_ctx, int i
 }
 
 /*
+ * nss_data_plane_schedule_registration()
+ *	Called from nss_init to schedule a work to do data_plane register to nss-gmac
+ */
+bool nss_data_plane_schedule_registration(void)
+{
+	if (!queue_work_on(1, nss_data_plane_workqueue, &nss_data_plane_work.work)) {
+		nss_warning("Failed to register data plane workqueue on core 1\n");
+		return false;
+	} else {
+		nss_info("Register data plane workqueue on core 1\n");
+		return true;
+	}
+}
+
+/*
  * nss_data_plane_unregister_from_nss_gmac()
  */
 void nss_data_plane_unregister_from_nss_gmac(int if_num)
@@ -208,4 +244,27 @@ void nss_data_plane_unregister_from_nss_gmac(int if_num)
 	nss_data_plane_params[if_num].notify_open = 0;
 	nss_data_plane_params[if_num].enabled = 0;
 	nss_data_plane_params[if_num].bypass_nw_process = 0;
+}
+
+/*
+ * nss_data_plane_init_delay_work()
+ */
+int nss_data_plane_init_delay_work(void)
+{
+	nss_data_plane_workqueue = create_singlethread_workqueue("nss_data_plane_workqueue");
+	if (!nss_data_plane_workqueue) {
+		nss_warning("Can't allocate workqueue\n");
+		return -ENOMEM;
+	}
+
+	INIT_DELAYED_WORK(&nss_data_plane_work, nss_data_plane_work_function);
+	return 0;
+}
+
+/*
+ * nss_data_plane_destroy_delay_work()
+ */
+void nss_data_plane_destroy_delay_work(void)
+{
+	destroy_workqueue(nss_data_plane_workqueue);
 }

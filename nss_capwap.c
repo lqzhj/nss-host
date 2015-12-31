@@ -47,11 +47,6 @@ struct nss_capwap_handle {
 static struct nss_capwap_handle *nss_capwap_hdl[NSS_MAX_DYNAMIC_INTERFACES];
 
 /*
- * Global definitions.
- */
-extern struct nss_top_instance nss_top_main;
-
-/*
  * nss_capwap_verify_if_num()
  *	Verify if_num passed to us.
  */

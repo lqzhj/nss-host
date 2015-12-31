@@ -32,11 +32,6 @@
  */
 #define NSS_HLOS_MESSAGE_VERSION 0
 
-/*
- * Global variables/extern declarations
- */
-extern struct nss_top_instance nss_top_main;
-
 #if (NSS_DEBUG_LEVEL > 0)
 #define NSS_VERIFY_CTX_MAGIC(x) nss_verify_ctx_magic(x)
 #define NSS_VERIFY_INIT_DONE(x) nss_verify_init_done(x)

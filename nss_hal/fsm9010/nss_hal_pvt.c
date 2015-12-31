@@ -44,8 +44,6 @@ struct of_device_id nss_dt_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, nss_dt_ids);
 
-extern struct nss_top_instance nss_top_main;
-
 /*
  * __nss_hal_debug_enable()
  *	Enable NSS debug
