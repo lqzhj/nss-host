@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -31,11 +31,13 @@
 #include "nss_nlipv4_if.h"
 #include "nss_nlcrypto_if.h"
 #include "nss_nlipsec_if.h"
+#include "nss_nloam_if.h"
 
 #include "nss_nl.h"
 #include "nss_nlipv4.h"
 #include "nss_nlcrypto.h"
 #include "nss_nlipsec.h"
+#include "nss_nloam.h"
 
 /*
  * nss_nl.c
@@ -83,10 +85,18 @@ static struct nss_nl_family family_handlers[] = {
 		.exit = NSS_NLIPSEC_EXIT,		/* exit */
 		.valid = CONFIG_NSS_NLIPSEC		/* 1 or 0 */
 	},
+	{
+		/*
+		 * NSS_NLOAM
+		 */
+		.name = NSS_NLOAM_FAMILY,		/* oam */
+		.entry = NSS_NLOAM_INIT,		/* init */
+		.exit = NSS_NLOAM_EXIT,			/* exit */
+		.valid = CONFIG_NSS_NLOAM		/* 1 or 0 */
+	},
 };
 
 #define NSS_NL_FAMILY_HANDLER_SZ ARRAY_SIZE(family_handlers)
-
 
 /*
  * nss_nl_alloc_msg()
@@ -153,6 +163,7 @@ struct sk_buff *nss_nl_copy_msg(struct sk_buff *orig)
 
 	return copy;
 }
+
 /*
  * nss_nl_get_data()
  * 	Returns start of payload data
@@ -173,6 +184,7 @@ int nss_nl_mcast_event(struct genl_multicast_group *grp, struct sk_buff *skb)
 	struct nss_nlcmn *cm;
 
 	cm = genlmsg_data(NLMSG_DATA(skb->data));
+
 	/*
 	 * End the message as no more updates are left to happen.
 	 * After this, the message is assunmed to be read-only
