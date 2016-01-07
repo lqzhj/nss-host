@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -73,6 +73,7 @@ struct nss_phys_if_estats {
 	uint32_t gmac_total_ticks;	/**< Total clock ticks spend inside the GMAC */
 	uint32_t gmac_worst_case_ticks;	/**< Worst case iteration of the GMAC in ticks */
 	uint32_t gmac_iterations;	/**< Number of iterations around the GMAC */
+	uint32_t tx_pause_frames;	/**< Number of pause frames sent by the GMAC */
 };
 
 /**
@@ -99,6 +100,7 @@ enum nss_phys_if_msg_types {
 	NSS_PHYS_IF_BSHAPER_UNASSIGN = NSS_IF_BSHAPER_UNASSIGN,
 	NSS_PHYS_IF_ISHAPER_CONFIG = NSS_IF_ISHAPER_CONFIG,
 	NSS_PHYS_IF_BSHAPER_CONFIG = NSS_IF_BSHAPER_CONFIG,
+	NSS_PHYS_IF_PAUSE_ON_OFF = NSS_IF_PAUSE_ON_OFF,
 	NSS_PHYS_IF_EXTENDED_STATS_SYNC = NSS_IF_MAX_MSG_TYPES + 1,
 	NSS_PHYS_IF_MAX_MSG_TYPES
 };
@@ -253,5 +255,16 @@ nss_tx_status_t nss_phys_if_mac_addr(struct nss_ctx_instance *nss_ctx, uint8_t *
  * @return nss_tx_status_t Tx status
  */
 nss_tx_status_t nss_phys_if_change_mtu(struct nss_ctx_instance *nss_ctx, uint32_t mtu, uint32_t if_num);
+
+/**
+ * @brief Send pause frame enabled notification to NSS
+ *
+ * @param nss_ctx NSS context
+ * @param pause_on Pause on or off
+ * @param if_num GMAC i/f number
+ *
+ * @return nss_tx_status_t Tx status
+ */
+nss_tx_status_t nss_phys_if_pause_on_off(struct nss_ctx_instance *nss_ctx, uint32_t pause_on, uint32_t if_num);
 
 #endif /* __NSS_PHYS_IF_H */

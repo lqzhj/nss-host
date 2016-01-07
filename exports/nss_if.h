@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014 - 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014 - 2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -37,6 +37,7 @@ enum nss_if_message_types {
 	NSS_IF_BSHAPER_UNASSIGN,
 	NSS_IF_ISHAPER_CONFIG,
 	NSS_IF_BSHAPER_CONFIG,
+	NSS_IF_PAUSE_ON_OFF,
 	NSS_IF_MAX_MSG_TYPES = 9999,
 };
 
@@ -93,6 +94,13 @@ struct nss_if_link_state_notify {
  */
 struct nss_if_mtu_change {
 	uint16_t min_buf_size;		/**< Changed min buf size value */
+};
+
+/**
+ * Interface pause enable command
+ */
+struct nss_if_pause_on_off {
+	uint32_t pause_on;		/**< Turn pause frame on or off */
 };
 
 /**
@@ -155,6 +163,7 @@ union nss_if_msgs {
 	struct nss_if_shaper_assign shaper_assign;		/**< Message: shaper assign */
 	struct nss_if_shaper_unassign shaper_unassign;		/**< Message: shaper unassign */
 	struct nss_if_shaper_configure shaper_configure; 	/**< Message: shaper configure */
+	struct nss_if_pause_on_off pause_on_off;		/**< Message: pause frame on/off notification */
 };
 
 /**

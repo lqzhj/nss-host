@@ -97,6 +97,7 @@ void nss_phys_if_gmac_stats_sync(struct nss_ctx_instance *nss_ctx,
 	gmac_stats.gmac_total_ticks = stats->estats.gmac_total_ticks;
 	gmac_stats.gmac_worst_case_ticks = stats->estats.gmac_worst_case_ticks;
 	gmac_stats.gmac_iterations = stats->estats.gmac_iterations;
+	gmac_stats.tx_pause_frames = stats->estats.tx_pause_frames;
 
 	/*
 	 * Get the netdev ctx
@@ -227,7 +228,7 @@ static void nss_phys_if_callback(void *app_data, struct nss_phys_if_msg *nim)
 
 /*
  * nss_phys_if_get_mtu_sz
- * 	Get the mtu size needed based on current max mtu value
+ *	Get the mtu size needed based on current max mtu value
  */
 static uint16_t nss_phys_if_get_mtu_sz(struct nss_ctx_instance *nss_ctx)
 {
@@ -235,7 +236,7 @@ static uint16_t nss_phys_if_get_mtu_sz(struct nss_ctx_instance *nss_ctx)
 	uint16_t mtu_sz = NSS_GMAC_NORMAL_FRAME_MTU;
 	uint16_t max_mtu;
 
-        /*
+	/*
 	 * Loop through MTU values of all Physical
 	 * interfaces and get the maximum one of all
 	 */
@@ -645,9 +646,30 @@ nss_tx_status_t nss_phys_if_change_mtu(struct nss_ctx_instance *nss_ctx, uint32_
 	return status;
 }
 
-/**
+/*
+ * nss_phys_if_pause_on_off()
+ *	Send a pause enabled/disabled message to GMAC
+ */
+nss_tx_status_t nss_phys_if_pause_on_off(struct nss_ctx_instance *nss_ctx, uint32_t pause_on, uint32_t if_num)
+{
+	struct nss_phys_if_msg nim;
+	struct nss_if_pause_on_off *nipe;
+
+	NSS_VERIFY_CTX_MAGIC(nss_ctx);
+	nss_info("%p: phys if pause is set to %d, id:%d\n", nss_ctx, pause_on, if_num);
+
+	nss_cmn_msg_init(&nim.cm, if_num, NSS_PHYS_IF_PAUSE_ON_OFF,
+			sizeof(struct nss_if_pause_on_off), nss_phys_if_callback, NULL);
+
+	nipe = &nim.msg.if_msg.pause_on_off;
+	nipe->pause_on = pause_on;
+
+	return nss_phys_if_msg_sync(nss_ctx, &nim);
+}
+
+/*
  * nss_get_state()
- *	return the NSS initialization state
+ *	Return the NSS initialization state
  */
 nss_state_t nss_get_state(void *ctx)
 {

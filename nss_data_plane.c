@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014 - 2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -93,6 +93,17 @@ static int nss_data_plane_change_mtu(void *arg, uint32_t mtu)
 }
 
 /*
+ * nss_data_plane_pause_on_off()
+ *	Called by gmac to enable/disable pause frames
+ */
+static int nss_data_plane_pause_on_off(void *arg, uint32_t pause_on)
+{
+	struct nss_data_plane_param *dp = (struct nss_data_plane_param *)arg;
+
+	return nss_phys_if_pause_on_off(dp->nss_ctx, pause_on, dp->if_num);
+}
+
+/*
  * nss_data_plane_buf()
  *	Called by gmac to pass a sk_buff for xmit
  */
@@ -145,6 +156,7 @@ static struct nss_gmac_data_plane_ops dp_ops =
 	.change_mtu	= nss_data_plane_change_mtu,
 	.xmit		= nss_data_plane_buf,
 	.set_features	= nss_data_plane_set_features,
+	.pause_on_off	= nss_data_plane_pause_on_off,
 };
 
 /*
