@@ -78,9 +78,8 @@ static void nss_wifi_if_msg_handler(struct nss_ctx_instance *nss_ctx,
 		return;
 	}
 
-	if (ncm->len > sizeof(struct nss_wifi_if_msg)) {
-		nss_warning("%p: tx request for another interface: %d",
-						nss_ctx, ncm->interface);
+	if (nss_cmn_get_msg_len(ncm) > sizeof(struct nss_wifi_if_msg)) {
+		nss_warning("%p: Length of message is greater than required: %d", nss_ctx, nss_cmn_get_msg_len(ncm));
 		return;
 	}
 
@@ -204,9 +203,9 @@ nss_tx_status_t nss_wifi_if_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_
 		return NSS_TX_FAILURE;
 	}
 
-	if (ncm->len > sizeof(struct nss_wifi_if_msg)) {
+	if (nss_cmn_get_msg_len(ncm) > sizeof(struct nss_wifi_if_msg)) {
 		nss_warning("%p: invalid length: %d. Length of wifi msg is %d\n",
-				nss_ctx, ncm->len, sizeof(struct nss_wifi_if_msg));
+				nss_ctx, nss_cmn_get_msg_len(ncm), sizeof(struct nss_wifi_if_msg));
 		return NSS_TX_FAILURE;
 	}
 

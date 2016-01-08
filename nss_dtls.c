@@ -167,7 +167,7 @@ static void nss_dtls_handler(struct nss_ctx_instance *nss_ctx,
 		return;
 	}
 
-	if ((ncm->len + sizeof(struct nss_cmn_msg)) > sizeof(struct nss_dtls_msg)) {
+	if (nss_cmn_get_msg_len(ncm) > sizeof(struct nss_dtls_msg)) {
 		nss_warning("%p: dtls message length is invalid: %d",
 			    nss_ctx, ncm->len);
 		return;
@@ -318,7 +318,7 @@ nss_tx_status_t nss_dtls_tx_msg(struct nss_ctx_instance *nss_ctx,
 		return NSS_TX_FAILURE;
 	}
 
-	if ((ncm->len + sizeof(struct nss_cmn_msg)) > sizeof(struct nss_dtls_msg)) {
+	if (nss_cmn_get_msg_len(ncm) > sizeof(struct nss_dtls_msg)) {
 		nss_warning("%p: dtls message length is invalid: %d",
 			    nss_ctx, ncm->len);
 		return NSS_TX_FAILURE;

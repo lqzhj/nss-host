@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013 - 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -113,8 +113,8 @@ static void nss_ipsec_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss_c
 		return;
 	}
 
-	if (ncm->len > sizeof(struct nss_ipsec_msg)) {
-		nss_ipsec_warning("%p: rx request for another interface: %d", nss_ctx, ncm->interface);
+	if (nss_cmn_get_msg_len(ncm) > sizeof(struct nss_ipsec_msg)) {
+		nss_ipsec_warning("%p: rx message length is invalid: %d", nss_ctx, nss_cmn_get_msg_len(ncm));
 		return;
 	}
 
@@ -194,8 +194,8 @@ nss_tx_status_t nss_ipsec_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_ip
 		return NSS_TX_FAILURE;
 	}
 
-	if (ncm->len > sizeof(struct nss_ipsec_msg)) {
-		nss_ipsec_warning("%p: tx message request len for if %d, is bad: %d", nss_ctx, ncm->interface, ncm->len);
+	if (nss_cmn_get_msg_len(ncm) > sizeof(struct nss_ipsec_msg)) {
+		nss_ipsec_warning("%p: tx message request len for if %d, is bad: %d", nss_ctx, ncm->interface, nss_cmn_get_msg_len(ncm));
 		return NSS_TX_FAILURE_BAD_PARAM;
 	}
 

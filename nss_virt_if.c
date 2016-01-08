@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -832,9 +832,9 @@ nss_tx_status_t nss_virt_if_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_
 		return NSS_TX_FAILURE;
 	}
 
-	if (ncm->len > sizeof(struct nss_virt_if_msg)) {
+	if (nss_cmn_get_msg_len(ncm) > sizeof(struct nss_virt_if_msg)) {
 		nss_warning("%p: invalid length: %d. Length of virt msg is %d",
-				nss_ctx, ncm->len, sizeof(struct nss_virt_if_msg));
+				nss_ctx, nss_cmn_get_msg_len(ncm), sizeof(struct nss_virt_if_msg));
 		return NSS_TX_FAILURE;
 	}
 

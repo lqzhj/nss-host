@@ -125,6 +125,18 @@ struct nss_cmn_node_stats {
 	uint32_t tx_bytes;		/**< Number of bytes transmitted */
 };
 
+/**
+ * @brief Obtain the message length of Host to NSS message
+ *
+ * @param ncm Common message
+ *
+ * @return uint32_t Message length
+ */
+static inline uint32_t nss_cmn_get_msg_len(struct nss_cmn_msg *ncm)
+{
+	return ncm->len + sizeof(struct nss_cmn_msg);
+}
+
 #ifdef __KERNEL__ /* only for kernel to use */
 
 /**
