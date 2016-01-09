@@ -1,7 +1,3 @@
-#
-# Copyright (c) 2014 The Linux Foundation. All rights reserved.
-#
-
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
@@ -24,10 +20,10 @@ define KernelPackage/qca-nss-macsec
   SECTION:=kernel
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
-  DEPENDS:=@TARGET_ipq806x +kmod-qca-nss-gmac +libpthread
+  DEPENDS:=@TARGET_ipq806x +kmod-qca-nss-drv +libpthread +libc
   TITLE:=Kernel driver for NSS macsec
   FILES:=$(PKG_BUILD_DIR)/qca-nss-macsec.ko
-  AUTOLOAD:=$(call AutoLoad,33,qca-nss-macsec)
+  AUTOLOAD:=$(call AutoLoad,52,qca-nss-macsec)
 endef
 
 define KernelPackage/qca-nss-macsec/Description
@@ -38,14 +34,18 @@ QCA_NSS_MACSEC_CONFIG_OPTS+= TOOL_PATH=$(TOOLCHAIN_DIR)/bin/ \
                 SYS_PATH=$(LINUX_DIR) \
                 TOOLPREFIX=$(TARGET_CROSS) \
                 KVER=$(LINUX_VERSION) \
+		CFLAGS="$(TARGET_CFLAGS)" \
+		LDFLAGS="$(TARGET_LDFLAGS)" \
                 ARCH=$(LINUX_KARCH)
 
 define Build/InstallDev
 	$(INSTALL_DIR) $(1)/usr/include/qca-nss-macsec
+	$(INSTALL_DIR) $(1)/usr/lib
 	$(CP) $(PKG_BUILD_DIR)/include/nss_macsec_types.h $(1)/usr/include/qca-nss-macsec
 	$(CP) $(PKG_BUILD_DIR)/include/nss_macsec_secy.h $(1)/usr/include/qca-nss-macsec
 	$(CP) $(PKG_BUILD_DIR)/include/nss_macsec_secy_rx.h $(1)/usr/include/qca-nss-macsec
 	$(CP) $(PKG_BUILD_DIR)/include/nss_macsec_secy_tx.h $(1)/usr/include/qca-nss-macsec
+	$(CP) $(PKG_BUILD_DIR)/libfal.so $(1)/usr/lib
 endef
 
 define Build/Compile

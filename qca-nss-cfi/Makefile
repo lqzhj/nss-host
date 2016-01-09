@@ -1,7 +1,3 @@
-#
-# Copyright (c) 2013 The Linux Foundation. All rights reserved.
-#
-
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
@@ -20,7 +16,7 @@ PKG_SOURCE_VERSION:=$(PKG_VERSION)
 
 include $(INCLUDE_DIR)/package.mk
 
-PKG_BUILD_DEPEND:=ocf-crypto-headers
+PKG_BUILD_DEPENDS:=ocf-crypto-headers
 define KernelPackage/qca-nss-cfi
   SECTION:=kernel
   CATEGORY:=Kernel modules
@@ -28,8 +24,9 @@ define KernelPackage/qca-nss-cfi
   DEPENDS:=@TARGET_ipq806x +kmod-qca-nss-crypto +kmod-crypto-ocf
   TITLE:=Kernel driver for NSS cfi
   FILES:=$(PKG_BUILD_DIR)/ocf/qca-nss-cfi-ocf.ko \
-	 $(PKG_BUILD_DIR)/ipsec/qca-nss-ipsec.ko
-  AUTOLOAD:=$(call AutoLoad,34,qca-nss-cfi-ocf)
+	 $(PKG_BUILD_DIR)/ipsec/qca-nss-ipsec.ko \
+	 $(PKG_BUILD_DIR)/cryptoapi/qca-nss-cfi-cryptoapi.ko
+  AUTOLOAD:=$(call AutoLoad,59,qca-nss-cfi-ocf qca-nss-cfi-cryptoapi qca-nss-ipsec)
 endef
 
 define KernelPackage/qca-nss-cfi/Description

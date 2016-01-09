@@ -1,7 +1,3 @@
-#
-# Copyright (c) 2013 The Linux Foundation. All rights reserved.
-#
-
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
@@ -28,7 +24,7 @@ define KernelPackage/qca-nss-crypto
   TITLE:=Kernel driver for NSS crypto
   FILES:=$(PKG_BUILD_DIR)/src/qca-nss-crypto.ko \
 	$(PKG_BUILD_DIR)/tool/qca-nss-crypto-tool.ko
-  AUTOLOAD:=$(call AutoLoad,33,qca-nss-crypto qca-nss-crypto-tool)
+  AUTOLOAD:=$(call AutoLoad,52,qca-nss-crypto qca-nss-crypto-tool)
 endef
 
 define KernelPackage/qca-nss-crypto/Description
