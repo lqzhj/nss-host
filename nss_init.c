@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013 - 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013 - 2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -47,7 +47,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/clk.h>
 
-#define NSS_N2H_MAX_BUF_POOL_SIZE (1024 * 1024 * 4) /* 4MB */
+#define NSS_N2H_MAX_BUF_POOL_SIZE (1024 * 1024 * 8) /* 8MB */
 
 /*
  * Global declarations

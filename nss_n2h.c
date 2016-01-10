@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -24,10 +24,12 @@
 
 
 #define NSS_N2H_MIN_EMPTY_POOL_BUF_SZ		32
+#define NSS_N2H_MAX_EMPTY_POOL_BUF_SZ		65536
 #define NSS_N2H_DEFAULT_EMPTY_POOL_BUF_SZ	8192
 
 int nss_n2h_empty_pool_buf_cfg[NSS_MAX_CORES] __read_mostly = {-1, -1};
 int nss_n2h_water_mark[NSS_MAX_CORES][2] __read_mostly = {{-1, -1}, {-1, -1} };
+int nss_n2h_wifi_pool_buf_cfg __read_mostly = -1;
 
 struct nss_n2h_registered_data {
 	nss_n2h_msg_callback_t n2h_callback;
@@ -39,6 +41,7 @@ static struct nss_n2h_registered_data nss_n2h_rd[NSS_MAX_CORES];
 static struct nss_n2h_cfg_pvt nss_n2h_rcp;
 static struct nss_n2h_cfg_pvt nss_n2h_mitigationcp[NSS_CORE_MAX];
 static struct nss_n2h_cfg_pvt nss_n2h_bufcp[NSS_CORE_MAX];
+static struct nss_n2h_cfg_pvt nss_n2h_wp;
 
 /*
  * nss_n2h_stats_sync()
@@ -307,6 +310,30 @@ static void nss_n2h_payload_stats_callback(void *app_data,
 }
 
 /*
+ * nss_n2h_set_wifi_payloads_callback()
+ * 	call back function for response to wifi pool configuration
+ *
+ */
+static void nss_n2h_set_wifi_payloads_callback(void *app_data,
+					struct nss_n2h_msg *nnm)
+{
+	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *)app_data;
+	if (nnm->cm.response != NSS_CMN_RESPONSE_ACK) {
+
+		nss_n2h_wp.response = NSS_FAILURE;
+		complete(&nss_n2h_wp.complete);
+		nss_warning("%p: wifi pool configuration failed : %d\n", nss_ctx,
+				nnm->cm.error);
+		return;
+	}
+
+	nss_info("%p: wifi payload configuration succeeded: %d\n", nss_ctx,
+			nnm->cm.error);
+	nss_n2h_wp.response = NSS_SUCCESS;
+	complete(&nss_n2h_wp.complete);
+}
+
+/*
  * nss_n2h_get_payload_info()
  *	Gets Payload information
  */
@@ -527,8 +554,8 @@ static int nss_n2h_set_water_mark(ctl_table *ctl, int write,
 		goto failure;
 	}
 
-	if ((*low > (NSS_N2H_DEFAULT_EMPTY_POOL_BUF_SZ * 5)) ||
-		(*high > (NSS_N2H_DEFAULT_EMPTY_POOL_BUF_SZ * 5))) {
+	if ((*low > NSS_N2H_MAX_EMPTY_POOL_BUF_SZ) ||
+		(*high > NSS_N2H_MAX_EMPTY_POOL_BUF_SZ)) {
 		nss_warning("%p: core %d setting %d, %d is > upper limit",
 				nss_ctx, core_num, *low, *high);
 		goto failure;
@@ -587,6 +614,103 @@ failure:
 	*low = nss_n2h_nepbcfgp[core_num].low_water;
 	*high = nss_n2h_nepbcfgp[core_num].high_water;
 	up(&nss_n2h_nepbcfgp[core_num].sem);
+	return -EINVAL;
+}
+
+/*
+ * nss_n2h_cfg_wifi_pool()
+ *	Sets number of wifi payloads to adjust high water mark for N2H SoS
+ */
+static int nss_n2h_cfg_wifi_pool(ctl_table *ctl, int write,
+					void __user *buffer,
+					size_t *lenp, loff_t *ppos,
+					int *payloads)
+{
+	struct nss_top_instance *nss_top = &nss_top_main;
+	struct nss_ctx_instance *nss_ctx = &nss_top->nss[0];
+	struct nss_n2h_msg nnm;
+	struct nss_n2h_wifi_payloads *wp;
+	nss_tx_status_t nss_tx_status;
+	int ret = NSS_FAILURE;
+
+	/*
+	 * Acquiring semaphore
+	 */
+	down(&nss_n2h_wp.sem);
+
+	if (!write) {
+		*payloads = nss_n2h_wp.wifi_pool;
+
+		up(&nss_n2h_wp.sem);
+		ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+		return ret;
+	}
+
+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+	if (ret) {
+		up(&nss_n2h_wp.sem);
+		return ret;
+	}
+
+	/*
+	 * If payloads parameter is not set, we do
+	 * nothing.
+	 */
+	if (*payloads == -1)
+		goto failure;
+
+	if ((*payloads < NSS_N2H_MIN_EMPTY_POOL_BUF_SZ)) {
+		nss_warning("%p: wifi setting %d < min number of buffer",
+				nss_ctx, *payloads);
+		goto failure;
+	}
+
+	if ((*payloads > NSS_N2H_MAX_EMPTY_POOL_BUF_SZ)) {
+		nss_warning("%p: wifi setting %d > max number of buffer",
+				nss_ctx, *payloads);
+		goto failure;
+	}
+
+	nss_info("%p: wifi payloads : %d\n",
+		nss_ctx, *payloads);
+
+	nss_n2h_msg_init(&nnm, NSS_N2H_INTERFACE,
+			NSS_TX_METADATA_TYPE_N2H_WIFI_POOL_BUF_CFG,
+			sizeof(struct nss_n2h_wifi_payloads),
+			nss_n2h_set_wifi_payloads_callback,
+			(void *)nss_ctx);
+
+	wp = &nnm.msg.wp;
+	wp->payloads = htonl(*payloads);
+	nss_tx_status = nss_n2h_tx_msg(nss_ctx, &nnm);
+
+	if (nss_tx_status != NSS_TX_SUCCESS) {
+		nss_warning("%p: wifi setting %d nss_tx error",
+				nss_ctx, *payloads);
+		goto failure;
+	}
+
+	/*
+	 * Blocking call, wait till we get ACK for this msg.
+	 */
+	ret = wait_for_completion_timeout(&nss_n2h_wp.complete,
+			msecs_to_jiffies(NSS_CONN_CFG_TIMEOUT));
+	if (ret == 0) {
+		nss_warning("%p: Waiting for ack timed out\n", nss_ctx);
+		goto failure;
+	}
+
+	/*
+	 * ACK/NACK received from NSS FW
+	 */
+	if (NSS_FAILURE == nss_n2h_wp.response)
+		goto failure;
+
+	up(&nss_n2h_wp.sem);
+	return NSS_SUCCESS;
+
+failure:
+	up(&nss_n2h_wp.sem);
 	return -EINVAL;
 }
 
@@ -672,6 +796,18 @@ static int nss_n2h_water_mark_core0_handler(ctl_table *ctl,
 	return nss_n2h_set_water_mark(ctl, write, buffer, lenp, ppos,
 			NSS_CORE_0, &nss_n2h_water_mark[NSS_CORE_0][0],
 			&nss_n2h_water_mark[NSS_CORE_0][1]);
+}
+
+/*
+ * nss_n2h_wifi_payloads_handler()
+ *	Sets number of wifi payloads
+ */
+static int nss_n2h_wifi_payloads_handler(ctl_table *ctl,
+			int write, void __user *buffer,
+			size_t *lenp, loff_t *ppos)
+{
+	return nss_n2h_cfg_wifi_pool(ctl, write, buffer, lenp, ppos,
+			&nss_n2h_wifi_pool_buf_cfg);
 }
 
 /*
@@ -910,6 +1046,13 @@ static ctl_table nss_n2h_table[] = {
 		.mode		= 0644,
 		.proc_handler	= &nss_n2h_water_mark_core1_handler,
 	},
+	{
+		.procname	= "n2h_wifi_pool_buf",
+		.data		= &nss_n2h_wifi_pool_buf_cfg,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &nss_n2h_wifi_payloads_handler,
+	},
 
 	{ }
 };
@@ -988,6 +1131,12 @@ void nss_n2h_empty_pool_buf_register_sysctl(void)
 		nss_n2h_water_mark[NSS_CORE_1][0];
 	nss_n2h_nepbcfgp[NSS_CORE_1].high_water =
 		nss_n2h_water_mark[NSS_CORE_1][1];
+
+	/*
+	 * WiFi pool buf cfg sema init
+	 */
+	sema_init(&nss_n2h_wp.sem, 1);
+	init_completion(&nss_n2h_wp.complete);
 }
 
 /*

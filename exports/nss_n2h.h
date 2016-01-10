@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014 - 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014 - 2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -38,6 +38,7 @@ struct nss_n2h_cfg_pvt {
 	int empty_buf_pool;			/* valid entry */
 	int low_water;				/* valid entry */
 	int high_water;				/* valid entry */
+	int wifi_pool;				/* valid entry */
 	int response;				/* Response from FW */
 };
 
@@ -53,6 +54,7 @@ enum nss_n2h_metadata_types {
 	NSS_METADATA_TYPE_N2H_ADD_BUF_POOL,
 	NSS_TX_METADATA_TYPE_SET_WATER_MARK,
 	NSS_TX_METADATA_TYPE_GET_PAYLOAD_INFO,
+	NSS_TX_METADATA_TYPE_N2H_WIFI_POOL_BUF_CFG,
 	NSS_METADATA_TYPE_N2H_MAX,
 };
 
@@ -109,6 +111,13 @@ struct nss_n2h_payload_info {
 
 struct nss_n2h_flush_payloads {
 	uint32_t flag;	/* place holder */
+};
+
+/*
+ * Number of payloads required for wifi offload
+ */
+struct nss_n2h_wifi_payloads {
+	uint32_t payloads;	/* number of payloads required for wifi */
 };
 
 /*
@@ -171,6 +180,8 @@ struct nss_n2h_msg {
 				/* Message: Sets low and high water marks */
 		struct nss_n2h_payload_info payload_info;
 				/* Message: Gets payload info */
+		struct nss_n2h_wifi_payloads wp;
+				/* Message: Sets number of wifi payloads */
 	} msg;
 };
 

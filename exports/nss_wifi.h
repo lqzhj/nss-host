@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -57,6 +57,7 @@ enum nss_wifi_metadata_types {
 	NSS_WIFI_IGMP_MLD_TOS_OVERRIDE_MSG,
 	NSS_WIFI_OL_STATS_CFG_MSG,
 	NSS_WIFI_OL_STATS_MSG,
+	NSS_WIFI_TX_QUEUE_CFG_MSG,
 	NSS_WIFI_MAX_MSG
 };
 
@@ -149,6 +150,13 @@ struct nss_wifi_tx_init_msg {
 	uint32_t htt_tx_desc_base_paddr; 	/**< Firmware shared HTT trasmit desc memory start physical address */
 	uint32_t htt_tx_desc_offset; 		/**< Firmware shared HTT trasmit each desc size */
 	uint32_t pmap_addr;			/**< Firmware shared peer/TID map */
+};
+
+/*
+ * wifi tx queue configuration data
+ */
+struct nss_wifi_tx_queue_cfg_msg {
+	uint32_t size;          /**< Tx queue size */
 };
 
 /**
@@ -382,6 +390,7 @@ struct nss_wifi_msg {
 		struct nss_wifi_igmp_mld_override_tos_msg wigmpmldtm_msg;
 		struct nss_wifi_ol_stats_cfg_msg scm_msg;
 		struct nss_wifi_ol_stats_msg ol_stats_msg;
+		struct nss_wifi_tx_queue_cfg_msg wtxqcm;
 	} msg;
 };
 
