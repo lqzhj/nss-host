@@ -58,6 +58,7 @@ enum nss_wifi_metadata_types {
 	NSS_WIFI_OL_STATS_CFG_MSG,
 	NSS_WIFI_OL_STATS_MSG,
 	NSS_WIFI_TX_QUEUE_CFG_MSG,
+	NSS_WIFI_TX_MIN_THRESHOLD_CFG_MSG,
 	NSS_WIFI_MAX_MSG
 };
 
@@ -158,6 +159,14 @@ struct nss_wifi_tx_init_msg {
 struct nss_wifi_tx_queue_cfg_msg {
 	uint32_t size;          /**< Tx queue size */
 };
+
+/*
+ * wifi tx queuing min threshold configuration
+ */
+struct nss_wifi_tx_min_threshold_cfg_msg {
+	uint32_t min_threshold;          /**< Minimum threshold for Tx queuing */
+};
+
 
 /**
  * wifi raw data send message structure
@@ -391,6 +400,7 @@ struct nss_wifi_msg {
 		struct nss_wifi_ol_stats_cfg_msg scm_msg;
 		struct nss_wifi_ol_stats_msg ol_stats_msg;
 		struct nss_wifi_tx_queue_cfg_msg wtxqcm;
+		struct nss_wifi_tx_min_threshold_cfg_msg wtx_min_threshold_cm;
 	} msg;
 };
 
