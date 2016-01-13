@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -37,6 +37,7 @@
 #include <nss_gmac_api_if.h>
 #include "nss_phys_if.h"
 #include "nss_hlos_if.h"
+#include "nss_oam.h"
 
 /*
  * XXX:can't add this to api_if.h till the deprecated
@@ -768,6 +769,7 @@ struct nss_top_instance {
 	uint8_t capwap_handler_id;
 	uint8_t tstamp_handler_id;
 	uint8_t portid_handler_id;
+	uint8_t oam_handler_id;
 
 	/* subsystem registration data */
 	struct nss_subsystem_dataplane_register subsys_dp_register[NSS_MAX_NET_INTERFACES];
@@ -809,6 +811,8 @@ struct nss_top_instance {
 					/* Registrants for bridge shaper bounce operations */
 	nss_lag_event_callback_t lag_event_callback;
 					/* Registrants for lag operations */
+	nss_oam_msg_callback_t oam_callback;
+					/* OAM call back */
 	uint32_t dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_MAX];
 
 	/*
@@ -822,6 +826,7 @@ struct nss_top_instance {
 
 	void *ipsec_encap_ctx;		/* IPsec encap context */
 	void *ipsec_decap_ctx;		/* IPsec decap context */
+	void *oam_ctx;			/* oam context */
 
 	/*
 	 * Statistics for various interfaces
@@ -1006,6 +1011,7 @@ struct nss_platform_data {
 	enum nss_feature_enabled wifioffload_enabled;   /* Does this core handle WIFI OFFLOAD? */
 	enum nss_feature_enabled tstamp_enabled;	/* Does this core handle timestamping? */
 	enum nss_feature_enabled portid_enabled;	/* Does this core handle portid? */
+	enum nss_feature_enabled oam_enabled;		/* Does this core handle oam*/
 };
 #endif
 

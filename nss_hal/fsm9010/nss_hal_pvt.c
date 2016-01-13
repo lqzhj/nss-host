@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -246,6 +246,7 @@ static struct nss_platform_data *nss_hal_of_get_pdata(struct device_node *np,
 	npd->l2tpv2_enabled = of_property_read_bool(np, "qcom,l2tpv2-enabled");
 	npd->tunipip6_enabled = of_property_read_bool(np, "qcom,tunipip6-enabled");
 	npd->shaping_enabled = of_property_read_bool(np, "qcom,shaping-enabled");
+	npd->oam_enabled = of_property_read_bool(np, "qcom,oam-enabled");
 
 	return npd;
 
@@ -507,6 +508,11 @@ int nss_hal_probe(struct platform_device *nss_dev)
 	if (npd->tunipip6_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->tunipip6_handler_id = nss_dev->id;
 		nss_tunipip6_register_handler();
+	}
+
+	if (npd->oam_enabled == NSS_FEATURE_ENABLED) {
+		nss_top->oam_handler_id = nss_dev->id;
+		nss_oam_register_handler();
 	}
 
 	/*

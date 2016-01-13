@@ -52,6 +52,7 @@ qca-nss-drv-objs := \
 			nss_capwap.o \
 			nss_eth_rx.o \
 			nss_n2h.o \
+			nss_oam.o \
 			nss_data_plane.o \
 			nss_log.o \
 			nss_wifi.o \

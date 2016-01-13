@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -196,6 +196,7 @@ extern void nss_wifi_register_handler(void);
 extern struct net_device *nss_tstamp_register_netdev(void);
 extern void nss_tstamp_register_handler(struct net_device *ndev);
 extern void nss_portid_register_handler(void);
+extern void nss_oam_register_handler(void);
 
 /*
  * nss_if_msg_handler()
