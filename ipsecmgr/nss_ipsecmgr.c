@@ -283,7 +283,6 @@ static netdev_tx_t nss_ipsecmgr_tunnel_tx(struct sk_buff *skb, struct net_device
 	default:
 		goto fail;
 	}
-
 	/*
 	 * check whether the IPsec encapsulation can be offloaded to NSS
 	 * 	if the flow matches a subnet rule, then a new flow rule is added to NSS
@@ -377,8 +376,8 @@ static void nss_ipsecmgr_tunnel_rx(struct net_device *dev, struct sk_buff *skb, 
 {
 	struct nss_ipsecmgr_priv *priv;
 	nss_ipsecmgr_data_cb_t cb_fn;
+	uint16_t next_protocol;
 	void *cb_ctx;
-	struct iphdr *ip;
 
 	BUG_ON(dev == NULL);
 	BUG_ON(skb == NULL);
@@ -405,9 +404,21 @@ static void nss_ipsecmgr_tunnel_rx(struct net_device *dev, struct sk_buff *skb, 
 		goto done;
 	}
 
-	ip = (struct iphdr *)skb->data;
-	if (unlikely((ip->version != IPVERSION) || (ip->ihl != 5))) {
-		nss_ipsecmgr_error("dropping packets(IP version:%x, Header len:%x)\n", ip->version, ip->ihl);
+	skb_reset_network_header(skb);
+
+	switch (ip_hdr(skb)->version) {
+	case IPVERSION:
+		skb->protocol = cpu_to_be16(ETH_P_IP);
+		next_protocol = ip_hdr(skb)->protocol;
+		break;
+
+	case 6:
+		skb->protocol = cpu_to_be16(ETH_P_IPV6);
+		next_protocol = ipv6_hdr(skb)->nexthdr;
+		break;
+
+	default:
+		nss_ipsecmgr_error("%p: Unsupported IP Version\n",  priv->nss_ctx);
 		dev_kfree_skb_any(skb);
 		goto done;
 	}
@@ -418,21 +429,17 @@ static void nss_ipsecmgr_tunnel_rx(struct net_device *dev, struct sk_buff *skb, 
 	 * in Host we should flush the ENCAP rules and free the packet. This will force
 	 * subsequent packets to follow the Slow path IPsec thus recreating the rules
 	 */
-	if (unlikely(ip->protocol == IPPROTO_ESP)) {
-		/*
-		 * XXX: flush IPsec SA specific to this packet
-		 */
+	if (next_protocol == IPPROTO_ESP) {
 		dev_kfree_skb_any(skb);
 		goto done;
 	}
 
-	skb_reset_network_header(skb);
-	skb_reset_mac_header(skb);
-
 	skb->pkt_type = PACKET_HOST;
-	skb->protocol = cpu_to_be16(ETH_P_IP);
 	skb->skb_iif = dev->ifindex;
 
+	skb_reset_mac_header(skb);
+
+	/* Send the data up to Linux Stack */
 	netif_receive_skb(skb);
 done:
 	/* release the device as we are done */
@@ -477,7 +484,7 @@ static void nss_ipsecmgr_tunnel_notify(void *app_data, struct nss_ipsec_msg *nim
 		/*
 		 * prepare and lookup sa based on selector sent from nss
 		 */
-		nss_ipsecmgr_v4_sa_sel2key(&nim->msg.sa_stats.sel, &key);
+		nss_ipsecmgr_sa_sel2key(&nim->msg.sa_stats.sel, &key);
 
 		write_lock(&priv->lock);
 

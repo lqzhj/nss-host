@@ -157,9 +157,11 @@ static void nss_ipsecmgr_flow_stats_resp(void *app_data, struct nss_ipsec_msg *n
 {
 	struct nss_ipsecmgr_priv *priv = app_data;
 	struct nss_ipsecmgr_flow_entry *flow;
+	struct nss_ipsec_rule_sel *sel;
 	struct nss_ipsecmgr_ref *ref;
 	struct nss_ipsecmgr_key key;
 	struct net_device *dev;
+	uint32_t interface;
 
 	if (nim->cm.response != NSS_CMN_RESPONSE_ACK) {
 		return;
@@ -170,16 +172,21 @@ static void nss_ipsecmgr_flow_stats_resp(void *app_data, struct nss_ipsec_msg *n
 		return;
 	}
 
+	interface = nim->cm.interface;
+	sel = &nim->msg.flow_stats.sel;
+
 	/*
 	 * prepare key from selector
 	 */
-	switch (nim->cm.interface) {
+	switch (interface) {
 	case NSS_IPSEC_ENCAP_IF_NUMBER:
-		nss_ipsecmgr_encap_v4_sel2key(&nim->msg.flow_stats.sel, &key);
+		nss_ipsecmgr_encap_sel2key(sel, &key);
 		break;
+
 	case NSS_IPSEC_DECAP_IF_NUMBER:
-		nss_ipsecmgr_decap_v4_sel2key(&nim->msg.flow_stats.sel, &key);
+		nss_ipsecmgr_decap_sel2key(sel, &key);
 		break;
+
 	default:
 		goto done;
 	}
@@ -223,6 +230,7 @@ static ssize_t nss_ipsecmgr_flow_stats_read(struct file *fp, char __user *ubuf, 
 	struct nss_ipsec_msg nim;
 	struct net_device *dev;
 	uint16_t interface;
+	uint32_t addr[4];
 	ssize_t ret = 0;
 	char *local;
 	char *type;
@@ -319,9 +327,20 @@ static ssize_t nss_ipsecmgr_flow_stats_read(struct file *fp, char __user *ubuf, 
 
 	len = 0;
 	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "type:%s\n", type);
-	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "dst_ip: %pI4h\n", &flow_sel->ipv4_dst);
-	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "src_ip: %pI4h\n", &flow_sel->ipv4_src);
-	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "proto: %d\n", flow_sel->ipv4_proto);
+	switch (flow_sel->ip_ver) {
+	case NSS_IPSEC_IPVER_4:
+		len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "dst_ip: %pI4h\n", &flow_sel->dst_addr[0]);
+		len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "src_ip: %pI4h\n", &flow_sel->src_addr[0]);
+		break;
+
+	case NSS_IPSEC_IPVER_6:
+		len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "dst_ip: %pI6c\n", nss_ipsecmgr_v6addr_ntohl(flow_sel->dst_addr, addr));
+		len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "src_ip: %pI6c\n", nss_ipsecmgr_v6addr_ntohl(flow_sel->src_addr, addr));
+		break;
+
+	}
+
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "proto: %d\n", flow_sel->proto_next_hdr);
 
 	/*
 	 * packet stats
@@ -367,9 +386,10 @@ void nss_ipsecmgr_copy_encap_v4_flow(struct nss_ipsec_msg *nim, struct nss_ipsec
 {
 	struct nss_ipsec_rule_sel *sel = &nim->msg.push.sel;
 
-	sel->ipv4_dst = flow->dst_ip;
-	sel->ipv4_src = flow->src_ip;
-	sel->ipv4_proto = flow->protocol;
+	sel->dst_addr[0] = flow->dst_ip;
+	sel->src_addr[0] = flow->src_ip;
+	sel->proto_next_hdr = flow->protocol;
+	sel->ip_ver = NSS_IPSEC_IPVER_4;
 
 	sel->esp_spi = 0;
 	sel->dst_port = 0;
@@ -384,10 +404,11 @@ void nss_ipsecmgr_copy_decap_v4_flow(struct nss_ipsec_msg *nim, struct nss_ipsec
 {
 	struct nss_ipsec_rule_sel *sel = &nim->msg.push.sel;
 
-	sel->ipv4_dst = flow->dst_ip;
-	sel->ipv4_src = flow->src_ip;
-	sel->ipv4_proto = IPPROTO_ESP;
+	sel->dst_addr[0] = flow->dst_ip;
+	sel->src_addr[0] = flow->src_ip;
+	sel->proto_next_hdr = IPPROTO_ESP;
 	sel->esp_spi = flow->spi_index;
+	sel->ip_ver = NSS_IPSEC_IPVER_4;
 
 	sel->dst_port = 0;
 	sel->src_port = 0;
@@ -406,7 +427,7 @@ void nss_ipsecmgr_encap_v4_flow2key(struct nss_ipsecmgr_encap_v4_tuple *flow, st
 	nss_ipsecmgr_key_write_32(key, flow->dst_ip, NSS_IPSECMGR_KEY_POS_IPV4_DST);
 	nss_ipsecmgr_key_write_32(key, flow->src_ip, NSS_IPSECMGR_KEY_POS_IPV4_SRC);
 
-	key->len = NSS_IPSECMGR_KEY_LEN_ENCAP_IPV4_FLOW;
+	key->len = NSS_IPSECMGR_KEY_LEN_IPV4_ENCAP_FLOW;
 }
 
 /*
@@ -421,42 +442,170 @@ void nss_ipsecmgr_decap_v4_flow2key(struct nss_ipsecmgr_sa_v4 *flow, struct nss_
 	nss_ipsecmgr_key_write_8(key, IPPROTO_ESP, NSS_IPSECMGR_KEY_POS_IP_PROTO);
 	nss_ipsecmgr_key_write_32(key, flow->dst_ip, NSS_IPSECMGR_KEY_POS_IPV4_DST);
 	nss_ipsecmgr_key_write_32(key, flow->src_ip, NSS_IPSECMGR_KEY_POS_IPV4_SRC);
-	nss_ipsecmgr_key_write_32(key, flow->spi_index, NSS_IPSECMGR_KEY_POS_ESP_SPI);
+	nss_ipsecmgr_key_write_32(key, flow->spi_index, NSS_IPSECMGR_KEY_POS_IPV4_ESP_SPI);
 
-	key->len = NSS_IPSECMGR_KEY_LEN_DECAP_IPV4_FLOW;
+	key->len = NSS_IPSECMGR_KEY_LEN_IPV4_DECAP_FLOW;
 }
 
 /*
  * nss_ipsecmgr_encap_v4_sel2key()
  * 	convert a selector to key
  */
-void nss_ipsecmgr_encap_v4_sel2key(struct nss_ipsec_rule_sel *sel, struct nss_ipsecmgr_key *key)
+void nss_ipsecmgr_encap_sel2key(struct nss_ipsec_rule_sel *sel, struct nss_ipsecmgr_key *key)
 {
+	uint32_t i;
+
 	nss_ipsecmgr_key_reset(key);
+	switch (sel->ip_ver) {
+	case NSS_IPSEC_IPVER_4:
+		nss_ipsecmgr_key_write_8(key, 4 /* v4 */, NSS_IPSECMGR_KEY_POS_IP_VER);
+		nss_ipsecmgr_key_write_8(key, sel->proto_next_hdr, NSS_IPSECMGR_KEY_POS_IP_PROTO);
+		nss_ipsecmgr_key_write_32(key, nss_ipsecmgr_get_v4addr(sel->dst_addr), NSS_IPSECMGR_KEY_POS_IPV4_DST);
+		nss_ipsecmgr_key_write_32(key, nss_ipsecmgr_get_v4addr(sel->src_addr), NSS_IPSECMGR_KEY_POS_IPV4_SRC);
 
-	nss_ipsecmgr_key_write_8(key, 4 /* v4 */, NSS_IPSECMGR_KEY_POS_IP_VER);
-	nss_ipsecmgr_key_write_8(key, sel->ipv4_proto, NSS_IPSECMGR_KEY_POS_IP_PROTO);
-	nss_ipsecmgr_key_write_32(key, sel->ipv4_dst, NSS_IPSECMGR_KEY_POS_IPV4_DST);
-	nss_ipsecmgr_key_write_32(key, sel->ipv4_src, NSS_IPSECMGR_KEY_POS_IPV4_SRC);
+		key->len = NSS_IPSECMGR_KEY_LEN_IPV4_ENCAP_FLOW;
+		break;
 
-	key->len = NSS_IPSECMGR_KEY_LEN_ENCAP_IPV4_FLOW;
+	case NSS_IPSEC_IPVER_6:
+		nss_ipsecmgr_key_write_8(key, 6 /* v6 */, NSS_IPSECMGR_KEY_POS_IP_VER);
+		nss_ipsecmgr_key_write_8(key, sel->proto_next_hdr, NSS_IPSECMGR_KEY_POS_IP_PROTO);
+
+		for (i  = 0; i < 4; i++) {
+			nss_ipsecmgr_key_write_32(key, sel->dst_addr[i], NSS_IPSECMGR_KEY_POS_IPV6_DST + (i * 32));
+			nss_ipsecmgr_key_write_32(key, sel->src_addr[i], NSS_IPSECMGR_KEY_POS_IPV6_SRC + (i * 32));
+		}
+
+		key->len = NSS_IPSECMGR_KEY_LEN_IPV6_ENCAP_FLOW;
+		break;
+
+	default:
+		nss_ipsecmgr_warn("%p:Invalid selector\n", sel);
+		return;
+	}
 }
 
 /*
- * nss_ipsecmgr_decap_v4_sel2key()
+ * nss_ipsecmgr_decap_sel2key()
  * 	convert a selector to key
  */
-void nss_ipsecmgr_decap_v4_sel2key(struct nss_ipsec_rule_sel *sel, struct nss_ipsecmgr_key *key)
+void nss_ipsecmgr_decap_sel2key(struct nss_ipsec_rule_sel *sel, struct nss_ipsecmgr_key *key)
 {
+	uint32_t i;
+
 	nss_ipsecmgr_key_reset(key);
 
-	nss_ipsecmgr_key_write_8(key, 4 /* v4 */, NSS_IPSECMGR_KEY_POS_IP_VER);
-	nss_ipsecmgr_key_write_8(key, IPPROTO_ESP, NSS_IPSECMGR_KEY_POS_IP_PROTO);
-	nss_ipsecmgr_key_write_32(key, sel->ipv4_dst, NSS_IPSECMGR_KEY_POS_IPV4_DST);
-	nss_ipsecmgr_key_write_32(key, sel->ipv4_src, NSS_IPSECMGR_KEY_POS_IPV4_SRC);
-	nss_ipsecmgr_key_write_32(key, sel->esp_spi, NSS_IPSECMGR_KEY_POS_ESP_SPI);
+	switch (sel->ip_ver) {
+	case NSS_IPSEC_IPVER_4:
+		nss_ipsecmgr_key_write_8(key, 4 /* v4 */, NSS_IPSECMGR_KEY_POS_IP_VER);
+		nss_ipsecmgr_key_write_8(key, IPPROTO_ESP, NSS_IPSECMGR_KEY_POS_IP_PROTO);
+		nss_ipsecmgr_key_write_32(key, nss_ipsecmgr_get_v4addr(sel->dst_addr), NSS_IPSECMGR_KEY_POS_IPV4_DST);
+		nss_ipsecmgr_key_write_32(key, nss_ipsecmgr_get_v4addr(sel->src_addr), NSS_IPSECMGR_KEY_POS_IPV4_SRC);
+		nss_ipsecmgr_key_write_32(key, sel->esp_spi, NSS_IPSECMGR_KEY_POS_IPV4_ESP_SPI);
 
-	key->len = NSS_IPSECMGR_KEY_LEN_DECAP_IPV4_FLOW;
+		key->len = NSS_IPSECMGR_KEY_LEN_IPV4_DECAP_FLOW;
+		break;
+
+	case NSS_IPSEC_IPVER_6:
+		nss_ipsecmgr_key_write_8(key, 6 /* v6 */, NSS_IPSECMGR_KEY_POS_IP_VER);
+		nss_ipsecmgr_key_write_8(key, IPPROTO_ESP, NSS_IPSECMGR_KEY_POS_IP_PROTO);
+
+		for (i  = 0; i < 4; i++) {
+			nss_ipsecmgr_key_write_32(key, sel->dst_addr[i], NSS_IPSECMGR_KEY_POS_IPV6_DST + (i * 32));
+			nss_ipsecmgr_key_write_32(key, sel->src_addr[i], NSS_IPSECMGR_KEY_POS_IPV6_SRC + (i * 32));
+		}
+
+		nss_ipsecmgr_key_write_32(key, sel->esp_spi, NSS_IPSECMGR_KEY_POS_IPV6_ESP_SPI);
+
+		key->len = NSS_IPSECMGR_KEY_LEN_IPV6_DECAP_FLOW;
+		break;
+
+	default:
+		nss_ipsecmgr_warn("%p:Invalid selector\n", sel);
+		return;
+	}
+}
+
+/*
+ * nss_ipsecmgr_copy_encap_v6_flow()
+ * 	copy flow data into the selector
+ */
+void nss_ipsecmgr_copy_encap_v6_flow(struct nss_ipsec_msg *nim, struct nss_ipsecmgr_encap_v6_tuple *flow)
+{
+	struct nss_ipsec_rule_sel *sel = &nim->msg.push.sel;
+
+	memcpy(sel->src_addr, flow->src_ip, sizeof(uint32_t) * 4);
+	memcpy(sel->dst_addr, flow->dst_ip, sizeof(uint32_t) * 4);
+
+	sel->proto_next_hdr = flow->next_hdr;
+	sel->ip_ver = NSS_IPSEC_IPVER_6;
+
+	sel->esp_spi = 0;
+	sel->dst_port = 0;
+	sel->src_port = 0;
+}
+
+/*
+ * nss_ipsecmgr_copy_decap_v6_flow()
+ * 	copy decap flow
+ */
+void nss_ipsecmgr_copy_decap_v6_flow(struct nss_ipsec_msg *nim, struct nss_ipsecmgr_sa_v6 *flow)
+{
+	struct nss_ipsec_rule_sel *sel = &nim->msg.push.sel;
+
+	memcpy(sel->src_addr, flow->src_ip, sizeof(uint32_t) * 4);
+	memcpy(sel->dst_addr, flow->dst_ip, sizeof(uint32_t) * 4);
+
+	sel->esp_spi = flow->spi_index;
+	sel->ip_ver = NSS_IPSEC_IPVER_6;
+
+	sel->proto_next_hdr = IPPROTO_ESP;
+
+	sel->dst_port = 0;
+	sel->src_port = 0;
+}
+
+/*
+ * nss_ipsecmgr_encap_v6_flow2key()
+ * 	convert an encap v6_flow into a key
+ */
+void nss_ipsecmgr_encap_v6_flow2key(struct nss_ipsecmgr_encap_v6_tuple *flow, struct nss_ipsecmgr_key *key)
+{
+	uint32_t i;
+
+	nss_ipsecmgr_key_reset(key);
+
+	nss_ipsecmgr_key_write_8(key, 6 /* v6 */, NSS_IPSECMGR_KEY_POS_IP_VER);
+	nss_ipsecmgr_key_write_8(key, flow->next_hdr, NSS_IPSECMGR_KEY_POS_IP_PROTO);
+
+	for (i  = 0; i < 4; i++) {
+		nss_ipsecmgr_key_write_32(key, flow->dst_ip[i], NSS_IPSECMGR_KEY_POS_IPV6_DST + (i * 32));
+		nss_ipsecmgr_key_write_32(key, flow->src_ip[i], NSS_IPSECMGR_KEY_POS_IPV6_SRC + (i * 32));
+	}
+
+	key->len = NSS_IPSECMGR_KEY_LEN_IPV6_ENCAP_FLOW;
+}
+
+/*
+ * nss_ipsecmgr_decap_v6_flow2key()
+ * 	convert a decap flow into a key
+ */
+void nss_ipsecmgr_decap_v6_flow2key(struct nss_ipsecmgr_sa_v6 *flow, struct nss_ipsecmgr_key *key)
+{
+	uint32_t i;
+
+	nss_ipsecmgr_key_reset(key);
+
+	nss_ipsecmgr_key_write_8(key, 6 /* v6 */, NSS_IPSECMGR_KEY_POS_IP_VER);
+	nss_ipsecmgr_key_write_8(key, IPPROTO_ESP, NSS_IPSECMGR_KEY_POS_IP_PROTO);
+
+	for (i  = 0; i < 4; i++) {
+		nss_ipsecmgr_key_write_32(key, flow->dst_ip[i], NSS_IPSECMGR_KEY_POS_IPV6_DST + (i * 32));
+		nss_ipsecmgr_key_write_32(key, flow->src_ip[i], NSS_IPSECMGR_KEY_POS_IPV6_SRC + (i * 32));
+	}
+
+	nss_ipsecmgr_key_write_32(key, flow->spi_index, NSS_IPSECMGR_KEY_POS_IPV6_ESP_SPI);
+
+	key->len = NSS_IPSECMGR_KEY_LEN_IPV6_DECAP_FLOW;
 }
 
 /*
@@ -576,7 +725,7 @@ bool nss_ipsecmgr_flow_offload(struct nss_ipsecmgr_priv *priv, struct sk_buff *s
 		sel = &nim.msg.push.sel;
 
 		nss_ipsecmgr_v4_hdr2sel(ip_hdr(skb), sel);
-		nss_ipsecmgr_encap_v4_sel2key(sel, &flow_key);
+		nss_ipsecmgr_encap_sel2key(sel, &flow_key);
 
 		/*
 		 * flow lookup is done with read lock
@@ -633,6 +782,28 @@ bool nss_ipsecmgr_flow_offload(struct nss_ipsecmgr_priv *priv, struct sk_buff *s
 		nss_ipsecmgr_ref_update(priv, flow_ref, &nim);
 
 		write_unlock(&priv->lock);
+
+		break;
+
+	case htons(ETH_P_IPV6):
+		sel = &nim.msg.push.sel;
+
+		nss_ipsecmgr_v6_hdr2sel((struct ipv6hdr *)skb_network_header(skb), sel);
+		nss_ipsecmgr_encap_sel2key(sel, &flow_key);
+
+		/*
+		 * flow lookup is done with read lock
+		 */
+		read_lock(&priv->lock);
+		flow_ref = nss_ipsecmgr_flow_lookup(priv, &flow_key);
+		read_unlock(&priv->lock);
+
+		/*
+		 * if flow is found then proceed with the TX
+		 */
+		if (!flow_ref) {
+			return false;
+		}
 
 		break;
 
