@@ -157,6 +157,11 @@ enum exception_events_ipv6 {
 	NSS_EXCEPTION_EVENT_IPV6_MC_MEM_ALLOC_FAILURE,			/**<  NSS Exception event: IPv6 Multicast Memory allocation failure */
 	NSS_EXCEPTION_EVENT_IPV6_MC_UPDATE_FAILURE,			/**<  NSS Exception event: IPv6 Multicast rule update failure */
 	NSS_EXCEPTION_EVENT_IPV6_MC_PBUF_ALLOC_FAILURE,			/**<  NSS Exception event: IPv6 Multicast buffer allocation failure */
+	NSS_EXCEPTION_EVENT_IPV6_ESP_HEADER_INCOMPLETE,			/**<  NSS Exception event: ESP header incomplete */
+	NSS_EXCEPTION_EVENT_IPV6_ESP_NO_ICME,				/**<  NSS Exception event: ESP protocol no IPv6 connection match entry */
+	NSS_EXCEPTION_EVENT_IPV6_ESP_IP_FRAGMENT,			/**<  NSS Exception event: ESP packets with IP fragments */
+	NSS_EXCEPTION_EVENT_IPV6_ESP_SMALL_HOP_LIMIT,			/**<  NSS Exception event: ESP packets with insufficient hop limit */
+	NSS_EXCEPTION_EVENT_IPV6_ESP_NEEDS_FRAGMENTATION,		/**<  NSS Exception event: ESP packets needs fragmentation */
 	NSS_EXCEPTION_EVENT_IPV6_MAX					/**<  IPv6 exception events max type number */
 };
 

@@ -37,7 +37,7 @@
 
 #define NSS_IPSEC_MSG_LEN (sizeof(struct nss_ipsec_msg) - sizeof(struct nss_cmn_msg))
 
-/*
+/**
  * @brief IPsec rule types
  */
 enum nss_ipsec_msg_type {
@@ -76,7 +76,15 @@ enum nss_ipsec_error_type {
 	NSS_IPSEC_ERROR_TYPE_MAX
 };
 
-/*
+/**
+ * @brief IP version
+ */
+enum nss_ipsec_ip_ver {
+	NSS_IPSEC_IPVER_4 = 2,		/**< IPv4 version for sel and oip */
+	NSS_IPSEC_IPVER_6 = 3		/**< IPv6 version for sel and oip */
+};
+
+/**
  * @brief IPsec rule selector tuple for encap & decap
  *
  * @note This is a common selector which is used for preparing
@@ -91,27 +99,31 @@ enum nss_ipsec_error_type {
  * be referenced by host in future
  */
 struct nss_ipsec_rule_sel {
-	uint32_t ipv4_dst;	/**< IPv4 destination to use */
-	uint32_t ipv4_src;	/**< IPv4 source to use */
+	uint32_t dst_addr[4];	/**< destination IP */
+	uint32_t src_addr[4];	/**< source IP */
+
 	uint32_t esp_spi;	/**< SPI index */
 
 	uint16_t dst_port;	/**< destination port (UDP or TCP) */
 	uint16_t src_port;	/**< source port (UDP or TCP) */
 
-	uint8_t ipv4_proto;	/**< IPv4 protocol types */
-	uint8_t res[3];
+	uint8_t proto_next_hdr;	/**< IP  protocol types */
+	uint8_t ip_ver;		/**< IP version */
+	uint8_t res[2];
 };
 
 /**
- * @brief IPsec rule outer IP header info to be applied for encapsulation
+ * @brief Common structure for IPsec rule outer IP header info
  */
 struct nss_ipsec_rule_oip {
-	uint32_t ipv4_dst;		/**< IPv4 destination address to apply */
-	uint32_t ipv4_src;		/**< IPv4 source address to apply */
+	uint32_t dst_addr[4];		/**< IPv4 destination address to apply */
+	uint32_t src_addr[4];		/**< IPv4 source address to apply */
+
 	uint32_t esp_spi;		/**< ESP SPI index to apply */
 
-	uint8_t ipv4_ttl;		/**< IPv4 Time-to-Live value to apply */
-	uint8_t res[3];			/**< reserve for 4-byte alignment */
+	uint8_t ttl_hop_limit;		/**< IPv4 Time-to-Live value to apply */
+	uint8_t ip_ver;			/**< IP version */
+	uint8_t res[2];			/**< reserve for 4-byte alignment */
 };
 
 /**
@@ -133,7 +145,7 @@ struct nss_ipsec_rule_data {
 	uint8_t res;			/**< Reserve bytes for alignment */
 };
 
-/*
+/**
  * @brief IPsec rule push message, sent from Host --> NSS for
  * 	  performing a operation on NSS rule tables
  */
@@ -192,7 +204,7 @@ struct nss_ipsec_node_stats {
 	uint32_t fail_enqueue;			/**< packets failed to enqueue */
 };
 
-/*
+/**
  * @brief Message structure to send/receive ipsec messages
  */
 struct nss_ipsec_msg {
@@ -305,7 +317,7 @@ extern struct nss_ctx_instance *nss_ipsec_get_context(void);
 extern void nss_ipsec_msg_init(struct nss_ipsec_msg *nim, uint16_t if_num, uint32_t type, uint32_t len,
 				nss_ipsec_msg_callback_t cb, void *app_data);
 
-/*
+/**
  * @brief get the NSS interface number to be used for IPsec requests
  *
  * @param ctx[IN] HLOS driver's context
