@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014 - 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -490,7 +490,7 @@ nss_tx_status_t nss_phys_if_open(struct nss_ctx_instance *nss_ctx, uint32_t tx_d
 	NSS_VERIFY_CTX_MAGIC(nss_ctx);
 	nss_info("%p: Phys If Open, id:%d, TxDesc: %x, RxDesc: %x\n", nss_ctx, if_num, tx_desc_ring, rx_desc_ring);
 
-	nss_cmn_msg_init(&nim.cm, if_num, NSS_TX_METADATA_TYPE_INTERFACE_OPEN,
+	nss_cmn_msg_init(&nim.cm, if_num, NSS_PHYS_IF_OPEN,
 			sizeof(struct nss_if_open), nss_phys_if_callback, NULL);
 
 	nio = &nim.msg.if_msg.open;
@@ -534,7 +534,7 @@ nss_tx_status_t nss_phys_if_close(struct nss_ctx_instance *nss_ctx, uint32_t if_
 	NSS_VERIFY_CTX_MAGIC(nss_ctx);
 	nss_info("%p: Phys If Close, id:%d \n", nss_ctx, if_num);
 
-	nss_cmn_msg_init(&nim.cm, if_num, NSS_TX_METADATA_TYPE_INTERFACE_CLOSE,
+	nss_cmn_msg_init(&nim.cm, if_num, NSS_PHYS_IF_CLOSE,
 			sizeof(struct nss_if_close), nss_phys_if_callback, NULL);
 
 	return nss_phys_if_msg_sync(nss_ctx, &nim);
@@ -552,7 +552,7 @@ nss_tx_status_t nss_phys_if_link_state(struct nss_ctx_instance *nss_ctx, uint32_
 	NSS_VERIFY_CTX_MAGIC(nss_ctx);
 	nss_info("%p: Phys If Link State, id:%d, State: %x\n", nss_ctx, if_num, link_state);
 
-	nss_cmn_msg_init(&nim.cm, if_num, NSS_TX_METADATA_TYPE_INTERFACE_LINK_STATE_NOTIFY,
+	nss_cmn_msg_init(&nim.cm, if_num, NSS_PHYS_IF_LINK_STATE_NOTIFY,
 			sizeof(struct nss_if_link_state_notify), nss_phys_if_callback, NULL);
 
 	nils = &nim.msg.if_msg.link_state_notify;
@@ -573,7 +573,7 @@ nss_tx_status_t nss_phys_if_mac_addr(struct nss_ctx_instance *nss_ctx, uint8_t *
 	nss_info("%p: Phys If MAC Address, id:%d\n", nss_ctx, if_num);
 	nss_assert(addr != 0);
 
-	nss_cmn_msg_init(&nim.cm, if_num, NSS_TX_METADATA_TYPE_INTERFACE_MAC_ADDR_SET,
+	nss_cmn_msg_init(&nim.cm, if_num, NSS_PHYS_IF_MAC_ADDR_SET,
 			sizeof(struct nss_if_mac_address_set), nss_phys_if_callback, NULL);
 
 	nmas = &nim.msg.if_msg.mac_address_set;
@@ -600,7 +600,7 @@ nss_tx_status_t nss_phys_if_change_mtu(struct nss_ctx_instance *nss_ctx, uint32_
 		return NSS_TX_FAILURE;
 	}
 
-	nss_cmn_msg_init(&nim.cm, if_num, NSS_TX_METADATA_TYPE_INTERFACE_MTU_CHANGE,
+	nss_cmn_msg_init(&nim.cm, if_num, NSS_PHYS_IF_MTU_CHANGE,
 			sizeof(struct nss_if_mtu_change), nss_phys_if_callback, NULL);
 
 	nimc = &nim.msg.if_msg.mtu_change;
