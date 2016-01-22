@@ -76,21 +76,6 @@ enum nss_ipsecmgr_event_type {
 };
 
 /**
- * @brief SA stats exported by NSS IPsec manager
- */
-struct nss_ipsecmgr_sa_stats {
-	uint32_t esp_spi;		/**< ESP SPI index */
-	uint32_t seq_num;		/**< current ESP sequence */
-	uint32_t crypto_index;		/**< crypto session index */
-
-	struct {
-		uint32_t processed;	/**< packets processed */
-		uint32_t dropped;	/**< packets dropped */
-		uint32_t failed;	/**< packets failed to be processed */
-	} pkts;
-};
-
-/**
  * @brief IPv4 Security Association
  */
 struct nss_ipsecmgr_sa_v4 {
@@ -115,7 +100,8 @@ struct nss_ipsecmgr_sa_data {
 	uint32_t crypto_index;		/**< crypto session index returned by the driver */
 
 	struct {
-		uint32_t icv_len;	/**< Hash Length */
+		uint16_t icv_len;	/**< Hash Length */
+		uint16_t replay_win;	/**< sequence number window size for anti-replay */
 		bool nat_t_req;		/**< NAT-T required */
 		bool seq_skip;		/**< Skip ESP sequence for ENCAP */
 		bool trailer_skip;	/**< Skip ESP trailer for ENCAP */
@@ -159,15 +145,6 @@ struct nss_ipsecmgr_encap_v6_subnet {
 	uint32_t dst_mask[4];		/**< destination subnet mask */
 	uint32_t next_hdr;		/**< next header */
 };
-/**
- * @brief NSS IPsec manager event
- */
-struct nss_ipsecmgr_event {
-	enum nss_ipsecmgr_event_type type;		/**< Event type */
-	union {
-		struct nss_ipsecmgr_sa_stats stats;	/**< Event: SA statistics */
-	}data;
-};
 
 /**
  * @brief NSS IPsec manager SA
@@ -177,6 +154,31 @@ struct nss_ipsecmgr_sa {
 	union {
 		struct nss_ipsecmgr_sa_v4 v4;	/**< IPv4 SA */
 		struct nss_ipsecmgr_sa_v6 v6;	/**< IPv6 SA */
+	} data;
+};
+
+/**
+ * @brief SA stats exported by NSS IPsec manager
+ */
+struct nss_ipsecmgr_sa_stats {
+	struct nss_ipsecmgr_sa sa;	/**< SA information */
+
+	uint32_t seq_num;		/**< current ESP sequence */
+	uint32_t crypto_index;		/**< crypto session index */
+
+	struct {
+		uint32_t bytes;		/**< bytes processed */
+		uint32_t count;		/**< packets processed */
+	} pkts;
+};
+
+/**
+ * @brief NSS IPsec manager event
+ */
+struct nss_ipsecmgr_event {
+	enum nss_ipsecmgr_event_type type;		/**< Event type */
+	union {
+		struct nss_ipsecmgr_sa_stats stats;	/**< Event: SA statistics */
 	} data;
 };
 
@@ -205,7 +207,7 @@ struct nss_ipsecmgr_callback {
 	nss_ipsecmgr_event_cb_t event_fn;	/**< event callback function */
 };
 
-
+#ifdef __KERNEL__ /* only kernel will use */
 /**
  * @brief Add a new IPsec tunnel
  *
@@ -269,4 +271,5 @@ bool nss_ipsecmgr_decap_add(struct net_device *tun, struct nss_ipsecmgr_sa *sa, 
  */
 bool nss_ipsecmgr_sa_flush(struct net_device *tun, struct nss_ipsecmgr_sa *sa);
 
+#endif /* __KERNEL__ */
 #endif /* __NSS_IPSECMGR_H */

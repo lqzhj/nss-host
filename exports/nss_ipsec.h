@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014,2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -44,8 +44,10 @@ enum nss_ipsec_msg_type {
 	NSS_IPSEC_MSG_TYPE_NONE = 0,		/**< nothing to do */
 	NSS_IPSEC_MSG_TYPE_ADD_RULE = 1,	/**< add rule to the table */
 	NSS_IPSEC_MSG_TYPE_DEL_RULE = 2,	/**< delete rule from the table */
-	NSS_IPSEC_MSG_TYPE_SYNC_STATS = 3,	/**< stats sync message */
-	NSS_IPSEC_MSG_TYPE_FLUSH_TUN = 4,	/**< delete all SA(s) for a tunnel */
+	NSS_IPSEC_MSG_TYPE_FLUSH_TUN = 3,	/**< delete all SA(s) for a tunnel */
+	NSS_IPSEC_MSG_TYPE_SYNC_SA_STATS = 4,	/**< stats sync message */
+	NSS_IPSEC_MSG_TYPE_SYNC_FLOW_STATS = 5,	/**< stats per flow */
+	NSS_IPSEC_MSG_TYPE_SYNC_NODE_STATS = 6,	/**< stats per node [encap/decap] */
 	NSS_IPSEC_MSG_TYPE_MAX
 };
 
@@ -58,6 +60,21 @@ typedef enum nss_ipsec_status {
 	NSS_IPSEC_STATUS_ENOENT = 2,
 	NSS_IPSEC_STATUS_MAX
 } nss_ipsec_status_t;
+
+/**
+ * @brief NSS IPsec rule error rypes
+ */
+enum nss_ipsec_error_type {
+	NSS_IPSEC_ERROR_TYPE_NONE = 0,			/**< No Error */
+	NSS_IPSEC_ERROR_TYPE_HASH_DUPLICATE = 1,	/**< Duplicate Entry request */
+	NSS_IPSEC_ERROR_TYPE_HASH_COLLISION = 2,	/**< New request conflicts with existing request */
+	NSS_IPSEC_ERROR_TYPE_UNHANDLED_MSG = 3,		/**< Unhandles message type */
+	NSS_IPSEC_ERROR_TYPE_INVALID_RULE = 4,		/**< Invalid flow rule */
+	NSS_IPSEC_ERROR_TYPE_MAX_SA = 5,		/**< SA unavailable */
+	NSS_IPSEC_ERROR_TYPE_MAX_FLOW = 6,		/**< Flow table full */
+	NSS_IPSEC_ERROR_TYPE_INVALID_CINDEX = 7,	/**< invalid crypto index */
+	NSS_IPSEC_ERROR_TYPE_MAX
+};
 
 /*
  * @brief IPsec rule selector tuple for encap & decap
@@ -130,21 +147,49 @@ struct nss_ipsec_rule {
 };
 
 /**
- * @brief Packet stats for individual SA
+ * @brief Packet stats SA
  */
-struct nss_ipsec_pkt_stats {
-	uint32_t processed;			/**< packets processed */
-	uint32_t dropped;			/**< packets dropped */
-	uint32_t failed;			/**< processing failed */
+struct nss_ipsec_pkt_sa_stats {
+	uint32_t count;			/**< packets processed */
+	uint32_t bytes;			/**< bytes processed */
+	uint32_t no_headroom;		/**< insufficient headroom */
+	uint32_t no_tailroom;		/**< insufficient tailroom */
+	uint32_t no_buf;		/**< no crypto buffer */
+	uint32_t fail_queue;		/**< failed to enqueue */
+	uint32_t fail_hash;		/**< hash mismatch */
+	uint32_t fail_replay;		/**< replay chaeck failed */
 };
+
 
 /**
  * @brief NSS IPsec per SA statistics
  */
 struct nss_ipsec_sa_stats {
-	uint32_t seqnum;			/**< SA sequence number */
-	uint32_t sa_idx;			/**< index into SA table */
-	struct nss_ipsec_pkt_stats pkts;	/**< packet statistics */
+	struct nss_ipsec_rule_sel sel;		/**< selector for SA stats */
+	struct nss_ipsec_pkt_sa_stats pkts;	/**< packet statistics */
+
+	uint32_t seq_num;
+};
+
+/**
+ * @brief NSS IPsec per flow statsistics
+ */
+struct nss_ipsec_flow_stats {
+	struct nss_ipsec_rule_sel sel;		/**< rule selector */
+	uint32_t processed;			/**< packets processed for this flow */
+
+	uint8_t use_pattern;			/**< use random pattern */
+	uint8_t res[3];
+};
+
+/**
+ * @brief NSS IPsec stats per node
+ */
+struct nss_ipsec_node_stats {
+	uint32_t enqueued;			/**< packets enqueued to the node */
+	uint32_t exceptioned;			/**< packets exception from NSS */
+	uint32_t completed;			/**< packets processed by the node */
+	uint32_t fail_enqueue;			/**< packets failed to enqueue */
 };
 
 /*
@@ -156,7 +201,9 @@ struct nss_ipsec_msg {
 	uint32_t tunnel_id;				/**< tunnel index associated with the message */
 	union {
 		struct nss_ipsec_rule push;		/**< Message: IPsec rule */
-		struct nss_ipsec_sa_stats stats;	/**< Message: Retreive stats for tunnel */
+		struct nss_ipsec_sa_stats sa_stats;	/**< Message: Retreive stats for tunnel */
+		struct nss_ipsec_flow_stats flow_stats;	/**< Message: Get stats per flow */
+		struct nss_ipsec_node_stats node_stats;	/**< Message: Get stats per node */
 	} msg;
 };
 
