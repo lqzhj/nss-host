@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014,2016 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -133,7 +133,7 @@ int profile_register_performance_counter(volatile unsigned int *counter, char *n
 	}
 
 	profile_counter[i] = counter;
-	strncpy(profile_name[i], name, PROFILE_COUNTER_NAME_LENGTH);
+	strlcpy(profile_name[i], name, PROFILE_COUNTER_NAME_LENGTH);
 	profile_name[i][PROFILE_COUNTER_NAME_LENGTH - 1] = 0;
 
 	return 1;
@@ -299,7 +299,8 @@ static int profile_make_stats_packet(char *buf, int bytes, struct profile_io *pn
 	counter_ptr = (struct profile_counter *)ptr;
 	for (n = 0; n < profile_num_counters; ++n) {
 		counter_ptr->value = htonl(*profile_counter[n]);
-		strcpy(counter_ptr->name, profile_name[n]);
+		strlcpy(counter_ptr->name, profile_name[n],
+			PROFILE_COUNTER_NAME_LENGTH);
 		counter_ptr++;
 	}
 	ptr = (char*)counter_ptr;
