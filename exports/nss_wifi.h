@@ -158,6 +158,7 @@ struct nss_wifi_tx_init_msg {
  */
 struct nss_wifi_tx_queue_cfg_msg {
 	uint32_t size;          /**< Tx queue size */
+	uint32_t range;          /**< Peer Range */
 };
 
 /*
