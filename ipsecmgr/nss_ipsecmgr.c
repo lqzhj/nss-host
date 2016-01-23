@@ -28,6 +28,8 @@
 #include <linux/rtnetlink.h>
 #include <linux/etherdevice.h>
 #include <asm/atomic.h>
+#include <linux/vmalloc.h>
+#include <linux/debugfs.h>
 
 #include <nss_api_if.h>
 #include <nss_ipsec.h>
@@ -38,6 +40,8 @@
 
 extern bool nss_cmn_get_nss_enabled(void);
 
+static struct nss_ipsecmgr_drv ipsecmgr_ctx = {0};
+
 /*
  **********************
  * Helper Functions
@@ -46,7 +50,7 @@ extern bool nss_cmn_get_nss_enabled(void);
 
 /*
  * nss_ipsecmgr_ref_no_update()
- * 	dummy functions for object owner when there is no update
+ *     dummy functions for object owner when there is no update
  */
 static void nss_ipsecmgr_ref_no_update(struct nss_ipsecmgr_priv *priv, struct nss_ipsecmgr_ref *child, struct nss_ipsec_msg *nim)
 {
@@ -62,425 +66,6 @@ static void nss_ipsecmgr_ref_no_free(struct nss_ipsecmgr_priv *priv, struct nss_
 {
 	nss_ipsecmgr_trace("%p:ref_no_free triggered\n", ref);
 	return;
-}
-
-/*
- * nss_ipsecmgr_v4_hdr2sel()
- * 	convert v4_hdr to message sel
- */
-static inline void nss_ipsecmgr_v4_hdr2sel(struct iphdr *iph, struct nss_ipsec_rule_sel *sel)
-{
-	sel->ipv4_dst = ntohl(iph->daddr);
-	sel->ipv4_src = ntohl(iph->saddr);
-	sel->ipv4_proto = iph->protocol;
-}
-
-/*
- * nss_ipsecmgr_offload_encap_flow()
- * 	check if the flow can be offloaded to NSS for encapsulation
- */
-static bool nss_ipsecmgr_offload_encap_flow(struct nss_ipsecmgr_priv *priv, struct sk_buff *skb)
-{
-	struct nss_ipsecmgr_ref *subnet_ref, *flow_ref;
-	struct nss_ipsecmgr_key subnet_key, flow_key;
-	struct nss_ipsec_rule_sel *sel;
-	struct nss_ipsec_msg nim;
-
-	nss_ipsecmgr_init_encap_flow(&nim, NSS_IPSEC_MSG_TYPE_ADD_RULE, priv);
-
-	switch (skb->protocol) {
-	case htons(ETH_P_IP):
-		sel = &nim.msg.push.sel;
-
-		nss_ipsecmgr_v4_hdr2sel(ip_hdr(skb), sel);
-		nss_ipsecmgr_encap_v4_sel2key(sel, &flow_key);
-
-		/*
-		 * flow lookup is done with read lock
-		 */
-		read_lock(&priv->lock);
-		flow_ref = nss_ipsecmgr_flow_lookup(&priv->flow_db, &flow_key);
-		read_unlock(&priv->lock);
-
-		/*
-		 * if flow is found then proceed with the TX
-		 */
-		if (flow_ref) {
-			return true;
-		}
-		/*
-		 * flow table miss results in lookup in the subnet table. If,
-		 * a match is found then a rule is inserted in NSS for encapsulating
-		 * this flow.
-		 */
-		nss_ipsecmgr_v4_subnet_sel2key(sel, &subnet_key);
-
-		/*
-		 * write lock as it can update the flow database
-		 */
-		write_lock(&priv->lock);
-
-		subnet_ref = nss_ipsecmgr_v4_subnet_match(&priv->net_db, &subnet_key);
-		if (!subnet_ref) {
-			write_unlock(&priv->lock);
-			return false;
-		}
-
-		/*
-		 * copy nim data from subnet entry
-		 */
-		nss_ipsecmgr_copy_v4_subnet(&nim, subnet_ref);
-
-		/*
-		 * if, the same flow was added in between then flow alloc will return the
-		 * same flow. The only side affect of this will be NSS getting duplicate
-		 * add requests and thus rejecting one of them
-		 */
-
-		flow_ref = nss_ipsecmgr_flow_alloc(&priv->flow_db, &flow_key);
-		if (!flow_ref) {
-			write_unlock(&priv->lock);
-			return false;
-		}
-
-		/*
-		 * add reference to subnet and trigger an update
-		 */
-		nss_ipsecmgr_ref_add(flow_ref, subnet_ref);
-		nss_ipsecmgr_ref_update(priv, flow_ref, &nim);
-
-		write_unlock(&priv->lock);
-
-		break;
-
-	default:
-		nss_ipsecmgr_warn("%p:protocol(%d) offload not supported\n", priv->dev, ntohs(skb->protocol));
-		return false;
-	}
-
-	return true;
-}
-
-/*
- **********************
- * Netdev ops
- **********************
- */
-
-/*
- * nss_ipsecmgr_tunnel_open()
- * 	open the tunnel for usage
- */
-static int nss_ipsecmgr_tunnel_open(struct net_device *dev)
-{
-	struct nss_ipsecmgr_priv *priv;
-
-	priv = netdev_priv(dev);
-
-	netif_start_queue(dev);
-
-	return 0;
-}
-
-/*
- * nss_ipsecmgr_tunnel_stop()
- * 	stop the IPsec tunnel
- */
-static int nss_ipsecmgr_tunnel_stop(struct net_device *dev)
-{
-	struct nss_ipsecmgr_priv *priv;
-
-	priv = netdev_priv(dev);
-
-	netif_stop_queue(dev);
-
-	return 0;
-}
-
-/*
- * nss_ipsecmgr_tunnel_xmit()
- * 	tunnel transmit function
- */
-static netdev_tx_t nss_ipsecmgr_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
-{
-	struct nss_ipsecmgr_priv *priv;
-	bool expand_skb = false;
-	int nhead, ntail;
-
-	priv = netdev_priv(dev);
-	nhead = dev->needed_headroom;
-	ntail = dev->needed_tailroom;
-
-	/*
-	 * Check if skb is non-linear
-	 */
-	if (skb_is_nonlinear(skb)) {
-		nss_ipsecmgr_error("%p: NSS IPSEC does not support fragments %p\n", priv->nss_ctx, skb);
-		goto fail;
-	}
-
-	/*
-	 * Check if skb is shared
-	 */
-	if (unlikely(skb_shared(skb))) {
-		nss_ipsecmgr_error("%p: Shared skb is not supported: %p\n", priv->nss_ctx, skb);
-		goto fail;
-	}
-
-	/*
-	 * Check if packet is given starting from network header
-	 */
-	if (skb->data != skb_network_header(skb)) {
-		nss_ipsecmgr_error("%p: 'Skb data is not starting from IP header", priv->nss_ctx);
-		goto fail;
-	}
-
-	/*
-	 * For all these cases
-	 * - create a writable copy of buffer
-	 * - increase the head room
-	 * - increase the tail room
-	 */
-	if (skb_cloned(skb) || (skb_headroom(skb) < nhead) || (skb_tailroom(skb) < ntail)) {
-		expand_skb = true;
-	}
-
-	if (expand_skb && pskb_expand_head(skb, nhead, ntail, GFP_KERNEL)) {
-		nss_ipsecmgr_error("%p: unable to expand buffer\n", priv->nss_ctx);
-		goto fail;
-	}
-
-	switch (skb->protocol) {
-	case htons(ETH_P_IP):
-		BUG_ON(ip_hdr(skb)->ttl == 0);
-		break;
-
-	case htons(ETH_P_IPV6):
-		BUG_ON(ipv6_hdr(skb)->hop_limit == 0);
-		break;
-
-	default:
-		goto fail;
-	}
-
-	/*
-	 * check whether the IPsec encapsulation can be offloaded to NSS
-	 * 	if the flow matches a subnet rule, then a new flow rule is added to NSS
-	 * 	if the flow doesn't match any subnet, then the packet is dropped
-	 */
-	if (!nss_ipsecmgr_offload_encap_flow(priv, skb)) {
-		nss_ipsecmgr_warn("%p:failed to accelerate flow\n", dev);
-		goto fail;
-	}
-
-	/*
-	 * Send the packet down
-	 */
-	if (nss_ipsec_tx_buf(skb, NSS_IPSEC_ENCAP_IF_NUMBER) != 0) {
-		/*
-		 * TODO: NEED TO STOP THE QUEUE
-		 */
-		goto fail;
-	}
-
-	return NETDEV_TX_OK;
-
-fail:
-	dev_kfree_skb_any(skb);
-	return NETDEV_TX_OK;
-}
-
-/*
- * nss_ipsecmgr_tunnel_stats()
- * 	get tunnel statistics
- */
-static struct net_device_stats *nss_ipsecmgr_tunnel_stats(struct net_device *dev)
-{
-	struct net_device_stats *stats = &dev->stats;
-	/* struct nss_ipsecmgr_priv *priv; */
-	/* struct nss_ipsec_sa *sa; */
-	/* uint32_t i; */
-
-	memset(stats, 0, sizeof(struct net_device_stats));
-
-#if 0
-	priv = netdev_priv(dev);
-	for (i = 0, sa = &priv->sa_tbl[0]; i < NSS_IPSEC_MAX_SA; i++, sa++) {
-		if (atomic_read(&sa->user) == 0) {
-			continue;
-		}
-
-		switch (sa->type) {
-		case NSS_IPSECMGR_RULE_TYPE_ENCAP:
-			stats->tx_packets += sa->stats.pkts.processed;
-			stats->tx_dropped += sa->stats.pkts.dropped;
-			break;
-
-		case NSS_IPSECMGR_RULE_TYPE_DECAP:
-			stats->rx_packets += sa->stats.pkts.processed;
-			stats->rx_dropped += sa->stats.pkts.dropped;
-			break;
-
-		default:
-			nss_ipsecmgr_error("unknown ipsec rule type\n");
-			break;
-		}
-	}
-#endif
-	return stats;
-}
-
-/* NSS IPsec tunnel operation */
-static const struct net_device_ops nss_ipsecmgr_tunnel_ops = {
-	.ndo_open = nss_ipsecmgr_tunnel_open,
-	.ndo_stop = nss_ipsecmgr_tunnel_stop,
-	.ndo_start_xmit = nss_ipsecmgr_tunnel_xmit,
-	.ndo_get_stats = nss_ipsecmgr_tunnel_stats,
-};
-
-/*
- * nss_ipsecmgr_tunnel_free()
- * 	free an existing IPsec tunnel interface
- */
-static void nss_ipsecmgr_tunnel_free(struct net_device *dev)
-{
-	nss_ipsecmgr_info("IPsec tunnel device(%s) freed\n", dev->name);
-
-	free_netdev(dev);
-}
-
-/*
- * nss_ipsecmr_setup_tunnel()
- * 	setup the IPsec tunnel
- */
-static void nss_ipsecmgr_tunnel_setup(struct net_device *dev)
-{
-	dev->addr_len = ETH_ALEN;
-	dev->mtu = NSS_IPSECMGR_TUN_MTU(ETH_DATA_LEN);
-
-	dev->hard_header_len = NSS_IPSECMGR_TUN_MAX_HDR_LEN;
-	dev->needed_headroom = NSS_IPSECMGR_TUN_HEADROOM;
-	dev->needed_tailroom = NSS_IPSECMGR_TUN_TAILROOM;
-
-	dev->type = NSS_IPSEC_ARPHRD_IPSEC;
-
-	dev->ethtool_ops = NULL;
-	dev->header_ops = NULL;
-	dev->netdev_ops = &nss_ipsecmgr_tunnel_ops;
-
-	dev->destructor = nss_ipsecmgr_tunnel_free;
-
-	/*
-	 * get the MAC address from the ethernet device
-	 */
-	random_ether_addr(dev->dev_addr);
-
-	memset(dev->broadcast, 0xff, dev->addr_len);
-	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
-}
-
-/*
- * nss_ipsecmgr_buf_receive()
- *	receive NSS exception packets
- */
-static void nss_ipsecmgr_buf_receive(struct net_device *dev, struct sk_buff *skb, __attribute((unused)) struct napi_struct *napi)
-{
-	struct nss_ipsecmgr_priv *priv;
-	nss_ipsecmgr_data_cb_t cb_fn;
-	void *cb_ctx;
-	struct iphdr *ip;
-
-	BUG_ON(dev == NULL);
-	BUG_ON(skb == NULL);
-
-	/* hold the device till we process it */
-	dev_hold(dev);
-
-	/*
-	 * XXX:need to ensure that the dev being accessed is not deleted
-	 */
-	priv = netdev_priv(dev);
-
-	skb->dev = dev;
-
-	cb_fn = priv->data_cb;
-	cb_ctx = priv->cb_ctx;
-
-	/*
-	 * if tunnel creator gave a callback then send the packet without
-	 * any modifications to him
-	 */
-	if (cb_fn && cb_ctx) {
-		cb_fn(cb_ctx, skb);
-		goto done;
-	}
-
-	ip = (struct iphdr *)skb->data;
-	if (unlikely((ip->version != IPVERSION) || (ip->ihl != 5))) {
-		nss_ipsecmgr_error("dropping packets(IP version:%x, Header len:%x)\n", ip->version, ip->ihl);
-		dev_kfree_skb_any(skb);
-		goto done;
-	}
-#if 0
-	/*
-	 * Receiving an ESP packet indicates that NSS has performed the encapsulation
-	 * but the post-routing rule is not present. This condition can't be taken care
-	 * in Host we should flush the ENCAP rules and free the packet. This will force
-	 * subsequent packets to follow the Slow path IPsec thus recreating the rules
-	 */
-	if (unlikely(ip->protocol == IPPROTO_ESP)) {
-		nss_ipsecmgr_sa_flush(dev, NSS_IPSECMGR_RULE_TYPE_ENCAP);
-		dev_kfree_skb_any(skb);
-		goto done;
-	}
-#endif
-
-	skb_reset_network_header(skb);
-	skb_reset_mac_header(skb);
-
-	skb->pkt_type = PACKET_HOST;
-	skb->protocol = cpu_to_be16(ETH_P_IP);
-	skb->skb_iif = dev->ifindex;
-
-	netif_receive_skb(skb);
-done:
-	/* release the device as we are done */
-	dev_put(dev);
-}
-
-/*
- * nss_ipsecmgr_event_recieve()
- * 	asynchronous event reception
- */
-static void nss_ipsecmgr_event_recieve(void *app_data, struct nss_ipsec_msg *nim)
-{
-	struct net_device *tun_dev = (struct net_device *)app_data;
-	struct nss_ipsecmgr_priv *priv;
-	struct net_device *dev;
-
-	BUG_ON(tun_dev == NULL);
-	BUG_ON(nim == NULL);
-
-	return;
-
-	/*
-	 * this holds the ref_cnt for the device
-	 */
-	dev = dev_get_by_index(&init_net, nim->tunnel_id);
-	if (!dev) {
-		nss_ipsecmgr_error("event received on deallocated I/F (%d)\n", nim->tunnel_id);
-		return;
-	}
-
-	BUG_ON(dev != tun_dev);
-
-	priv = netdev_priv(dev);
-
-	/*
-	 * XXX: process the events recevied from NSS
-	 */
-
-	dev_put(dev);
 }
 
 /*
@@ -502,6 +87,8 @@ void nss_ipsecmgr_ref_init(struct nss_ipsecmgr_ref *ref, nss_ipsecmgr_ref_update
  */
 void nss_ipsecmgr_ref_add(struct nss_ipsecmgr_ref *child, struct nss_ipsecmgr_ref *parent)
 {
+	struct dentry *p_dentry = dget_parent(child->dentry);
+
 	/*
 	 * if child is already part of an existing chain then remove it before
 	 * adding it to the new one. In case this is a new entry then the list
@@ -510,6 +97,11 @@ void nss_ipsecmgr_ref_add(struct nss_ipsecmgr_ref *child, struct nss_ipsecmgr_re
 	 */
 	list_del_init(&child->node);
 	list_add(&child->node, &parent->head);
+
+	if (p_dentry != parent->dentry) {
+		debugfs_rename(p_dentry, child->dentry, parent->dentry, child->name);
+	}
+
 }
 
 /*
@@ -591,6 +183,385 @@ bool nss_ipsecmgr_ref_is_child(struct nss_ipsecmgr_ref *child, struct nss_ipsecm
 }
 
 /*
+ **********************
+ * Netdev ops
+ **********************
+ */
+
+/*
+ * nss_ipsecmgr_tunnel_open()
+ * 	open the tunnel for usage
+ */
+static int nss_ipsecmgr_tunnel_open(struct net_device *dev)
+{
+	struct nss_ipsecmgr_priv *priv;
+
+	priv = netdev_priv(dev);
+
+	netif_start_queue(dev);
+
+	return 0;
+}
+
+/*
+ * nss_ipsecmgr_tunnel_stop()
+ * 	stop the IPsec tunnel
+ */
+static int nss_ipsecmgr_tunnel_stop(struct net_device *dev)
+{
+	struct nss_ipsecmgr_priv *priv;
+
+	priv = netdev_priv(dev);
+
+	netif_stop_queue(dev);
+
+	return 0;
+}
+
+/*
+ * nss_ipsecmgr_tunnel_tx()
+ * 	tunnel transmit function
+ */
+static netdev_tx_t nss_ipsecmgr_tunnel_tx(struct sk_buff *skb, struct net_device *dev)
+{
+	struct nss_ipsecmgr_priv *priv;
+	bool expand_skb = false;
+	int nhead, ntail;
+
+	priv = netdev_priv(dev);
+	nhead = dev->needed_headroom;
+	ntail = dev->needed_tailroom;
+
+	/*
+	 * Check if skb is non-linear
+	 */
+	if (skb_is_nonlinear(skb)) {
+		nss_ipsecmgr_error("%p: NSS IPSEC does not support fragments %p\n", priv->nss_ctx, skb);
+		goto fail;
+	}
+
+	/*
+	 * Check if skb is shared
+	 */
+	if (unlikely(skb_shared(skb))) {
+		nss_ipsecmgr_error("%p: Shared skb is not supported: %p\n", priv->nss_ctx, skb);
+		goto fail;
+	}
+
+	/*
+	 * Check if packet is given starting from network header
+	 */
+	if (skb->data != skb_network_header(skb)) {
+		nss_ipsecmgr_error("%p: 'Skb data is not starting from IP header", priv->nss_ctx);
+		goto fail;
+	}
+
+	/*
+	 * For all these cases
+	 * - create a writable copy of buffer
+	 * - increase the head room
+	 * - increase the tail room
+	 */
+	if (skb_cloned(skb) || (skb_headroom(skb) < nhead) || (skb_tailroom(skb) < ntail)) {
+		expand_skb = true;
+	}
+
+	if (expand_skb && pskb_expand_head(skb, nhead, ntail, GFP_KERNEL)) {
+		nss_ipsecmgr_error("%p: unable to expand buffer\n", priv->nss_ctx);
+		goto fail;
+	}
+
+	switch (skb->protocol) {
+	case htons(ETH_P_IP):
+		BUG_ON(ip_hdr(skb)->ttl == 0);
+		break;
+
+	case htons(ETH_P_IPV6):
+		BUG_ON(ipv6_hdr(skb)->hop_limit == 0);
+		break;
+
+	default:
+		goto fail;
+	}
+
+	/*
+	 * check whether the IPsec encapsulation can be offloaded to NSS
+	 * 	if the flow matches a subnet rule, then a new flow rule is added to NSS
+	 * 	if the flow doesn't match any subnet, then the packet is dropped
+	 */
+	if (!nss_ipsecmgr_flow_offload(priv, skb)) {
+		nss_ipsecmgr_warn("%p:failed to accelerate flow\n", dev);
+		goto fail;
+	}
+
+	/*
+	 * Send the packet down
+	 */
+	if (nss_ipsec_tx_buf(skb, NSS_IPSEC_ENCAP_IF_NUMBER) != 0) {
+		/*
+		 * TODO: NEED TO STOP THE QUEUE
+		 */
+		goto fail;
+	}
+
+	return NETDEV_TX_OK;
+
+fail:
+	dev_kfree_skb_any(skb);
+	return NETDEV_TX_OK;
+}
+
+/*
+ * nss_ipsecmgr_tunnel_stats()
+ * 	get tunnel statistics
+ */
+static struct rtnl_link_stats64 *nss_ipsecmgr_tunnel_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
+{
+	return nss_ipsecmgr_sa_stats_all(netdev_priv(dev), stats);
+}
+
+/* NSS IPsec tunnel operation */
+static const struct net_device_ops nss_ipsecmgr_tunnel_ops = {
+	.ndo_open = nss_ipsecmgr_tunnel_open,
+	.ndo_stop = nss_ipsecmgr_tunnel_stop,
+	.ndo_start_xmit = nss_ipsecmgr_tunnel_tx,
+	.ndo_get_stats64 = nss_ipsecmgr_tunnel_stats64,
+};
+
+/*
+ * nss_ipsecmgr_tunnel_free()
+ * 	free an existing IPsec tunnel interface
+ */
+static void nss_ipsecmgr_tunnel_free(struct net_device *dev)
+{
+	nss_ipsecmgr_info("IPsec tunnel device(%s) freed\n", dev->name);
+
+	free_netdev(dev);
+}
+
+/*
+ * nss_ipsecmr_setup_tunnel()
+ * 	setup the IPsec tunnel
+ */
+static void nss_ipsecmgr_tunnel_setup(struct net_device *dev)
+{
+	dev->addr_len = ETH_ALEN;
+	dev->mtu = NSS_IPSECMGR_TUN_MTU(ETH_DATA_LEN);
+
+	dev->hard_header_len = NSS_IPSECMGR_TUN_MAX_HDR_LEN;
+	dev->needed_headroom = NSS_IPSECMGR_TUN_HEADROOM;
+	dev->needed_tailroom = NSS_IPSECMGR_TUN_TAILROOM;
+
+	dev->type = NSS_IPSEC_ARPHRD_IPSEC;
+
+	dev->ethtool_ops = NULL;
+	dev->header_ops = NULL;
+	dev->netdev_ops = &nss_ipsecmgr_tunnel_ops;
+
+	dev->destructor = nss_ipsecmgr_tunnel_free;
+
+	/*
+	 * get the MAC address from the ethernet device
+	 */
+	random_ether_addr(dev->dev_addr);
+
+	memset(dev->broadcast, 0xff, dev->addr_len);
+	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+}
+
+/*
+ * nss_ipsecmgr_tunnel_rx()
+ *	receive NSS exception packets
+ */
+static void nss_ipsecmgr_tunnel_rx(struct net_device *dev, struct sk_buff *skb, __attribute((unused)) struct napi_struct *napi)
+{
+	struct nss_ipsecmgr_priv *priv;
+	nss_ipsecmgr_data_cb_t cb_fn;
+	void *cb_ctx;
+	struct iphdr *ip;
+
+	BUG_ON(dev == NULL);
+	BUG_ON(skb == NULL);
+
+	/* hold the device till we process it */
+	dev_hold(dev);
+
+	/*
+	 * XXX:need to ensure that the dev being accessed is not deleted
+	 */
+	priv = netdev_priv(dev);
+
+	skb->dev = dev;
+
+	cb_fn = priv->data_cb;
+	cb_ctx = priv->cb_ctx;
+
+	/*
+	 * if tunnel creator gave a callback then send the packet without
+	 * any modifications to him
+	 */
+	if (cb_fn && cb_ctx) {
+		cb_fn(cb_ctx, skb);
+		goto done;
+	}
+
+	ip = (struct iphdr *)skb->data;
+	if (unlikely((ip->version != IPVERSION) || (ip->ihl != 5))) {
+		nss_ipsecmgr_error("dropping packets(IP version:%x, Header len:%x)\n", ip->version, ip->ihl);
+		dev_kfree_skb_any(skb);
+		goto done;
+	}
+
+	/*
+	 * Receiving an ESP packet indicates that NSS has performed the encapsulation
+	 * but the post-routing rule is not present. This condition can't be taken care
+	 * in Host we should flush the ENCAP rules and free the packet. This will force
+	 * subsequent packets to follow the Slow path IPsec thus recreating the rules
+	 */
+	if (unlikely(ip->protocol == IPPROTO_ESP)) {
+		/*
+		 * XXX: flush IPsec SA specific to this packet
+		 */
+		dev_kfree_skb_any(skb);
+		goto done;
+	}
+
+	skb_reset_network_header(skb);
+	skb_reset_mac_header(skb);
+
+	skb->pkt_type = PACKET_HOST;
+	skb->protocol = cpu_to_be16(ETH_P_IP);
+	skb->skb_iif = dev->ifindex;
+
+	netif_receive_skb(skb);
+done:
+	/* release the device as we are done */
+	dev_put(dev);
+}
+
+/*
+ * nss_ipsecmgr_tunnel_notify()
+ * 	asynchronous event reception
+ */
+static void nss_ipsecmgr_tunnel_notify(void *app_data, struct nss_ipsec_msg *nim)
+{
+	struct net_device *tun_dev = (struct net_device *)app_data;
+	struct nss_ipsec_node_stats *node_stats;
+	struct nss_ipsecmgr_sa_pkt_stats *stats;
+	struct nss_ipsec_node_stats *drv_stats;
+	struct nss_ipsec_pkt_sa_stats *pkts;
+	struct nss_ipsecmgr_sa_entry *sa;
+	struct nss_ipsecmgr_priv *priv;
+	struct nss_ipsecmgr_ref *ref;
+	struct nss_ipsecmgr_key key;
+	struct net_device *dev;
+
+	BUG_ON(tun_dev == NULL);
+	BUG_ON(nim == NULL);
+
+	/*
+	 * this holds the ref_cnt for the device
+	 */
+	dev = dev_get_by_index(&init_net, nim->tunnel_id);
+	if (!dev) {
+		nss_ipsecmgr_error("event received on deallocated I/F (%d)\n", nim->tunnel_id);
+		return;
+	}
+
+	BUG_ON(dev != tun_dev);
+	priv = netdev_priv(dev);
+
+	switch (nim->cm.type) {
+	case NSS_IPSEC_MSG_TYPE_SYNC_SA_STATS:
+
+		/*
+		 * prepare and lookup sa based on selector sent from nss
+		 */
+		nss_ipsecmgr_v4_sa_sel2key(&nim->msg.sa_stats.sel, &key);
+
+		ref = nss_ipsecmgr_sa_lookup(priv, &key);
+		if (!ref) {
+			nss_ipsecmgr_error("event received on deallocated SA tunnel:(%d)\n", nim->tunnel_id);
+			goto done;
+		}
+
+		/*
+		 * update sa stats
+		 */
+		sa = container_of(ref, struct nss_ipsecmgr_sa_entry, ref);
+		pkts = &nim->msg.sa_stats.pkts;
+		stats = &sa->pkts;
+
+		stats->count += pkts->count;
+		stats->bytes += pkts->bytes;
+
+		stats->no_headroom = pkts->no_headroom;
+		stats->no_tailroom = pkts->no_tailroom;
+		stats->no_buf = pkts->no_buf;
+
+		stats->fail_queue = pkts->fail_queue;
+		stats->fail_hash = pkts->fail_hash;
+		stats->fail_replay = pkts->fail_replay;
+		break;
+
+	case NSS_IPSEC_MSG_TYPE_SYNC_NODE_STATS:
+
+		node_stats = &nim->msg.node_stats;
+		drv_stats = &ipsecmgr_ctx.enc_stats;
+		if (unlikely(nim->cm.interface == NSS_IPSEC_DECAP_IF_NUMBER)) {
+			drv_stats = &ipsecmgr_ctx.dec_stats;
+		}
+
+		memcpy(drv_stats, node_stats, sizeof(struct nss_ipsec_node_stats));
+		break;
+
+	default:
+		break;
+	}
+done:
+	dev_put(dev);
+}
+
+/*
+ * nss_ipsecmgr_node_stats_read()
+ * 	read node statistics
+ */
+static ssize_t nss_ipsecmgr_node_stats_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
+{
+	char *local;
+	ssize_t ret = 0;
+	int len;
+
+	local = vmalloc(NSS_IPSECMGR_MAX_BUF_SZ);
+
+	len = 0;
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "\tencap_enqueued: %d\n", ipsecmgr_ctx.enc_stats.enqueued);
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "\tencap_completed: %d\n", ipsecmgr_ctx.enc_stats.completed);
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "\tencap_exceptioned: %d\n", ipsecmgr_ctx.enc_stats.exceptioned);
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "\tencap_enqueue_failed: %d\n", ipsecmgr_ctx.enc_stats.fail_enqueue);
+
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "\tdecap_enqueued: %d\n", ipsecmgr_ctx.dec_stats.enqueued);
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "\tdecap_completed: %d\n", ipsecmgr_ctx.dec_stats.completed);
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "\tdecap_exceptioned: %d\n", ipsecmgr_ctx.dec_stats.exceptioned);
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "\tdecap_enqueue_failed: %d\n", ipsecmgr_ctx.dec_stats.fail_enqueue);
+
+	ret = simple_read_from_buffer(ubuf, sz, ppos, local, len + 1);
+
+	vfree(local);
+
+	return ret;
+}
+
+/*
+ * file operation structure instance
+ */
+static const struct file_operations node_stats_op = {
+	.open = simple_open,
+	.llseek = default_llseek,
+	.read = nss_ipsecmgr_node_stats_read,
+};
+
+/*
  * nss_ipsecmgr_tunnel_add()
  * 	add a IPsec pseudo tunnel device
  */
@@ -607,6 +578,7 @@ struct net_device *nss_ipsecmgr_tunnel_add(struct nss_ipsecmgr_callback *cb)
 	}
 
 	priv = netdev_priv(dev);
+
 	priv->dev = dev;
 	priv->cb_ctx = cb->ctx;
 	priv->data_cb = cb->data_fn;
@@ -629,9 +601,12 @@ struct net_device *nss_ipsecmgr_tunnel_add(struct nss_ipsecmgr_callback *cb)
 		goto fail;
 	}
 
-	nss_ipsec_data_register(priv->nss_ifnum, nss_ipsecmgr_buf_receive, dev, 0);
-	nss_ipsec_notify_register(NSS_IPSEC_ENCAP_IF_NUMBER, nss_ipsecmgr_event_recieve, dev);
-	nss_ipsec_notify_register(NSS_IPSEC_DECAP_IF_NUMBER, nss_ipsecmgr_event_recieve, dev);
+	nss_ipsec_data_register(priv->nss_ifnum, nss_ipsecmgr_tunnel_rx, dev, 0);
+	nss_ipsec_notify_register(NSS_IPSEC_ENCAP_IF_NUMBER, nss_ipsecmgr_tunnel_notify, dev);
+	nss_ipsec_notify_register(NSS_IPSEC_DECAP_IF_NUMBER, nss_ipsecmgr_tunnel_notify, dev);
+
+	priv->dentry = debugfs_create_dir(dev->name, ipsecmgr_ctx.dentry);
+	init_completion(&priv->complete);
 
 	return dev;
 fail:
@@ -663,6 +638,10 @@ bool nss_ipsecmgr_tunnel_del(struct net_device *dev)
 
 	nss_ipsecmgr_sa_flush_all(priv);
 
+	if (priv->dentry)  {
+		debugfs_remove_recursive(priv->dentry);
+	}
+
 	/*
 	 * The unregister should start here but the expectation is that the free would
 	 * happen when the reference count goes down to '0'
@@ -684,6 +663,12 @@ static int __init nss_ipsecmgr_init(void)
 		return 0;
 	}
 
+	/*
+	 * initialize debugfs.
+	 */
+	ipsecmgr_ctx.dentry = debugfs_create_dir("qca-nss-ipsecmgr", NULL);
+	debugfs_create_file("stats", S_IRUGO, ipsecmgr_ctx.dentry, NULL, &node_stats_op);
+
 	nss_ipsecmgr_info_always("NSS IPsec manager loaded: Build date %s\n", __DATE__);
 	return 0;
 }
@@ -695,7 +680,17 @@ static int __init nss_ipsecmgr_init(void)
 static void __exit nss_ipsecmgr_exit(void)
 {
 	nss_ipsecmgr_info_always("NSS IPsec manager unloaded\n");
+
+	/*
+	 * cleanup debugfs.
+	 */
+	if (ipsecmgr_ctx.dentry) {
+		debugfs_remove_recursive(ipsecmgr_ctx.dentry);
+	}
+
 }
+
+MODULE_LICENSE("Dual BSD/GPL");
 
 module_init(nss_ipsecmgr_init);
 module_exit(nss_ipsecmgr_exit);

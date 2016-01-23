@@ -22,6 +22,8 @@
 #include <linux/netdevice.h>
 #include <linux/rtnetlink.h>
 #include <asm/atomic.h>
+#include <linux/debugfs.h>
+#include <linux/vmalloc.h>
 
 #include <nss_api_if.h>
 #include <nss_ipsec.h>
@@ -38,13 +40,117 @@ struct nss_ipsecmgr_sa_info {
 	struct nss_ipsecmgr_key sa_key;
 	struct nss_ipsecmgr_key child_key;
 
-	void *child_db;
-	/* nss_ipsecmgr_db_op_t child_alloc; */
-	/* nss_ipsecmgr_db_op_t child_lookup; */
-
-	struct nss_ipsecmgr_ref * (*child_alloc)(void *db, struct nss_ipsecmgr_key *key);
-	struct nss_ipsecmgr_ref * (*child_lookup)(void *db, struct nss_ipsecmgr_key *key);
+	struct nss_ipsecmgr_ref * (*child_alloc)(struct nss_ipsecmgr_priv *priv, struct nss_ipsecmgr_key *key);
+	struct nss_ipsecmgr_ref * (*child_lookup)(struct nss_ipsecmgr_priv *priv, struct nss_ipsecmgr_key *key);
 };
+
+/*
+ * nss_ipsecmgr_sa_name_lookup()
+ * 	lookup the SA in the sa_db
+ */
+struct nss_ipsecmgr_ref *nss_ipsecmgr_sa_name_lookup(struct nss_ipsecmgr_priv *priv, const char *name)
+{
+	struct nss_ipsecmgr_sa_db *db = &priv->sa_db;
+	struct nss_ipsecmgr_sa_entry *entry;
+	struct list_head *head;
+	char *sa_name;
+	uint32_t hash;
+	int idx;
+
+	sa_name = strchr(name, '@') + 1;
+	if (hex2bin((uint8_t *)&hash, sa_name, sizeof(uint32_t))) {
+		nss_ipsecmgr_error("%p: Invalid sa_name(%s)\n", priv, sa_name);
+		return NULL;
+	}
+
+	idx = hash & (NSS_CRYPTO_MAX_IDXS - 1);
+	head = &db->entries[idx];
+
+	list_for_each_entry(entry, head, node) {
+		if (nss_ipsecmgr_key_get_hash(&entry->key) == hash) {
+			return &entry->ref;
+		}
+	}
+
+	return NULL;
+}
+
+/*
+ * nss_ipsecmgr_sa_stats_read()
+ * 	read sa statistics
+ */
+static ssize_t nss_ipsecmgr_sa_stats_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
+{
+	struct dentry *parent = dget_parent(fp->f_dentry);
+	struct nss_ipsecmgr_sa_entry *sa;
+	struct nss_ipsec_rule_oip *oip;
+	struct nss_ipsecmgr_priv *priv;
+	struct nss_ipsecmgr_ref *ref;
+	struct net_device *dev;
+	char *local, *type;
+	ssize_t ret = 0;
+	int len;
+
+	dev = dev_get_by_index(&init_net, (uint32_t)fp->private_data);
+	if (!dev) {
+		return 0;
+	}
+	priv = netdev_priv(dev);
+
+	read_lock(&priv->lock);
+	ref = nss_ipsecmgr_sa_name_lookup(priv, parent->d_name.name);
+	if (!ref) {
+		read_unlock(&priv->lock);
+		nss_ipsecmgr_error("sa not found tunnel-id: %d\n", (uint32_t)fp->private_data);
+		goto done;
+	}
+
+	sa = container_of(ref, struct nss_ipsecmgr_sa_entry, ref);
+	oip = &sa->nim.msg.push.oip;
+
+	local = vmalloc(NSS_IPSECMGR_MAX_BUF_SZ);
+
+	switch (sa->nim.cm.interface) {
+	case NSS_IPSEC_ENCAP_IF_NUMBER:
+		type = "encap";
+		break;
+
+	case NSS_IPSEC_DECAP_IF_NUMBER:
+		type = "decap";
+		break;
+	default:
+		type = "none";
+		break;
+	}
+
+	len = 0;
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "type:%s\n", type);
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "dst_ip: %pI4h\n", &oip->ipv4_dst);
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "src_ip: %pI4h\n", &oip->ipv4_src);
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "spi_idx: 0x%x\n", oip->esp_spi);
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "ttl: %d\n", oip->ipv4_ttl);
+
+	/*
+	 * packet stats
+	 */
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "processed: %llu\n", sa->pkts.count);
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "no_headroom: %d\n", sa->pkts.no_headroom);
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "no_tailroom: %d\n", sa->pkts.no_tailroom);
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "no_buf: %d\n", sa->pkts.no_buf);
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "fail_queue: %d\n", sa->pkts.fail_queue);
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "fail_hash: %d\n", sa->pkts.fail_hash);
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "fail_replay: %d\n", sa->pkts.fail_replay);
+
+	read_unlock(&priv->lock);
+
+	ret = simple_read_from_buffer(ubuf, sz, ppos, local, len + 1);
+
+	vfree(local);
+
+done:
+	dev_put(dev);
+	return ret;
+}
 
 /*
  * nss_ipsecmgr_sa_free()
@@ -57,6 +163,8 @@ static void nss_ipsecmgr_sa_free(struct nss_ipsecmgr_priv *priv, struct nss_ipse
 	if (!nss_ipsecmgr_ref_is_empty(ref)) {
 		return;
 	}
+
+	debugfs_remove_recursive(nss_ipsecmgr_ref_get_dentry(ref));
 
 	/*
 	 * there should be no references remove it from
@@ -82,7 +190,7 @@ static bool nss_ipsecmgr_sa_del(struct nss_ipsecmgr_priv *priv, struct nss_ipsec
 	/*
 	 * search the flow for deletion
 	 */
-	child_ref = info->child_lookup(info->child_db, &info->child_key);
+	child_ref = info->child_lookup(priv, &info->child_key);
 	if (!child_ref) {
 		/*
 		 * unlock device
@@ -90,14 +198,14 @@ static bool nss_ipsecmgr_sa_del(struct nss_ipsecmgr_priv *priv, struct nss_ipsec
 		write_unlock_bh(&priv->lock);
 
 		nss_ipsecmgr_warn("%p:failed to lookup child_entry\n", priv->dev);
-		nss_ipsecmgr_trace("%p:child_lookup(%p), child_db(%p)", priv, info->child_lookup, info->child_db);
+		nss_ipsecmgr_trace("%p:child_lookup(%p)\n", priv, info->child_lookup);
 		return false;
 	}
 
 	/*
 	 * search the SA in sa_db
 	 */
-	sa_ref = nss_ipsecmgr_sa_lookup(&priv->sa_db, &info->sa_key);
+	sa_ref = nss_ipsecmgr_sa_lookup(priv, &info->sa_key);
 	if (!sa_ref) {
 		write_unlock_bh(&priv->lock);
 
@@ -128,10 +236,10 @@ static bool nss_ipsecmgr_sa_del(struct nss_ipsecmgr_priv *priv, struct nss_ipsec
 static bool nss_ipsecmgr_sa_add(struct nss_ipsecmgr_priv *priv, struct nss_ipsecmgr_sa_info *info)
 {
 	struct nss_ipsecmgr_ref *sa_ref, *child_ref;
+	struct nss_ipsecmgr_sa_entry *sa;
 
 	BUG_ON(!info->child_alloc);
 	BUG_ON(!info->child_lookup);
-	BUG_ON(!info->child_db);
 
 	/*
 	 * lock database
@@ -142,7 +250,7 @@ static bool nss_ipsecmgr_sa_add(struct nss_ipsecmgr_priv *priv, struct nss_ipsec
 	 * allocate a flow, this returns either a new flow or an existing
 	 * one incase it is found
 	 */
-	child_ref = info->child_alloc(info->child_db, &info->child_key);
+	child_ref = info->child_alloc(priv, &info->child_key);
 	if (!child_ref) {
 		/*
 		 * unlock device
@@ -150,7 +258,7 @@ static bool nss_ipsecmgr_sa_add(struct nss_ipsecmgr_priv *priv, struct nss_ipsec
 		write_unlock_bh(&priv->lock);
 
 		nss_ipsecmgr_warn("%p:failed to alloc child_entry\n", priv->dev);
-		nss_ipsecmgr_trace("%p:child_alloc(%p), child_db(%p)", priv, info->child_alloc, info->child_db);
+		nss_ipsecmgr_trace("%p:child_alloc(%p)\n", priv, info->child_alloc);
 		return false;
 	}
 
@@ -158,7 +266,7 @@ static bool nss_ipsecmgr_sa_add(struct nss_ipsecmgr_priv *priv, struct nss_ipsec
 	 * allocate a SA, when flow alloc is successful. This returns either
 	 * new SA or an existing one incase it is found
 	 */
-	sa_ref = nss_ipsecmgr_sa_alloc(&priv->sa_db, &info->sa_key);
+	sa_ref = nss_ipsecmgr_sa_alloc(priv, &info->sa_key);
 	if (!sa_ref) {
 		/*
 		 * release the flow and unlock device
@@ -169,6 +277,15 @@ static bool nss_ipsecmgr_sa_add(struct nss_ipsecmgr_priv *priv, struct nss_ipsec
 		nss_ipsecmgr_warn("%p:failed to alloc sa_entry\n", priv->dev);
 		return false;
 	}
+
+	/*
+	 * we are only interested the storing the SA portion of the message
+	 */
+	sa = container_of(sa_ref, struct nss_ipsecmgr_sa_entry, ref);
+	sa->ifnum = info->nim.cm.interface;
+
+	memcpy(&sa->nim, &info->nim, sizeof(struct nss_ipsec_msg));
+	memset(&sa->nim.msg.push.sel, 0, sizeof(struct nss_ipsec_rule_sel));
 
 	/*
 	 * add child to parent
@@ -187,20 +304,31 @@ static bool nss_ipsecmgr_sa_add(struct nss_ipsecmgr_priv *priv, struct nss_ipsec
 }
 
 /*
+ * file operation structure instance
+ */
+static const struct file_operations sa_stats_op = {
+	.open = simple_open,
+	.llseek = default_llseek,
+	.read = nss_ipsecmgr_sa_stats_read,
+};
+
+/*
  * nss_ipsecmgr_sa_alloc()
  * 	allocate the SA if there is none in the DB
  */
-struct nss_ipsecmgr_ref *nss_ipsecmgr_sa_alloc(void *sa_db, struct nss_ipsecmgr_key *key)
+struct nss_ipsecmgr_ref *nss_ipsecmgr_sa_alloc(struct nss_ipsecmgr_priv *priv, struct nss_ipsecmgr_key *key)
 {
-	struct nss_ipsecmgr_sa_db *db = sa_db;
+	char hash_str[NSS_IPSECMGR_MAX_KEY_NAME] = {0};
 	struct nss_ipsecmgr_sa_entry *sa;
+	struct nss_ipsecmgr_sa_db *db;
 	struct nss_ipsecmgr_ref *ref;
+	struct dentry *dentry;
 	int idx;
 
 	/*
 	 * Search the object in the database first
 	 */
-	ref = nss_ipsecmgr_sa_lookup(db, key);
+	ref = nss_ipsecmgr_sa_lookup(priv, key);
 	if (ref) {
 		return ref;
 	}
@@ -215,23 +343,48 @@ struct nss_ipsecmgr_ref *nss_ipsecmgr_sa_alloc(void *sa_db, struct nss_ipsecmgr_
 	}
 
 	/*
-	 * Initialize the list node & ref nodes
+	 * store tunnel private reference
 	 */
+	sa->priv = priv;
+
+	/*
+	 * initialize sa list node
+	 */
+	ref = &sa->ref;
+	db = &priv->sa_db;
 	INIT_LIST_HEAD(&sa->node);
-	nss_ipsecmgr_ref_init(&sa->ref, NULL, nss_ipsecmgr_sa_free);
 
 	/*
 	 * copy key data
 	 */
-	memcpy(&sa->key, key, sizeof(struct nss_ipsecmgr_key));
-
-	/*
-	 * Add the object to database
-	 */
 	idx = nss_ipsecmgr_key_data2idx(key, NSS_CRYPTO_MAX_IDXS);
+	memcpy(&sa->key, key, sizeof(struct nss_ipsecmgr_key));
 	list_add(&sa->node, &db->entries[idx]);
 
-	return &sa->ref;
+	/*
+	 * create a string from hash
+	 */
+	nss_ipsecmgr_key_hash2str(key, hash_str);
+
+	/*
+	 * initiallize the reference object
+	 */
+	nss_ipsecmgr_ref_init(&sa->ref, NULL, nss_ipsecmgr_sa_free);
+
+	/*
+	 * setup the debugfs entries
+	 */
+	nss_ipsecmgr_ref_update_name(ref, "sa@");
+	nss_ipsecmgr_ref_update_name(ref, hash_str);
+
+	/*
+	 * we don't know the parent of this node now hence attach it to the root node
+	 */
+	dentry = debugfs_create_dir(nss_ipsecmgr_ref_get_name(ref), priv->dentry);
+	debugfs_create_file("stats", S_IRUGO, dentry, (uint32_t *)priv->dev->ifindex, &sa_stats_op);
+
+	nss_ipsecmgr_ref_set_dentry(ref, dentry);
+	return ref;
 }
 
 /*
@@ -257,7 +410,7 @@ void nss_ipsecmgr_copy_sa_data(struct nss_ipsec_msg *nim, struct nss_ipsecmgr_sa
 	struct nss_ipsec_rule_data *data = &nim->msg.push.data;
 
 	data->crypto_index = (uint16_t)sa_data->crypto_index;
-	/* data->window_size = sa_data->esp.replay_win; */
+	data->window_size = sa_data->esp.replay_win;
 	data->nat_t_req = sa_data->esp.nat_t_req;
 
 	data->cipher_algo = nss_crypto_get_cipher(data->crypto_index);
@@ -286,12 +439,29 @@ void nss_ipsecmgr_v4_sa2key(struct nss_ipsecmgr_sa_v4 *sa, struct nss_ipsecmgr_k
 }
 
 /*
+ * nss_ipsecmgr_v4_sa_sel2key()
+ * 	convert a SA into a key
+ */
+void nss_ipsecmgr_v4_sa_sel2key(struct nss_ipsec_rule_sel *sel, struct nss_ipsecmgr_key *key)
+{
+	nss_ipsecmgr_key_reset(key);
+
+	nss_ipsecmgr_key_write_8(key, 4 /* v4 */, NSS_IPSECMGR_KEY_POS_IP_VER);
+	nss_ipsecmgr_key_write_8(key, IPPROTO_ESP, NSS_IPSECMGR_KEY_POS_IP_PROTO);
+	nss_ipsecmgr_key_write_32(key, sel->ipv4_dst, NSS_IPSECMGR_KEY_POS_IPV4_DST);
+	nss_ipsecmgr_key_write_32(key, sel->ipv4_src, NSS_IPSECMGR_KEY_POS_IPV4_SRC);
+	nss_ipsecmgr_key_write_32(key, sel->esp_spi, NSS_IPSECMGR_KEY_POS_ESP_SPI);
+
+	key->len = NSS_IPSECMGR_KEY_LEN_IPV4_SA;
+}
+
+/*
  * nss_ipsecmgr_sa_lookup()
  * 	lookup the SA in the sa_db
  */
-struct nss_ipsecmgr_ref *nss_ipsecmgr_sa_lookup(void *sa_db, struct nss_ipsecmgr_key *key)
+struct nss_ipsecmgr_ref *nss_ipsecmgr_sa_lookup(struct nss_ipsecmgr_priv *priv, struct nss_ipsecmgr_key *key)
 {
-	struct nss_ipsecmgr_sa_db *db = sa_db;
+	struct nss_ipsecmgr_sa_db *db = &priv->sa_db;
 	struct nss_ipsecmgr_sa_entry *entry;
 	struct list_head *head;
 	int idx;
@@ -306,6 +476,66 @@ struct nss_ipsecmgr_ref *nss_ipsecmgr_sa_lookup(void *sa_db, struct nss_ipsecmgr
 	}
 
 	return NULL;
+}
+
+/*
+ * nss_ipsecmgr_sa_stats_all()
+ * 	retrieve the SA statistics for all SA(s)
+ */
+struct rtnl_link_stats64 *nss_ipsecmgr_sa_stats_all(struct nss_ipsecmgr_priv *priv, struct rtnl_link_stats64 *stats)
+{
+	struct nss_ipsecmgr_sa_db *sa_db = &priv->sa_db;
+	struct nss_ipsecmgr_sa_entry *sa;
+	struct list_head *head;
+	int i;
+
+	memset(stats, 0, sizeof(struct net_device_stats));
+
+	/*
+	 * trigger a stats update chain
+	 */
+	read_lock(&priv->lock);
+
+	/*
+	 * walk the SA database for each entry and get stats for attached SA
+	 */
+	for (i = 0, head = sa_db->entries; i < NSS_IPSECMGR_MAX_SA; i++, head++) {
+		list_for_each_entry(sa, head, node) {
+			/*
+			 * Check the SA type (ENCAP or DECAP)
+			 */
+			switch (sa->ifnum) {
+			case NSS_IPSEC_ENCAP_IF_NUMBER:
+				stats->tx_bytes += sa->pkts.bytes;
+				stats->tx_packets += sa->pkts.count;
+				stats->tx_dropped += sa->pkts.no_headroom;
+				stats->tx_dropped += sa->pkts.no_tailroom;
+				stats->tx_dropped += sa->pkts.no_buf;
+				stats->tx_dropped += sa->pkts.fail_queue;
+				stats->tx_dropped += sa->pkts.fail_hash;
+				stats->tx_dropped += sa->pkts.fail_replay;
+				break;
+
+			case NSS_IPSEC_DECAP_IF_NUMBER:
+				stats->rx_bytes += sa->pkts.bytes;
+				stats->rx_packets += sa->pkts.count;
+				stats->rx_dropped += sa->pkts.no_headroom;
+				stats->rx_dropped += sa->pkts.no_tailroom;
+				stats->rx_dropped += sa->pkts.no_buf;
+				stats->rx_dropped += sa->pkts.fail_queue;
+				stats->rx_dropped += sa->pkts.fail_hash;
+				stats->rx_dropped += sa->pkts.fail_replay;
+				break;
+
+			default:
+				break;
+			}
+		}
+	}
+
+	read_unlock(&priv->lock);
+
+	return stats;
 }
 
 /*
@@ -354,7 +584,7 @@ bool nss_ipsecmgr_encap_add(struct net_device *tun, struct nss_ipsecmgr_encap_fl
 	nss_ipsecmgr_info("%p:encap_add initiated\n", tun);
 
 	memset(&info, 0, sizeof(struct nss_ipsecmgr_sa_info));
-	nss_ipsecmgr_init_encap_flow(&info.nim, NSS_IPSEC_MSG_TYPE_ADD_RULE, priv);
+	nss_ipsecmgr_encap_flow_init(&info.nim, NSS_IPSEC_MSG_TYPE_ADD_RULE, priv);
 
 	switch (flow->type) {
 	case NSS_IPSECMGR_FLOW_TYPE_V4_TUPLE:
@@ -366,7 +596,6 @@ bool nss_ipsecmgr_encap_add(struct net_device *tun, struct nss_ipsecmgr_encap_fl
 		nss_ipsecmgr_encap_v4_flow2key(&flow->data.v4_tuple, &info.child_key);
 		nss_ipsecmgr_v4_sa2key(&sa->data.v4, &info.sa_key);
 
-		info.child_db = &priv->flow_db;
 		info.child_alloc = nss_ipsecmgr_flow_alloc;
 		info.child_lookup = nss_ipsecmgr_flow_lookup;
 		break;
@@ -379,7 +608,6 @@ bool nss_ipsecmgr_encap_add(struct net_device *tun, struct nss_ipsecmgr_encap_fl
 		nss_ipsecmgr_v4_subnet2key(&flow->data.v4_subnet, &info.child_key);
 		nss_ipsecmgr_v4_sa2key(&sa->data.v4, &info.sa_key);
 
-		info.child_db = &priv->net_db;
 		info.child_alloc = nss_ipsecmgr_subnet_alloc;
 		info.child_lookup = nss_ipsecmgr_subnet_lookup;
 		break;
@@ -409,7 +637,7 @@ bool nss_ipsecmgr_encap_del(struct net_device *tun, struct nss_ipsecmgr_encap_fl
 	nss_ipsecmgr_info("%p:encap_del initiated\n", tun);
 
 	memset(&info, 0, sizeof(struct nss_ipsecmgr_sa_info));
-	nss_ipsecmgr_init_encap_flow(&info.nim, NSS_IPSEC_MSG_TYPE_DEL_RULE, priv);
+	nss_ipsecmgr_encap_flow_init(&info.nim, NSS_IPSEC_MSG_TYPE_DEL_RULE, priv);
 
 	switch (flow->type) {
 	case NSS_IPSECMGR_FLOW_TYPE_V4_TUPLE:
@@ -420,7 +648,6 @@ bool nss_ipsecmgr_encap_del(struct net_device *tun, struct nss_ipsecmgr_encap_fl
 		nss_ipsecmgr_encap_v4_flow2key(&flow->data.v4_tuple, &info.child_key);
 		nss_ipsecmgr_v4_sa2key(&sa->data.v4, &info.sa_key);
 
-		info.child_db = &priv->flow_db;
 		info.child_alloc = nss_ipsecmgr_flow_alloc;
 		info.child_lookup = nss_ipsecmgr_flow_lookup;
 		break;
@@ -432,7 +659,6 @@ bool nss_ipsecmgr_encap_del(struct net_device *tun, struct nss_ipsecmgr_encap_fl
 		nss_ipsecmgr_v4_subnet2key(&flow->data.v4_subnet, &info.child_key);
 		nss_ipsecmgr_v4_sa2key(&sa->data.v4, &info.sa_key);
 
-		info.child_db = &priv->net_db;
 		info.child_alloc = nss_ipsecmgr_subnet_alloc;
 		info.child_lookup = nss_ipsecmgr_subnet_lookup;
 		break;
@@ -462,7 +688,7 @@ bool nss_ipsecmgr_decap_add(struct net_device *tun, struct nss_ipsecmgr_sa *sa, 
 	nss_ipsecmgr_info("%p:decap_add initiated\n", tun);
 
 	memset(&info, 0, sizeof(struct nss_ipsecmgr_sa_info));
-	nss_ipsecmgr_init_decap_flow(&info.nim, NSS_IPSEC_MSG_TYPE_ADD_RULE, priv);
+	nss_ipsecmgr_decap_flow_init(&info.nim, NSS_IPSEC_MSG_TYPE_ADD_RULE, priv);
 
 	switch (sa->type) {
 	case NSS_IPSECMGR_SA_TYPE_V4:
@@ -480,7 +706,6 @@ bool nss_ipsecmgr_decap_add(struct net_device *tun, struct nss_ipsecmgr_sa *sa, 
 		return false;
 	}
 
-	info.child_db = &priv->flow_db;
 	info.child_alloc = nss_ipsecmgr_flow_alloc;
 	info.child_lookup = nss_ipsecmgr_flow_lookup;
 
@@ -516,7 +741,7 @@ bool nss_ipsecmgr_sa_flush(struct net_device *tun, struct nss_ipsecmgr_sa *sa)
 	/*
 	 * search the SA in sa_db
 	 */
-	sa_ref = nss_ipsecmgr_sa_lookup(&priv->sa_db, &sa_key);
+	sa_ref = nss_ipsecmgr_sa_lookup(priv, &sa_key);
 	if (!sa_ref) {
 		write_unlock_bh(&priv->lock);
 		nss_ipsecmgr_warn("%p:failed to lookup SA\n", priv);
