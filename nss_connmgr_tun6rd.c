@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -241,6 +241,13 @@ static int nss_tun6rd_dev_up(struct net_device *netdev)
 	if_number = nss_dynamic_interface_alloc_node(NSS_DYNAMIC_INTERFACE_TYPE_TUN6RD);
 	if (-1 == if_number) {
 		nss_tun6rd_warning("Request interface number failed\n");
+		return NOTIFY_BAD;
+	}
+
+	if (!nss_is_dynamic_interface(if_number)) {
+		nss_tun6rd_warning("Invalid NSS dynamic I/F "
+				   "number %d \n", if_number);
+
 		return NOTIFY_BAD;
 	}
 
