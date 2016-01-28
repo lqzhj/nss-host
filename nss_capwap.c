@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014,2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -19,10 +19,9 @@
   *	NSS CAPWAP driver interface APIs
   */
 #include "nss_core.h"
-#include <nss_hal.h>
-#include <linux/module.h>
-#include "nss_cmn.h"
 #include "nss_capwap.h"
+#include "nss_cmn.h"
+#include "nss_tx_rx_common.h"
 
 /*
  * Spinlock for protecting tunnel operations colliding with a tunnel destroy
@@ -546,6 +545,23 @@ struct nss_ctx_instance *nss_capwap_get_ctx()
 	return nss_ctx;
 }
 EXPORT_SYMBOL(nss_capwap_get_ctx);
+
+/*
+ * nss_capwap_ifnum_with_core_id()
+ *	Append core id to capwap interface num
+ */
+int nss_capwap_ifnum_with_core_id(int if_num)
+{
+	struct nss_ctx_instance *nss_ctx = nss_capwap_get_ctx();
+
+	NSS_VERIFY_CTX_MAGIC(nss_ctx);
+	if (nss_is_dynamic_interface(if_num) == false) {
+		nss_info("%p: Invalid if_num: %d, must be a dynamic interface\n", nss_ctx, if_num);
+		return 0;
+	}
+	return NSS_INTERFACE_NUM_APPEND_COREID(nss_ctx, if_num);
+}
+EXPORT_SYMBOL(nss_capwap_ifnum_with_core_id);
 
 /*
  * nss_capwap_get_max_buf_size()

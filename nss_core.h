@@ -1015,7 +1015,8 @@ struct nss_platform_data {
 	enum nss_feature_enabled wifioffload_enabled;   /* Does this core handle WIFI OFFLOAD? */
 	enum nss_feature_enabled tstamp_enabled;	/* Does this core handle timestamping? */
 	enum nss_feature_enabled portid_enabled;	/* Does this core handle portid? */
-	enum nss_feature_enabled oam_enabled;		/* Does this core handle oam*/
+	enum nss_feature_enabled oam_enabled;		/* Does this core handle oam? */
+	enum nss_feature_enabled capwap_enabled;	/* Does this core handle capwap? */
 };
 #endif
 

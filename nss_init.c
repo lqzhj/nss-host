@@ -25,6 +25,7 @@
 #endif
 #include "nss_tx_rx_common.h"
 #include "nss_data_plane.h"
+#include "nss_capwap.h"
 
 #include <nss_hal.h>
 
@@ -940,6 +941,11 @@ static int __init nss_init(void)
 	 */
 	nss_coredump_notify_register();
 	nss_coredump_init_delay_work();
+
+	/*
+	 * Init capwap
+	 */
+	nss_capwap_init();
 
 	/*
 	 * Register platform_driver

@@ -33,7 +33,6 @@
 #include "nss_core.h"
 #include "nss_tx_rx_common.h"
 #include "nss_data_plane.h"
-#include "nss_capwap.h"
 
 /*
  * Table of Compatible devices

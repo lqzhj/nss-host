@@ -42,7 +42,6 @@
 #include "nss_core.h"
 #include "nss_tx_rx_common.h"
 #include "nss_data_plane.h"
-#include "nss_capwap.h"
 #if (NSS_PM_SUPPORT == 1)
 #include "nss_pm.h"
 #endif
@@ -888,6 +887,7 @@ static struct nss_platform_data *nss_hal_of_get_pdata(struct device_node *np,
 	of_property_read_u32(np, "qcom,wlan_dataplane_offload_enabled", &npd->wifioffload_enabled);
 	of_property_read_u32(np, "qcom,portid_enabled", &npd->portid_enabled);
 	of_property_read_u32(np, "qcom,dtls_enabled", &npd->dtls_enabled);
+	of_property_read_u32(np, "qcom,capwap_enabled", &npd->capwap_enabled);
 
 	return npd;
 
@@ -1377,14 +1377,17 @@ clk_complete:
 		nss_n2h_register_handler();
 		nss_lag_register_handler();
 		nss_dynamic_interface_register_handler();
-		nss_top->capwap_handler_id = nss_dev->id;
-		nss_capwap_init();
 
 		for (i = 0; i < NSS_MAX_VIRTUAL_INTERFACES; i++) {
 			nss_top->virt_if_handler_id[i] = nss_dev->id;
 		}
 
 		nss_top->dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_802_3_REDIR] = nss_dev->id;
+	}
+
+	if (npd->capwap_enabled == NSS_FEATURE_ENABLED) {
+		nss_top->capwap_handler_id = nss_dev->id;
+		nss_top->dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_CAPWAP] = nss_dev->id;
 	}
 
 	if (npd->ipv4_reasm_enabled == NSS_FEATURE_ENABLED) {

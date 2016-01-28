@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014,2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -22,8 +22,6 @@
 #ifndef __NSS_CAPWAP_H
 #define __NSS_CAPWAP_H
 
-#include "nss_capwap_user.h"
-
 /**
  * Headroom required for CAPWAP packets.
  */
@@ -41,6 +39,7 @@ typedef enum nss_capwap_msg_type {
 	NSS_CAPWAP_MSG_TYPE_UPDATE_PATH_MTU = 5,	/**< Update Path MTU*/
 	NSS_CAPWAP_MSG_TYPE_SYNC_STATS = 6,		/**< stats sync message */
 	NSS_CAPWAP_MSG_TYPE_VERSION = 7,		/**< Choose between CAPWAP version. Default is V1 */
+	NSS_CAPWAP_MSG_TYPE_DTLS = 8,			/**< Configure DTLS setting */
 	NSS_CAPWAP_MSG_TYPE_MAX,
 } nss_capwap_msg_type_t;
 
@@ -58,6 +57,9 @@ typedef enum nss_capwap_msg_response {
 	NSS_CAPWAP_ERROR_MSG_TUNNEL_DISABLED,			/**< Tunnel is already disabled */
 	NSS_CAPWAP_ERROR_MSG_TUNNEL_ENABLED,			/**< Tunnel is already enabled */
 	NSS_CAPWAP_ERROR_MSG_TUNNEL_NOT_CFG,			/**< Tunnel is not configured yet */
+	NSS_CAPWAP_ERROR_MSG_INVALID_IP_NODE,			/**< Invalid tunnel IP node */
+	NSS_CAPWAP_ERROR_MSG_INVALID_TYPE_FLAG,			/**< Invalid type */
+	NSS_CAPWAP_ERROR_MSG_INVALID_DTLS_CFG,			/**< Invalid DTLS configuration */
 } nss_capwap_msg_response_t;
 
 /**
@@ -96,6 +98,54 @@ struct nss_capwap_stats_msg {
 };
 
 /**
+ * IPv4/IPv6 structure
+ */
+struct nss_capwap_ip {
+	union {
+		uint32_t ipv4;		/**< IPv4 address */
+		uint32_t ipv6[4];	/**< IPv6 address */
+	} ip;
+};
+
+/**
+ * Encap information for CAPWAP tunnel
+ */
+struct nss_capwap_encap_rule {
+	struct  nss_capwap_ip src_ip;	/**< Source IP */
+	uint32_t src_port;		/**< Source Port */
+	struct nss_capwap_ip dest_ip;	/**< Destination IP */
+	uint32_t dest_port;		/**< Destination Port */
+	uint32_t path_mtu;		/**< Path MTU */
+};
+
+/**
+ * Decap information for CAPWAP tunnel
+ */
+struct nss_capwap_decap_rule {
+	uint32_t reassembly_timeout;	/**< In milli-seconds */
+	uint32_t max_fragments;		/**< Max number of fragments expected */
+	uint32_t max_buffer_size;	/**< Max size of the payload buffer */
+};
+
+/**
+ * Rule structure for CAPWAP. The same rule structure applies for both encap and decap
+ * in a tunnel.
+ */
+struct nss_capwap_rule_msg {
+	struct nss_capwap_encap_rule encap;	/**< Encap portion of the rule */
+	struct nss_capwap_decap_rule decap;	/**< Decap portion of the rule */
+	uint32_t stats_timer;			/**< Stats interval timer in mill-seconds */
+	int8_t rps;				/**< Core to choose for receiving packets. Set to -1 for NSS FW to decide */
+	uint8_t type_flags;			/**< VLAN and/or PPPOE configured */
+	uint8_t l3_proto;			/**< NSS_CAPWAP_TUNNEL_IPV4 or NSS_CAPWAP_TUNNEL_IPV6 */
+	uint8_t which_udp;			/**< NSS_CAPWAP_TUNNEL_UDP or NSS_CAPWAP_TUNNEL_UDPLite */
+	uint32_t dtls_enabled;			/**< Tunnel encrypted with DTLS? */
+	uint32_t dtls_if_num;			/**< Interface number of the associated dtls node */
+	uint32_t mtu_adjust;			/**< mtu reserved for DTLS process */
+	uint32_t reserved;			/**< Padding */
+};
+
+/**
  * CAPWAP version message.
  */
 struct nss_capwap_version_msg {
@@ -110,6 +160,16 @@ struct nss_capwap_path_mtu_msg {
 };
 
 /**
+ * DTLS message.
+ */
+struct nss_capwap_dtls_msg {
+	uint32_t enable;	/**< Enable/disable DTLS */
+	uint32_t dtls_if_num;	/**< Associated DTLS if num */
+	uint32_t mtu_adjust;	/**< MTU adjust reported by DTLS node */
+	uint32_t reserved;	/**< Padding */
+};
+
+/**
  * The CAPWAP message structure.
  */
 struct nss_capwap_msg {
@@ -119,7 +179,54 @@ struct nss_capwap_msg {
 		struct nss_capwap_path_mtu_msg mtu;	/**< New MTU information */
 		struct nss_capwap_stats_msg stats;	/**< CAPWAP Statistics */
 		struct nss_capwap_version_msg version;	/**< CAPWAP version to use */
+		struct nss_capwap_dtls_msg dtls;	/**< DTLS configuration */
 	} msg;
+};
+
+/**
+ * 64-bit version of pnode_stats.
+ */
+struct nss_capwap_pn_stats {
+	uint64_t rx_packets;	/**< Number of packets received */
+	uint64_t rx_bytes;	/**< Number of bytes received */
+	uint64_t rx_dropped;	/**< Number of RX dropped packets */
+	uint64_t tx_packets;	/**< Number of packets transmitted */
+	uint64_t tx_bytes;	/**< Number of bytes transmitted */
+};
+
+/**
+ * Per-tunnel statistics seen by HLOS
+ */
+struct nss_capwap_tunnel_stats {
+	struct nss_capwap_pn_stats pnode_stats;	/**< NSS FW common stats */
+	uint64_t dtls_pkts;			/**< Number of DTLS pkts flowing through */
+
+	/*
+	 * Rx/decap stats
+	 */
+	uint64_t rx_dup_frag;		/**< Number of duplicate fragment */
+	uint64_t rx_segments;		/**< Number of segments/fragments */
+	uint64_t rx_oversize_drops;	/**< Size of packet > than payload size */
+	uint64_t rx_frag_timeout_drops;	/**< Drops due to reassembly timeout */
+	uint64_t rx_queue_full_drops;	/**< Drops due to queue full condition */
+	uint64_t rx_n2h_queue_full_drops;
+	uint64_t rx_csum_drops;		/**< Dropped RX packets due to checksum mismatch */
+	uint64_t rx_malformed;		/**< Malformed packet drops */
+	uint64_t rx_mem_failure_drops;	/**< Drops due to Memory Failure */
+	uint64_t rx_frag_gap_drops;	/**< Drops due to fragment-offset not being sequential */
+
+	/*
+	 * Tx/encap stats
+	 */
+	uint64_t tx_segments;		/**< Number of segments/fragments */
+	uint64_t tx_queue_full_drops;	/**< Drops due to queue full condition */
+	uint64_t tx_mem_failure_drops;	/**< Drops due to Memory Failure */
+	uint64_t tx_dropped_sg_ref;	/**< TX dropped due to sg reference */
+	uint64_t tx_dropped_ver_mis;	/**< TX Dropped due to version mismatch */
+	uint64_t tx_dropped_unalign;	/**< TX Dropped due to unaligned active buffer */
+	uint64_t tx_dropped_hroom;	/**< TX Dropped due to insufficent headroom */
+	uint64_t tx_dropped_dtls;	/**< TX Dropped due to DTLS pkt */
+	uint64_t tx_dropped_nwireless;	/**< TX Dropped due to nwireless being wrong */
 };
 
 /**
@@ -221,6 +328,15 @@ extern nss_tx_status_t nss_capwap_notify_unregister(struct nss_ctx_instance *ctx
  * @return Pointer to struct nss_ctx_instance
  */
 extern struct nss_ctx_instance *nss_capwap_get_ctx(void);
+
+/**
+ * @brief Gets capwap interface num with core id
+ *
+ * @param if_num interface number
+ *
+ * @return interface number with core id
+ */
+extern int nss_capwap_ifnum_with_core_id(int if_num);
 
 /**
  * @brief Gets NSS max_buf_size
