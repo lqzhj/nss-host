@@ -491,6 +491,11 @@ static int nss_connmgr_l2tpv2_dev_up(struct net_device *dev)
 	}
 	nss_connmgr_l2tpv2_info("nss_dynamic_interface_alloc_node() sucessful. if_number = %d\n", if_number);
 
+	if (!nss_is_dynamic_interface(if_number)) {
+		nss_connmgr_l2tpv2_warning("Invalid NSS dynamic I/F number %d\n", if_number);
+		return NOTIFY_BAD;
+	}
+
 	/*
 	 * Register l2tpv2  tunnel with NSS
 	 */

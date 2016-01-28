@@ -354,6 +354,12 @@ static int nss_connmgr_pptp_dev_up(struct net_device *dev)
 	}
 
 	nss_connmgr_pptp_info("nss_dynamic_interface_alloc_node() sucessful. if_number = %d\n", if_number);
+
+	if (!nss_is_dynamic_interface(if_number)) {
+		nss_connmgr_pptp_info("Invalid NSS dynamic I/F number %d\n", if_number);
+		return NOTIFY_BAD;
+	}
+
 	/*
 	 * Register pptp  tunnel with NSS
 	 */
