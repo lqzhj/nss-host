@@ -63,7 +63,7 @@ define KernelPackage/qca-nss-ecm-premium/Default
 $(call KernelPackage/qca-nss-ecm/Default)
   TITLE+= (with premium features)
   VARIANT:=premium
-  DEPENDS+=+kmod-qca-hyfi-bridge
+  DEPENDS+=+kmod-qca-hyfi-bridge +kmod-qca-mcs
 endef
 
 define KernelPackage/qca-nss-ecm-premium/Description/Default
