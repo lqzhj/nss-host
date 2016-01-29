@@ -568,6 +568,7 @@ static void nss_gmac_copy_stats(struct nss_gmac_dev *gmacdev,
 	gmacdev->nss_stats.gmac_total_ticks += gstat->gmac_total_ticks;
 	gmacdev->nss_stats.gmac_worst_case_ticks += gstat->gmac_worst_case_ticks;
 	gmacdev->nss_stats.gmac_iterations += gstat->gmac_iterations;
+	gmacdev->nss_stats.tx_pause_frames += gstat->tx_pause_frames;
 }
 
 
