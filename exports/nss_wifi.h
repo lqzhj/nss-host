@@ -353,7 +353,6 @@ struct nss_wifi_peer_ol_stats {
 	uint32_t seq_num;            /**< sequence number of ppdu */
 	uint32_t tx_unaggr;          /**< count of unaggregated pkts txed */
 	uint32_t tx_aggr;            /**< count of aggregated pkts txed */
-	uint32_t ppdu_bytes_success; /**< number of successfull bytes */
 	uint32_t tx_mcast;           /**< no of mcast pkts sent */
 	uint32_t tx_ucast;           /**< no of ucat pkts sent */
 	uint32_t tx_data;            /**< no of data pkts sent */
