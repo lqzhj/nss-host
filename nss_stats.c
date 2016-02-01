@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -405,52 +405,7 @@ static int8_t *nss_stats_str_wifi[NSS_STATS_WIFI_MAX] = {
 	"RX_PKTS_DELIVERD",
 	"RX_BYTES_DELIVERED",
 	"TX_BYTES_COMPLETED",
-	"RX_DELIVER_UNALIGNED_DROP_CNT",
-	"TIDQ_ENQUEUE_CNT_0",
-	"TIDQ_ENQUEUE_CNT_1",
-	"TIDQ_ENQUEUE_CNT_2",
-	"TIDQ_ENQUEUE_CNT_3",
-	"TIDQ_ENQUEUE_CNT_4",
-	"TIDQ_ENQUEUE_CNT_5",
-	"TIDQ_ENQUEUE_CNT_6",
-	"TIDQ_ENQUEUE_CNT_7",
-	"TIDQ_DEQUEUE_CNT_0",
-	"TIDQ_DEQUEUE_CNT_1",
-	"TIDQ_DEQUEUE_CNT_2",
-	"TIDQ_DEQUEUE_CNT_3",
-	"TIDQ_DEQUEUE_CNT_4",
-	"TIDQ_DEQUEUE_CNT_5",
-	"TIDQ_DEQUEUE_CNT_6",
-	"TIDQ_DEQUEUE_CNT_7",
-	"TIDQ_ENQUEUE_FAIL_CNT_0",
-	"TIDQ_ENQUEUE_FAIL_CNT_1",
-	"TIDQ_ENQUEUE_FAIL_CNT_2",
-	"TIDQ_ENQUEUE_FAIL_CNT_3",
-	"TIDQ_ENQUEUE_FAIL_CNT_4",
-	"TIDQ_ENQUEUE_FAIL_CNT_5",
-	"TIDQ_ENQUEUE_FAIL_CNT_6",
-	"TIDQ_ENQUEUE_FAIL_CNT_7",
-	"TIDQ_TTL_EXPIRE_CNT_0",
-	"TIDQ_TTL_EXPIRE_CNT_1",
-	"TIDQ_TTL_EXPIRE_CNT_2",
-	"TIDQ_TTL_EXPIRE_CNT_3",
-	"TIDQ_TTL_EXPIRE_CNT_4",
-	"TIDQ_TTL_EXPIRE_CNT_5",
-	"TIDQ_TTL_EXPIRE_CNT_6",
-	"TIDQ_TTL_EXPIRE_CNT_7",
-	"TIDQ_DEQUEUE_REQ_CNT_0",
-	"TIDQ_DEQUEUE_REQ_CNT_1",
-	"TIDQ_DEQUEUE_REQ_CNT_2",
-	"TIDQ_DEQUEUE_REQ_CNT_3",
-	"TIDQ_DEQUEUE_REQ_CNT_4",
-	"TIDQ_DEQUEUE_REQ_CNT_5",
-	"TIDQ_DEQUEUE_REQ_CNT_6",
-	"TIDQ_DEQUEUE_REQ_CNT_7",
-	"TOTAL_TIDQ_DEPTH",
-	"RX_HTT_FETCH_CNT",
-	"TOTAL_TIDQ_BYPASS_CNT",
-	"GLOBAL_Q_FULL_CNT",
-	"TIDQ_FULL_CNT",
+	"RX_DELIVER_UNALIGNED_DROP_CNT"
 };
 
 /*
