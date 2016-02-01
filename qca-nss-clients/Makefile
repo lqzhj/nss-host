@@ -14,6 +14,9 @@ PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE_VERSION:=$(PKG_VERSION)
 
+PKG_BUILD_DEPENDS := \
+	PACKAGE_kmod-qca-nss-crypto:kmod-qca-nss-crypto
+
 include $(INCLUDE_DIR)/package.mk
 
 define KernelPackage/qca-nss-drv-tun6rd
@@ -104,7 +107,7 @@ define KernelPackage/qca-nss-drv-capwapmgr
   SECTION:=kernel
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
-  DEPENDS:=kmod-qca-nss-drv +kmod-qca-nss-crypto
+  DEPENDS:=kmod-qca-nss-drv
   TITLE:=NSS CAPWAP Manager for QCA NSS driver (IPQ806x)
   FILES:=$(PKG_BUILD_DIR)/capwapmgr/qca-nss-capwapmgr.ko
 endef
