@@ -593,9 +593,9 @@ static int nss_gmac_fadj(struct device *dev, struct device_attribute *attr, cons
 	return strnlen(buf, count);
 }
 
-static DEVICE_ATTR(slam, 0222, NULL, nss_gmac_slam);
-static DEVICE_ATTR(cadj, 0222, NULL, nss_gmac_cadj);
-static DEVICE_ATTR(fadj, 0222, NULL, nss_gmac_fadj);
+static DEVICE_ATTR(slam, 0220, NULL, nss_gmac_slam);
+static DEVICE_ATTR(cadj, 0220, NULL, nss_gmac_cadj);
+static DEVICE_ATTR(fadj, 0220, NULL, nss_gmac_fadj);
 static DEVICE_ATTR(mtnp, 0444, nss_gmac_mtnp_show, NULL);
 static DEVICE_ATTR(tstamp, 0444, nss_gmac_tstamp_show, NULL);
 

@@ -384,7 +384,7 @@ static int nss_gmac_slowpath_if_open(void *app_data, uint32_t tx_desc_ring,
 	if (gmacdev->drv_flags & NSS_GMAC_PRIV_FLAG(IRQ_REQUESTED))
 		return NSS_GMAC_SUCCESS;
 
-	err = request_irq(netdev->irq, nss_gmac_handle_irq, IRQF_DISABLED, "nss-gmac", gmacdev);
+	err = request_irq(netdev->irq, nss_gmac_handle_irq, 0, "nss-gmac", gmacdev);
 	if (err) {
 		netdev_dbg(netdev, "Mac %d IRQ %d request failed\n", gmacdev->macid, netdev->irq);
 		return NSS_GMAC_FAILURE;
