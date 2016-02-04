@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014 - 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014 - 2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -418,7 +418,7 @@ enum exception_events_ipv4 {
 	NSS_EXCEPTION_EVENT_IPV4_6RD_NEEDS_FRAGMENTATION,		/**<  NSS Exception event: IPv4 6RD needs fragmentation */
 	NSS_EXCEPTION_EVENT_IPV4_DSCP_MARKING_MISMATCH,			/**<  NSS Exception event: IPv4 dscp marking mismatch */
 	NSS_EXCEPTION_EVENT_IPV4_VLAN_MARKING_MISMATCH,			/**<  NSS Exception event: IPv4 vlan marking mismatch */
-	NSS_EXCEPTION_EVENT_IPV4_INTERFACE_MISMATCH,			/**<  NSS Exception event: IPv4 source interface mismatch */
+	NSS_EXCEPTION_EVENT_IPV4_DEPRECATED,				/**<  NSS Exception event: IPv4 DEPRECATED TYPE */
 	NSS_EXCEPTION_EVENT_GRE_HEADER_INCOMPLETE,			/**<  NSS Exception event: IPv4 GRE header is incomplete */
 	NSS_EXCEPTION_EVENT_GRE_NO_ICME,				/**<  NSS Exception event: IPV4 GRE no connection match entry */
 	NSS_EXCEPTION_EVENT_GRE_IP_OPTION,				/**<  NSS Exception event: IPV4 GRE ip option */

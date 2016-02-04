@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014 - 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014 - 2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -143,7 +143,7 @@ enum exception_events_ipv6 {
 	NSS_EXCEPTION_EVENT_IPV6_IVID_MISSING,				/**<  NSS Exception event: IPv6 ingress vlan id missing */
 	NSS_EXCEPTION_EVENT_IPV6_DSCP_MARKING_MISMATCH,			/**<  NSS Exception event: IPv6 DSCP marking mismatch */
 	NSS_EXCEPTION_EVENT_IPV6_VLAN_MARKING_MISMATCH,			/**<  NSS Exception event: IPv6 VLAN marking mismatch */
-	NSS_EXCEPTION_EVENT_IPV6_INTERFACE_MISMATCH,			/**<  NSS Exception event: IPv6 source interface mismatch */
+	NSS_EXCEPTION_EVENT_IPV6_DEPRECATED,				/**<  NSS Exception event: IPv6 DEPRECATED TYPE */
 	NSS_EXCEPTION_EVENT_IPV6_GRE_NO_ICME,				/**<  NSS Exception event: GRE protocol no IPv6 conn match entry */
 	NSS_EXCEPTION_EVENT_IPV6_GRE_NEEDS_FRAGMENTATION,		/**<  NSS Exception event: GRE protocol needs fragmentation */
 	NSS_EXCEPTION_EVENT_IPV6_GRE_SMALL_HOP_LIMIT,			/**<  NSS Exception event: GRE protocol small hop limit reached */

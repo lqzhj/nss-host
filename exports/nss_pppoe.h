@@ -1,7 +1,7 @@
 
 /*
  **************************************************************************
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -47,7 +47,7 @@ enum nss_pppoe_exception_events {
 	NSS_PPPOE_EXCEPTION_EVENT_WRONG_CODE,
 	NSS_PPPOE_EXCEPTION_EVENT_HEADER_INCOMPLETE,
 	NSS_PPPOE_EXCEPTION_EVENT_UNSUPPORTED_PPP_PROTOCOL,
-	NSS_PPPOE_EXCEPTION_EVENT_INTERFACE_MISMATCH,
+	NSS_PPPOE_EXCEPTION_EVENT_DEPRECATED,
 	NSS_PPPOE_EXCEPTION_EVENT_MAX,
 };
 

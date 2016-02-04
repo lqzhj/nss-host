@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -298,7 +298,7 @@ static int8_t *nss_stats_str_if_exception_ipv4[NSS_EXCEPTION_EVENT_IPV4_MAX] = {
 	"IPV4_6RD_NEEDS_FRAGMENTATION",
 	"IPV4_DSCP_MARKING_MISMATCH",
 	"IPV4_VLAN_MARKING_MISMATCH",
-	"IPV4_INTERFACE_MISMATCH",
+	"IPV4_DEPRECATED",
 	"IPV4_GRE_HEADER_INCOMPLETE",
 	"IPV4_GRE_NO_ICME",
 	"IPV4_GRE_IP_OPTION",
@@ -357,7 +357,7 @@ static int8_t *nss_stats_str_if_exception_ipv6[NSS_EXCEPTION_EVENT_IPV6_MAX] = {
 	"IPV6_INGRESS_VID_MISSING",
 	"IPV6_DSCP_MARKING_MISMATCH",
 	"IPV6_VLAN_MARKING_MISMATCH",
-	"IPV6_INTERFACE_MISMATCH",
+	"IPV6_DEPRECATED",
 	"IPV6_GRE_NO_ICME",
 	"IPV6_GRE_NEEDS_FRAGMENTATION",
 	"IPV6_GRE_SMALL_HOP_LIMIT",
@@ -382,7 +382,7 @@ static int8_t *nss_stats_str_if_exception_pppoe[NSS_PPPOE_EXCEPTION_EVENT_MAX] =
 	"PPPOE_WRONG_CODE",
 	"PPPOE_HEADER_INCOMPLETE",
 	"PPPOE_UNSUPPORTED_PPP_PROTOCOL",
-	"PPPOE_INTERFACE_MISMATCH"
+	"PPPOE_DEPRECATED"
 };
 
 /*
