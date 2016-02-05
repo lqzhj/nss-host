@@ -42,6 +42,7 @@
 #include <net/neighbour.h>
 #include <net/route.h>
 #include <net/dst.h>
+#include <net/esp.h>
 
 #include <nss_api_if.h>
 #include <nss_crypto_if.h>
@@ -422,51 +423,162 @@ static int32_t nss_cfi_ipsec_trap_decap(struct sk_buff *skb, struct nss_cfi_cryp
  */
 static void nss_cfi_ipsec_data_cb(void *cb_ctx, struct sk_buff *skb)
 {
+	struct nss_ipsecmgr_sa_v4 *sa_v4;
+	struct nss_ipsecmgr_sa_v6 *sa_v6;
 	struct net_device *dev = cb_ctx;
+	struct ip_esp_hdr *esp = NULL;
+	struct net_device *nss_dev;
+	struct nss_ipsecmgr_sa sa;
+	struct frag_hdr *frag;
+	struct ipv6hdr *ip6;
+	struct udphdr *udp;
 	struct iphdr *ip;
+	int16_t index = 0;
 
 	nss_cfi_dbg("exception data ");
 
 	/*
 	 * need to hold the lock prior to accessing the dev
 	 */
-	if(!dev) {
+	if (!dev) {
 		dev_kfree_skb_any(skb);
 		return;
 	}
 
 	dev_hold(dev);
 
-	ip = (struct iphdr *)skb->data;
-
-	if ((ip->version != IPVERSION ) || (ip->ihl != 5)) {
-		nss_cfi_dbg("unkown ipv4 header\n");
-		dev_kfree_skb_any(skb);
-		goto done;
+	index = nss_cfi_ipsec_get_index(dev->name);
+	nss_dev = tunnel_map[index].nss_dev;
+	if (!nss_dev) {
+		nss_cfi_err("NSS IPsec tunnel dev allocation failed for %s\n", dev->name);
+		goto drop;
 	}
 
-	if (ip->protocol == IPPROTO_ESP) {
-		/*
-		 * TODO: Parse Outer IP and ESP headers to construct SA
-		 * 	call sa flush.
-		 */
-		dev_kfree_skb_any(skb);
-		goto done;
-	}
-
-	skb_reset_network_header(skb);
+	/*
+	 * We can only work with IP headers tunnelled inside ESP. Hence, assume
+	 * that the start of the packet is IPv4 header. Then check for the version
+	 */
 	skb_reset_mac_header(skb);
+	skb_reset_network_header(skb);
+	ip = ip_hdr(skb);
 
-	skb->pkt_type = PACKET_HOST;
-	skb->protocol = cpu_to_be16(ETH_P_IP);
+	/*
+	 * Check the exception packet is IPv4/IPv6
+	 */
+	switch (ip->version) {
+	case 4:
+		/*
+		 * set the protocol to IPv4
+		 */
+		skb->protocol = htons(ETH_P_IP);
+
+		/*
+		 * If, ESP packet is exceptioned from NSS flush the SA
+		 * corresponding to the packet
+		 */
+		skb_set_transport_header(skb, sizeof(struct iphdr));
+
+		if ((ip->protocol != IPPROTO_ESP) && (ip->protocol != IPPROTO_UDP)) {
+			break;
+		}
+
+		/*
+		 * At this point the next header can be UDP or ESP. Blindly, assume
+		 * that it is UDP and perform the test for NAT-T port number
+		 */
+		udp = udp_hdr(skb);
+		if ((ip->protocol == IPPROTO_UDP) && udp->dest == NSS_IPSECMGR_NATT_PORT_DATA) {
+			skb_set_transport_header(skb, sizeof(struct iphdr) + sizeof(struct udphdr));
+		}
+
+		esp = ip_esp_hdr(skb);
+
+		/*
+		 * construct SA from packet
+		 */
+		sa.type = NSS_IPSECMGR_SA_TYPE_V4;
+		sa_v4 = &sa.data.v4;
+
+		sa_v4->src_ip = ntohl(ip->saddr);
+		sa_v4->dst_ip = ntohl(ip->daddr);
+
+		sa_v4->ttl = ip->ttl;
+		sa_v4->spi_index = ntohl(esp->spi);
+
+		nss_ipsecmgr_sa_flush(nss_dev, &sa);
+		break;
+
+	case 6:
+		/*
+		 * set the protocol to IPv6
+		 */
+		skb->protocol = htons(ETH_P_IPV6);
+
+		/*
+		 * If, ESP packet is exceptioned from NSS flush the SA
+		 * corresponding to the packet
+		 */
+		ip6 = ipv6_hdr(skb);
+		skb_set_transport_header(skb, sizeof(struct ipv6hdr));
+
+		if ((ip6->nexthdr != IPPROTO_ESP) && (ip6->nexthdr != NEXTHDR_FRAGMENT)) {
+			break;
+		}
+
+		/*
+		 * At this point the next header can be Fragment or ESP. Blindly, assume
+		 * that it is Fragment and perform the test for next header in fragment
+		 */
+		frag = (struct frag_hdr *)skb_transport_header(skb);
+
+		if ((ip6->nexthdr == NEXTHDR_FRAGMENT) && (frag->nexthdr == IPPROTO_ESP)) {
+			skb_set_transport_header(skb, sizeof(struct ipv6hdr) + sizeof(struct frag_hdr));
+		}
+
+		esp = ip_esp_hdr(skb);
+
+		/*
+		 * construct SA from packet
+		 */
+		sa.type = NSS_IPSECMGR_SA_TYPE_V6;
+		sa_v6 = &sa.data.v6;
+
+		sa_v6->src_ip[0] = ntohl(ip6->saddr.s6_addr32[0]);
+		sa_v6->src_ip[1] = ntohl(ip6->saddr.s6_addr32[1]);
+		sa_v6->src_ip[2] = ntohl(ip6->saddr.s6_addr32[2]);
+		sa_v6->src_ip[3] = ntohl(ip6->saddr.s6_addr32[3]);
+
+		sa_v6->dst_ip[0] = ntohl(ip6->daddr.s6_addr32[0]);
+		sa_v6->dst_ip[1] = ntohl(ip6->daddr.s6_addr32[1]);
+		sa_v6->dst_ip[2] = ntohl(ip6->daddr.s6_addr32[2]);
+		sa_v6->dst_ip[3] = ntohl(ip6->daddr.s6_addr32[3]);
+		sa_v6->spi_index = ntohl(esp->spi);
+
+		sa_v6->hop_limit = ip6->hop_limit;
+
+		nss_ipsecmgr_sa_flush(nss_dev, &sa);
+		break;
+
+	default:
+		nss_cfi_dbg("malformed IP header\n");
+		goto drop;
+	}
+
+
 	skb->dev = dev;
 	skb->skb_iif = dev->ifindex;
+	skb->pkt_type = PACKET_HOST;
 
 	netif_receive_skb(skb);
-
-done:
 	dev_put(dev);
-	nss_cfi_dbg("delivered\n");
+
+	return;
+
+drop:
+	dev->stats.rx_dropped++;
+	dev_kfree_skb_any(skb);
+	dev_put(dev);
+	return;
 }
 
 /*
