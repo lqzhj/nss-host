@@ -63,7 +63,7 @@ define KernelPackage/qca-nss-ecm-premium/Default
 $(call KernelPackage/qca-nss-ecm/Default)
   TITLE+= (with premium features)
   VARIANT:=premium
-  DEPENDS+=+kmod-qca-hyfi-bridge +kmod-qca-mcs
+  DEPENDS+=+kmod-qca-hyfi-bridge +kmod-qca-mcs +kmod-nat46
 endef
 
 define KernelPackage/qca-nss-ecm-premium/Description/Default
@@ -120,7 +120,8 @@ EXTRA_CFLAGS+= \
 	-I$(STAGING_DIR)/usr/include/hyfibr \
 	-I$(STAGING_DIR)/usr/include/qca-mcs \
 	-I$(STAGING_DIR)/usr/include/qca-nss-drv \
-	-I$(STAGING_DIR)/usr/include/shortcut-fe
+	-I$(STAGING_DIR)/usr/include/shortcut-fe \
+	-I$(STAGING_DIR)/usr/include/nat46
 
 ECM_MAKE_OPTS:=
 ifeq ($(LOCAL_VARIANT),premium)

@@ -61,6 +61,20 @@ define KernelPackage/qca-nss-drv-pptp/Description
 Kernel modules for NSS connection manager - Support for PPTP tunnel
 endef
 
+define KernelPackage/qca-nss-drv-map-t
+  SECTION:=kernel
+  CATEGORY:=Kernel modules
+  SUBMENU:=Network Devices
+  TITLE:=Kernel driver for NSS (connection manager) - MAP-T
+  DEPENDS:=kmod-qca-nss-drv kmod-nat46
+  FILES:=$(PKG_BUILD_DIR)/map/map-t/qca-nss-map-t.ko
+  AUTOLOAD:=$(call AutoLoad,51,qca-nss-map-t)
+endef
+
+define KernelPackage/qca-nss-drv-map-t/Description
+Kernel modules for NSS connection manager - Support for MAP-T
+endef
+
 define KernelPackage/qca-nss-drv-tunipip6
   SECTION:=kernel
   CATEGORY:=Kernel modules
@@ -133,7 +147,8 @@ endef
 EXTRA_CFLAGS+= \
 	-I$(STAGING_DIR)/usr/include/qca-nss-drv \
 	-I$(STAGING_DIR)/usr/include/qca-nss-crypto \
-	-I$(STAGING_DIR)/usr/include/qca-nss-gmac
+	-I$(STAGING_DIR)/usr/include/qca-nss-gmac \
+	-I$(STAGING_DIR)/usr/include/nat46
 
 define Build/Compile
 	$(MAKE) -C "$(LINUX_DIR)" \
@@ -149,6 +164,7 @@ $(eval $(call KernelPackage,qca-nss-drv-capwapmgr))
 $(eval $(call KernelPackage,qca-nss-drv-tun6rd))
 $(eval $(call KernelPackage,qca-nss-drv-l2tpv2))
 $(eval $(call KernelPackage,qca-nss-drv-pptp))
+$(eval $(call KernelPackage,qca-nss-drv-map-t))
 $(eval $(call KernelPackage,qca-nss-drv-tunipip6))
 $(eval $(call KernelPackage,qca-nss-drv-ipsecmgr))
 $(eval $(call KernelPackage,qca-nss-drv-qdisc))
