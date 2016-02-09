@@ -59,6 +59,10 @@ enum nss_wifi_metadata_types {
 	NSS_WIFI_OL_STATS_MSG,
 	NSS_WIFI_TX_QUEUE_CFG_MSG,
 	NSS_WIFI_TX_MIN_THRESHOLD_CFG_MSG,
+	NSS_WIFI_DBDC_PROCESS_ENABLE_MSG,
+	NSS_WIFI_PRIMARY_RADIO_SET_MSG,
+	NSS_WIFI_FORCE_CLIENT_MCAST_TRAFFIC_SET_MSG,
+	NSS_WIFI_STORE_OTHER_PDEV_STAVAP_MSG,
 	NSS_WIFI_MAX_MSG
 };
 
@@ -84,6 +88,9 @@ enum wifi_error_types {
 	NSS_WIFI_EMSG_FW_STATS_SEND,			/**< error in sending wifi fw stats data */
 	NSS_WIFI_EMSG_STATE_TX_INIT_FAILED,		/**< Tx init failed */
 	NSS_WIFI_EMSG_IGMP_MLD_TOS_OVERRIDE_CFG,/**< Invalid IGMP/MLD tos override config */
+	NSS_WIFI_EMSG_PDEV_INVALID,			/**< Invalid pdev */
+	NSS_WIFI_EMSG_OTHER_PDEV_STAVAP_INVALID,	/**< Invalid ifnum for other pdev stavap */
+
 };
 
 /*
@@ -253,6 +260,34 @@ struct nss_wifi_enable_perpkt_txstats_msg {
 };
 
 /**
+ * wifi dbdc process enable msg
+ */
+struct nss_wifi_dbdc_process_enable_msg {
+	uint32_t dbdc_process_enable;		/**< flag to enable/disable dbdc repeater process */
+};
+
+/**
+ * wifi_primary_radio_set_msg
+ */
+struct nss_wifi_primary_radio_set_msg {
+	uint32_t flag;				/**< flag to set pdev as primary radio */
+};
+
+/**
+ * wifi_force_client_mcast_traffic_set_msg
+ */
+struct nss_wifi_force_client_mcast_traffic_set_msg {
+	uint32_t flag;				/**< flag to set force_client_mcast_traffic in pdev */
+};
+
+/**
+ * wifi_store_other_pdev_stavap_msg
+ */
+struct nss_wifi_store_other_pdev_stavap_msg {
+	int stavap_ifnum;               	/**< other pdev's stavap if_num */
+};
+
+/**
  * wifi pktlog metadata info
  */
 struct nss_wifi_pl_metadata {
@@ -401,6 +436,10 @@ struct nss_wifi_msg {
 		struct nss_wifi_ol_stats_msg ol_stats_msg;
 		struct nss_wifi_tx_queue_cfg_msg wtxqcm;
 		struct nss_wifi_tx_min_threshold_cfg_msg wtx_min_threshold_cm;
+		struct nss_wifi_dbdc_process_enable_msg dbdcpe_msg;
+		struct nss_wifi_primary_radio_set_msg wprs_msg;
+		struct nss_wifi_force_client_mcast_traffic_set_msg wfcmts_msg;
+		struct nss_wifi_store_other_pdev_stavap_msg wsops_msg;
 	} msg;
 };
 
