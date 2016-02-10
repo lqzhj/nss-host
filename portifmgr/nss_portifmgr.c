@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015, 2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -159,12 +159,12 @@ static netdev_tx_t nss_portifmgr_start_xmit(struct sk_buff *skb, struct net_devi
 	}
 
 	/*
-	 * If a skb is broadcast packet, linux bridging is trying to send the
-	 * same skb->data to all interfaces. But we are going to add port header
+	 * For a multicast/broadcast skb, linux is trying to send the same
+	 * skb->data to all interfaces. But we are going to add port header
 	 * inside the eth_header. The 2nd interface will get a skb that eth_hdr
 	 * is already have a portid header. We need to make a copy to avoid this
 	 */
-	if ((dev->priv_flags & IFF_BRIDGE_PORT) && is_broadcast_ether_addr(dest)) {
+	if (!is_unicast_ether_addr(dest)) {
 		tx_skb = skb_copy(skb, GFP_KERNEL);
 		kfree_skb(skb);
 		if (!tx_skb) {
