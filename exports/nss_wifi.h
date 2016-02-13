@@ -63,6 +63,7 @@ enum nss_wifi_metadata_types {
 	NSS_WIFI_PRIMARY_RADIO_SET_MSG,
 	NSS_WIFI_FORCE_CLIENT_MCAST_TRAFFIC_SET_MSG,
 	NSS_WIFI_STORE_OTHER_PDEV_STAVAP_MSG,
+	NSS_WIFI_STA_KICKOUT_MSG,
 	NSS_WIFI_MAX_MSG
 };
 
@@ -408,6 +409,13 @@ struct nss_wifi_ol_stats_msg {
 };
 
 /**
+ * nss_wifi_sta_kickout message
+ */
+struct nss_wifi_sta_kickout_msg {
+	uint32_t peer_id;	/**< peer id */
+};
+
+/**
  * Message structure to send/receive wifi messages
  */
 struct nss_wifi_msg {
@@ -440,6 +448,7 @@ struct nss_wifi_msg {
 		struct nss_wifi_primary_radio_set_msg wprs_msg;
 		struct nss_wifi_force_client_mcast_traffic_set_msg wfcmts_msg;
 		struct nss_wifi_store_other_pdev_stavap_msg wsops_msg;
+		struct nss_wifi_sta_kickout_msg sta_kickout_msg;
 	} msg;
 };
 
