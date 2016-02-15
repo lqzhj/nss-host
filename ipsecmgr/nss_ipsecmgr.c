@@ -446,12 +446,12 @@ done:
 static void nss_ipsecmgr_tunnel_notify(void *app_data, struct nss_ipsec_msg *nim)
 {
 	struct net_device *tun_dev = (struct net_device *)app_data;
-	struct nss_ipsec_node_stats *node_stats;
-	struct nss_ipsecmgr_sa_pkt_stats *stats;
+	struct nss_ipsecmgr_sa_stats *sa_stats;
 	struct nss_ipsec_node_stats *drv_stats;
-	struct nss_ipsec_pkt_sa_stats *pkts;
+	struct nss_ipsecmgr_event stats_event;
 	struct nss_ipsecmgr_sa_entry *sa;
 	struct nss_ipsecmgr_priv *priv;
+	nss_ipsecmgr_event_cb_t cb_fn;
 	struct nss_ipsecmgr_ref *ref;
 	struct nss_ipsecmgr_key key;
 	struct net_device *dev;
@@ -479,40 +479,55 @@ static void nss_ipsecmgr_tunnel_notify(void *app_data, struct nss_ipsec_msg *nim
 		 */
 		nss_ipsecmgr_v4_sa_sel2key(&nim->msg.sa_stats.sel, &key);
 
+		write_lock(&priv->lock);
+
 		ref = nss_ipsecmgr_sa_lookup(priv, &key);
 		if (!ref) {
+			write_unlock(&priv->lock);
 			nss_ipsecmgr_error("event received on deallocated SA tunnel:(%d)\n", nim->tunnel_id);
 			goto done;
 		}
 
-		/*
-		 * update sa stats
-		 */
 		sa = container_of(ref, struct nss_ipsecmgr_sa_entry, ref);
-		pkts = &nim->msg.sa_stats.pkts;
-		stats = &sa->pkts;
 
-		stats->count += pkts->count;
-		stats->bytes += pkts->bytes;
+		/*
+		 * update sa stats in the local database
+		 */
+		nss_ipsecmgr_sa_stats_update(nim, sa);
 
-		stats->no_headroom = pkts->no_headroom;
-		stats->no_tailroom = pkts->no_tailroom;
-		stats->no_buf = pkts->no_buf;
+		sa_stats = &stats_event.data.stats;
+		memcpy(&sa_stats->sa, &sa->sa_info, sizeof(struct nss_ipsecmgr_sa));
+		sa_stats->crypto_index = sa->nim.msg.push.data.crypto_index;
 
-		stats->fail_queue = pkts->fail_queue;
-		stats->fail_hash = pkts->fail_hash;
-		stats->fail_replay = pkts->fail_replay;
+		write_unlock(&priv->lock);
+
+		/*
+		 * if event callback is available then post the statistics using the callback function
+		 */
+		cb_fn = priv->event_cb;
+		if (cb_fn) {
+			stats_event.type = NSS_IPSECMGR_EVENT_SA_STATS;
+
+			/*
+			 * copy stats and SA information
+			 */
+			sa_stats->seq_num = nim->msg.sa_stats.seq_num;
+
+			sa_stats->pkts.count = nim->msg.sa_stats.pkts.count;
+			sa_stats->pkts.bytes = nim->msg.sa_stats.pkts.bytes;
+
+			cb_fn(priv->cb_ctx, &stats_event);
+		}
 		break;
 
 	case NSS_IPSEC_MSG_TYPE_SYNC_NODE_STATS:
 
-		node_stats = &nim->msg.node_stats;
 		drv_stats = &ipsecmgr_ctx.enc_stats;
 		if (unlikely(nim->cm.interface == NSS_IPSEC_DECAP_IF_NUMBER)) {
 			drv_stats = &ipsecmgr_ctx.dec_stats;
 		}
 
-		memcpy(drv_stats, node_stats, sizeof(struct nss_ipsec_node_stats));
+		memcpy(drv_stats, &nim->msg.node_stats, sizeof(struct nss_ipsec_node_stats));
 		break;
 
 	default:

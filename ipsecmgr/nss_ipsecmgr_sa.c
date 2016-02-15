@@ -39,6 +39,7 @@ struct nss_ipsecmgr_sa_info {
 	struct nss_ipsec_msg nim;
 	struct nss_ipsecmgr_key sa_key;
 	struct nss_ipsecmgr_key child_key;
+	struct nss_ipsecmgr_sa *sa;
 
 	struct nss_ipsecmgr_ref * (*child_alloc)(struct nss_ipsecmgr_priv *priv, struct nss_ipsecmgr_key *key);
 	struct nss_ipsecmgr_ref * (*child_lookup)(struct nss_ipsecmgr_priv *priv, struct nss_ipsecmgr_key *key);
@@ -97,10 +98,10 @@ static ssize_t nss_ipsecmgr_sa_stats_read(struct file *fp, char __user *ubuf, si
 	}
 	priv = netdev_priv(dev);
 
-	read_lock(&priv->lock);
+	read_lock_bh(&priv->lock);
 	ref = nss_ipsecmgr_sa_name_lookup(priv, parent->d_name.name);
 	if (!ref) {
-		read_unlock(&priv->lock);
+		read_unlock_bh(&priv->lock);
 		nss_ipsecmgr_error("sa not found tunnel-id: %d\n", (uint32_t)fp->private_data);
 		goto done;
 	}
@@ -141,7 +142,7 @@ static ssize_t nss_ipsecmgr_sa_stats_read(struct file *fp, char __user *ubuf, si
 	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "fail_hash: %d\n", sa->pkts.fail_hash);
 	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "fail_replay: %d\n", sa->pkts.fail_replay);
 
-	read_unlock(&priv->lock);
+	read_unlock_bh(&priv->lock);
 
 	ret = simple_read_from_buffer(ubuf, sz, ppos, local, len + 1);
 
@@ -286,6 +287,11 @@ static bool nss_ipsecmgr_sa_add(struct nss_ipsecmgr_priv *priv, struct nss_ipsec
 
 	memcpy(&sa->nim, &info->nim, sizeof(struct nss_ipsec_msg));
 	memset(&sa->nim.msg.push.sel, 0, sizeof(struct nss_ipsec_rule_sel));
+
+	/*
+	 * Store the SA information to update user for stats reporting
+	 */
+	memcpy(&sa->sa_info, info->sa, sizeof(struct nss_ipsecmgr_sa));
 
 	/*
 	 * add child to parent
@@ -456,6 +462,30 @@ void nss_ipsecmgr_v4_sa_sel2key(struct nss_ipsec_rule_sel *sel, struct nss_ipsec
 }
 
 /*
+ * nss_ipsecmgr_sa_stats_update()
+ * 	Update sa stats locally
+ */
+void nss_ipsecmgr_sa_stats_update(struct nss_ipsec_msg *nim, struct nss_ipsecmgr_sa_entry *sa)
+{
+	struct nss_ipsecmgr_sa_pkt_stats *stats;
+	struct nss_ipsec_pkt_sa_stats *pkts;
+
+	pkts = &nim->msg.sa_stats.pkts;
+	stats = &sa->pkts;
+
+	stats->count += pkts->count;
+	stats->bytes += pkts->bytes;
+
+	stats->no_headroom = pkts->no_headroom;
+	stats->no_tailroom = pkts->no_tailroom;
+	stats->no_buf = pkts->no_buf;
+
+	stats->fail_queue = pkts->fail_queue;
+	stats->fail_hash = pkts->fail_hash;
+	stats->fail_replay = pkts->fail_replay;
+}
+
+/*
  * nss_ipsecmgr_sa_lookup()
  * 	lookup the SA in the sa_db
  */
@@ -617,7 +647,7 @@ bool nss_ipsecmgr_encap_add(struct net_device *tun, struct nss_ipsecmgr_encap_fl
 		return false;
 	}
 
-
+	info.sa = sa;
 	return nss_ipsecmgr_sa_add(priv, &info);
 }
 EXPORT_SYMBOL(nss_ipsecmgr_encap_add);
@@ -708,6 +738,7 @@ bool nss_ipsecmgr_decap_add(struct net_device *tun, struct nss_ipsecmgr_sa *sa, 
 
 	info.child_alloc = nss_ipsecmgr_flow_alloc;
 	info.child_lookup = nss_ipsecmgr_flow_lookup;
+	info.sa = sa;
 
 	return nss_ipsecmgr_sa_add(priv, &info);
 }

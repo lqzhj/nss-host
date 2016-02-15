@@ -235,11 +235,11 @@ static ssize_t nss_ipsecmgr_flow_stats_read(struct file *fp, char __user *ubuf, 
 
 	priv = netdev_priv(dev);
 
-	read_lock(&priv->lock);
+	read_lock_bh(&priv->lock);
 
 	ref = nss_ipsecmgr_flow_name_lookup(priv, parent->d_name.name);
 	if (!ref) {
-		read_unlock(&priv->lock);
+		read_unlock_bh(&priv->lock);
 		nss_ipsecmgr_error("flow not found tunnel-id: %d\n", tunnel_id);
 		goto done;
 	}
@@ -266,7 +266,7 @@ static ssize_t nss_ipsecmgr_flow_stats_read(struct file *fp, char __user *ubuf, 
 	memcpy(&nim.msg.flow_stats.sel, &flow->nim.msg.push.sel, sizeof(struct nss_ipsec_rule_sel));
 	memcpy(&key, &flow->key, sizeof(struct nss_ipsecmgr_key));
 
-	read_unlock(&priv->lock);
+	read_unlock_bh(&priv->lock);
 
 	/*
 	 * send stats message to nss
@@ -288,10 +288,10 @@ static ssize_t nss_ipsecmgr_flow_stats_read(struct file *fp, char __user *ubuf, 
 	/*
 	 * After wait_for_completion, confirm if flow still exist
 	 */
-	read_lock(&priv->lock);
+	read_lock_bh(&priv->lock);
 	ref = nss_ipsecmgr_flow_lookup(priv, &key);
 	if (!ref) {
-		read_unlock(&priv->lock);
+		read_unlock_bh(&priv->lock);
 		nss_ipsecmgr_error("flow not found tunnel-id: %d\n", tunnel_id);
 		goto done;
 	}
@@ -328,7 +328,7 @@ static ssize_t nss_ipsecmgr_flow_stats_read(struct file *fp, char __user *ubuf, 
 	 */
 	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "processed: %d\n", flow->pkts_processed);
 
-	read_unlock(&priv->lock);
+	read_unlock_bh(&priv->lock);
 
 	ret = simple_read_from_buffer(ubuf, sz, ppos, local, len + 1);
 	vfree(local);

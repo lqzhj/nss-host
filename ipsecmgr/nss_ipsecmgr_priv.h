@@ -182,6 +182,7 @@ struct nss_ipsecmgr_sa_entry {
 	struct nss_ipsecmgr_sa_pkt_stats pkts;	/* packets processed per SA */
 	struct nss_ipsecmgr_priv *priv;		/* ipsecmgr private reference */
 	struct nss_ipsec_msg nim;		/* ipsec message */
+	struct nss_ipsecmgr_sa sa_info;		/* SA information */
 };
 
 /*
@@ -815,7 +816,7 @@ void nss_ipsecmgr_copy_sa_data(struct nss_ipsec_msg *nim, struct nss_ipsecmgr_sa
 void nss_ipsecmgr_v4_sa2key(struct nss_ipsecmgr_sa_v4 *sa, struct nss_ipsecmgr_key *key);
 void nss_ipsecmgr_v4_sa_sel2key(struct nss_ipsec_rule_sel *sel, struct nss_ipsecmgr_key *key);
 struct rtnl_link_stats64 *nss_ipsecmgr_sa_stats_all(struct nss_ipsecmgr_priv *priv, struct rtnl_link_stats64 *stats);
-/* void nss_ipsecmgr_sa_stats(struct nss_ipsecmgr_priv *priv, struct nss_ipsecmgr_ref *ref, struct nss_ipsecmgr_sa_pkt_stats *pkts); */
+void nss_ipsecmgr_sa_stats_update(struct nss_ipsec_msg *nim, struct nss_ipsecmgr_sa_entry *sa);
 
 /*
  * SA alloc/lookup/flush API(s)
