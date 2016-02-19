@@ -284,7 +284,7 @@ extern nss_tx_status_t nss_capwap_tx_msg(struct nss_ctx_instance *nss_ctx, struc
  *
  * @return nss_tx_status_t Tx status
  */
-extern nss_tx_status_t nss_capwap_tx_data(struct nss_ctx_instance *nss_ctx, struct sk_buff *os_buf, uint32_t if_num);
+extern nss_tx_status_t nss_capwap_tx_buf(struct nss_ctx_instance *nss_ctx, struct sk_buff *os_buf, uint32_t if_num);
 
 /**
  * @brief Unregister capwap tunnel interface with NSS
