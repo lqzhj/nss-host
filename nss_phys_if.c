@@ -156,8 +156,8 @@ static void nss_phys_if_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 		return;
 	}
 
-	if (ncm->len > sizeof(struct nss_phys_if_msg)) {
-		nss_warning("%p: message length too big: %d", nss_ctx, ncm->len);
+	if (nss_cmn_get_msg_len(ncm) > sizeof(struct nss_phys_if_msg)) {
+		nss_warning("%p: message length too big: %d", nss_ctx, nss_cmn_get_msg_len(ncm));
 		return;
 	}
 
@@ -341,8 +341,8 @@ nss_tx_status_t nss_phys_if_msg(struct nss_ctx_instance *nss_ctx, struct nss_phy
 		return NSS_TX_FAILURE;
 	}
 
-	if (ncm->len > sizeof(struct nss_phys_if_msg)) {
-		nss_warning("%p: invalid length: %d", nss_ctx, ncm->len);
+	if (nss_cmn_get_msg_len(ncm) > sizeof(struct nss_phys_if_msg)) {
+		nss_warning("%p: invalid length: %d", nss_ctx, nss_cmn_get_msg_len(ncm));
 		return NSS_TX_FAILURE;
 	}
 

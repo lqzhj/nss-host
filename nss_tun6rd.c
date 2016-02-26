@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -37,8 +37,8 @@ static void nss_tun6rd_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_
 		return;
 	}
 
-	if (ncm->len > sizeof(struct nss_tun6rd_msg)) {
-		nss_warning("%p: tx request for another interface: %d", nss_ctx, ncm->interface);
+	if (nss_cmn_get_msg_len(ncm) > sizeof(struct nss_tun6rd_msg)) {
+		nss_warning("%p: Length of message is greater than required: %d", nss_ctx, nss_cmn_get_msg_len(ncm));
 		return;
 	}
 
@@ -109,8 +109,8 @@ nss_tx_status_t nss_tun6rd_tx(struct nss_ctx_instance *nss_ctx, struct nss_tun6r
 		return NSS_TX_FAILURE;
 	}
 
-	if (ncm->len > sizeof(struct nss_tun6rd_msg)) {
-		nss_warning("%p: message length is invalid: %d", nss_ctx, ncm->len);
+	if (nss_cmn_get_msg_len(ncm) > sizeof(struct nss_tun6rd_msg)) {
+		nss_warning("%p: message length is invalid: %d", nss_ctx, nss_cmn_get_msg_len(ncm));
 		return NSS_TX_FAILURE;
 	}
 

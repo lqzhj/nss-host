@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013, 2015 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2015-2016 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -94,7 +94,7 @@ nss_tx_status_t nss_freq_change(struct nss_ctx_instance *nss_ctx, uint32_t eng, 
 	ncm = (struct nss_corefreq_msg *)skb_put(nbuf, sizeof(struct nss_corefreq_msg));
 
 	nss_freq_msg_init(ncm, NSS_COREFREQ_INTERFACE, NSS_TX_METADATA_TYPE_NSS_FREQ_CHANGE,
-				nbuf->len, NULL, NULL);
+				sizeof(struct nss_freq_msg), NULL, NULL);
 	nfc = &ncm->msg.nfc;
 	nfc->frequency = eng;
 	nfc->start_or_end = start_or_end;

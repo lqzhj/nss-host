@@ -38,8 +38,8 @@ static void nss_oam_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss_
 	/*
 	 * Sanity check the message type
 	 */
-	if (ncm->len > sizeof(struct nss_oam_msg)) {
-		nss_warning("%p: recevied with invalid msg size: %d", nss_ctx, ncm->len);
+	if (nss_cmn_get_msg_len(ncm) > sizeof(struct nss_oam_msg)) {
+		nss_warning("%p: recevied with invalid msg size: %d", nss_ctx, nss_cmn_get_msg_len(ncm));
 		return;
 	}
 
@@ -93,8 +93,8 @@ nss_tx_status_t nss_oam_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_oam_
 		return NSS_TX_FAILURE;
 	}
 
-	if (ncm->len > msg_sz) {
-		nss_warning("%p: tx request with invalid size: %d", nss_ctx, ncm->len);
+	if (nss_cmn_get_msg_len(ncm) > msg_sz) {
+		nss_warning("%p: tx request with invalid size: %d", nss_ctx, nss_cmn_get_msg_len(ncm));
 		return NSS_TX_FAILURE_TOO_SHORT;
 	}
 

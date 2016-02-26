@@ -1182,8 +1182,8 @@ nss_tx_status_t nss_n2h_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_n2h_
 		return NSS_TX_FAILURE;
 	}
 
-	if (ncm->len > sizeof(struct nss_n2h_msg)) {
-		nss_warning("%p: tx request for another interface: %d", nss_ctx, ncm->interface);
+	if (nss_cmn_get_msg_len(ncm) > sizeof(struct nss_n2h_msg)) {
+		nss_warning("%p: tx request for another interface: %d", nss_ctx, nss_cmn_get_msg_len(ncm));
 		return NSS_TX_FAILURE;
 	}
 
