@@ -234,10 +234,6 @@ void nss_unregister_wifi_if(uint32_t if_num)
 	nss_top_main.subsys_dp_register[if_num].ext_cb = NULL;
 	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
 	nss_top_main.subsys_dp_register[if_num].features = 0;
-
-	nss_top_main.wifi_msg_callback = NULL;
-
-	nss_core_unregister_handler(if_num);
 }
 
 /*
