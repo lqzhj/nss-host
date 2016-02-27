@@ -257,7 +257,7 @@ static int32_t nss_send_c2c_map(struct nss_ctx_instance *nss_own, struct nss_ctx
 	ncm->cm.interface = NSS_C2C_TX_INTERFACE;
 	ncm->cm.version = NSS_HLOS_MESSAGE_VERSION;
 	ncm->cm.type = NSS_TX_METADATA_TYPE_C2C_TX_MAP;
-	ncm->cm.len = sizeof(struct nss_c2c_msg);
+	ncm->cm.len = sizeof(struct nss_c2c_tx_map);
 
 	nctm = &ncm->msg.tx_map;
 	nctm->c2c_start = nss_other->c2c_start;
