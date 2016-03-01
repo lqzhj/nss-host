@@ -48,23 +48,29 @@ static struct nss_ipsecmgr_ref *nss_ipsecmgr_subnet_name_lookup(struct nss_ipsec
 	uint8_t mask_bits;
 	uint32_t hash;
 	char *tmp;
-	int idx;
+	uint8_t idx;
 
-	tmp = strchr(name, '@') + 1;
-	if (hex2bin((uint8_t *)&mask_bits, tmp, sizeof(uint8_t))) {
+	tmp = strchr(name, '@');
+	if (!tmp || hex2bin((uint8_t *)&mask_bits, ++tmp, sizeof(uint8_t))) {
 		nss_ipsecmgr_error("%p: Invalid input\n", priv);
 		return NULL;
 	}
 
-	tmp = strchr(tmp, '@') + 1;
-	if (hex2bin((uint8_t *)&hash, tmp, sizeof(uint32_t))) {
+	tmp = strchr(tmp, '@');
+	if (!tmp || hex2bin((uint8_t *)&hash, ++tmp, sizeof(uint32_t))) {
 		nss_ipsecmgr_error("%p: Invalid input\n", priv);
 		return NULL;
 	}
 
 	idx = NSS_IPSECMGR_MAX_NETMASK - mask_bits;
+	if (idx  >= NSS_IPSECMGR_MAX_NETMASK) {
+		return NULL;
+	}
+
 	netmask = db->entries[idx];
-	BUG_ON(netmask->count == 0);
+	if (!netmask || !netmask->count) {
+		return NULL;
+	}
 
 	idx = hash & (NSS_IPSECMGR_MAX_SUBNET - 1);
 	head = &netmask->subnets[idx];

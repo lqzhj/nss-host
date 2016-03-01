@@ -48,15 +48,18 @@ static struct nss_ipsecmgr_ref *nss_ipsecmgr_flow_name_lookup(struct nss_ipsecmg
 	uint32_t hash;
 	int idx;
 
-	flow_name = strchr(name, '@') + 1;
-	if (hex2bin((uint8_t *)&hash, flow_name, sizeof(uint32_t))) {
+	flow_name = strchr(name, '@');
+	if (!flow_name || hex2bin((uint8_t *)&hash, ++flow_name, sizeof(uint32_t))) {
 		nss_ipsecmgr_error("i%p: Invalid input\n", priv);
 		return NULL;
 	}
 
 	idx = hash & (NSS_IPSECMGR_MAX_FLOW - 1);
-	head = &db->entries[idx];
+	if (idx >= NSS_IPSECMGR_MAX_FLOW) {
+		return NULL;
+	}
 
+	head = &db->entries[idx];
 	list_for_each_entry(entry, head, node) {
 		if (nss_ipsecmgr_key_get_hash(&entry->key) == hash) {
 			return &entry->ref;

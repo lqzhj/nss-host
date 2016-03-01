@@ -58,15 +58,18 @@ struct nss_ipsecmgr_ref *nss_ipsecmgr_sa_name_lookup(struct nss_ipsecmgr_priv *p
 	uint32_t hash;
 	int idx;
 
-	sa_name = strchr(name, '@') + 1;
-	if (hex2bin((uint8_t *)&hash, sa_name, sizeof(uint32_t))) {
+	sa_name = strchr(name, '@');
+	if (!sa_name || hex2bin((uint8_t *)&hash, ++sa_name, sizeof(uint32_t))) {
 		nss_ipsecmgr_error("%p: Invalid sa_name(%s)\n", priv, sa_name);
 		return NULL;
 	}
 
 	idx = hash & (NSS_CRYPTO_MAX_IDXS - 1);
-	head = &db->entries[idx];
+	if (idx >= NSS_CRYPTO_MAX_IDXS) {
+		return NULL;
+	}
 
+	head = &db->entries[idx];
 	list_for_each_entry(entry, head, node) {
 		if (nss_ipsecmgr_key_get_hash(&entry->key) == hash) {
 			return &entry->ref;
