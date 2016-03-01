@@ -99,18 +99,19 @@ static ssize_t nss_ipsecmgr_sa_stats_read(struct file *fp, char __user *ubuf, si
 	}
 	priv = netdev_priv(dev);
 
+	local = vzalloc(NSS_IPSECMGR_MAX_BUF_SZ);
+
 	read_lock_bh(&priv->lock);
 	ref = nss_ipsecmgr_sa_name_lookup(priv, parent->d_name.name);
 	if (!ref) {
 		read_unlock_bh(&priv->lock);
+		vfree(local);
 		nss_ipsecmgr_error("sa not found tunnel-id: %d\n", (uint32_t)fp->private_data);
 		goto done;
 	}
 
 	sa = container_of(ref, struct nss_ipsecmgr_sa_entry, ref);
 	oip = &sa->nim.msg.push.oip;
-
-	local = vmalloc(NSS_IPSECMGR_MAX_BUF_SZ);
 
 	switch (sa->nim.cm.interface) {
 	case NSS_IPSEC_ENCAP_IF_NUMBER:

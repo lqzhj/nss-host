@@ -293,6 +293,8 @@ static ssize_t nss_ipsecmgr_flow_stats_read(struct file *fp, char __user *ubuf, 
 		goto done;
 	}
 
+	local = vzalloc(NSS_IPSECMGR_MAX_BUF_SZ);
+
 	/*
 	 * After wait_for_completion, confirm if flow still exist
 	 */
@@ -300,14 +302,13 @@ static ssize_t nss_ipsecmgr_flow_stats_read(struct file *fp, char __user *ubuf, 
 	ref = nss_ipsecmgr_flow_lookup(priv, &key);
 	if (!ref) {
 		read_unlock_bh(&priv->lock);
+		vfree(local);
 		nss_ipsecmgr_error("flow not found tunnel-id: %d\n", tunnel_id);
 		goto done;
 	}
 
 	flow = container_of(ref, struct nss_ipsecmgr_flow_entry, ref);
 	flow_sel = &flow->nim.msg.push.sel;
-
-	local = vmalloc(NSS_IPSECMGR_MAX_BUF_SZ);
 
 	/*
 	 * IPv4 Generel info
