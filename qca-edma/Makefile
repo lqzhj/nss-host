@@ -9,7 +9,7 @@ PKG_RELEASE:=1
 include $(INCLUDE_DIR)/package.mk
 
 define KernelPackage/qca-edma
-     SUBMENU:=$(NETWORK_DEVICES_MENU)
+     SUBMENU:=Network Devices
      TITLE:=QCA IPQ40xx ethernet driver
      FILES:=$(LINUX_DIR)/drivers/net/ethernet/qcom/essedma/essedma.ko
      AUTOLOAD:=$(call AutoLoad,45,essedma)
