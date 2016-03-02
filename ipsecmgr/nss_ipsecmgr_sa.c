@@ -103,6 +103,10 @@ static ssize_t nss_ipsecmgr_sa_stats_read(struct file *fp, char __user *ubuf, si
 	priv = netdev_priv(dev);
 
 	local = vzalloc(NSS_IPSECMGR_MAX_BUF_SZ);
+	if (!local) {
+		nss_ipsecmgr_error("unable to allocate local buffer for tunnel-id: %d\n", (uint32_t)fp->private_data);
+		goto done;
+	}
 
 	read_lock_bh(&priv->lock);
 	ref = nss_ipsecmgr_sa_name_lookup(priv, parent->d_name.name);

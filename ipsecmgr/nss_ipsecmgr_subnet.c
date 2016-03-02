@@ -164,7 +164,12 @@ static ssize_t nss_ipsecmgr_subnet_stats_read(struct file *fp, char __user *ubuf
 
 	read_unlock(&priv->lock);
 
-	local = vmalloc(NSS_IPSECMGR_MAX_BUF_SZ);
+	local = vzalloc(NSS_IPSECMGR_MAX_BUF_SZ);
+	if (!local) {
+		nss_ipsecmgr_error("unable to allocate local buffer for tunnel-id: %d\n", (uint32_t)fp->private_data);
+		goto done;
+	}
+
 	/*
 	 * IPv4 Generel info
 	 */

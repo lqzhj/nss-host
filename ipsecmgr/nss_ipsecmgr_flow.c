@@ -297,6 +297,10 @@ static ssize_t nss_ipsecmgr_flow_stats_read(struct file *fp, char __user *ubuf, 
 	}
 
 	local = vzalloc(NSS_IPSECMGR_MAX_BUF_SZ);
+	if (!local) {
+		nss_ipsecmgr_error("unable to allocate local buffer for tunnel-id: %d\n", tunnel_id);
+		goto done;
+	}
 
 	/*
 	 * After wait_for_completion, confirm if flow still exist
