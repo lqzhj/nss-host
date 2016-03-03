@@ -19,6 +19,7 @@
 #ifndef __NSS_IPSECMGR_PRIV_H
 #define __NSS_IPSECMGR_PRIV_H
 
+#include <net/ipv6.h>
 #include <nss_api_if.h>
 #include <nss_ipsec.h>
 #include <nss_ipsecmgr.h>
@@ -793,10 +794,23 @@ static inline uint32_t *nss_ipsecmgr_v6addr_ntohl(uint32_t src[], uint32_t dst[]
  */
 static inline void nss_ipsecmgr_v6_hdr2sel(struct ipv6hdr *iph, struct nss_ipsec_rule_sel *sel)
 {
+	uint8_t nexthdr = iph->nexthdr;
+	struct frag_hdr *frag;
+
+	/*
+	 * NSS IPsec module will not accelerate the flows which has ipv6 optional
+	 * headers after frag_hdr. Those flows will be descarded in ipsecmgr.
+	 * The NSS only accelerates when IP next header is L4 or fragment next header is L4.
+	 */
+	if (nexthdr == IPPROTO_FRAGMENT) {
+		frag = (struct frag_hdr *)((uint8_t *)iph + sizeof(struct ipv6hdr));
+		nexthdr = frag->nexthdr;
+	}
+
 	nss_ipsecmgr_v6addr_ntohl(iph->daddr.s6_addr32, sel->dst_addr);
 	nss_ipsecmgr_v6addr_ntohl(iph->saddr.s6_addr32, sel->src_addr);
 
-	sel->proto_next_hdr = iph->nexthdr;
+	sel->proto_next_hdr = nexthdr;
 	sel->ip_ver = NSS_IPSEC_IPVER_6;
 }
 
