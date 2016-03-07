@@ -30,6 +30,7 @@
 #include <mach/gpiomux.h>
 #include <mach/msm_nss.h>
 #else
+#include <linux/fab_scaling.h>
 #include <linux/of.h>
 #include <linux/of_net.h>
 #include <linux/of_irq.h>
@@ -953,6 +954,7 @@ int nss_hal_probe(struct platform_device *nss_dev)
 	struct netdev_priv_instance *ndev_priv;
 #if (NSS_DT_SUPPORT == 1)
 	struct reset_control *rstctl = NULL;
+	struct fab_scaling_info fab_data;
 #endif
 	int i, err = 0;
 
@@ -980,7 +982,7 @@ int nss_hal_probe(struct platform_device *nss_dev)
 		 */
 		nss_tcm_src = clk_get(&nss_dev->dev, NSS_TCM_SRC_CLK);
 		if (IS_ERR(nss_tcm_src)) {
-			pr_err("nss-driver: cannot get clock: %s\n" NSS_TCM_SRC_CLK);
+			pr_err("nss-driver: cannot get clock: %s\n", NSS_TCM_SRC_CLK);
 			return -EFAULT;
 		}
 
@@ -990,7 +992,7 @@ int nss_hal_probe(struct platform_device *nss_dev)
 
 		nss_tcm_clk = clk_get(&nss_dev->dev, NSS_TCM_CLK);
 		if (IS_ERR(nss_tcm_clk)) {
-			pr_err("nss-driver: cannot get clock: %s\n" NSS_TCM_CLK);
+			pr_err("nss-driver: cannot get clock: %s\n", NSS_TCM_CLK);
 			return -EFAULT;
 		}
 
@@ -1177,6 +1179,15 @@ int nss_hal_probe(struct platform_device *nss_dev)
 		}
 
 clk_complete:
+#if (NSS_DT_SUPPORT == 1)
+		if (npd->turbo_frequency) {
+			fab_data.idle_freq = nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].frequency;
+		} else {
+			fab_data.idle_freq = nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].frequency;
+		}
+		fab_data.clk = nss_core0_clk;
+		fab_scaling_register(&fab_data);
+#endif
 
 		/*
 		 * Setup Ranges
@@ -1506,7 +1517,7 @@ clk_complete:
 	 */
 	rstctl = devm_reset_control_get(&nss_dev->dev, "clkrst_clamp");
 	if (IS_ERR(rstctl)) {
-		nss_info("%p: Deassert UBI32 reset clamp failed", nss_ctx, nss_ctx->id);
+		nss_info("%p: Deassert UBI32 core%d reset clamp failed", nss_ctx, nss_ctx->id);
 		err = -EFAULT;
 		goto err_init_5;
 	}
@@ -1517,7 +1528,7 @@ clk_complete:
 	 */
 	rstctl = devm_reset_control_get(&nss_dev->dev, "clamp");
 	if (IS_ERR(rstctl)) {
-		nss_info("%p: Deassert UBI32 core clamp failed", nss_ctx, nss_ctx->id);
+		nss_info("%p: Deassert UBI32 core%d clamp failed", nss_ctx, nss_ctx->id);
 		err = -EFAULT;
 		goto err_init_5;
 	}
@@ -1528,7 +1539,7 @@ clk_complete:
 	 */
 	rstctl = devm_reset_control_get(&nss_dev->dev, "ahb");
 	if (IS_ERR(rstctl)) {
-		nss_info("%p: Deassert AHB reset failed", nss_ctx, nss_ctx->id);
+		nss_info("%p: Deassert AHB core%d reset failed", nss_ctx, nss_ctx->id);
 		err = -EFAULT;
 		goto err_init_5;
 	}
@@ -1539,7 +1550,7 @@ clk_complete:
 	 */
 	rstctl = devm_reset_control_get(&nss_dev->dev, "axi");
 	if (IS_ERR(rstctl)) {
-		nss_info("%p: Deassert AXI reset failed", nss_ctx, nss_ctx->id);
+		nss_info("%p: Deassert core%d AXI reset failed", nss_ctx, nss_ctx->id);
 		err = -EFAULT;
 		goto err_init_5;
 	}
@@ -1658,6 +1669,8 @@ int nss_hal_remove(struct platform_device *nss_dev)
 		}
 	}
 #if (NSS_DT_SUPPORT == 1)
+	fab_scaling_unregister(nss_core0_clk);
+
 	if (nss_dev->dev.of_node) {
 		if (nss_ctx->nmap) {
 			iounmap((void *)nss_ctx->nmap);

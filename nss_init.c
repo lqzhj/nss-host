@@ -35,6 +35,7 @@
 #include <linux/device.h>
 
 #if (NSS_DT_SUPPORT == 1)
+#include <linux/fab_scaling.h>
 #include <linux/of.h>
 #include <linux/of_net.h>
 #include <linux/of_irq.h>
@@ -209,6 +210,7 @@ void nss_wq_function (struct work_struct *work)
 out:
 #else
 #if (NSS_DT_SUPPORT == 1)
+	scale_fabrics();
 	if ((nss_fab0_clk != NULL) && (nss_fab0_clk != NULL)) {
 		if (my_work->frequency >= NSS_FREQ_733) {
 			clk_set_rate(nss_fab0_clk, NSS_FABRIC0_TURBO);
