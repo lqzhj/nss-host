@@ -92,6 +92,7 @@ static void nss_ipsecmgr_flow_update(struct nss_ipsecmgr_priv *priv, struct nss_
 	struct nss_ipsecmgr_flow_entry *flow;
 	struct nss_ipsec_rule_sel local_sel;
 	struct nss_ipsec_rule_sel *flow_sel;
+	struct nss_ipsec_msg nss_nim;
 
 	flow = container_of(ref, struct nss_ipsecmgr_flow_entry, ref);
 	flow_sel = &flow->nim.msg.push.sel;
@@ -110,7 +111,12 @@ static void nss_ipsecmgr_flow_update(struct nss_ipsecmgr_priv *priv, struct nss_
 		memcpy(flow_sel, &local_sel, sizeof(struct nss_ipsec_rule_sel));
 	}
 
-	if (nss_ipsec_tx_msg(priv->nss_ctx, &flow->nim) != NSS_TX_SUCCESS) {
+	/*
+	 * Convert the message to NSS format
+	 */
+	nss_ipsecmgr_copy_nim(&flow->nim, &nss_nim);
+
+	if (nss_ipsec_tx_msg(priv->nss_ctx, &nss_nim) != NSS_TX_SUCCESS) {
 		/*
 		 * XXX: Stop the TX queue and add this "entry"
 		 * to pending queue
@@ -127,13 +133,19 @@ static void nss_ipsecmgr_flow_update(struct nss_ipsecmgr_priv *priv, struct nss_
 static void nss_ipsecmgr_flow_free(struct nss_ipsecmgr_priv *priv, struct nss_ipsecmgr_ref *ref)
 {
 	struct nss_ipsecmgr_flow_entry *flow = container_of(ref, struct nss_ipsecmgr_flow_entry, ref);
+	struct nss_ipsec_msg nss_nim;
 
 	/*
 	 * update the common message structure
 	 */
 	flow->nim.cm.type = NSS_IPSEC_MSG_TYPE_DEL_RULE;
 
-	if (nss_ipsec_tx_msg(priv->nss_ctx, &flow->nim) != NSS_TX_SUCCESS) {
+	/*
+	 * Convert the message to NSS format
+	 */
+	nss_ipsecmgr_copy_nim(&flow->nim, &nss_nim);
+
+	if (nss_ipsec_tx_msg(priv->nss_ctx, &nss_nim) != NSS_TX_SUCCESS) {
 		/*
 		 * XXX: add this "entry" to pending queue
 		 */
@@ -153,8 +165,6 @@ static void nss_ipsecmgr_flow_free(struct nss_ipsecmgr_priv *priv, struct nss_ip
 /*
  * nss_ipsecmgr_flow_stats_resp()
  * 	response for the flow message
- *
- * Note: we don't have anything to process for flow responses as of now
  */
 static void nss_ipsecmgr_flow_stats_resp(void *app_data, struct nss_ipsec_msg *nim)
 {
@@ -177,6 +187,14 @@ static void nss_ipsecmgr_flow_stats_resp(void *app_data, struct nss_ipsec_msg *n
 
 	interface = nim->cm.interface;
 	sel = &nim->msg.flow_stats.sel;
+
+	/*
+	 * NSS uses a hybrid endian order for v6 addresses. Need to convert to host
+	 */
+	if (sel->ip_ver == NSS_IPSEC_IPVER_6) {
+		nss_ipsecmgr_v6addr_swap(sel->dst_addr, sel->dst_addr);
+		nss_ipsecmgr_v6addr_swap(sel->src_addr, sel->src_addr);
+	}
 
 	/*
 	 * prepare key from selector
@@ -226,11 +244,12 @@ static ssize_t nss_ipsecmgr_flow_stats_read(struct file *fp, char __user *ubuf, 
 	struct dentry *parent = dget_parent(fp->f_dentry);
 	uint32_t tunnel_id = (uint32_t)fp->private_data;
 	struct nss_ipsecmgr_flow_entry *flow;
-	struct nss_ipsec_rule_sel *flow_sel;
+	struct nss_ipsec_rule_sel flow_sel;
 	struct nss_ipsecmgr_priv *priv;
 	struct nss_ipsecmgr_ref *ref;
 	struct nss_ipsecmgr_key key;
 	struct nss_ipsec_msg nim;
+	uint32_t pkts_processed;
 	struct net_device *dev;
 	uint16_t interface;
 	uint32_t addr[4];
@@ -279,6 +298,14 @@ static ssize_t nss_ipsecmgr_flow_stats_read(struct file *fp, char __user *ubuf, 
 
 	read_unlock_bh(&priv->lock);
 
+	if (nim.msg.flow_stats.sel.ip_ver == NSS_IPSEC_IPVER_6) {
+		/*
+		 * change the IPv6 address to NSS order before sending
+		 */
+		nss_ipsecmgr_v6addr_swap(nim.msg.flow_stats.sel.src_addr, nim.msg.flow_stats.sel.src_addr);
+		nss_ipsecmgr_v6addr_swap(nim.msg.flow_stats.sel.dst_addr, nim.msg.flow_stats.sel.dst_addr);
+	}
+
 	/*
 	 * send stats message to nss
 	 */
@@ -296,12 +323,6 @@ static ssize_t nss_ipsecmgr_flow_stats_read(struct file *fp, char __user *ubuf, 
 		goto done;
 	}
 
-	local = vzalloc(NSS_IPSECMGR_MAX_BUF_SZ);
-	if (!local) {
-		nss_ipsecmgr_error("unable to allocate local buffer for tunnel-id: %d\n", tunnel_id);
-		goto done;
-	}
-
 	/*
 	 * After wait_for_completion, confirm if flow still exist
 	 */
@@ -309,13 +330,21 @@ static ssize_t nss_ipsecmgr_flow_stats_read(struct file *fp, char __user *ubuf, 
 	ref = nss_ipsecmgr_flow_lookup(priv, &key);
 	if (!ref) {
 		read_unlock_bh(&priv->lock);
-		vfree(local);
 		nss_ipsecmgr_error("flow not found tunnel-id: %d\n", tunnel_id);
 		goto done;
 	}
 
 	flow = container_of(ref, struct nss_ipsecmgr_flow_entry, ref);
-	flow_sel = &flow->nim.msg.push.sel;
+	memcpy(&flow_sel, &flow->nim.msg.push.sel, sizeof(flow_sel));
+	pkts_processed = flow->pkts_processed;
+
+	read_unlock_bh(&priv->lock);
+
+	local = vzalloc(NSS_IPSECMGR_MAX_BUF_SZ);
+	if (!local) {
+		nss_ipsecmgr_error("unable to allocate local buffer for tunnel-id: %d\n", tunnel_id);
+		goto done;
+	}
 
 	/*
 	 * IPv4 Generel info
@@ -335,27 +364,26 @@ static ssize_t nss_ipsecmgr_flow_stats_read(struct file *fp, char __user *ubuf, 
 
 	len = 0;
 	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "type:%s\n", type);
-	switch (flow_sel->ip_ver) {
+	switch (flow_sel.ip_ver) {
 	case NSS_IPSEC_IPVER_4:
-		len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "dst_ip: %pI4h\n", &flow_sel->dst_addr[0]);
-		len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "src_ip: %pI4h\n", &flow_sel->src_addr[0]);
+		len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "dst_ip: %pI4h\n", flow_sel.dst_addr);
+		len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "src_ip: %pI4h\n", flow_sel.src_addr);
 		break;
 
 	case NSS_IPSEC_IPVER_6:
-		len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "dst_ip: %pI6c\n", nss_ipsecmgr_v6addr_ntohl(flow_sel->dst_addr, addr));
-		len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "src_ip: %pI6c\n", nss_ipsecmgr_v6addr_ntohl(flow_sel->src_addr, addr));
+		len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "dst_ip: %pI6c\n", nss_ipsecmgr_v6addr_ntoh(flow_sel.dst_addr, addr));
+		len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "src_ip: %pI6c\n", nss_ipsecmgr_v6addr_ntoh(flow_sel.src_addr, addr));
 		break;
 
 	}
 
-	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "proto: %d\n", flow_sel->proto_next_hdr);
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "proto: %d\n", flow_sel.proto_next_hdr);
 
 	/*
 	 * packet stats
 	 */
-	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "processed: %d\n", flow->pkts_processed);
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "processed: %d\n", pkts_processed);
 
-	read_unlock_bh(&priv->lock);
 
 	ret = simple_read_from_buffer(ubuf, sz, ppos, local, len + 1);
 	vfree(local);
@@ -774,7 +802,7 @@ bool nss_ipsecmgr_flow_offload(struct nss_ipsecmgr_priv *priv, struct sk_buff *s
 		/*
 		 * copy nim data from subnet entry
 		 */
-		nss_ipsecmgr_copy_v4_subnet(&nim, subnet_ref);
+		nss_ipsecmgr_copy_subnet(&nim, subnet_ref);
 
 		/*
 		 * if, the same flow was added in between then flow alloc will return the
@@ -795,7 +823,6 @@ bool nss_ipsecmgr_flow_offload(struct nss_ipsecmgr_priv *priv, struct sk_buff *s
 		nss_ipsecmgr_ref_update(priv, flow_ref, &nim);
 
 		write_unlock(&priv->lock);
-
 		break;
 
 	case htons(ETH_P_IPV6):
@@ -814,10 +841,51 @@ bool nss_ipsecmgr_flow_offload(struct nss_ipsecmgr_priv *priv, struct sk_buff *s
 		/*
 		 * if flow is found then proceed with the TX
 		 */
-		if (!flow_ref) {
+		if (flow_ref) {
+			return true;
+		}
+
+		/*
+		 * flow table miss results in lookup in the subnet table. If,
+		 * a match is found then a rule is inserted in NSS for encapsulating
+		 * this flow.
+		 */
+		nss_ipsecmgr_v6_subnet_sel2key(sel, &subnet_key);
+
+		/*
+		 * write lock as it can update the flow database
+		 */
+		write_lock(&priv->lock);
+
+		subnet_ref = nss_ipsecmgr_v6_subnet_match(priv, &subnet_key);
+		if (!subnet_ref) {
+			write_unlock(&priv->lock);
 			return false;
 		}
 
+		/*
+		 * copy nim data from subnet entry
+		 */
+		nss_ipsecmgr_copy_subnet(&nim, subnet_ref);
+
+		/*
+		 * if, the same flow was added in between then flow alloc will return the
+		 * same flow. The only side affect of this will be NSS getting duplicate
+		 * add requests and thus rejecting one of them
+		 */
+		flow_ref = nss_ipsecmgr_flow_alloc(priv, &flow_key);
+		if (!flow_ref) {
+			write_unlock(&priv->lock);
+			return false;
+		}
+
+		/*
+		 * add reference to subnet and trigger an update
+		 */
+		nss_ipsecmgr_ref_add(flow_ref, subnet_ref);
+		nss_ipsecmgr_ref_update(priv, flow_ref, &nim);
+
+		write_unlock(&priv->lock);
 		break;
 
 	default:

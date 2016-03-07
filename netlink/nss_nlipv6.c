@@ -141,16 +141,17 @@ static struct neighbour *nss_nlipv6_get_neigh(uint32_t dst_addr[4])
 }
 
 /*
- * nss_nlipv6_get_addr_htonl()
+ * nss_nlipv6_get_addr_hton()
  * 	Convert the ipv6 address from host order to network order.
  */
-static inline void nss_nlipv6_get_addr_htonl(uint32_t src[4], uint32_t dst[4])
+static inline void nss_nlipv6_get_addr_hton(uint32_t src[4], uint32_t dst[4])
 {
-	int32_t i;
+	nss_nlipv6_swap_addr(src, dst);
 
-	for (i = 0; i < 4; i++) {
-		dst[i] = htonl(src[i]);
-	}
+	dst[0] = htonl(dst[0]);
+	dst[1] = htonl(dst[1]);
+	dst[2] = htonl(dst[2]);
+	dst[3] = htonl(dst[3]);
 }
 
 /*
@@ -167,7 +168,7 @@ static int nss_nlipv6_get_macaddr(uint32_t ip_addr[4], uint8_t mac_addr[])
 	struct neighbour *neigh;
 	struct  in6_addr addr;
 
-	nss_nlipv6_get_addr_htonl(ip_addr, addr.s6_addr32);
+	nss_nlipv6_get_addr_hton(ip_addr, addr.s6_addr32);
 
 	if (ipv6_addr_is_multicast(&addr)) {
 		/*
@@ -239,12 +240,12 @@ static int nss_nlipv6_verify_5tuple(struct nss_ipv6_rule_create_msg *msg)
 		return -EINVAL;
 	}
 
-	if (!bitmap_empty((unsigned long *)tuple->flow_ip, NSS_NLIPV6_ADDR_BITS)) {
+	if (bitmap_empty((unsigned long *)tuple->flow_ip, NSS_NLIPV6_ADDR_BITS)) {
 		nss_nl_info("Empty flow IP\n");
 		return -EINVAL;
 	}
 
-	if (!bitmap_empty((unsigned long *)tuple->return_ip, NSS_NLIPV6_ADDR_BITS)) {
+	if (bitmap_empty((unsigned long *)tuple->return_ip, NSS_NLIPV6_ADDR_BITS)) {
 		nss_nl_info("Empty return IP\n");
 		return -EINVAL;
 	}
@@ -643,6 +644,12 @@ static int nss_nlipv6_ops_create_rule(struct sk_buff *skb, struct genl_info *inf
 			(void *)resp);				/* app context */
 
 	/*
+	 * Conver the IP addresses to NSS format
+	 */
+	nss_nlipv6_swap_addr(nim->msg.rule_create.tuple.flow_ip, nim->msg.rule_create.tuple.flow_ip);
+	nss_nlipv6_swap_addr(nim->msg.rule_create.tuple.return_ip, nim->msg.rule_create.tuple.return_ip);
+
+	/*
 	 * Push Rule to NSS
 	 */
 	tx_status = nss_ipv6_tx(gbl_ctx.nss, nim);
@@ -717,6 +724,12 @@ static int nss_nlipv6_ops_destroy_rule(struct sk_buff *skb, struct genl_info *in
 			sizeof(struct nss_ipv6_rule_destroy_msg),	/* message size */
 			nss_nlipv6_process_resp,			/* response callback */
 			(void *)resp);					/* app context */
+	/*
+	 * Conver the IP addresses to NSS format
+	 */
+	nss_nlipv6_swap_addr(nim->msg.rule_destroy.tuple.flow_ip, nim->msg.rule_destroy.tuple.flow_ip);
+	nss_nlipv6_swap_addr(nim->msg.rule_destroy.tuple.return_ip, nim->msg.rule_destroy.tuple.return_ip);
+
 
 	/*
 	 * Push rule to NSS

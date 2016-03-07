@@ -26,7 +26,8 @@
  */
 #define NSS_NLIPV6_FAMILY "nss_nlipv6"
 
-#define NSS_NLIPV6_ADDR_BITS (sizeof(uint32_t) * 4)
+#define NSS_NLIPV6_ADDR_BITS (sizeof(uint32_t) * 4 * BITS_PER_BYTE)	/* 128 bits */
+#define NSS_NLIPV6_SUBNET_BITS (sizeof(uint32_t) * 2 * BITS_PER_BYTE)	/* 64 bits */
 
 /**
  * @brief IPv6 rule
@@ -52,4 +53,24 @@ static inline void nss_nlipv6_rule_init(struct nss_nlipv6_rule *rule, enum nss_i
 	nss_nlcmn_init_cmd(&rule->cm, sizeof(struct nss_nlipv6_rule), type);
 }
 
+/**
+ * @brief convert ipv6 address to NSS format
+ *
+ * @param rule[IN] IPv6 address
+ */
+static inline void nss_nlipv6_swap_addr(uint32_t *src, uint32_t *dst)
+{
+	uint32_t temp[4];
+
+	if (src == dst) {
+		memcpy(temp, src, sizeof(temp));
+		src = temp;
+	}
+
+	dst[0] = src[3];
+	dst[1] = src[2];
+	dst[2] = src[1];
+	dst[3] = src[0];
+
+}
 #endif /* __NSS_NLIPV6_IF_H */

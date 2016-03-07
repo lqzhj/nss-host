@@ -144,8 +144,8 @@ static ssize_t nss_ipsecmgr_sa_stats_read(struct file *fp, char __user *ubuf, si
 		break;
 
 	case NSS_IPSEC_IPVER_6:
-		len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "dst_ip: %pI6c\n", nss_ipsecmgr_v6addr_ntohl(oip->dst_addr, addr));
-		len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "src_ip: %pI6c\n", nss_ipsecmgr_v6addr_ntohl(oip->src_addr, addr));
+		len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "dst_ip: %pI6c\n", nss_ipsecmgr_v6addr_hton(oip->dst_addr, addr));
+		len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "src_ip: %pI6c\n", nss_ipsecmgr_v6addr_hton(oip->src_addr, addr));
 		break;
 
 	}
@@ -513,6 +513,9 @@ void nss_ipsecmgr_sa_sel2key(struct nss_ipsec_rule_sel *sel, struct nss_ipsecmgr
 		nss_ipsecmgr_key_write_8(key, 6 /* v6 */, NSS_IPSECMGR_KEY_POS_IP_VER);
 		nss_ipsecmgr_key_write_8(key, IPPROTO_ESP, NSS_IPSECMGR_KEY_POS_IP_PROTO);
 
+		nss_ipsecmgr_v6addr_swap(sel->dst_addr, sel->dst_addr);
+		nss_ipsecmgr_v6addr_swap(sel->src_addr, sel->src_addr);
+
 		for (i  = 0; i < 4; i++) {
 			nss_ipsecmgr_key_write_32(key, sel->dst_addr[i], NSS_IPSECMGR_KEY_POS_IPV6_DST + (i * 32));
 			nss_ipsecmgr_key_write_32(key, sel->src_addr[i], NSS_IPSECMGR_KEY_POS_IPV6_SRC + (i * 32));
@@ -732,6 +735,7 @@ bool nss_ipsecmgr_encap_add(struct net_device *tun, struct nss_ipsecmgr_encap_fl
 		info.child_alloc = nss_ipsecmgr_subnet_alloc;
 		info.child_lookup = nss_ipsecmgr_subnet_lookup;
 		break;
+
 	case NSS_IPSECMGR_FLOW_TYPE_V6_TUPLE:
 
 		nss_ipsecmgr_copy_encap_v6_flow(&info.nim, &flow->data.v6_tuple);
@@ -745,6 +749,17 @@ bool nss_ipsecmgr_encap_add(struct net_device *tun, struct nss_ipsecmgr_encap_fl
 		info.child_lookup = nss_ipsecmgr_flow_lookup;
 		break;
 
+	case NSS_IPSECMGR_FLOW_TYPE_V6_SUBNET:
+
+		nss_ipsecmgr_copy_v6_sa(&info.nim, &sa->data.v6);
+		nss_ipsecmgr_copy_sa_data(&info.nim, data);
+
+		nss_ipsecmgr_v6_subnet2key(&flow->data.v6_subnet, &info.child_key);
+		nss_ipsecmgr_v6_sa2key(&sa->data.v6, &info.sa_key);
+
+		info.child_alloc = nss_ipsecmgr_subnet_alloc;
+		info.child_lookup = nss_ipsecmgr_subnet_lookup;
+		break;
 
 	default:
 		nss_ipsecmgr_warn("%p:unknown flow type(%d)\n", tun, flow->type);
@@ -812,6 +827,17 @@ bool nss_ipsecmgr_encap_del(struct net_device *tun, struct nss_ipsecmgr_encap_fl
 
 		info.child_alloc = nss_ipsecmgr_flow_alloc;
 		info.child_lookup = nss_ipsecmgr_flow_lookup;
+		break;
+
+	case NSS_IPSECMGR_FLOW_TYPE_V6_SUBNET:
+
+		nss_ipsecmgr_copy_v6_sa(&info.nim, &sa->data.v6);
+
+		nss_ipsecmgr_v6_subnet2key(&flow->data.v6_subnet, &info.child_key);
+		nss_ipsecmgr_v6_sa2key(&sa->data.v6, &info.sa_key);
+
+		info.child_alloc = nss_ipsecmgr_subnet_alloc;
+		info.child_lookup = nss_ipsecmgr_subnet_lookup;
 		break;
 
 	default:

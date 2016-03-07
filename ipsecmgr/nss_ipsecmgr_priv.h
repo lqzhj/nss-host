@@ -76,7 +76,7 @@
 #error "NSS_IPSECMGR_MAX_SUBNET is not a power of 2"
 #endif
 
-#define NSS_IPSECMGR_MAX_NETMASK 32 /* Max ipv4 subnets */
+#define NSS_IPSECMGR_MAX_NETMASK 64 /* Max subnets */
 #if (~(NSS_IPSECMGR_MAX_NETMASK - 1) & (NSS_IPSECMGR_MAX_NETMASK >> 1))
 #error "NSS_IPSECMGR_MAX_NETMASK is not a power of 2"
 #endif
@@ -104,6 +104,7 @@ enum nss_ipsecmgr_key_len {
 	NSS_IPSECMGR_KEY_LEN_IPV4_ENCAP_FLOW = 3,	/* 12 bytes */
 	NSS_IPSECMGR_KEY_LEN_IPV4_DECAP_FLOW = 4,	/* 16 bytes */
 	NSS_IPSECMGR_KEY_LEN_IPV6_SA = 10,		/* 40 bytes */
+	NSS_IPSECMGR_KEY_LEN_IPV6_SUBNET = 3,		/* 12 bytes */
 	NSS_IPSECMGR_KEY_LEN_IPV6_ENCAP_FLOW = 9,	/* 36 bytes */
 	NSS_IPSECMGR_KEY_LEN_IPV6_DECAP_FLOW = 10,	/* 40 bytes */
 	NSS_IPSECMGR_KEY_LEN_MAX = NSS_IPSECMGR_MAX_KEY_WORDS
@@ -219,8 +220,8 @@ struct nss_ipsecmgr_subnet_entry {
  * IPsec netmask entry
  */
 struct nss_ipsecmgr_netmask_entry {
+	uint64_t mask_bits;					/* no. of bits in netmask */
 	uint32_t count;						/* no. of subnets entries */
-	uint32_t mask_bits;					/* no. of bits in netmask */
 	struct list_head subnets[NSS_IPSECMGR_MAX_SUBNET];	/* subnet database */
 };
 
@@ -601,7 +602,6 @@ static inline void nss_ipsecmgr_key_write_32(struct nss_ipsecmgr_key *key, uint3
 	*data = v;
 	*mask = NSS_IPSECMGR_GENMASK(31, 0);
 }
-
 /*
  * nss_ipsecmgr_key_clear_32()
  * 	clear 32-bit mask from the specified position
@@ -615,29 +615,51 @@ static inline void nss_ipsecmgr_key_clear_32(struct nss_ipsecmgr_key *key, enum 
 }
 
 /*
- * nss_ipsecmgr_key_read()
- * 	read value from the specified position using mask
+ * nss_ipsecmgr_key_read_n()
+ * 	read n nnumber of values from the specified position using mask
  */
-static inline void nss_ipsecmgr_key_read(struct nss_ipsecmgr_key *key, uint32_t *v, uint32_t *m, enum nss_ipsecmgr_key_pos p)
+static inline void nss_ipsecmgr_key_read(struct nss_ipsecmgr_key *key, uint32_t *v, uint32_t *m, enum nss_ipsecmgr_key_pos p, uint32_t n)
 {
+	uint32_t *k_data, *k_mask;
 	uint16_t idx;
+	int delta;
 
 	idx = BIT_WORD(p) % NSS_IPSECMGR_MAX_KEY_WORDS;
-	*v = key->data[idx];
-	*m = key->mask[idx];
+	delta = NSS_IPSECMGR_MAX_KEY_WORDS - idx;
+
+	n = n > delta ? delta : n;
+
+	k_data = &key->data[idx];
+	k_mask = &key->mask[idx];
+
+	for (; n--;) {
+		*v++ = *k_data++;
+		*m++ = *k_mask++;
+	}
 }
 
 /*
  * nss_ipsecmgr_key_write()
  * 	write value from the specified position using mask
  */
-static inline void nss_ipsecmgr_key_write(struct nss_ipsecmgr_key *key, uint32_t v, uint32_t m, enum nss_ipsecmgr_key_pos p)
+static inline void nss_ipsecmgr_key_write(struct nss_ipsecmgr_key *key, uint32_t *v, uint32_t *m, enum nss_ipsecmgr_key_pos p, uint32_t n)
 {
+	uint32_t *k_data, *k_mask;
 	uint16_t idx;
+	int delta;
 
 	idx = BIT_WORD(p) % NSS_IPSECMGR_MAX_KEY_WORDS;
-	key->data[idx] = v;
-	key->mask[idx] = m;
+	delta = NSS_IPSECMGR_MAX_KEY_WORDS - idx;
+
+	n = n > delta ? delta : n;
+
+	k_data = &key->data[idx];
+	k_mask = &key->mask[idx];
+
+	for (; n--;) {
+		*k_data++ = *v++;
+		*k_mask++ = *m++;
+	}
 }
 
 /*
@@ -653,6 +675,35 @@ static inline void nss_ipsecmgr_key_write_mask(struct nss_ipsecmgr_key *key, uin
 }
 
 /*
+ * nss_ipsecmgr_read_key_mask32()
+ * 	read a 32 bit mask starting from position
+ */
+static inline uint32_t nss_ipsecmgr_key_read_mask32(struct nss_ipsecmgr_key *key, enum nss_ipsecmgr_key_pos p)
+{
+	uint16_t idx;
+
+	idx = BIT_WORD(p) % NSS_IPSECMGR_MAX_KEY_WORDS;
+
+	return key->mask[idx];
+}
+
+/*
+ * nss_ipsecmgr_read_key_mask64()
+ * 	read a 64 bit mask starting from position
+ */
+static inline uint64_t nss_ipsecmgr_key_read_mask64(struct nss_ipsecmgr_key *key, enum nss_ipsecmgr_key_pos p)
+{
+	uint64_t *mask;
+	uint16_t idx;
+
+	idx = BIT_WORD(p) % NSS_IPSECMGR_MAX_KEY_WORDS;
+
+	mask = (uint64_t *)&key->mask[idx];
+
+	return *mask;
+}
+
+/*
  * nss_ipsecmgr_key_lshift_mask()
  * 	left shift mask by an amount 's'
  */
@@ -662,6 +713,21 @@ static inline void nss_ipsecmgr_key_lshift_mask(struct nss_ipsecmgr_key *key, ui
 
 	idx = BIT_WORD(p) % NSS_IPSECMGR_MAX_KEY_WORDS;
 	key->mask[idx] <<= s;
+}
+
+/*
+ * nss_ipsecmgr_key_lshift_mask64()
+ * 	left shift mask by an amount 's'
+ */
+static inline void nss_ipsecmgr_key_lshift_mask64(struct nss_ipsecmgr_key *key, uint32_t s, enum nss_ipsecmgr_key_pos p)
+{
+	uint64_t *mask;
+	uint16_t idx;
+
+	idx = BIT_WORD(p) % NSS_IPSECMGR_MAX_KEY_WORDS;
+
+	mask = (uint64_t *)&key->mask[idx];
+	*mask <<= s;
 }
 
 /*
@@ -787,7 +853,7 @@ static inline char *nss_ipsecmgr_key_netmask2str(struct nss_ipsecmgr_key *key, c
 	char *tmp = str;
 	uint8_t *hash;
 
-	nss_ipsecmgr_key_read(key, &data, &mask, pos);
+	nss_ipsecmgr_key_read(key, &data, &mask, pos, 1);
 	hash = (uint8_t *)&mask;
 
 	str = hex_byte_pack(str, hash[0]);
@@ -875,18 +941,78 @@ static inline void nss_ipsecmgr_v4_hdr2sel(struct iphdr *iph, struct nss_ipsec_r
 }
 
 /*
- * nss_ipsecmgr_v6addr_ntohl()
- * 	convert the v6 address to
+ * nss_ipsecmgr_v6addr_swap()
+ * 	Swap the words in the array.
  */
-static inline uint32_t *nss_ipsecmgr_v6addr_ntohl(uint32_t src[], uint32_t dst[])
+static uint32_t *nss_ipsecmgr_v6addr_swap(uint32_t *src, uint32_t *dst)
 {
-	int i = 4;
+	uint32_t temp[4];
 
-	while (i--) {
-		dst[i] = ntohl(src[i]);
+	if (src == dst) {
+		memcpy(temp, src, sizeof(temp));
+		src = temp;
 	}
 
+	dst[3] = src[0];
+	dst[2] = src[1];
+	dst[1] = src[2];
+	dst[0] = src[3];
+
 	return dst;
+}
+
+/*
+ * nss_ipsecmgr_v6addr_ntoh()
+ * 	convert the v6 address form network to host order.
+ */
+static inline uint32_t *nss_ipsecmgr_v6addr_ntoh(uint32_t *src, uint32_t *dst)
+{
+	uint32_t *dst_addr = nss_ipsecmgr_v6addr_swap(src, dst);
+
+	dst_addr[0] = ntohl(dst_addr[0]);
+	dst_addr[1] = ntohl(dst_addr[1]);
+	dst_addr[2] = ntohl(dst_addr[2]);
+	dst_addr[3] = ntohl(dst_addr[3]);
+
+	return dst_addr;
+}
+
+/*
+ * nss_ipsecmgr_v6addr_hton()
+ * 	convert the v6 address to host to network order.
+ */
+static inline uint32_t *nss_ipsecmgr_v6addr_hton(uint32_t *src, uint32_t *dst)
+{
+	uint32_t *dst_addr = nss_ipsecmgr_v6addr_swap(src, dst);
+
+	dst_addr[0] = htonl(dst_addr[0]);
+	dst_addr[1] = htonl(dst_addr[1]);
+	dst_addr[2] = htonl(dst_addr[2]);
+	dst_addr[3] = htonl(dst_addr[3]);
+
+	return dst_addr;
+}
+
+/*
+ * nss_ipsecmgr_copy_nim()
+ * 	copy nim from source to destination, also swap the v6 addresses if any
+ */
+static inline void nss_ipsecmgr_copy_nim(struct nss_ipsec_msg *src_nim, struct nss_ipsec_msg *dst_nim)
+{
+	struct nss_ipsec_rule *src_push = &src_nim->msg.push;
+	struct nss_ipsec_rule *dst_push = &dst_nim->msg.push;
+
+	memcpy(dst_nim, src_nim, sizeof(struct nss_ipsec_msg));
+
+	if (src_push->sel.ip_ver == NSS_IPSEC_IPVER_6) {
+		nss_ipsecmgr_v6addr_swap(src_push->sel.dst_addr, dst_push->sel.dst_addr);
+		nss_ipsecmgr_v6addr_swap(src_push->sel.src_addr, dst_push->sel.src_addr);
+	}
+
+	if (src_push->oip.ip_ver == NSS_IPSEC_IPVER_6) {
+		nss_ipsecmgr_v6addr_swap(src_push->oip.dst_addr, dst_push->oip.dst_addr);
+		nss_ipsecmgr_v6addr_swap(src_push->oip.src_addr, dst_push->oip.src_addr);
+	}
 }
 
 /*
@@ -908,8 +1034,8 @@ static inline void nss_ipsecmgr_v6_hdr2sel(struct ipv6hdr *iph, struct nss_ipsec
 		nexthdr = frag->nexthdr;
 	}
 
-	nss_ipsecmgr_v6addr_ntohl(iph->daddr.s6_addr32, sel->dst_addr);
-	nss_ipsecmgr_v6addr_ntohl(iph->saddr.s6_addr32, sel->src_addr);
+	nss_ipsecmgr_v6addr_ntoh(iph->daddr.s6_addr32, sel->dst_addr);
+	nss_ipsecmgr_v6addr_ntoh(iph->saddr.s6_addr32, sel->src_addr);
 
 	sel->proto_next_hdr = nexthdr;
 	sel->ip_ver = NSS_IPSEC_IPVER_6;
@@ -968,9 +1094,11 @@ bool nss_ipsecmgr_flow_offload(struct nss_ipsecmgr_priv *priv, struct sk_buff *s
 /*
  * Subnet API(s)
  */
-void nss_ipsecmgr_copy_v4_subnet(struct nss_ipsec_msg *nim, struct nss_ipsecmgr_ref *subnet_ref);
+void nss_ipsecmgr_copy_subnet(struct nss_ipsec_msg *nim, struct nss_ipsecmgr_ref *subnet_ref);
 void nss_ipsecmgr_v4_subnet2key(struct nss_ipsecmgr_encap_v4_subnet *subnet, struct nss_ipsecmgr_key *key);
+void nss_ipsecmgr_v6_subnet2key(struct nss_ipsecmgr_encap_v6_subnet *subnet, struct nss_ipsecmgr_key *key);
 void nss_ipsecmgr_v4_subnet_sel2key(struct nss_ipsec_rule_sel *sel, struct nss_ipsecmgr_key *key);
+void nss_ipsecmgr_v6_subnet_sel2key(struct nss_ipsec_rule_sel *sel, struct nss_ipsecmgr_key *key);
 
 /*
  * Subnet alloc/lookup API(s)
@@ -978,6 +1106,7 @@ void nss_ipsecmgr_v4_subnet_sel2key(struct nss_ipsec_rule_sel *sel, struct nss_i
 struct nss_ipsecmgr_ref *nss_ipsecmgr_subnet_alloc(struct nss_ipsecmgr_priv *priv, struct nss_ipsecmgr_key *key);
 struct nss_ipsecmgr_ref *nss_ipsecmgr_subnet_lookup(struct nss_ipsecmgr_priv *priv, struct nss_ipsecmgr_key *key);
 struct nss_ipsecmgr_ref *nss_ipsecmgr_v4_subnet_match(struct nss_ipsecmgr_priv *priv, struct nss_ipsecmgr_key *sel);
+struct nss_ipsecmgr_ref *nss_ipsecmgr_v6_subnet_match(struct nss_ipsecmgr_priv *priv, struct nss_ipsecmgr_key *sel);
 
 /*
  * SA API(s)
