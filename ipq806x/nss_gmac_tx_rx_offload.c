@@ -377,6 +377,20 @@ static irqreturn_t nss_gmac_handle_irq(int irq, void *ctx)
 static int nss_gmac_slowpath_if_open(void *app_data, uint32_t tx_desc_ring,
 					uint32_t rx_desc_ring, uint32_t mode)
 {
+	struct net_device *netdev = (struct net_device *)app_data;
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
+	int err;
+
+	if (gmacdev->drv_flags & NSS_GMAC_PRIV_FLAG(IRQ_REQUESTED))
+		return NSS_GMAC_SUCCESS;
+
+	err = request_irq(netdev->irq, nss_gmac_handle_irq, IRQF_DISABLED, "nss-gmac", gmacdev);
+	if (err) {
+		netdev_dbg(netdev, "Mac %d IRQ %d request failed\n", gmacdev->macid, netdev->irq);
+		return NSS_GMAC_FAILURE;
+	}
+	gmacdev->drv_flags |= NSS_GMAC_PRIV_FLAG(IRQ_REQUESTED);
+
 	return NSS_GMAC_SUCCESS;
 }
 
@@ -386,6 +400,14 @@ static int nss_gmac_slowpath_if_open(void *app_data, uint32_t tx_desc_ring,
  */
 static int nss_gmac_slowpath_if_close(void *app_data)
 {
+	struct net_device *netdev = (struct net_device *)app_data;
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
+
+	if (gmacdev->drv_flags & NSS_GMAC_PRIV_FLAG(IRQ_REQUESTED)) {
+		netdev_dbg(netdev, "Freeing IRQ %d for Mac %d\n", netdev->irq, gmacdev->macid);
+		free_irq(netdev->irq, gmacdev);
+		gmacdev->drv_flags &= ~NSS_GMAC_PRIV_FLAG(IRQ_REQUESTED);
+	}
 	return NSS_GMAC_SUCCESS;
 }
 
@@ -903,7 +925,6 @@ int nss_gmac_open(struct net_device *netdev)
 	struct device *dev = NULL;
 	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	struct nss_gmac_global_ctx *ctx = NULL;
-	int err;
 
 	if (!gmacdev)
 		return -EINVAL;
@@ -929,15 +950,6 @@ int nss_gmac_open(struct net_device *netdev)
 		nss_gmac_setup_tx_desc_queue(gmacdev, dev,
 					NSS_GMAC_TX_DESC_SIZE, RINGMODE);
 		nss_gmac_rx_refill(gmacdev);
-
-		/* Register IRQ */
-		err = request_irq(netdev->irq, nss_gmac_handle_irq,
-					IRQF_DISABLED, "nss-gmac", gmacdev);
-		if (err) {
-			netdev_dbg(netdev, "Mac %d IRQ %d request failed\n",
-						gmacdev->macid, netdev->irq);
-			return err;
-		}
 
 		gmacdev->data_plane_ops = &nss_gmac_slowpath_ops;
 		gmacdev->data_plane_ctx = gmacdev->netdev;
