@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014,2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014 - 2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -70,12 +70,12 @@ static struct msm_bus_paths nss_crypto_bw_level_tbl[NSS_PM_PERF_MAX_LEVELS] = {
 static struct msm_bus_paths nss_netap_bw_level_tbl[NSS_PM_PERF_MAX_LEVELS] = {
 		[NSS_PM_PERF_LEVEL_SUSPEND] =  GMAC_BW_MBPS(0, 0),
 			/* 0 MHz to DDR, 0 MHz to TCM */
-		[NSS_PM_PERF_LEVEL_IDLE] =  GMAC_BW_MBPS(133, 5),
-			/* 133 MHz to DDR, 5 MHz to TCM */
-		[NSS_PM_PERF_LEVEL_NOMINAL] =  GMAC_BW_MBPS(200, 400),
-			/* 200 MHz to DDR, 10 MHz to TCM */
-		[NSS_PM_PERF_LEVEL_TURBO] = GMAC_BW_MBPS(266, 533),
-			/* 266 MHz to DDR, 20 MHz to TCM  */
+		[NSS_PM_PERF_LEVEL_IDLE] =  GMAC_BW_MBPS(122, 122),
+			/* 133 MHz to DDR and TCM */
+		[NSS_PM_PERF_LEVEL_NOMINAL] =  GMAC_BW_MBPS(200, 200),
+			/* 400 MHz to DDR and TCM */
+		[NSS_PM_PERF_LEVEL_TURBO] = GMAC_BW_MBPS(400, 400),
+			/* 533 MHz to DDR and TCM  */
 };
 
 #else
