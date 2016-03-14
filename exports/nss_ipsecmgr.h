@@ -44,6 +44,11 @@
 
 #define NSS_IPSECMGR_NATT_PORT_DATA 4500
 
+#define NSS_IPSECMGR_MIN_REPLAY_WIN 32
+#define NSS_IPSECMGR_MAX_REPLAY_WIN 1024
+#define NSS_IPSECMGR_MAX_ICV_LEN 32
+#define NSS_IPSECMGR_MAX_DSCP 63
+
 /**
  * @brief Flow types
  */
@@ -96,12 +101,26 @@ struct nss_ipsecmgr_sa_v6 {
 	uint32_t spi_index;		/**< ESP SPI index */
 };
 
+/**
+ * @brief IPsec SA data
+ *
+ * Note: for DSCP marking the following should be used
+ *
+ * +----------------------+---------------+------------------+
+ * | Copy inner to outer  | dscp_copy = 1 | dscp = 0         |
+ * +----------------------+---------------+------------------+
+ * | Fixed mark on outer  | dscp_copy = 0 | dscp = <0 .. 63> |
+ * +----------------------+---------------+------------------+
+ */
 struct nss_ipsecmgr_sa_data {
 	uint32_t crypto_index;		/**< crypto session index returned by the driver */
 
 	struct {
-		uint16_t icv_len;	/**< Hash Length */
 		uint16_t replay_win;	/**< sequence number window size for anti-replay */
+		uint8_t icv_len;	/**< Hash Length */
+		uint8_t dscp;		/**< default DSCP value of the SA */
+
+		bool dscp_copy;		/**< copy DSCP from inner header to outer */
 		bool nat_t_req;		/**< NAT-T required */
 		bool seq_skip;		/**< Skip ESP sequence for ENCAP */
 		bool trailer_skip;	/**< Skip ESP trailer for ENCAP */

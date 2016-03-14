@@ -142,7 +142,11 @@ struct nss_ipsec_rule_data {
 	uint8_t esp_seq_skip;		/**< Skip ESP sequence number */
 	uint8_t esp_tail_skip;		/**< Skip ESP trailer */
 	uint8_t use_pattern;		/**< Use random pattern in hash calculation */
-	uint8_t res;			/**< Reserve bytes for alignment */
+	uint8_t dscp;                   /**< Default dscp value of the SA */
+
+	uint8_t sa_dscp_mask;		/**< Mask for the SA DSCP */
+	uint8_t flow_dscp_mask;         /**< Mask for flow DSCP */
+	uint8_t res[2];
 };
 
 /**
