@@ -27,6 +27,7 @@
 #define NSS_WIFI_RAWDATA_MAX_LEN  64
 #define NSS_WIFI_RX_EXT_INV_PEER_TYPE 0
 #define NSS_WIFI_RX_EXT_PKTLOG_TYPE 1
+#define NSS_WIFI_TX_NUM_TOS_TIDS 8
 
 /**
  * wifi interface request/response types
@@ -328,7 +329,16 @@ struct nss_wifi_stats_sync_msg {
 	uint32_t rx_bytes_deliverd;		/**< number of rx bytes that NSS wifi driver could successfully process */
 	uint32_t tx_bytes_transmit_completions;	/**< number of bytes for which transmission completion received */
 	uint32_t rx_deliver_unaligned_drop_cnt;	/**< number of unaligned data packets that were dropped at wifi receive */
-
+	uint32_t tidq_enqueue_cnt[NSS_WIFI_TX_NUM_TOS_TIDS];	/**< Number of packets enqueued to  TIDQ */
+	uint32_t tidq_dequeue_cnt[NSS_WIFI_TX_NUM_TOS_TIDS];	/**< Number of packets dequeued from  TIDQ */
+	uint32_t tidq_enqueue_fail_cnt[NSS_WIFI_TX_NUM_TOS_TIDS];	/**< Enqueue fail count */
+	uint32_t tidq_ttl_expire_cnt[NSS_WIFI_TX_NUM_TOS_TIDS];	/**< Number of packets expired from  TIDQ */
+	uint32_t tidq_dequeue_req_cnt[NSS_WIFI_TX_NUM_TOS_TIDS];	/**< Dequeue reuest count from wifi fw */
+	uint32_t total_tidq_depth;	/**< Current Queue Depth */
+	uint32_t rx_htt_fetch_cnt;	/**< Total number of HTT Fetch Messages received from wifi fw */
+	uint32_t total_tidq_bypass_cnt;	/**< Total number of packets which have bypassed tidq and sent to wifi fw */
+	uint32_t global_q_full_cnt;	/**< Total number of packets dropped due to global queue full condition */
+	uint32_t tidq_full_cnt;	/**< Total number of packets dropped due to TID queue full condition */
 };
 
 /**

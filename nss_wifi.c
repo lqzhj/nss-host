@@ -25,6 +25,7 @@ void nss_wifi_stats_sync(struct nss_ctx_instance *nss_ctx,
 {
 	struct nss_top_instance *nss_top = nss_ctx->nss_top;
 	uint32_t radio_id = interface - NSS_WIFI_INTERFACE0;
+	uint8_t i = 0;
 
 	if (radio_id >= NSS_MAX_WIFI_RADIO_INTERFACES) {
 		nss_warning("%p: invalid interface: %d", nss_ctx, interface);
@@ -52,6 +53,20 @@ void nss_wifi_stats_sync(struct nss_ctx_instance *nss_ctx,
 	nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_RX_BYTES_DELIVERED] += stats->rx_bytes_deliverd;
 	nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_TX_BYTES_COMPLETED] += stats->tx_bytes_transmit_completions;
 	nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_RX_DELIVER_UNALIGNED_DROP_CNT] += stats->rx_deliver_unaligned_drop_cnt;
+
+	for (i = 0; i < NSS_WIFI_TX_NUM_TOS_TIDS; i++) {
+		nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_TIDQ_ENQUEUE_CNT + i] += stats->tidq_enqueue_cnt[i];
+		nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_TIDQ_DEQUEUE_CNT + i] += stats->tidq_dequeue_cnt[i];
+		nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_TIDQ_ENQUEUE_FAIL_CNT + i] += stats->tidq_enqueue_fail_cnt[i];
+		nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_TIDQ_TTL_EXPIRE_CNT + i] += stats->tidq_ttl_expire_cnt[i];
+		nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_TIDQ_DEQUEUE_REQ_CNT + i] += stats->tidq_dequeue_req_cnt[i];
+	}
+
+	nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_RX_HTT_FETCH_CNT] += stats->rx_htt_fetch_cnt;
+	nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_TOTAL_TIDQ_DEPTH] = stats->total_tidq_depth;
+	nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_TOTAL_TIDQ_BYPASS_CNT] += stats->total_tidq_bypass_cnt;
+	nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_GLOBAL_Q_FULL_CNT] += stats->global_q_full_cnt;
+	nss_top->stats_wifi[radio_id][NSS_STATS_WIFI_TIDQ_FULL_CNT] += stats->tidq_full_cnt;
 
 	spin_unlock_bh(&nss_top->stats_lock);
 }
