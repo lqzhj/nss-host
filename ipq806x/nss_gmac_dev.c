@@ -953,14 +953,8 @@ int32_t nss_gmac_ts_enable(struct nss_gmac_dev *gmacdev)
 	/* Enable timestamping of ipv6 packets	*/
 	nss_gmac_set_reg_bits(gmacdev->mac_base, gmac_ts_control, gmac_ts_ipv6ena_mask);
 
-	/* Check for PTP or NTP Mode, set through the ethtool */
-	if (gmacdev->drv_flags & NSS_GMAC_PRIV_FLAG(TSMODE)) {
-		/* NTP Mode */
-		nss_gmac_set_reg_bits(gmacdev->mac_base, gmac_ts_control, gmac_ts_enall_mask);
-	} else {
-		/* PTP Mode */
-		nss_gmac_set_reg_bits(gmacdev->mac_base, gmac_ts_control, gmac_ts_ver2ena_mask);
-	}
+	/* Timestamp all incoming packets */
+	nss_gmac_set_reg_bits(gmacdev->mac_base, gmac_ts_control, gmac_ts_enall_mask);
 
 	/* Loop until bit is set or Timeout happens */
 	timeout = DEFAULT_LOOP_VARIABLE;

@@ -106,7 +106,6 @@ static const struct nss_gmac_ethtool_stats gmac_gstrings_stats[] = {
 static const char *gmac_strings_priv_flags[] = {
 	"linkpoll",
 	"tstamp",
-	"tsmode",
 };
 
 #define NSS_GMAC_STATS_LEN	ARRAY_SIZE(gmac_gstrings_stats)
@@ -504,12 +503,6 @@ static int32_t nss_gmac_set_priv_flags(struct net_device *netdev, u32 flags)
 				genphy_restart_aneg(phydev);
 		} else {
 			gmacdev->drv_flags &= ~NSS_GMAC_PRIV_FLAG(LINKPOLL);
-		}
-	} else if (changed & NSS_GMAC_PRIV_FLAG(TSMODE)) {
-		if (flags & NSS_GMAC_PRIV_FLAG(TSMODE)) {
-			gmacdev->drv_flags |= NSS_GMAC_PRIV_FLAG(TSMODE);
-		} else {
-			gmacdev->drv_flags &= ~NSS_GMAC_PRIV_FLAG(TSMODE);
 		}
 	}
 

@@ -309,7 +309,6 @@ enum nss_gmac_state {
 enum nss_gmac_priv_flags {
 	__NSS_GMAC_PRIV_FLAG_LINKPOLL,
 	__NSS_GMAC_PRIV_FLAG_TSTAMP,
-	__NSS_GMAC_PRIV_FLAG_TSMODE,	/* 0 = PTP,1 = NTP */
 	__NSS_GMAC_PRIV_FLAG_IRQ_REQUESTED,
 	__NSS_GMAC_PRIV_FLAG_MAX,
 };

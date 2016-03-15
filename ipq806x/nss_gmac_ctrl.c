@@ -722,7 +722,6 @@ static uint32_t nss_gmac_tstamp_ioctl(struct net_device *netdev, struct ifreq *i
 
 	/*
 	 * Enable Timestamping if not already enabled
-	 * By default PTP Mode is enabled
 	 */
 	if (cfg->rx_filter == HWTSTAMP_FILTER_ALL) {
 		if (!test_bit(__NSS_GMAC_TSTAMP, &gmacdev->flags)) {
