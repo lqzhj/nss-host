@@ -312,6 +312,20 @@ struct nss_wifi_rx_ext_metadata{
 };
 
 /**
+ * wifi me statistics message structure.
+ */
+struct nss_wifi_mc_enhance_stats {
+	uint32_t rcvd;				/**< number of mcast frames rcvd for conversion */
+	uint32_t ucast_converted;		/**< number of ucast frames sent as part of mcast enhancement conversion */
+	uint32_t alloc_fail;			/**< number of mcast enhancement frames dropped due to allocation failure */
+	uint32_t enqueue_fail;			/**< number of mcast enhancement frames dropped due to enqueue failure */
+	uint32_t copy_fail;			/**< number of mcast enhancement frames dropped due to copy failure */
+	uint32_t peer_flow_ctrl_send_fail;	/**< number of mcast enhancement frames dropped due to peer flow ctrl send failure */
+	uint32_t loopback_err;			/**< number of mcast enhancement frames dropped when dst_mac is the same as src_mac */
+	uint32_t dst_addr_err;			/**< number of mcast enhancement buf frames dropped due to empty dst_mac */
+};
+
+/**
  * wifi statistics sync message structure.
  */
 struct nss_wifi_stats_sync_msg {
@@ -339,6 +353,9 @@ struct nss_wifi_stats_sync_msg {
 	uint32_t total_tidq_bypass_cnt;	/**< Total number of packets which have bypassed tidq and sent to wifi fw */
 	uint32_t global_q_full_cnt;	/**< Total number of packets dropped due to global queue full condition */
 	uint32_t tidq_full_cnt;	/**< Total number of packets dropped due to TID queue full condition */
+	struct nss_wifi_mc_enhance_stats mc_enhance_stats;	/**< mcast enhancement stats */
+	uint32_t mc_enhance_group_entry_miss;		/**< number of times group entry was not present for mcast enhancement */
+	uint32_t mc_enhance_denylist_hit;		/**< number of times deny list was hit during mcast enhancement */
 };
 
 /**
