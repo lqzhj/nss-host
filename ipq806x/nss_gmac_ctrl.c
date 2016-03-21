@@ -169,16 +169,16 @@ static void nss_gmac_giveup_rx_desc_queue(struct nss_gmac_dev *gmacdev,
 	uint32_t status;
 	dma_addr_t dma_addr1;
 	uint32_t length1;
-	uint32_t data1;
+	uint32_t opaque;
 
 	for (i = 0; i < gmacdev->rx_desc_count; i++) {
 		nss_gmac_get_desc_data(gmacdev->rx_desc + i, &status,
-				       &dma_addr1, &length1, &data1);
+				       &dma_addr1, &length1, &opaque);
 
-		if ((length1 != 0) && (data1 != 0)) {
+		if ((length1 != 0) && (opaque != 0)) {
 			dma_unmap_single(dev, (dma_addr_t)dma_addr1,
 					 length1, DMA_FROM_DEVICE);
-			dev_kfree_skb_any((struct sk_buff *)data1);
+			dev_kfree_skb_any((struct sk_buff *)opaque);
 		}
 	}
 
@@ -222,16 +222,16 @@ static void nss_gmac_giveup_tx_desc_queue(struct nss_gmac_dev *gmacdev,
 	uint32_t status;
 	dma_addr_t dma_addr1;
 	uint32_t length1;
-	uint32_t data1;
+	uint32_t opaque;
 
 	for (i = 0; i < gmacdev->tx_desc_count; i++) {
 		nss_gmac_get_desc_data(gmacdev->tx_desc + i, &status,
-				       &dma_addr1, &length1, &data1);
+				       &dma_addr1, &length1, &opaque);
 
-		if ((length1 != 0) && (data1 != 0)) {
+		if ((length1 != 0) && (opaque != 0)) {
 			dma_unmap_single(dev, (dma_addr_t)dma_addr1, length1,
 					 DMA_TO_DEVICE);
-			dev_kfree_skb_any((struct sk_buff *)data1);
+			dev_kfree_skb_any((struct sk_buff *)opaque);
 		}
 	}
 
