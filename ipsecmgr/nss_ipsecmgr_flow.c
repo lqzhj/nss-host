@@ -684,7 +684,12 @@ struct nss_ipsecmgr_ref *nss_ipsecmgr_flow_alloc(struct nss_ipsecmgr_priv *priv,
 	db = &priv->flow_db;
 	INIT_LIST_HEAD(&flow->node);
 
+	/*
+	 * update key and generate/store hash
+	 */
 	idx = nss_ipsecmgr_key_data2idx(key, NSS_IPSECMGR_MAX_FLOW);
+	nss_ipsecmgr_key_gen_hash(key, NSS_IPSECMGR_MAX_FLOW);
+
 	memcpy(&flow->key, key, sizeof(struct nss_ipsecmgr_key));
 	list_add(&flow->node, &db->entries[idx]);
 

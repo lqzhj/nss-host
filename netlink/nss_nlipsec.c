@@ -213,7 +213,7 @@ static int nss_nlipsec_verify_create_encap(struct nss_ipsecmgr_encap_flow *encap
 	case NSS_IPSECMGR_FLOW_TYPE_V4_SUBNET:
 		v4_subnet = &encap_flow->data.v4_subnet;
 
-		if (!v4_subnet->dst_subnet || !v4_subnet->dst_mask || !v4_subnet->protocol) {
+		if (!v4_subnet->dst_subnet && v4_subnet->dst_mask) {
 			nss_nl_error("Invalid v4 subnet\n");
 			return -1;
 		}
@@ -380,7 +380,7 @@ static int nss_nlipsec_verify_destroy_encap_flow(struct nss_ipsecmgr_encap_flow 
 	case NSS_IPSECMGR_FLOW_TYPE_V4_SUBNET:
 		v4_subnet = &encap_flow->data.v4_subnet;
 
-		if (!v4_subnet->dst_subnet || !v4_subnet->dst_mask || !v4_subnet->protocol) {
+		if (!v4_subnet->dst_subnet && v4_subnet->dst_mask) {
 			nss_nl_error("Invalid v4 subnet\n");
 			return -1;
 		}
