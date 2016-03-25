@@ -186,7 +186,7 @@ struct nss_n2h_msg {
 };
 
 /**
- * Callback to be called when IPv4 message is received
+ * Callback to be called when n2h message is received
  */
 typedef void (*nss_n2h_msg_callback_t)(void *app_data, struct nss_n2h_msg *msg);
 
@@ -197,34 +197,16 @@ typedef void (*nss_n2h_msg_callback_t)(void *app_data, struct nss_n2h_msg *msg);
 extern nss_tx_status_t nss_n2h_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_n2h_msg *nnm);
 
 /*
- * nss_n2h_tx()
- * 	API to enable/disable Host RPS support in NSS
+ * nss_n2h_register_sysctl()
+ *	API to register sysctl for n2h.
  */
-extern nss_tx_status_t nss_n2h_rps_cfg(struct nss_ctx_instance *nss_ctx, int enable_rps);
+extern void nss_n2h_register_sysctl(void);
 
 /*
- * nss_n2h_mitigation_cfg()
- * 	API to enable/disable Host MITIGATION support in NSS
+ * nss_n2h_unregister_sysctl()
+ *	API to unregister sysctl for n2h.
  */
-extern nss_tx_status_t nss_n2h_mitigation_cfg(struct nss_ctx_instance *nss_ctx, int enable_mitigation, nss_core_id_t nss_core);
-
-/*
- * nss_n2h_buf_pool_cfg()
- * 	API to increase the pbufs on NSS using Host memory
- */
-extern nss_tx_status_t nss_n2h_buf_pool_cfg(struct nss_ctx_instance *nss_ctx, int nss_pbuf_pool_size, nss_core_id_t nss_core);
-
-/*
- * nss_n2h_empty_pool_buf_register_sysctl()
- *	API to register sysctl for empty pool buffer in n2h.
- */
-extern void nss_n2h_empty_pool_buf_register_sysctl(void);
-
-/*
- * nss_n2h_empty_pool_buf_unregister_sysctl()
- *	API to unregister sysctl for empty pool buffer in n2h.
- */
-extern void nss_n2h_empty_pool_buf_unregister_sysctl(void);
+extern void nss_n2h_unregister_sysctl(void);
 
 /*
  * nss_n2h_flush_payloads()
@@ -239,7 +221,6 @@ extern nss_tx_status_t nss_n2h_flush_payloads(struct nss_ctx_instance *nss_ctx);
 extern void nss_n2h_msg_init(struct nss_n2h_msg *nim, uint16_t if_num, uint32_t type, uint32_t len,
 			nss_n2h_msg_callback_t cb, void *app_data);
 
-extern struct nss_ctx_instance *nss_ipv4_notify_register(nss_ipv4_msg_callback_t cb, void *app_data);
 #endif // __NSS_N2H_H
 
 

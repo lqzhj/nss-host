@@ -20,9 +20,8 @@
  */
 
 #include "nss_tx_rx_common.h"
-#include <asm/cacheflush.h>
 
-
+#define NSS_N2H_MAX_BUF_POOL_SIZE (1024 * 1024 * 8) /* 8MB */
 #define NSS_N2H_MIN_EMPTY_POOL_BUF_SZ		32
 #define NSS_N2H_MAX_EMPTY_POOL_BUF_SZ		65536
 #define NSS_N2H_DEFAULT_EMPTY_POOL_BUF_SZ	8192
@@ -30,6 +29,11 @@
 int nss_n2h_empty_pool_buf_cfg[NSS_MAX_CORES] __read_mostly = {-1, -1};
 int nss_n2h_water_mark[NSS_MAX_CORES][2] __read_mostly = {{-1, -1}, {-1, -1} };
 int nss_n2h_wifi_pool_buf_cfg __read_mostly = -1;
+int nss_n2h_rps_config __read_mostly;
+int nss_n2h_core0_mitigation_cfg __read_mostly = 1;
+int nss_n2h_core1_mitigation_cfg __read_mostly = 1;
+int nss_n2h_core0_add_buf_pool_size __read_mostly;
+int nss_n2h_core1_add_buf_pool_size __read_mostly;
 
 struct nss_n2h_registered_data {
 	nss_n2h_msg_callback_t n2h_callback;
@@ -166,7 +170,7 @@ static void nss_n2h_interface_handler(struct nss_ctx_instance *nss_ctx,
 	}
 
 	/*
-	 * Update the callback and app_data for NOTIFY messages, IPv4 sends all notify messages
+	 * Update the callback and app_data for NOTIFY messages, n2h sends all notify messages
 	 * to the same callback/app_data.
 	 */
 	if (nnm->cm.response == NSS_CMM_RESPONSE_NOTIFY) {
@@ -715,40 +719,6 @@ failure:
 }
 
 /*
- * nss_n2h_flush_payloads()
- * 	Sends a command down to NSS for flushing all payloads
- */
-nss_tx_status_t nss_n2h_flush_payloads(struct nss_ctx_instance *nss_ctx)
-{
-	struct nss_n2h_msg nnm;
-	struct nss_n2h_flush_payloads *nnflshpl;
-	nss_tx_status_t nss_tx_status;
-
-	nnflshpl = &nnm.msg.flush_payloads;
-
-	/*
-	 * TODO: No additional information sent in message
-	 * as of now. Need to initialize message content accordingly
-	 * if needed.
-	 */
-	nss_n2h_msg_init(&nnm, NSS_N2H_INTERFACE,
-			NSS_TX_METADATA_TYPE_N2H_FLUSH_PAYLOADS,
-			sizeof(struct nss_n2h_flush_payloads),
-			NULL,
-			NULL);
-
-	nss_tx_status = nss_n2h_tx_msg(nss_ctx, &nnm);
-	if (nss_tx_status != NSS_TX_SUCCESS) {
-		nss_warning("%p: failed to send flush payloads command to NSS\n",
-				nss_ctx);
-
-		return NSS_TX_FAILURE;
-	}
-
-	return NSS_TX_SUCCESS;
-}
-
-/*
  * nss_n2h_empty_pool_buf_core1_handler()
  *	Sets the number of empty buffer for core 1
  */
@@ -814,7 +784,7 @@ static int nss_n2h_wifi_payloads_handler(ctl_table *ctl,
  * nss_n2h_rps_cfg()
  *	Send Message to NSS to enable RPS.
  */
-nss_tx_status_t nss_n2h_rps_cfg(struct nss_ctx_instance *nss_ctx, int enable_rps)
+static nss_tx_status_t nss_n2h_rps_cfg(struct nss_ctx_instance *nss_ctx, int enable_rps)
 {
 	struct nss_n2h_msg nnm;
 	struct nss_n2h_rps *rps_cfg;
@@ -867,7 +837,7 @@ nss_tx_status_t nss_n2h_rps_cfg(struct nss_ctx_instance *nss_ctx, int enable_rps
  * nss_n2h_mitigation_cfg()
  *	Send Message to NSS to disable MITIGATION.
  */
-nss_tx_status_t nss_n2h_mitigation_cfg(struct nss_ctx_instance *nss_ctx, int enable_mitigation, nss_core_id_t core_num)
+static nss_tx_status_t nss_n2h_mitigation_cfg(struct nss_ctx_instance *nss_ctx, int enable_mitigation, nss_core_id_t core_num)
 {
 	struct nss_n2h_msg nnm;
 	struct nss_n2h_mitigation *mitigation_cfg;
@@ -928,7 +898,7 @@ static inline void nss_n2h_buf_pool_free(struct nss_n2h_buf_pool *buf_pool)
  * nss_n2h_buf_cfg()
  *	Send Message to NSS to enable pbufs.
  */
-nss_tx_status_t nss_n2h_buf_pool_cfg(struct nss_ctx_instance *nss_ctx,
+static nss_tx_status_t nss_n2h_buf_pool_cfg(struct nss_ctx_instance *nss_ctx,
 	       				int buf_pool_size, nss_core_id_t core_num)
 {
 	static struct nss_n2h_msg nnm;
@@ -1001,7 +971,177 @@ failure:
 	return NSS_FAILURE;
 }
 
+/*
+ * nss_rps_handler()
+ *	Enable NSS RPS
+ */
+static int nss_n2h_rpscfg_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	struct nss_top_instance *nss_top = &nss_top_main;
+	struct nss_ctx_instance *nss_ctx = &nss_top->nss[0];
+	int ret;
 
+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+	if (!ret) {
+		if ((write) && (nss_n2h_rps_config == 1)) {
+			printk(KERN_INFO "Enabling NSS RPS\n");
+
+			return nss_n2h_rps_cfg(nss_ctx, 1);
+		}
+
+		if ((write) && (nss_n2h_rps_config == 0)) {
+			printk(KERN_INFO "Runtime disabling of NSS RPS not supported\n");
+			return ret;
+		}
+
+		if (write) {
+			printk(KERN_INFO "Invalid input value.Valid values are 0 and 1\n");
+		}
+
+	}
+
+	return ret;
+}
+
+/*
+ * nss_mitigation_handler()
+ * Enable NSS MITIGATION
+ */
+static int nss_n2h_mitigationcfg_core0_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	struct nss_top_instance *nss_top = &nss_top_main;
+	struct nss_ctx_instance *nss_ctx = &nss_top->nss[NSS_CORE_0];
+	int ret;
+
+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+	if (ret) {
+		return ret;
+	}
+
+	/*
+	 * It's a read operation
+	 */
+	if (!write) {
+		return ret;
+	}
+
+	if (!nss_n2h_core0_mitigation_cfg) {
+		printk(KERN_INFO "Disabling NSS MITIGATION\n");
+		nss_n2h_mitigation_cfg(nss_ctx, 0, NSS_CORE_0);
+		return 0;
+	}
+	printk(KERN_INFO "Invalid input value.Valid value is 0, Runtime re-enabling not supported\n");
+	return -EINVAL;
+}
+
+/*
+ * nss_mitigation_handler()
+ * Enable NSS MITIGATION
+ */
+static int nss_n2h_mitigationcfg_core1_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	struct nss_top_instance *nss_top = &nss_top_main;
+	struct nss_ctx_instance *nss_ctx = &nss_top->nss[NSS_CORE_1];
+	int ret;
+
+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+	if (ret) {
+		return ret;
+	}
+
+	/*
+	 * It's a read operation
+	 */
+	if (!write) {
+		return ret;
+	}
+
+	if (!nss_n2h_core1_mitigation_cfg) {
+		printk(KERN_INFO "Disabling NSS MITIGATION\n");
+		nss_n2h_mitigation_cfg(nss_ctx, 0, NSS_CORE_1);
+		return 0;
+	}
+	printk(KERN_INFO "Invalid input value.Valid value is 0, Runtime re-enabling not supported\n");
+	return -EINVAL;
+}
+
+/*
+ * nss_buf_handler()
+ *	Add extra NSS bufs from host memory
+ */
+static int nss_n2h_buf_cfg_core0_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	struct nss_top_instance *nss_top = &nss_top_main;
+	struct nss_ctx_instance *nss_ctx = &nss_top->nss[NSS_CORE_0];
+	int ret;
+
+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+	if (ret) {
+		return ret;
+	}
+
+	/*
+	 * It's a read operation
+	 */
+	if (!write) {
+		return ret;
+	}
+
+	if (nss_ctx->buf_sz_allocated) {
+		nss_n2h_core0_add_buf_pool_size = nss_ctx->buf_sz_allocated;
+		return -EPERM;
+	}
+
+	if ((nss_n2h_core0_add_buf_pool_size >= 1) && (nss_n2h_core0_add_buf_pool_size <= NSS_N2H_MAX_BUF_POOL_SIZE)) {
+		printk(KERN_INFO "configuring additional NSS pbufs\n");
+		ret = nss_n2h_buf_pool_cfg(nss_ctx, nss_n2h_core0_add_buf_pool_size, NSS_CORE_0);
+		nss_n2h_core0_add_buf_pool_size = nss_ctx->buf_sz_allocated;
+		printk(KERN_INFO "additional pbufs of size %d got added to NSS\n", nss_ctx->buf_sz_allocated);
+		return ret;
+	}
+
+	printk(KERN_INFO "Invalid input value. should be greater than 1 and less than %d\n", NSS_N2H_MAX_BUF_POOL_SIZE);
+	return -EINVAL;
+}
+
+/*
+ * nss_n2h_buf_handler()
+ *	Add extra NSS bufs from host memory
+ */
+static int nss_n2h_buf_cfg_core1_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	struct nss_top_instance *nss_top = &nss_top_main;
+	struct nss_ctx_instance *nss_ctx = &nss_top->nss[NSS_CORE_1];
+	int ret;
+
+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+	if (ret) {
+		return ret;
+	}
+
+	/*
+	 * It's a read operation
+	 */
+	if (!write) {
+		return ret;
+	}
+
+	if (nss_ctx->buf_sz_allocated) {
+		nss_n2h_core1_add_buf_pool_size = nss_ctx->buf_sz_allocated;
+		return -EPERM;
+	}
+
+	if ((nss_n2h_core1_add_buf_pool_size >= 1) && (nss_n2h_core1_add_buf_pool_size <= NSS_N2H_MAX_BUF_POOL_SIZE)) {
+		printk(KERN_INFO "configuring additional NSS pbufs\n");
+		ret = nss_n2h_buf_pool_cfg(nss_ctx, nss_n2h_core1_add_buf_pool_size, NSS_CORE_1);
+		nss_n2h_core1_add_buf_pool_size = nss_ctx->buf_sz_allocated;
+		printk(KERN_INFO "additional pbufs of size %d got added to NSS\n", nss_ctx->buf_sz_allocated);
+		return ret;
+	}
+
+	printk(KERN_INFO "Invalid input value. should be greater than 1 and less than %d\n", NSS_N2H_MAX_BUF_POOL_SIZE);
+	return -EINVAL;
+}
 
 static ctl_table nss_n2h_table[] = {
 	{
@@ -1053,6 +1193,41 @@ static ctl_table nss_n2h_table[] = {
 		.mode		= 0644,
 		.proc_handler	= &nss_n2h_wifi_payloads_handler,
 	},
+	{
+		.procname	= "rps",
+		.data		= &nss_n2h_rps_config,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &nss_n2h_rpscfg_handler,
+	},
+	{
+		.procname	= "mitigation_core0",
+		.data		= &nss_n2h_core0_mitigation_cfg,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &nss_n2h_mitigationcfg_core0_handler,
+	},
+	{
+		.procname	= "mitigation_core1",
+		.data		= &nss_n2h_core1_mitigation_cfg,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &nss_n2h_mitigationcfg_core1_handler,
+	},
+	{
+		.procname	= "extra_pbuf_core0",
+		.data		= &nss_n2h_core0_add_buf_pool_size,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &nss_n2h_buf_cfg_core0_handler,
+	},
+	{
+		.procname	= "extra_pbuf_core1",
+		.data		= &nss_n2h_core1_add_buf_pool_size,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &nss_n2h_buf_cfg_core1_handler,
+	},
 
 	{ }
 };
@@ -1088,69 +1263,47 @@ static ctl_table nss_n2h_root[] = {
 static struct ctl_table_header *nss_n2h_header;
 
 /*
+ * nss_n2h_flush_payloads()
+ * 	Sends a command down to NSS for flushing all payloads
+ */
+nss_tx_status_t nss_n2h_flush_payloads(struct nss_ctx_instance *nss_ctx)
+{
+	struct nss_n2h_msg nnm;
+	struct nss_n2h_flush_payloads *nnflshpl;
+	nss_tx_status_t nss_tx_status;
+
+	nnflshpl = &nnm.msg.flush_payloads;
+
+	/*
+	 * TODO: No additional information sent in message
+	 * as of now. Need to initialize message content accordingly
+	 * if needed.
+	 */
+	nss_n2h_msg_init(&nnm, NSS_N2H_INTERFACE,
+			NSS_TX_METADATA_TYPE_N2H_FLUSH_PAYLOADS,
+			sizeof(struct nss_n2h_flush_payloads),
+			NULL,
+			NULL);
+
+	nss_tx_status = nss_n2h_tx_msg(nss_ctx, &nnm);
+	if (nss_tx_status != NSS_TX_SUCCESS) {
+		nss_warning("%p: failed to send flush payloads command to NSS\n",
+				nss_ctx);
+
+		return NSS_TX_FAILURE;
+	}
+
+	return NSS_TX_SUCCESS;
+}
+
+/*
  * nss_n2h_msg_init()
- *	Initialize IPv4 message.
+ *	Initialize n2h message.
  */
 void nss_n2h_msg_init(struct nss_n2h_msg *nim, uint16_t if_num, uint32_t type,
 		      uint32_t len, nss_n2h_msg_callback_t cb, void *app_data)
 {
 	nss_cmn_msg_init(&nim->cm, if_num, type, len, (void *)cb, app_data);
-}
-
-/*
- * nss_n2h_register_sysctl()
- *	Register sysctl specific to n2h
- */
-void nss_n2h_empty_pool_buf_register_sysctl(void)
-{
-	/*
-	 * Register sysctl table.
-	 */
-	nss_n2h_header = register_sysctl_table(nss_n2h_root);
-
-	/*
-	 * Core0
-	 */
-	sema_init(&nss_n2h_nepbcfgp[NSS_CORE_0].sem, 1);
-	init_completion(&nss_n2h_nepbcfgp[NSS_CORE_0].complete);
-	nss_n2h_nepbcfgp[NSS_CORE_0].empty_buf_pool =
-		nss_n2h_empty_pool_buf_cfg[NSS_CORE_0];
-	nss_n2h_nepbcfgp[NSS_CORE_0].low_water =
-		nss_n2h_water_mark[NSS_CORE_0][0];
-	nss_n2h_nepbcfgp[NSS_CORE_0].high_water =
-		nss_n2h_water_mark[NSS_CORE_0][1];
-
-	/*
-	 * Core1
-	 */
-	sema_init(&nss_n2h_nepbcfgp[NSS_CORE_1].sem, 1);
-	init_completion(&nss_n2h_nepbcfgp[NSS_CORE_1].complete);
-	nss_n2h_nepbcfgp[NSS_CORE_1].empty_buf_pool =
-		nss_n2h_empty_pool_buf_cfg[NSS_CORE_1];
-	nss_n2h_nepbcfgp[NSS_CORE_1].low_water =
-		nss_n2h_water_mark[NSS_CORE_1][0];
-	nss_n2h_nepbcfgp[NSS_CORE_1].high_water =
-		nss_n2h_water_mark[NSS_CORE_1][1];
-
-	/*
-	 * WiFi pool buf cfg sema init
-	 */
-	sema_init(&nss_n2h_wp.sem, 1);
-	init_completion(&nss_n2h_wp.complete);
-}
-
-/*
- * nss_n2h_unregister_sysctl()
- *	Unregister sysctl specific to n2h
- */
-void nss_n2h_empty_pool_buf_unregister_sysctl(void)
-{
-	/*
-	 * Unregister sysctl table.
-	 */
-	if (nss_n2h_header) {
-		unregister_sysctl_table(nss_n2h_header);
-	}
 }
 
 /*
@@ -1240,7 +1393,13 @@ struct nss_ctx_instance *nss_n2h_notify_register(int core, nss_n2h_msg_callback_
 void nss_n2h_register_handler()
 {
 	nss_core_register_handler(NSS_N2H_INTERFACE, nss_n2h_interface_handler, NULL);
+}
 
+/*
+ * nss_n2h_register_sysctl()
+ */
+void nss_n2h_register_sysctl(void)
+{
 	/*
 	 * RPS sema init
 	 */
@@ -1271,10 +1430,57 @@ void nss_n2h_register_handler()
 	sema_init(&nss_n2h_bufcp[NSS_CORE_1].sem, 1);
 	init_completion(&nss_n2h_bufcp[NSS_CORE_1].complete);
 
+	/*
+	 * Core0
+	 */
+	sema_init(&nss_n2h_nepbcfgp[NSS_CORE_0].sem, 1);
+	init_completion(&nss_n2h_nepbcfgp[NSS_CORE_0].complete);
+	nss_n2h_nepbcfgp[NSS_CORE_0].empty_buf_pool =
+		nss_n2h_empty_pool_buf_cfg[NSS_CORE_0];
+	nss_n2h_nepbcfgp[NSS_CORE_0].low_water =
+		nss_n2h_water_mark[NSS_CORE_0][0];
+	nss_n2h_nepbcfgp[NSS_CORE_0].high_water =
+		nss_n2h_water_mark[NSS_CORE_0][1];
+
+	/*
+	 * Core1
+	 */
+	sema_init(&nss_n2h_nepbcfgp[NSS_CORE_1].sem, 1);
+	init_completion(&nss_n2h_nepbcfgp[NSS_CORE_1].complete);
+	nss_n2h_nepbcfgp[NSS_CORE_1].empty_buf_pool =
+		nss_n2h_empty_pool_buf_cfg[NSS_CORE_1];
+	nss_n2h_nepbcfgp[NSS_CORE_1].low_water =
+		nss_n2h_water_mark[NSS_CORE_1][0];
+	nss_n2h_nepbcfgp[NSS_CORE_1].high_water =
+		nss_n2h_water_mark[NSS_CORE_1][1];
+
+	/*
+	 * WiFi pool buf cfg sema init
+	 */
+	sema_init(&nss_n2h_wp.sem, 1);
+	init_completion(&nss_n2h_wp.complete);
+
 	nss_n2h_notify_register(NSS_CORE_0, NULL, NULL);
 	nss_n2h_notify_register(NSS_CORE_1, NULL, NULL);
 
+	/*
+	 * Register sysctl table.
+	 */
+	nss_n2h_header = register_sysctl_table(nss_n2h_root);
+}
+
+/*
+ * nss_n2h_unregister_sysctl()
+ *	Unregister sysctl specific to n2h
+ */
+void nss_n2h_unregister_sysctl(void)
+{
+	/*
+	 * Unregister sysctl table.
+	 */
+	if (nss_n2h_header) {
+		unregister_sysctl_table(nss_n2h_header);
+	}
 }
 
 EXPORT_SYMBOL(nss_n2h_notify_register);
-EXPORT_SYMBOL(nss_n2h_empty_pool_buf_register_sysctl);
