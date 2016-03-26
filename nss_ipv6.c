@@ -556,13 +556,14 @@ static struct ctl_table_header *nss_ipv6_header;
  */
 void nss_ipv6_register_sysctl(void)
 {
+	sema_init(&i6cfgp.sem, 1);
+	init_completion(&i6cfgp.complete);
+	i6cfgp.current_value = nss_ipv6_conn_cfg;
+
 	/*
 	 * Register sysctl table.
 	 */
 	nss_ipv6_header = register_sysctl_table(nss_ipv6_root);
-	sema_init(&i6cfgp.sem, 1);
-	init_completion(&i6cfgp.complete);
-	i6cfgp.current_value = nss_ipv6_conn_cfg;
 }
 
 /*

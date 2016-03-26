@@ -51,18 +51,11 @@
 #include <linux/regulator/consumer.h>
 #include <linux/clk.h>
 
-#define NSS_N2H_MAX_BUF_POOL_SIZE (1024 * 1024 * 8) /* 8MB */
-
 /*
  * Global declarations
  */
 int nss_ctl_redirect __read_mostly = 0;
 int nss_ctl_debug __read_mostly = 0;
-int nss_rps_cfg __read_mostly = 0;
-int nss_core0_mitigation_cfg __read_mostly = 1;
-int nss_core1_mitigation_cfg __read_mostly = 1;
-int nss_core0_add_buf_pool_size __read_mostly = 0;
-int nss_core1_add_buf_pool_size __read_mostly = 0;
 int nss_ctl_logbuf __read_mostly = 0;
 int nss_jumbo_mru  __read_mostly = 0;
 int nss_paged_mode __read_mostly = 0;
@@ -426,178 +419,6 @@ static int nss_debug_handler(ctl_table *ctl, int write, void __user *buffer, siz
 #endif
 
 /*
- * nss_rps_handler()
- *	Enable NSS RPS
- */
-static int nss_rpscfg_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
-{
-	struct nss_top_instance *nss_top = &nss_top_main;
-	struct nss_ctx_instance *nss_ctx = &nss_top->nss[0];
-	int ret;
-
-	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
-	if (!ret) {
-		if ((write) && (nss_rps_cfg == 1)) {
-			printk("Enabling NSS RPS\n");
-
-			return nss_n2h_rps_cfg(nss_ctx, 1);
-		}
-
-		if ((write) && (nss_rps_cfg == 0)) {
-			printk("Runtime disabling of NSS RPS not supported \n");
-			return ret;
-		}
-
-		if (write) {
-			printk("Invalid input value.Valid values are 0 and 1 \n");
-		}
-
-	}
-
-	return ret;
-}
-
-/*
- * nss_mitigation_handler()
- * Enable NSS MITIGATION
- */
-static int nss_mitigationcfg_core0_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
-{
-	struct nss_top_instance *nss_top = &nss_top_main;
-	struct nss_ctx_instance *nss_ctx = &nss_top->nss[NSS_CORE_0];
-	int ret;
-
-	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
-	if (ret) {
-		return ret;
-	}
-
-	/*
-	 * It's a read operation
-	 */
-	if (!write) {
-		return ret;
-	}
-
-	if (!nss_core0_mitigation_cfg ) {
-		printk("Disabling NSS MITIGATION\n");
-		nss_n2h_mitigation_cfg(nss_ctx, 0, NSS_CORE_0);
-		return 0;
-	}
-	printk("Invalid input value.Valid value is 0, Runtime re-enabling not supported\n");
-	return -EINVAL;
-}
-
-/*
- * nss_mitigation_handler()
- * Enable NSS MITIGATION
- */
-static int nss_mitigationcfg_core1_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
-{
-	struct nss_top_instance *nss_top = &nss_top_main;
-	struct nss_ctx_instance *nss_ctx = &nss_top->nss[NSS_CORE_1];
-	int ret;
-
-	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
-	if (ret) {
-		return ret;;
-	}
-
-	/*
-	 * It's a read operation
-	 */
-	if (!write) {
-		return ret;
-	}
-
-	if (!nss_core1_mitigation_cfg ) {
-		printk("Disabling NSS MITIGATION\n");
-		nss_n2h_mitigation_cfg(nss_ctx, 0, NSS_CORE_1);
-		return 0;
-	}
-	printk("Invalid input value.Valid value is 0, Runtime re-enabling not supported\n");
-	return -EINVAL;
-}
-
-/*
- * nss_buf_handler()
- *	Add extra NSS bufs from host memory
- */
-static int nss_buf_cfg_core0_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
-{
-	struct nss_top_instance *nss_top = &nss_top_main;
-	struct nss_ctx_instance *nss_ctx = &nss_top->nss[NSS_CORE_0];
-	int ret;
-
-	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
-	if (ret) {
-		return ret;
-	}
-
-	/*
-	 * It's a read operation
-	 */
-	if (!write) {
-		return ret;
-	}
-
-	if (nss_ctx->buf_sz_allocated) {
-		nss_core0_add_buf_pool_size = nss_ctx->buf_sz_allocated;
-		return -EPERM;
-	}
-
-	if ((nss_core0_add_buf_pool_size >= 1) && (nss_core0_add_buf_pool_size <= NSS_N2H_MAX_BUF_POOL_SIZE)) {
-		printk("configuring additional NSS pbufs\n");
-		ret = nss_n2h_buf_pool_cfg(nss_ctx, nss_core0_add_buf_pool_size, NSS_CORE_0);
-		nss_core0_add_buf_pool_size = nss_ctx->buf_sz_allocated;
-		printk("additional pbufs of size %d got added to NSS\n", nss_ctx->buf_sz_allocated);
-		return ret;;
-	}
-
-	printk("Invalid input value. should be greater than 1 and less than %d\n", NSS_N2H_MAX_BUF_POOL_SIZE);
-	return -EINVAL;
-}
-
-/*
- * nss_buf_handler()
- *	Add extra NSS bufs from host memory
- */
-static int nss_buf_cfg_core1_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
-{
-	struct nss_top_instance *nss_top = &nss_top_main;
-	struct nss_ctx_instance *nss_ctx = &nss_top->nss[NSS_CORE_1];
-	int ret;
-
-	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
-	if (ret) {
-		return ret;
-	}
-
-	/*
-	 * It's a read operation
-	 */
-	if (!write) {
-		return ret;
-	}
-
-	if (nss_ctx->buf_sz_allocated) {
-		nss_core1_add_buf_pool_size = nss_ctx->buf_sz_allocated;
-		return -EPERM;
-	}
-
-	if ((nss_core1_add_buf_pool_size >= 1) && (nss_core1_add_buf_pool_size <= NSS_N2H_MAX_BUF_POOL_SIZE)) {
-		printk("configuring additional NSS pbufs\n");
-		ret = nss_n2h_buf_pool_cfg(nss_ctx, nss_core1_add_buf_pool_size, NSS_CORE_1);
-		nss_core1_add_buf_pool_size = nss_ctx->buf_sz_allocated;
-		printk("additional pbufs of size %d got added to NSS\n", nss_ctx->buf_sz_allocated);
-		return ret;
-	}
-
-	printk("Invalid input value. should be greater than 1 and less than %d\n", NSS_N2H_MAX_BUF_POOL_SIZE);
-	return -EINVAL;
-}
-
-/*
  * nss_coredump_handler()
  *	Send Signal To Coredump NSS Cores
  */
@@ -719,41 +540,6 @@ static ctl_table nss_general_table[] = {
 		.maxlen                 = sizeof(int),
 		.mode                   = 0644,
 		.proc_handler   	= &nss_coredump_handler,
-	},
-	{
-		.procname               = "rps",
-		.data                   = &nss_rps_cfg,
-		.maxlen                 = sizeof(int),
-		.mode                   = 0644,
-		.proc_handler   	= &nss_rpscfg_handler,
-	},
-	{
-		.procname               = "mitigation_core0",
-		.data                   = &nss_core0_mitigation_cfg,
-		.maxlen                 = sizeof(int),
-		.mode                   = 0644,
-		.proc_handler           = &nss_mitigationcfg_core0_handler,
-	},
-	{
-		.procname               = "mitigation_core1",
-		.data                   = &nss_core1_mitigation_cfg,
-		.maxlen                 = sizeof(int),
-		.mode                   = 0644,
-		.proc_handler           = &nss_mitigationcfg_core1_handler,
-	},
-	{
-		.procname               = "extra_pbuf_core0",
-		.data                   = &nss_core0_add_buf_pool_size,
-		.maxlen                 = sizeof(int),
-		.mode                   = 0644,
-		.proc_handler   	= &nss_buf_cfg_core0_handler,
-	},
-	{
-		.procname               = "extra_pbuf_core1",
-		.data                   = &nss_core1_add_buf_pool_size,
-		.maxlen                 = sizeof(int),
-		.mode                   = 0644,
-		.proc_handler   	= &nss_buf_cfg_core1_handler,
 	},
 	{
 		.procname               = "logbuf",
@@ -898,9 +684,9 @@ static int __init nss_init(void)
 	nss_ipv6_register_sysctl();
 
 	/*
-	 * Registering sysctl for n2h empty pool buffer.
+	 * Registering sysctl for n2h specific config.
 	 */
-	nss_n2h_empty_pool_buf_register_sysctl();
+	nss_n2h_register_sysctl();
 
 	/*
 	 * Setup Runtime Sample values
@@ -986,7 +772,7 @@ static void __exit nss_cleanup(void)
 	/*
 	 * Unregister n2h specific sysctl
 	 */
-	nss_n2h_empty_pool_buf_unregister_sysctl();
+	nss_n2h_unregister_sysctl();
 
 	/*
 	 * Unregister ipv4/6 specific sysctl

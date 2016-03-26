@@ -555,13 +555,14 @@ static struct ctl_table_header *nss_ipv4_header;
  */
 void nss_ipv4_register_sysctl(void)
 {
+	sema_init(&i4cfgp.sem, 1);
+	init_completion(&i4cfgp.complete);
+	i4cfgp.current_value = nss_ipv4_conn_cfg;
+
 	/*
 	 * Register sysctl table.
 	 */
 	nss_ipv4_header = register_sysctl_table(nss_ipv4_root);
-	sema_init(&i4cfgp.sem, 1);
-	init_completion(&i4cfgp.complete);
-	i4cfgp.current_value = nss_ipv4_conn_cfg;
 }
 
 /*
