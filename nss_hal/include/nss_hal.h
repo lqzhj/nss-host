@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2016 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -103,19 +103,11 @@ static inline void nss_hal_debug_enable(void)
 /*
  * nss_hal_probe()
  */
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3,7,0))
-int __devinit nss_hal_probe(struct platform_device *nss_dev);
-#else
 int nss_hal_probe(struct platform_device *nss_dev);
-#endif
 
 /*
  * nss_hal_remove()
  */
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3,7,0))
-int __devexit nss_hal_remove(struct platform_device *nss_dev);
-#else
 int nss_hal_remove(struct platform_device *nss_dev);
-#endif
 
 #endif /* __NSS_HAL_H */

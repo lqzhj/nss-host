@@ -944,11 +944,7 @@ static irqreturn_t nss_hal_handle_irq(int irq, void *ctx)
  * nss_hal_probe()
  *	HLOS device probe callback
  */
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3,7,0))
-int __devinit nss_hal_probe(struct platform_device *nss_dev)
-#else
 int nss_hal_probe(struct platform_device *nss_dev)
-#endif
 {
 	struct nss_top_instance *nss_top = &nss_top_main;
 	struct nss_ctx_instance *nss_ctx = NULL;
@@ -1637,11 +1633,7 @@ err_init_0:
  * nss_hal_remove()
  *	HLOS device remove callback
  */
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3,7,0))
-int __devexit nss_hal_remove(struct platform_device *nss_dev)
-#else
 int nss_hal_remove(struct platform_device *nss_dev)
-#endif
 {
 	struct nss_top_instance *nss_top = &nss_top_main;
 	struct nss_ctx_instance *nss_ctx = &nss_top->nss[nss_dev->id];

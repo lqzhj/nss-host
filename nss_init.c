@@ -101,11 +101,7 @@ extern struct of_device_id nss_dt_ids[];
  * nss_probe()
  * 	HLOS device probe callback
  */
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3,7,0))
-inline int __devinit nss_probe(struct platform_device *nss_dev)
-#else
 inline int nss_probe(struct platform_device *nss_dev)
-#endif
 {
 	return nss_hal_probe(nss_dev);
 }
@@ -114,11 +110,7 @@ inline int nss_probe(struct platform_device *nss_dev)
  * nss_remove()
  * 	HLOS device remove callback
  */
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3,7,0))
-inline int __devexit nss_remove(struct platform_device *nss_dev)
-#else
 inline int nss_remove(struct platform_device *nss_dev)
-#endif
 {
 	return nss_hal_remove(nss_dev);
 }
@@ -129,11 +121,7 @@ inline int nss_remove(struct platform_device *nss_dev)
  */
 struct platform_driver nss_driver = {
 	.probe	= nss_probe,
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3,7,0))
-	.remove	= __devexit_p(nss_remove),
-#else
 	.remove	= nss_remove,
-#endif
 	.driver	= {
 		.name	= "qca-nss",
 		.owner	= THIS_MODULE,
