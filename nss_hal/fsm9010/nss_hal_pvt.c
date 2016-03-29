@@ -362,7 +362,7 @@ int nss_hal_probe(struct platform_device *nss_dev)
 	nss_ctx->int_ctx[0].nss_ctx = nss_ctx;
 	nss_ctx->int_ctx[0].shift_factor = 0;
 	nss_ctx->int_ctx[0].irq = npd->irq[0];
-	err = request_irq(npd->irq[0], nss_hal_handle_irq, IRQF_DISABLED, "nss", &nss_ctx->int_ctx[0]);
+	err = request_irq(npd->irq[0], nss_hal_handle_irq, 0, "nss", &nss_ctx->int_ctx[0]);
 	if (err) {
 		nss_warning("%d: IRQ0 request failed", nss_dev->id);
 		goto err_init_2;
@@ -405,7 +405,7 @@ int nss_hal_probe(struct platform_device *nss_dev)
 		nss_ctx->int_ctx[1].nss_ctx = nss_ctx;
 		nss_ctx->int_ctx[1].shift_factor = 15;
 		nss_ctx->int_ctx[1].irq = npd->irq[1];
-		err = request_irq(npd->irq[1], nss_hal_handle_irq, IRQF_DISABLED, "nss", &nss_ctx->int_ctx[1]);
+		err = request_irq(npd->irq[1], nss_hal_handle_irq, 0, "nss", &nss_ctx->int_ctx[1]);
 		if (err) {
 			nss_warning("%d: IRQ1 request failed for nss", nss_dev->id);
 			goto err_init_5;
