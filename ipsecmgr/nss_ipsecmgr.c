@@ -475,7 +475,6 @@ static void nss_ipsecmgr_tunnel_notify(void *app_data, struct nss_ipsec_msg *nim
 		return;
 	}
 
-	BUG_ON(dev != tun_dev);
 	priv = netdev_priv(dev);
 
 	switch (nim->cm.type) {
