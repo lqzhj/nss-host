@@ -332,9 +332,9 @@ static int profile_open(struct inode *inode, struct file *filp)
 	struct profile_io *pn;
 
 	if (filp->private_data)
-		printk(KERN_WARNING "%s: %p\n", filp->f_dentry->d_iname, filp->private_data);
+		printk(KERN_WARNING "%s: %p\n", filp->f_path.dentry->d_iname, filp->private_data);
 
-	n = filp->f_dentry->d_iname[strlen(filp->f_dentry->d_iname) - 1] - '0';
+	n = filp->f_path.dentry->d_iname[strlen(filp->f_path.dentry->d_iname) - 1] - '0';
 	if (n < 0 || n >= NSS_MAX_CORES)
 		n = 0;
 	pn = node[n];
