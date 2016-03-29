@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, 2015 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -263,3 +263,18 @@ extern void nss_qdisc_start_basic_stats_polling(struct nss_qdisc *nq);
  *	Call to stop polling of basic stats
  */
 extern void nss_qdisc_stop_basic_stats_polling(struct nss_qdisc *nq);
+
+/*
+ * nss_qdisc_gnet_stats_copy_basic()
+ *  Wrapper around gnet_stats_copy_basic()
+ */
+extern int nss_qdisc_gnet_stats_copy_basic(struct gnet_dump *d,
+				struct gnet_stats_basic_packed *b);
+
+/*
+ * nss_qdisc_gnet_stats_copy_queue()
+ *  Wrapper around gnet_stats_copy_queue()
+ */
+extern int nss_qdisc_gnet_stats_copy_queue(struct gnet_dump *d,
+				struct gnet_stats_queue *q);
+

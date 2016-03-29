@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, 2015 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -626,8 +626,8 @@ static int nss_htb_dump_class_stats(struct Qdisc *sch, unsigned long arg, struct
 {
 	struct nss_qdisc *nq = (struct nss_qdisc *)arg;
 
-	if (gnet_stats_copy_basic(d, &nq->bstats) < 0 ||
-		gnet_stats_copy_queue(d, &nq->qstats) < 0) {
+	if (nss_qdisc_gnet_stats_copy_basic(d, &nq->bstats) < 0 ||
+			nss_qdisc_gnet_stats_copy_queue(d, &nq->qstats) < 0) {
 		nss_qdisc_error("%s: htb class %x stats dump failed\n", __func__, nq->qos_tag);
 		return -1;
 	}
