@@ -881,7 +881,8 @@ static inline bool nss_core_handle_linear_skb(struct nss_ctx_instance *nss_ctx, 
 		/*
 		 * 2nd skb in the chain. head's frag_list should point to him.
 		 */
-		skb_frag_add_head(head, nbuf);
+		nbuf->next = skb_shinfo(head)->frag_list;
+		skb_shinfo(head)->frag_list = nbuf;
 	} else {
 		/*
 		 * 3rd, 4th... skb in the chain. The chain's previous tail's
