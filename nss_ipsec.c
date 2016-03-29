@@ -284,6 +284,13 @@ struct nss_ctx_instance *nss_ipsec_notify_register(uint32_t if_num, nss_ipsec_ms
 		return NULL;
 	}
 
+	/*
+	 * avoid multiple registeration for multiple tunnels
+	 */
+	if (nss_ctx->nss_top->ipsec_encap_callback || nss_ctx->nss_top->ipsec_decap_callback) {
+		return nss_ctx;
+	}
+
 	if (nss_ipsec_set_msg_callback(nss_ctx, if_num, cb, app_data) != NSS_TX_SUCCESS) {
 		nss_ipsec_warning("%p: register failed\n", nss_ctx);
 		return NULL;
@@ -324,6 +331,13 @@ struct nss_ctx_instance *nss_ipsec_data_register(uint32_t if_num, nss_ipsec_buf_
 	if ((if_num >= NSS_MAX_NET_INTERFACES) && (if_num < NSS_MAX_PHYSICAL_INTERFACES)){
 		nss_ipsec_warning("%p: data register received for invalid interface %d", nss_ctx, if_num);
 		return NULL;
+	}
+
+	/*
+	 * avoid multiple registeration for multiple tunnels
+	 */
+	if (nss_ctx->nss_top->subsys_dp_register[if_num].cb) {
+		return nss_ctx;
 	}
 
 	nss_ctx->nss_top->subsys_dp_register[if_num].cb = cb;
