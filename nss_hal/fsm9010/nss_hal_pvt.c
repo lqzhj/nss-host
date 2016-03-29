@@ -338,8 +338,13 @@ int nss_hal_probe(struct platform_device *nss_dev)
 	/*
 	 * Register netdevice handlers
 	 */
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3, 16, 0))
 	nss_ctx->int_ctx[0].ndev = alloc_netdev(sizeof(struct netdev_priv_instance),
 					"qca-nss-dev%d", nss_hal_dummy_netdev_setup);
+#else
+	nss_ctx->int_ctx[0].ndev = alloc_netdev(sizeof(struct netdev_priv_instance),
+					"qca-nss-dev%d", NET_NAME_ENUM, nss_hal_dummy_netdev_setup);
+#endif
 	if (nss_ctx->int_ctx[0].ndev == NULL) {
 		nss_warning("%p: Could not allocate net_device #0", nss_ctx);
 		err = -ENOMEM;
@@ -386,8 +391,13 @@ int nss_hal_probe(struct platform_device *nss_dev)
 		/*
 		 * Register netdevice handlers
 		 */
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3, 16, 0))
 		nss_ctx->int_ctx[1].ndev = alloc_netdev(sizeof(struct netdev_priv_instance),
 						"qca-nss-dev%d", nss_hal_dummy_netdev_setup);
+#else
+		nss_ctx->int_ctx[1].ndev = alloc_netdev(sizeof(struct netdev_priv_instance),
+						"qca-nss-dev%d", NET_NAME_ENUM, nss_hal_dummy_netdev_setup);
+#endif
 		if (nss_ctx->int_ctx[1].ndev == NULL) {
 			nss_warning("%p: Could not allocate net_device #1", nss_ctx);
 			err = -ENOMEM;
