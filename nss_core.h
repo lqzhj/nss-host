@@ -1114,7 +1114,7 @@ extern void nss_stats_clean(void);
  */
 extern void nss_log_init(void);
 extern bool nss_debug_log_buffer_alloc(uint8_t nss_id, uint32_t nentry);
-extern int nss_logbuffer_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos);
+extern int nss_logbuffer_handler(struct ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos);
 
 /*
  * APIs to set jumbo_mru & paged_mode

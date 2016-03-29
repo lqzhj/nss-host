@@ -229,7 +229,7 @@ out:
  * nss_current_freq_handler()
  *	Handle Userspace Frequency Change Requests
  */
-static int nss_current_freq_handler (ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+static int nss_current_freq_handler(struct ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	int ret, i;
 
@@ -283,7 +283,7 @@ static int nss_current_freq_handler (ctl_table *ctl, int write, void __user *buf
  * nss_auto_scale_handler()
  *	Enables or Disable Auto Scaling
  */
-static int nss_auto_scale_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+static int nss_auto_scale_handler(struct ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	int ret;
 
@@ -353,7 +353,7 @@ static int nss_auto_scale_handler(ctl_table *ctl, int write, void __user *buffer
  * nss_get_freq_table_handler()
  *	Display Support Freq and Ex how to Change.
  */
-static int nss_get_freq_table_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+static int nss_get_freq_table_handler(struct ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	int ret, i;
 
@@ -380,7 +380,7 @@ static int nss_get_freq_table_handler(ctl_table *ctl, int write, void __user *bu
  * nss_get_average_inst_handler()
  *	Display AVG Inst Per Ms.
  */
-static int nss_get_average_inst_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+static int nss_get_average_inst_handler(struct ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	int ret;
 
@@ -402,7 +402,7 @@ static int nss_get_average_inst_handler(ctl_table *ctl, int write, void __user *
  * nss_debug_handler()
  *	Enable NSS debug output
  */
-static int nss_debug_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+static int nss_debug_handler(struct ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	int ret;
 
@@ -422,7 +422,7 @@ static int nss_debug_handler(ctl_table *ctl, int write, void __user *buffer, siz
  * nss_coredump_handler()
  *	Send Signal To Coredump NSS Cores
  */
-static int nss_coredump_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+static int nss_coredump_handler(struct ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[NSS_CORE_0];
 	int ret;
@@ -442,7 +442,7 @@ static int nss_coredump_handler(ctl_table *ctl, int write, void __user *buffer, 
  * nss_jumbo_mru_handler()
  *	Sysctl to modify nss_jumbo_mru
  */
-static int nss_jumbo_mru_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+static int nss_jumbo_mru_handler(struct ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	int ret;
 
@@ -463,7 +463,7 @@ static int nss_jumbo_mru_handler(ctl_table *ctl, int write, void __user *buffer,
  *	Sysctl to modify nss_paged_mode.
  */
 
-static int nss_paged_mode_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+static int nss_paged_mode_handler(struct ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	int ret;
 
@@ -484,7 +484,7 @@ static int nss_paged_mode_handler(ctl_table *ctl, int write, void __user *buffer
 /*
  * sysctl-tuning infrastructure.
  */
-static ctl_table nss_freq_table[] = {
+static struct ctl_table nss_freq_table[] = {
 	{
 		.procname		= "current_freq",
 		.data			= &nss_cmd_buf.current_freq,
@@ -517,7 +517,7 @@ static ctl_table nss_freq_table[] = {
 };
 #endif
 
-static ctl_table nss_general_table[] = {
+static struct ctl_table nss_general_table[] = {
 	{
 		.procname               = "redirect",
 		.data                   = &nss_ctl_redirect,
@@ -565,7 +565,7 @@ static ctl_table nss_general_table[] = {
 	{ }
 };
 
-static ctl_table nss_clock_dir[] = {
+static struct ctl_table nss_clock_dir[] = {
 #if (NSS_FREQ_SCALE_SUPPORT == 1)
 	{
 		.procname               = "clock",
@@ -581,7 +581,7 @@ static ctl_table nss_clock_dir[] = {
 	{ }
 };
 
-static ctl_table nss_root_dir[] = {
+static struct ctl_table nss_root_dir[] = {
 	{
 		.procname		= "nss",
 		.mode			= 0555,
@@ -590,7 +590,7 @@ static ctl_table nss_root_dir[] = {
 	{ }
 };
 
-static ctl_table nss_root[] = {
+static struct ctl_table nss_root[] = {
 	{
 		.procname		= "dev",
 		.mode			= 0555,

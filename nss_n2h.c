@@ -341,7 +341,7 @@ static void nss_n2h_set_wifi_payloads_callback(void *app_data,
  * nss_n2h_get_payload_info()
  *	Gets Payload information
  */
-static int nss_n2h_get_payload_info(ctl_table *ctl, int write,
+static int nss_n2h_get_payload_info(struct ctl_table *ctl, int write,
 			void __user *buffer, size_t *lenp, loff_t *ppos,
 			int core_num)
 {
@@ -395,7 +395,7 @@ static int nss_n2h_get_payload_info(ctl_table *ctl, int write,
  * nss_n2h_set_empty_pool_buf()
  *	Sets empty pool buffer
  */
-static int nss_n2h_set_empty_pool_buf(ctl_table *ctl, int write,
+static int nss_n2h_set_empty_pool_buf(struct ctl_table *ctl, int write,
 				void __user *buffer,
 				size_t *lenp, loff_t *ppos,
 				int core_num, int *new_val)
@@ -499,7 +499,7 @@ failure:
  * nss_n2h_set_water_mark()
  *	Sets water mark for N2H SOS
  */
-static int nss_n2h_set_water_mark(ctl_table *ctl, int write,
+static int nss_n2h_set_water_mark(struct ctl_table *ctl, int write,
 					void __user *buffer,
 					size_t *lenp, loff_t *ppos,
 					int core_num, int *low, int *high)
@@ -625,7 +625,7 @@ failure:
  * nss_n2h_cfg_wifi_pool()
  *	Sets number of wifi payloads to adjust high water mark for N2H SoS
  */
-static int nss_n2h_cfg_wifi_pool(ctl_table *ctl, int write,
+static int nss_n2h_cfg_wifi_pool(struct ctl_table *ctl, int write,
 					void __user *buffer,
 					size_t *lenp, loff_t *ppos,
 					int *payloads)
@@ -722,7 +722,7 @@ failure:
  * nss_n2h_empty_pool_buf_core1_handler()
  *	Sets the number of empty buffer for core 1
  */
-static int nss_n2h_empty_pool_buf_cfg_core1_handler(ctl_table *ctl,
+static int nss_n2h_empty_pool_buf_cfg_core1_handler(struct ctl_table *ctl,
 				int write, void __user *buffer,
 				size_t *lenp, loff_t *ppos)
 {
@@ -734,7 +734,7 @@ static int nss_n2h_empty_pool_buf_cfg_core1_handler(ctl_table *ctl,
  * nss_n2h_empty_pool_buf_core0_handler()
  *	Sets the number of empty buffer for core 0
  */
-static int nss_n2h_empty_pool_buf_cfg_core0_handler(ctl_table *ctl,
+static int nss_n2h_empty_pool_buf_cfg_core0_handler(struct ctl_table *ctl,
 				int write, void __user *buffer,
 				size_t *lenp, loff_t *ppos)
 {
@@ -746,7 +746,7 @@ static int nss_n2h_empty_pool_buf_cfg_core0_handler(ctl_table *ctl,
  * nss_n2h_water_mark_core1_handler()
  *	Sets water mark for core 1
  */
-static int nss_n2h_water_mark_core1_handler(ctl_table *ctl,
+static int nss_n2h_water_mark_core1_handler(struct ctl_table *ctl,
 			int write, void __user *buffer,
 			size_t *lenp, loff_t *ppos)
 {
@@ -759,7 +759,7 @@ static int nss_n2h_water_mark_core1_handler(ctl_table *ctl,
  * nss_n2h_water_mark_core0_handler()
  *	Sets water mark for core 0
  */
-static int nss_n2h_water_mark_core0_handler(ctl_table *ctl,
+static int nss_n2h_water_mark_core0_handler(struct ctl_table *ctl,
 			int write, void __user *buffer,
 			size_t *lenp, loff_t *ppos)
 {
@@ -772,7 +772,7 @@ static int nss_n2h_water_mark_core0_handler(ctl_table *ctl,
  * nss_n2h_wifi_payloads_handler()
  *	Sets number of wifi payloads
  */
-static int nss_n2h_wifi_payloads_handler(ctl_table *ctl,
+static int nss_n2h_wifi_payloads_handler(struct ctl_table *ctl,
 			int write, void __user *buffer,
 			size_t *lenp, loff_t *ppos)
 {
@@ -975,7 +975,7 @@ failure:
  * nss_rps_handler()
  *	Enable NSS RPS
  */
-static int nss_n2h_rpscfg_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+static int nss_n2h_rpscfg_handler(struct ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	struct nss_top_instance *nss_top = &nss_top_main;
 	struct nss_ctx_instance *nss_ctx = &nss_top->nss[0];
@@ -1007,7 +1007,7 @@ static int nss_n2h_rpscfg_handler(ctl_table *ctl, int write, void __user *buffer
  * nss_mitigation_handler()
  * Enable NSS MITIGATION
  */
-static int nss_n2h_mitigationcfg_core0_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+static int nss_n2h_mitigationcfg_core0_handler(struct ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	struct nss_top_instance *nss_top = &nss_top_main;
 	struct nss_ctx_instance *nss_ctx = &nss_top->nss[NSS_CORE_0];
@@ -1038,7 +1038,7 @@ static int nss_n2h_mitigationcfg_core0_handler(ctl_table *ctl, int write, void _
  * nss_mitigation_handler()
  * Enable NSS MITIGATION
  */
-static int nss_n2h_mitigationcfg_core1_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+static int nss_n2h_mitigationcfg_core1_handler(struct ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	struct nss_top_instance *nss_top = &nss_top_main;
 	struct nss_ctx_instance *nss_ctx = &nss_top->nss[NSS_CORE_1];
@@ -1069,7 +1069,7 @@ static int nss_n2h_mitigationcfg_core1_handler(ctl_table *ctl, int write, void _
  * nss_buf_handler()
  *	Add extra NSS bufs from host memory
  */
-static int nss_n2h_buf_cfg_core0_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+static int nss_n2h_buf_cfg_core0_handler(struct ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	struct nss_top_instance *nss_top = &nss_top_main;
 	struct nss_ctx_instance *nss_ctx = &nss_top->nss[NSS_CORE_0];
@@ -1108,7 +1108,7 @@ static int nss_n2h_buf_cfg_core0_handler(ctl_table *ctl, int write, void __user 
  * nss_n2h_buf_handler()
  *	Add extra NSS bufs from host memory
  */
-static int nss_n2h_buf_cfg_core1_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+static int nss_n2h_buf_cfg_core1_handler(struct ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	struct nss_top_instance *nss_top = &nss_top_main;
 	struct nss_ctx_instance *nss_ctx = &nss_top->nss[NSS_CORE_1];
@@ -1143,7 +1143,7 @@ static int nss_n2h_buf_cfg_core1_handler(ctl_table *ctl, int write, void __user 
 	return -EINVAL;
 }
 
-static ctl_table nss_n2h_table[] = {
+static struct ctl_table nss_n2h_table[] = {
 	{
 		.procname	= "n2h_empty_pool_buf_core0",
 		.data		= &nss_n2h_empty_pool_buf_cfg[NSS_CORE_0],
@@ -1232,7 +1232,7 @@ static ctl_table nss_n2h_table[] = {
 	{ }
 };
 
-static ctl_table nss_n2h_dir[] = {
+static struct ctl_table nss_n2h_dir[] = {
 	{
 		.procname		= "n2hcfg",
 		.mode			= 0555,
@@ -1242,7 +1242,7 @@ static ctl_table nss_n2h_dir[] = {
 };
 
 
-static ctl_table nss_n2h_root_dir[] = {
+static struct ctl_table nss_n2h_root_dir[] = {
 	{
 		.procname		= "nss",
 		.mode			= 0555,
@@ -1251,7 +1251,7 @@ static ctl_table nss_n2h_root_dir[] = {
 	{ }
 };
 
-static ctl_table nss_n2h_root[] = {
+static struct ctl_table nss_n2h_root[] = {
 	{
 		.procname		= "dev",
 		.mode			= 0555,

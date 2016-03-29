@@ -408,7 +408,7 @@ static void nss_ipv6_conn_cfg_callback(void *app_data, struct nss_ipv6_msg *nim)
  * nss_ipv6_conn_cfg_handler()
  *	Sets the number of connections for IPv6
  */
-static int nss_ipv6_conn_cfg_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+static int nss_ipv6_conn_cfg_handler(struct ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	struct nss_top_instance *nss_top = &nss_top_main;
 	struct nss_ctx_instance *nss_ctx = &nss_top->nss[0];
@@ -510,7 +510,7 @@ failure:
 	return -EINVAL;
 }
 
-static ctl_table nss_ipv6_table[] = {
+static struct ctl_table nss_ipv6_table[] = {
 	{
 		.procname		= "ipv6_conn",
 		.data			= &nss_ipv6_conn_cfg,
@@ -521,7 +521,7 @@ static ctl_table nss_ipv6_table[] = {
 	{ }
 };
 
-static ctl_table nss_ipv6_dir[] = {
+static struct ctl_table nss_ipv6_dir[] = {
 	{
 		.procname		= "ipv6cfg",
 		.mode			= 0555,
@@ -530,7 +530,7 @@ static ctl_table nss_ipv6_dir[] = {
 	{ }
 };
 
-static ctl_table nss_ipv6_root_dir[] = {
+static struct ctl_table nss_ipv6_root_dir[] = {
 	{
 		.procname		= "nss",
 		.mode			= 0555,
@@ -539,7 +539,7 @@ static ctl_table nss_ipv6_root_dir[] = {
 	{ }
 };
 
-static ctl_table nss_ipv6_root[] = {
+static struct ctl_table nss_ipv6_root[] = {
 	{
 		.procname		= "dev",
 		.mode			= 0555,

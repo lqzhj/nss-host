@@ -405,7 +405,7 @@ static void nss_ipv4_conn_cfg_callback(void *app_data, struct nss_ipv4_msg *nim)
  * nss_ipv4_conn_cfg_handler()
  *	Sets the number of connections for IPv4
  */
-static int nss_ipv4_conn_cfg_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+static int nss_ipv4_conn_cfg_handler(struct ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	struct nss_top_instance *nss_top = &nss_top_main;
 	struct nss_ctx_instance *nss_ctx = &nss_top->nss[0];
@@ -508,7 +508,7 @@ int nss_ipv4_update_conn_count(int ipv4_num_conn)
 	return 0;
 }
 
-static ctl_table nss_ipv4_table[] = {
+static struct ctl_table nss_ipv4_table[] = {
 	{
 		.procname		= "ipv4_conn",
 		.data			= &nss_ipv4_conn_cfg,
@@ -519,7 +519,7 @@ static ctl_table nss_ipv4_table[] = {
 	{ }
 };
 
-static ctl_table nss_ipv4_dir[] = {
+static struct ctl_table nss_ipv4_dir[] = {
 	{
 		.procname		= "ipv4cfg",
 		.mode			= 0555,
@@ -529,7 +529,7 @@ static ctl_table nss_ipv4_dir[] = {
 };
 
 
-static ctl_table nss_ipv4_root_dir[] = {
+static struct ctl_table nss_ipv4_root_dir[] = {
 	{
 		.procname		= "nss",
 		.mode			= 0555,
@@ -538,7 +538,7 @@ static ctl_table nss_ipv4_root_dir[] = {
 	{ }
 };
 
-static ctl_table nss_ipv4_root[] = {
+static struct ctl_table nss_ipv4_root[] = {
 	{
 		.procname		= "dev",
 		.mode			= 0555,

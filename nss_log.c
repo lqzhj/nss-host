@@ -611,7 +611,7 @@ fail2:
  * nss_logbuffer_handler()
  *	Enable NSS debug output
  */
-int nss_logbuffer_handler(ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+int nss_logbuffer_handler(struct ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	int ret;
 	int i;
