@@ -62,6 +62,13 @@ NSS_CCFLAGS = -DNSS_DT_SUPPORT=1 -DNSS_FW_DBG_SUPPORT=0 -DNSS_PM_SUPPORT=0 -DNSS
 ccflags-y += -I$(obj)
 endif
 
+# Only the 3.14 Kernel implements fabric scaling framework.
+ifneq ($(findstring 3.14, $(KERNELVERSION)),)
+NSS_CCFLAGS += -DNSS_FABRIC_SCALING_SUPPORT=1
+else
+NSS_CCFLAGS += -DNSS_FABRIC_SCALING_SUPPORT=0
+endif
+
 # Disable Frequency scaling
 ifeq "$(NSS_FREQ_SCALE_DISABLE)" "y"
 ccflags-y += -DNSS_FREQ_SCALE_SUPPORT=0

@@ -30,7 +30,9 @@
 #include <mach/gpiomux.h>
 #include <mach/msm_nss.h>
 #else
+#if (NSS_FABRIC_SCALING_SUPPORT == 1)
 #include <linux/fab_scaling.h>
+#endif
 #include <linux/of.h>
 #include <linux/of_net.h>
 #include <linux/of_irq.h>
@@ -954,7 +956,9 @@ int nss_hal_probe(struct platform_device *nss_dev)
 	struct netdev_priv_instance *ndev_priv;
 #if (NSS_DT_SUPPORT == 1)
 	struct reset_control *rstctl = NULL;
+#if (NSS_FABRIC_SCALING_SUPPORT == 1)
 	struct fab_scaling_info fab_data;
+#endif
 #endif
 	int i, err = 0;
 
@@ -1180,6 +1184,7 @@ int nss_hal_probe(struct platform_device *nss_dev)
 
 clk_complete:
 #if (NSS_DT_SUPPORT == 1)
+#if (NSS_FABRIC_SCALING_SUPPORT == 1)
 		if (npd->turbo_frequency) {
 			fab_data.idle_freq = nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].frequency;
 		} else {
@@ -1187,6 +1192,7 @@ clk_complete:
 		}
 		fab_data.clk = nss_core0_clk;
 		fab_scaling_register(&fab_data);
+#endif
 #endif
 
 		/*
@@ -1679,8 +1685,9 @@ int nss_hal_remove(struct platform_device *nss_dev)
 		}
 	}
 #if (NSS_DT_SUPPORT == 1)
+#if (NSS_FABRIC_SCALING_SUPPORT == 1)
 	fab_scaling_unregister(nss_core0_clk);
-
+#endif
 	if (nss_dev->dev.of_node) {
 		if (nss_ctx->nmap) {
 			iounmap((void *)nss_ctx->nmap);

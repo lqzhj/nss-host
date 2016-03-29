@@ -35,7 +35,7 @@
 #include <linux/device.h>
 
 #if (NSS_DT_SUPPORT == 1)
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0))
+#if (NSS_FABRIC_SCALING_SUPPORT == 1)
 #include <linux/fab_scaling.h>
 #endif
 #include <linux/of.h>
@@ -205,7 +205,7 @@ void nss_wq_function (struct work_struct *work)
 out:
 #else
 #if (NSS_DT_SUPPORT == 1)
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0))
+#if (NSS_FABRIC_SCALING_SUPPORT == 1)
 	scale_fabrics();
 #endif
 	if ((nss_fab0_clk != NULL) && (nss_fab0_clk != NULL)) {
