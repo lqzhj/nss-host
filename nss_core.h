@@ -961,7 +961,7 @@ enum nss_scales {
 /*
  * NSS Core Statistics and Frequencies
  */
-#define NSS_SAMPLE_BUFFER_SIZE 64			/* Ring Buffer should be a Size of two */
+#define NSS_SAMPLE_BUFFER_SIZE 4			/* Ring Buffer should be a Size of two */
 #define NSS_SAMPLE_BUFFER_MASK (NSS_SAMPLE_BUFFER_SIZE - 1)
 #define NSS_FREQUENCY_SCALE_RATE_LIMIT_UP 2		/* Adjust the Rate of Frequency Switching Up */
 #define NSS_FREQUENCY_SCALE_RATE_LIMIT_DOWN 60000	/* Adjust the Rate of Frequency Switching Down */
