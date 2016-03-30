@@ -1565,6 +1565,15 @@ int __init nss_gmac_host_interface_init(void)
 	pr_info("* Copyright :%s\n", nss_gmac_copyright);
 	pr_info("**********************************************************\n");
 
+#ifndef CONFIG_OF
+	/*
+	 * Initialize the GMAC platform data.
+	 * On failure random MAC address will be generated.
+	 */
+	if (nss_gmac_fixup_platform_data())
+		pr_info("%s: nss gmac platform data init failed\n", __func__);
+#endif
+
 	/* Initialize the Network dependent services */
 	if (nss_gmac_register_driver() != 0)
 		return -EFAULT;
