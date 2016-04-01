@@ -87,6 +87,7 @@ static ssize_t nss_ipsecmgr_sa_stats_read(struct file *fp, char __user *ubuf, si
 {
 	struct dentry *parent = dget_parent(fp->f_dentry);
 	struct nss_ipsecmgr_sa_entry *sa;
+	struct nss_ipsec_rule_data *data;
 	struct nss_ipsec_rule_oip *oip;
 	struct nss_ipsecmgr_priv *priv;
 	struct nss_ipsecmgr_ref *ref;
@@ -119,6 +120,7 @@ static ssize_t nss_ipsecmgr_sa_stats_read(struct file *fp, char __user *ubuf, si
 
 	sa = container_of(ref, struct nss_ipsecmgr_sa_entry, ref);
 	oip = &sa->nim.msg.push.oip;
+	data = &sa->nim.msg.push.data;
 
 	switch (sa->nim.cm.interface) {
 	case NSS_IPSEC_ENCAP_IF_NUMBER:
@@ -149,6 +151,7 @@ static ssize_t nss_ipsecmgr_sa_stats_read(struct file *fp, char __user *ubuf, si
 	}
 	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "spi_idx: 0x%x\n", oip->esp_spi);
 	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "ttl: %d\n", oip->ttl_hop_limit);
+	len += snprintf(local + len, NSS_IPSECMGR_MAX_BUF_SZ - len, "crypto session: %d\n", data->crypto_index);
 
 	/*
 	 * packet stats
@@ -380,9 +383,11 @@ struct nss_ipsecmgr_ref *nss_ipsecmgr_sa_alloc(struct nss_ipsecmgr_priv *priv, s
 	INIT_LIST_HEAD(&sa->node);
 
 	/*
-	 * copy key data
+	 * update key and generate/store hash
 	 */
 	idx = nss_ipsecmgr_key_data2idx(key, NSS_CRYPTO_MAX_IDXS);
+	nss_ipsecmgr_key_gen_hash(key, NSS_CRYPTO_MAX_IDXS);
+
 	memcpy(&sa->key, key, sizeof(struct nss_ipsecmgr_key));
 	list_add(&sa->node, &db->entries[idx]);
 
@@ -713,6 +718,11 @@ bool nss_ipsecmgr_encap_add(struct net_device *tun, struct nss_ipsecmgr_encap_fl
 
 	case NSS_IPSECMGR_FLOW_TYPE_V4_SUBNET:
 
+		if (nss_ipsecmgr_verify_v4_subnet(&flow->data.v4_subnet)) {
+			nss_ipsecmgr_warn("%p:invalid subnet and mask\n", tun);
+			return false;
+		}
+
 		nss_ipsecmgr_copy_v4_sa(&info.nim, &sa->data.v4);
 		nss_ipsecmgr_copy_sa_data(&info.nim, data);
 
@@ -777,6 +787,11 @@ bool nss_ipsecmgr_encap_del(struct net_device *tun, struct nss_ipsecmgr_encap_fl
 		break;
 
 	case NSS_IPSECMGR_FLOW_TYPE_V4_SUBNET:
+
+		if (nss_ipsecmgr_verify_v4_subnet(&flow->data.v4_subnet)) {
+			nss_ipsecmgr_warn("%p:invalid subnet and mask\n", tun);
+			return false;
+		}
 
 		nss_ipsecmgr_copy_v4_sa(&info.nim, &sa->data.v4);
 

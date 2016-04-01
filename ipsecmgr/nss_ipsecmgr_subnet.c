@@ -36,6 +36,37 @@
 #include "nss_ipsecmgr_priv.h"
 
 /*
+ * nss_ipsecmgr_subnet_key_data2idx()
+ * 	subnet specific api for converting word stream to index
+ */
+static uint32_t nss_ipsecmgr_subnet_key_data2idx(struct nss_ipsecmgr_key *key, const uint32_t table_sz)
+{
+	struct nss_ipsecmgr_key tmp_key;
+
+	/*
+	 * The subnet table is keyed without the protocol. This allows us to support
+	 * "any" protocol configuration
+	 */
+
+	memcpy(&tmp_key, key, sizeof(struct nss_ipsecmgr_key));
+	nss_ipsecmgr_key_clear_8(&tmp_key, NSS_IPSECMGR_KEY_POS_IP_PROTO);
+
+	return nss_ipsecmgr_key_data2idx(&tmp_key, table_sz);
+}
+
+/*
+ * nss_ipsecmgr_netmask_is_default()
+ * 	confirm if key is for default netmask.
+ */
+static inline bool nss_ipsecmgr_netmask_is_default(struct nss_ipsecmgr_key *key)
+{
+	uint32_t data, mask;
+
+	nss_ipsecmgr_key_read(key, &data, &mask, NSS_IPSECMGR_KEY_POS_IPV4_DST);
+	return !mask;
+}
+
+/*
  * nss_ipsecmgr_subnet_name_lookup()
  * 	lookup subnet in subnet_db
  */
@@ -62,6 +93,12 @@ static struct nss_ipsecmgr_ref *nss_ipsecmgr_subnet_name_lookup(struct nss_ipsec
 		return NULL;
 	}
 
+	if (!mask_bits) {
+		netmask = db->default_entry;
+		goto skip_lookup;
+	}
+
+
 	idx = NSS_IPSECMGR_MAX_NETMASK - mask_bits;
 	if (idx  >= NSS_IPSECMGR_MAX_NETMASK) {
 		return NULL;
@@ -71,6 +108,9 @@ static struct nss_ipsecmgr_ref *nss_ipsecmgr_subnet_name_lookup(struct nss_ipsec
 	if (!netmask || !netmask->count) {
 		return NULL;
 	}
+
+skip_lookup:
+	BUG_ON(!netmask);
 
 	idx = hash & (NSS_IPSECMGR_MAX_SUBNET - 1);
 	head = &netmask->subnets[idx];
@@ -90,6 +130,10 @@ static inline uint32_t nss_ipsecmgr_netmask2idx(struct nss_ipsecmgr_key *key)
 	uint32_t mask, data;
 
 	nss_ipsecmgr_key_read(key, &data, &mask, NSS_IPSECMGR_KEY_POS_IPV4_DST);
+
+	/*
+	 * for zero mask this will return 0xFFFF_FFFF
+	 */
 	return ffs(mask) - 1;
 }
 
@@ -100,8 +144,24 @@ static inline uint32_t nss_ipsecmgr_netmask2idx(struct nss_ipsecmgr_key *key)
 static bool nss_ipsecmgr_netmask_free(struct nss_ipsecmgr_netmask_db *db, struct nss_ipsecmgr_key *key)
 {
 	struct nss_ipsecmgr_netmask_entry *entry;
+	bool is_default;
 	uint32_t idx;
 
+	is_default = nss_ipsecmgr_netmask_is_default(key);
+	entry = db->default_entry;
+
+	if (is_default && !entry) { /* default with no entry */
+		return false;
+	} else if (is_default && --entry->count) { /* default but more than 1 entry */
+		return false;
+	} else if (is_default) { /* default but last entry */
+		db->default_entry = NULL;
+		goto free;
+	}
+
+	/*
+	 * !default
+	 */
 	idx = nss_ipsecmgr_netmask2idx(key);
 	if (idx >= NSS_IPSECMGR_MAX_NETMASK) {
 		return false;
@@ -117,6 +177,7 @@ static bool nss_ipsecmgr_netmask_free(struct nss_ipsecmgr_netmask_db *db, struct
 	clear_bit(idx, db->bitmap);
 	db->entries[idx] = NULL;
 
+free:
 	kfree(entry);
 	return true;
 }
@@ -232,16 +293,14 @@ static void nss_ipsecmgr_subnet_free(struct nss_ipsecmgr_priv *priv, struct nss_
 static inline struct nss_ipsecmgr_netmask_entry *nss_ipsecmgr_netmask_lookup(struct nss_ipsecmgr_priv *priv, struct nss_ipsecmgr_key *key)
 {
 	struct nss_ipsecmgr_netmask_db *db = &priv->net_db;
-	struct nss_ipsecmgr_netmask_entry *entry;
 	uint32_t idx;
 
-	idx = nss_ipsecmgr_netmask2idx(key) % NSS_IPSECMGR_MAX_NETMASK;
-	entry = db->entries[idx];
-	if (entry) {
-		return entry;
+	if (nss_ipsecmgr_netmask_is_default(key)) {
+		return db->default_entry;
 	}
 
-	return NULL;
+	idx = nss_ipsecmgr_netmask2idx(key);
+	return (idx >= NSS_IPSECMGR_MAX_NETMASK) ? NULL : db->entries[idx];
 }
 
 /*
@@ -267,8 +326,14 @@ static struct nss_ipsecmgr_netmask_entry *nss_ipsecmgr_netmask_alloc(struct nss_
 	nss_ipsecmgr_init_subnet_db(entry);
 	entry->count = 1;
 
+	if (nss_ipsecmgr_netmask_is_default(key)) {
+		db->default_entry = entry;
+		return entry;
+	}
+
 	idx = nss_ipsecmgr_netmask2idx(key);
 	if (idx >= NSS_IPSECMGR_MAX_NETMASK) {
+		kfree(entry);
 		return NULL;
 	}
 
@@ -326,6 +391,14 @@ void nss_ipsecmgr_v4_subnet2key(struct nss_ipsecmgr_encap_v4_subnet *net, struct
 	nss_ipsecmgr_key_write_8(key, (uint8_t)net->protocol, NSS_IPSECMGR_KEY_POS_IP_PROTO);
 	nss_ipsecmgr_key_write(key, net->dst_subnet, net->dst_mask, NSS_IPSECMGR_KEY_POS_IPV4_DST);
 
+	/*
+	 * clear mask if caller specify protocol as any (0xff).
+	 * this will serve as default entry for any-protocol.
+	 */
+	if (net->protocol == NSS_IPSECMGR_PROTO_NEXT_HDR_ANY) {
+		nss_ipsecmgr_key_clear_8(key, NSS_IPSECMGR_KEY_POS_IP_PROTO);
+	}
+
 	key->len = NSS_IPSECMGR_KEY_LEN_IPV4_SUBNET;
 }
 
@@ -362,6 +435,17 @@ struct nss_ipsecmgr_ref *nss_ipsecmgr_v4_subnet_match(struct nss_ipsecmgr_priv *
 		}
 	}
 
+	/*
+	 * normal lookup failed; check default subnet entry
+	 * - clear the destination netmask before lookup
+	 */
+	nss_ipsecmgr_key_clear_32(&tmp_key, NSS_IPSECMGR_KEY_POS_IPV4_DST);
+
+	ref = nss_ipsecmgr_subnet_lookup(priv, &tmp_key);
+	if (ref) {
+		return ref;
+	}
+
 	return NULL;
 }
 
@@ -383,7 +467,7 @@ struct nss_ipsecmgr_ref *nss_ipsecmgr_subnet_lookup(struct nss_ipsecmgr_priv *pr
 
 	BUG_ON(netmask->count == 0);
 
-	idx = nss_ipsecmgr_key_data2idx(key, NSS_IPSECMGR_MAX_SUBNET);
+	idx = nss_ipsecmgr_subnet_key_data2idx(key, NSS_IPSECMGR_MAX_SUBNET);
 	head = &netmask->subnets[idx];
 
 	list_for_each_entry(entry, head, node) {
@@ -418,7 +502,7 @@ struct nss_ipsecmgr_ref *nss_ipsecmgr_subnet_alloc(struct nss_ipsecmgr_priv *pri
 	uint32_t idx;
 
 	/*
-	 * subne lookup before allocating a new one
+	 * subnet lookup before allocating a new one
 	 */
 	ref = nss_ipsecmgr_subnet_lookup(priv, key);
 	if (ref) {
@@ -438,6 +522,7 @@ struct nss_ipsecmgr_ref *nss_ipsecmgr_subnet_alloc(struct nss_ipsecmgr_priv *pri
 	 */
 	subnet = kzalloc(sizeof(struct nss_ipsecmgr_subnet_entry), GFP_ATOMIC);
 	if (!subnet) {
+		nss_ipsecmgr_netmask_free(&priv->net_db, key);
 		return NULL;
 	}
 
@@ -449,7 +534,18 @@ struct nss_ipsecmgr_ref *nss_ipsecmgr_subnet_alloc(struct nss_ipsecmgr_priv *pri
 	 */
 	INIT_LIST_HEAD(&subnet->node);
 
-	idx = nss_ipsecmgr_key_data2idx(key, NSS_IPSECMGR_MAX_SUBNET);
+	/*
+	 * update key & generate/store hash
+	 */
+	idx = nss_ipsecmgr_subnet_key_data2idx(key, NSS_IPSECMGR_MAX_SUBNET);
+	nss_ipsecmgr_key_gen_hash(key, NSS_IPSECMGR_MAX_SUBNET);
+
+	/*
+	 * TODO
+	 * For subnet entry with any protocol, just add it to the tail.
+	 * This will force subnet with any-protcol to have least priority
+	 * over other specific protocol entries during subnet lookup.
+	 */
 	memcpy(&subnet->key, key, sizeof(struct nss_ipsecmgr_key));
 	list_add(&subnet->node, &netmask->subnets[idx]);
 	netmask->count++;

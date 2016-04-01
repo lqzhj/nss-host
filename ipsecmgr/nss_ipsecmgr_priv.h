@@ -86,6 +86,7 @@
 #define NSS_IPSECMGR_GENMASK(hi, lo) ((~0 >> (31 - hi)) << lo)
 
 #define NSS_IPSECMGR_MAX_BUF_SZ 512
+#define NSS_IPSECMGR_PROTO_NEXT_HDR_ANY 0xff
 
 struct nss_ipsecmgr_ref;
 struct nss_ipsecmgr_key;
@@ -233,6 +234,7 @@ struct nss_ipsecmgr_netmask_entry {
 struct nss_ipsecmgr_netmask_db {
 	unsigned long bitmap[NSS_IPSECMGR_NETMASK_BITMAP];			/* netmask bitmap */
 	struct nss_ipsecmgr_netmask_entry *entries[NSS_IPSECMGR_MAX_NETMASK];	/* netmask entry database */
+	struct nss_ipsecmgr_netmask_entry *default_entry;			/* default netmask */
 };
 
 /*
@@ -451,6 +453,40 @@ static inline void nss_ipsecmgr_key_write_8(struct nss_ipsecmgr_key *key, uint8_
 }
 
 /*
+ * nss_ipsecmgr_key_clear_8()
+ * 	clear 8-bit mask from the specified position.
+ */
+static inline void nss_ipsecmgr_key_clear_8(struct nss_ipsecmgr_key *key, enum nss_ipsecmgr_key_pos p)
+{
+	uint32_t *mask;
+	uint16_t idx;
+
+	idx = BIT_WORD(p) % NSS_IPSECMGR_MAX_KEY_WORDS;
+	mask = &key->mask[idx];
+
+	/*
+	 * clear data with mask, update data & save mask
+	 */
+	switch (p % BITS_PER_LONG) {
+	case 0: /* bits[0:7] */
+		*mask &= ~NSS_IPSECMGR_GENMASK(7, 0);
+		break;
+	case 8: /* bits[8:15] */
+		*mask &= ~NSS_IPSECMGR_GENMASK(15, 8);
+		break;
+	case 16: /* bits[16:23] */
+		*mask &= ~NSS_IPSECMGR_GENMASK(23, 16);
+		break;
+	case 24: /* bits[24:31] */
+		*mask &= ~NSS_IPSECMGR_GENMASK(31, 24);
+		break;
+	default:
+		*mask = 0;
+		break;
+	}
+}
+
+/*
  * nss_ipsecmgr_key_read_16()
  * 	read value & mask from the specified position using mask
  */
@@ -507,6 +543,34 @@ static inline void nss_ipsecmgr_key_write_16(struct nss_ipsecmgr_key *key, uint1
 }
 
 /*
+ * nss_ipsecmgr_key_clear_16()
+ * 	clear 16-bit mask from the specified position
+ */
+static inline void nss_ipsecmgr_key_clear_16(struct nss_ipsecmgr_key *key, enum nss_ipsecmgr_key_pos p)
+{
+	uint32_t *mask;
+	uint16_t idx;
+
+	idx = BIT_WORD(p) % NSS_IPSECMGR_MAX_KEY_WORDS;
+	mask = &key->mask[idx];
+
+	/*
+	 * clear data with mask, update data & save mask
+	 */
+	switch (p % BITS_PER_LONG) {
+	case 0: /* bits[0:15] */
+		*mask &= ~NSS_IPSECMGR_GENMASK(15, 0);
+		break;
+	case 16: /* bits[16:31] */
+		*mask &= ~NSS_IPSECMGR_GENMASK(31, 16);
+		break;
+	default:
+		*mask = 0;
+		break;
+	}
+}
+
+/*
  * nss_ipsecmgr_key_read_32()
  * 	read value from the specified position using mask
  */
@@ -536,6 +600,18 @@ static inline void nss_ipsecmgr_key_write_32(struct nss_ipsecmgr_key *key, uint3
 	 */
 	*data = v;
 	*mask = NSS_IPSECMGR_GENMASK(31, 0);
+}
+
+/*
+ * nss_ipsecmgr_key_clear_32()
+ * 	clear 32-bit mask from the specified position
+ */
+static inline void nss_ipsecmgr_key_clear_32(struct nss_ipsecmgr_key *key, enum nss_ipsecmgr_key_pos p)
+{
+	uint16_t idx;
+
+	idx = BIT_WORD(p) % NSS_IPSECMGR_MAX_KEY_WORDS;
+	key->mask[idx] = 0;
 }
 
 /*
@@ -642,11 +718,6 @@ static inline uint32_t nss_ipsecmgr_key_data2idx(struct nss_ipsecmgr_key *key, c
 		idx ^= val;
 	}
 
-	/*
-	 * store the hash for various usage
-	 */
-	key->hash = idx;
-
 	return idx & (table_sz - 1);
 }
 
@@ -657,6 +728,36 @@ static inline uint32_t nss_ipsecmgr_key_data2idx(struct nss_ipsecmgr_key *key, c
 static inline uint32_t nss_ipsecmgr_key_get_hash(struct nss_ipsecmgr_key *key)
 {
 	return key->hash;
+}
+
+/*
+ * nss_ipsecmgr_key_gen_hash()
+ * 	generate the hash and store inside the key
+ */
+static inline void nss_ipsecmgr_key_gen_hash(struct nss_ipsecmgr_key *key, const uint32_t table_sz)
+{
+	uint32_t *data = key->data;
+	uint32_t *mask = key->mask;
+	uint32_t len = key->len;
+	uint32_t idx;
+	uint32_t val;
+
+	/*
+	 * bug on if table_sz is not
+	 * - a constant
+	 * - and a power of 2
+	 */
+	BUG_ON(!NSS_IPSECMGR_CHK_POW2(table_sz));
+
+	for (idx = 0; len; len--, mask++, data++) {
+		val = *data & *mask;
+		idx ^= val;
+	}
+
+	/*
+	 * store the hash for various usage
+	 */
+	key->hash = idx;
 }
 
 /*
@@ -821,6 +922,11 @@ static inline void nss_ipsecmgr_v6_hdr2sel(struct ipv6hdr *iph, struct nss_ipsec
 static inline uint32_t nss_ipsecmgr_get_v4addr(uint32_t *addr)
 {
 	return addr[0];
+}
+
+static inline bool nss_ipsecmgr_verify_v4_subnet(struct nss_ipsecmgr_encap_v4_subnet *v4_subnet)
+{
+	return !v4_subnet->dst_subnet && v4_subnet->dst_mask;
 }
 
 /*
