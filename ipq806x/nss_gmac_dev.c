@@ -1811,24 +1811,24 @@ bool nss_gmac_is_rx_frame_length_errors(uint32_t status)
  * @return returns void.
  */
 void nss_gmac_get_desc_data(struct dma_desc *desc,
-			    uint32_t *Status, uint32_t *Buffer1,
-			    uint32_t *Length1, uint32_t *Data1)
+			    uint32_t *status, uint32_t *buffer1,
+			    uint32_t *length1, uint32_t *opaque)
 {
 	/*
 	 * The first time, we map the descriptor as DMA_TO_DEVICE.
 	 * Then we only wait for changes from device, so we use DMA_FROM_DEVICE.
 	 */
-	if (Status != 0)
-		*Status = desc->status;
+	if (status != 0)
+		*status = desc->status;
 
-	if (Buffer1 != 0)
-		*Buffer1 = desc->buffer1;
+	if (buffer1 != 0)
+		*buffer1 = desc->buffer1;
 
-	if (Length1 != 0)
-		*Length1 = (desc->length & desc_size1_mask) >> desc_size1_shift;
+	if (length1 != 0)
+		*length1 = (desc->length & desc_size1_mask) >> desc_size1_shift;
 
-	if (Data1 != 0)
-		*Data1 = desc->data1;
+	if (opaque != 0)
+		*opaque = desc->reserved1;
 }
 
 /*
