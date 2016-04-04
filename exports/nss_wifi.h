@@ -30,6 +30,12 @@
 #define NSS_WIFI_TX_NUM_TOS_TIDS 8
 
 /**
+ * max no of wifi peers per radio is the sum of max no of station peers (513),
+ * max no of AP vap peers(16), and max no of monitor vap peers (1)
+ */
+#define NSS_WIFI_MAX_PEER 530
+
+/**
  * wifi interface request/response types
  */
 enum nss_wifi_metadata_types {
@@ -65,6 +71,7 @@ enum nss_wifi_metadata_types {
 	NSS_WIFI_FORCE_CLIENT_MCAST_TRAFFIC_SET_MSG,
 	NSS_WIFI_STORE_OTHER_PDEV_STAVAP_MSG,
 	NSS_WIFI_STA_KICKOUT_MSG,
+	NSS_WIFI_WNM_PEER_RX_ACTIVITY_MSG,
 	NSS_WIFI_MAX_MSG
 };
 
@@ -442,6 +449,16 @@ struct nss_wifi_sta_kickout_msg {
 	uint32_t peer_id;	/**< peer id */
 };
 
+/*
+ * wifi_wnm_peer_rx_activity
+ *
+ * peer state related info to denote rx activity for peer
+ */
+struct nss_wifi_wnm_peer_rx_activity_msg {
+	uint16_t nentries;			/**< number of entries */
+	uint16_t peer_id[NSS_WIFI_MAX_PEER];	/**< array to hold the peer_id's for which the activity is reported */
+};
+
 /**
  * Message structure to send/receive wifi messages
  */
@@ -476,6 +493,7 @@ struct nss_wifi_msg {
 		struct nss_wifi_force_client_mcast_traffic_set_msg wfcmts_msg;
 		struct nss_wifi_store_other_pdev_stavap_msg wsops_msg;
 		struct nss_wifi_sta_kickout_msg sta_kickout_msg;
+		struct nss_wifi_wnm_peer_rx_activity_msg wprm;
 	} msg;
 };
 

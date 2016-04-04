@@ -112,6 +112,7 @@ enum nss_wifi_vdev_cmd {
 	NSS_WIFI_VDEV_VOW_DBG_RST_STATS_CMD,	/**< command to reset VOW DEBUG stats on vap */
 	NSS_WIFI_VDEV_FILTER_NEIGH_PEERS_CMD,	/**< command to set filter_neigh_peer */
 	NSS_WIFI_VDEV_CFG_DSCP_OVERRIDE_CMD,	/**< command to set dscp override */
+	NSS_WIFI_VDEV_CFG_WNM_CAP_CMD,		/**< command to set wnm capability */
 	NSS_WIFI_VDEV_MAX_CMD
 };
 
