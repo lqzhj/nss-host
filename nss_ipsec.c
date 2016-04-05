@@ -287,7 +287,7 @@ struct nss_ctx_instance *nss_ipsec_notify_register(uint32_t if_num, nss_ipsec_ms
 	/*
 	 * avoid multiple registeration for multiple tunnels
 	 */
-	if (nss_ctx->nss_top->ipsec_encap_callback || nss_ctx->nss_top->ipsec_decap_callback) {
+	if (nss_ctx->nss_top->ipsec_encap_callback && nss_ctx->nss_top->ipsec_decap_callback) {
 		return nss_ctx;
 	}
 
