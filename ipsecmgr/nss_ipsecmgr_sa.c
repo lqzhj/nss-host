@@ -751,6 +751,11 @@ bool nss_ipsecmgr_encap_add(struct net_device *tun, struct nss_ipsecmgr_encap_fl
 
 	case NSS_IPSECMGR_FLOW_TYPE_V6_SUBNET:
 
+		if (nss_ipsecmgr_verify_v6_subnet(&flow->data.v6_subnet)) {
+			nss_ipsecmgr_warn("%p:invalid subnet and mask\n", tun);
+			return false;
+		}
+
 		nss_ipsecmgr_copy_v6_sa(&info.nim, &sa->data.v6);
 		nss_ipsecmgr_copy_sa_data(&info.nim, data);
 
@@ -830,6 +835,11 @@ bool nss_ipsecmgr_encap_del(struct net_device *tun, struct nss_ipsecmgr_encap_fl
 		break;
 
 	case NSS_IPSECMGR_FLOW_TYPE_V6_SUBNET:
+
+		if (nss_ipsecmgr_verify_v6_subnet(&flow->data.v6_subnet)) {
+			nss_ipsecmgr_warn("%p:invalid subnet and mask\n", tun);
+			return false;
+		}
 
 		nss_ipsecmgr_copy_v6_sa(&info.nim, &sa->data.v6);
 

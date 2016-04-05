@@ -211,6 +211,7 @@ static int nss_nlipsec_verify_create_encap(struct nss_ipsecmgr_encap_flow *encap
 			return -1;
 		}
 		break;
+
 	case NSS_IPSECMGR_FLOW_TYPE_V4_SUBNET:
 		v4_subnet = &encap_flow->data.v4_subnet;
 
@@ -219,6 +220,7 @@ static int nss_nlipsec_verify_create_encap(struct nss_ipsecmgr_encap_flow *encap
 			return -1;
 		}
 		break;
+
 	case NSS_IPSECMGR_FLOW_TYPE_V6_TUPLE:
 		v6_tuple = &encap_flow->data.v6_tuple;
 
@@ -418,6 +420,7 @@ static int nss_nlipsec_verify_destroy_encap_flow(struct nss_ipsecmgr_encap_flow 
 
 	case NSS_IPSECMGR_FLOW_TYPE_V6_SUBNET:
 		v6_subnet = &encap_flow->data.v6_subnet;
+
 		if (bitmap_empty((unsigned long *)v6_subnet->dst_subnet, NSS_NLIPV6_SUBNET_BITS) &&
 				!bitmap_empty((unsigned long *)v6_subnet->dst_mask, NSS_NLIPV6_SUBNET_BITS)) {
 			nss_nl_error("Invalid v6 dst_subnet\n");
@@ -442,6 +445,7 @@ static int nss_nlipsec_verify_destroy_encap_flow(struct nss_ipsecmgr_encap_flow 
 			return -2;
 		}
 		break;
+
 	case NSS_IPSECMGR_SA_TYPE_V6:
 		v6 = &encap_sa->data.v6;
 
@@ -488,6 +492,7 @@ static int nss_nlipsec_verify_destroy_encap_sa(struct nss_ipsecmgr_sa *encap_sa)
 			return -2;
 		}
 		break;
+
 	case NSS_IPSECMGR_SA_TYPE_V6:
 		v6 = &encap_sa->data.v6;
 
@@ -534,6 +539,7 @@ static int nss_nlipsec_verify_destroy_decap(struct nss_ipsecmgr_sa *decap_sa)
 			return -2;
 		}
 		break;
+
 	case NSS_IPSECMGR_SA_TYPE_V6:
 		v6 = &decap_sa->data.v6;
 

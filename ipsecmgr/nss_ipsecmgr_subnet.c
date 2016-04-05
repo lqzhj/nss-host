@@ -474,6 +474,14 @@ void nss_ipsecmgr_v6_subnet2key(struct nss_ipsecmgr_encap_v6_subnet *net, struct
 	nss_ipsecmgr_key_write_8(key, (uint8_t)net->next_hdr, NSS_IPSECMGR_KEY_POS_IP_PROTO);
 	nss_ipsecmgr_key_write(key, net->dst_subnet, net->dst_mask, NSS_IPSECMGR_KEY_POS_IPV6_DST, 2);
 
+	/*
+	 * clear mask if caller specify protocol as any (0xff).
+	 * this will serve as default entry for any-protocol.
+	 */
+	if (net->next_hdr == NSS_IPSECMGR_PROTO_NEXT_HDR_ANY) {
+		nss_ipsecmgr_key_clear_8(key, NSS_IPSECMGR_KEY_POS_IP_PROTO);
+	}
+
 	key->len = NSS_IPSECMGR_KEY_LEN_IPV6_SUBNET;
 }
 
@@ -554,6 +562,16 @@ struct nss_ipsecmgr_ref *nss_ipsecmgr_v6_subnet_match(struct nss_ipsecmgr_priv *
 		}
 	}
 
+	/*
+	 * normal lookup failed; check default subnet entry
+	 * - clear the destination netmask before lookup
+	 */
+	nss_ipsecmgr_key_clear_64(&tmp_key, NSS_IPSECMGR_KEY_POS_IPV6_DST);
+
+	ref = nss_ipsecmgr_subnet_lookup(priv, &tmp_key);
+	if (ref) {
+		return ref;
+	}
 	return NULL;
 }
 

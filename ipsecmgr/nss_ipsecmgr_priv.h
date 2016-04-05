@@ -88,6 +88,8 @@
 #define NSS_IPSECMGR_MAX_BUF_SZ 512
 #define NSS_IPSECMGR_PROTO_NEXT_HDR_ANY 0xff
 
+#define NSS_IPSECMGR_V6_SUBNET_BITS (sizeof(uint32_t) * 2 * BITS_PER_BYTE)
+
 struct nss_ipsecmgr_ref;
 struct nss_ipsecmgr_key;
 struct nss_ipsecmgr_priv;
@@ -602,6 +604,7 @@ static inline void nss_ipsecmgr_key_write_32(struct nss_ipsecmgr_key *key, uint3
 	*data = v;
 	*mask = NSS_IPSECMGR_GENMASK(31, 0);
 }
+
 /*
  * nss_ipsecmgr_key_clear_32()
  * 	clear 32-bit mask from the specified position
@@ -612,6 +615,19 @@ static inline void nss_ipsecmgr_key_clear_32(struct nss_ipsecmgr_key *key, enum 
 
 	idx = BIT_WORD(p) % NSS_IPSECMGR_MAX_KEY_WORDS;
 	key->mask[idx] = 0;
+}
+
+/*
+ * nss_ipsecmgr_key_clear_64()
+ * 	clear 32-bit mask from the specified position
+ */
+static inline void nss_ipsecmgr_key_clear_64(struct nss_ipsecmgr_key *key, enum nss_ipsecmgr_key_pos p)
+{
+	uint16_t idx;
+
+	idx = BIT_WORD(p) % NSS_IPSECMGR_MAX_KEY_WORDS;
+	key->mask[idx] = 0;
+	key->mask[idx + 1] = 0;
 }
 
 /*
@@ -1050,9 +1066,27 @@ static inline uint32_t nss_ipsecmgr_get_v4addr(uint32_t *addr)
 	return addr[0];
 }
 
+/*
+ * nss_ipsecmgr_verify_v4_subnet()
+ * 	verify if v4 subnet mask is not empty when v4 subnet is empty.
+ */
 static inline bool nss_ipsecmgr_verify_v4_subnet(struct nss_ipsecmgr_encap_v4_subnet *v4_subnet)
 {
 	return !v4_subnet->dst_subnet && v4_subnet->dst_mask;
+}
+
+/*
+ * nss_ipsecmgr_verify_v6_subnet()
+ * 	verify if v6 subnet mask is not empty when v6 subnet is empty.
+ */
+static inline bool nss_ipsecmgr_verify_v6_subnet(struct nss_ipsecmgr_encap_v6_subnet *v6_subnet)
+{
+	bool subnet, mask;
+
+	subnet = bitmap_empty((unsigned long *)v6_subnet->dst_subnet, NSS_IPSECMGR_V6_SUBNET_BITS);
+	mask = bitmap_empty((unsigned long *)v6_subnet->dst_mask, NSS_IPSECMGR_V6_SUBNET_BITS);
+
+	return subnet && !mask;
 }
 
 /*
