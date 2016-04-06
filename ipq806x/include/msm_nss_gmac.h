@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -310,7 +310,9 @@
 #define NSS_GMAC_PHY_PROFILE_QS		2	/* 4 QSGMII */
 
 extern int32_t nss_gmac_get_phy_profile(void);
-
+#ifndef CONFIG_OF
+extern int32_t nss_gmac_fixup_platform_data(void);
+#endif
 struct msm_nss_gmac_platform_data {
 	uint32_t phy_mdio_addr;		/* MDIO address of the connected PHY */
 	uint32_t poll_required;		/* [0/1] Link status poll? */
