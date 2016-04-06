@@ -1078,19 +1078,19 @@ int nss_hal_probe(struct platform_device *nss_dev)
 	 *  Check if the file read is successful
 	 */
 	if (rc) {
-		nss_warning("%p: request_firmware failed with err code: %d", nss_ctx, rc);
+		nss_info_always("%p: request_firmware failed with err code: %d", nss_ctx, rc);
 		err = rc;
 		goto err_init_0;
 	}
 
 	if (nss_fw->size < MIN_IMG_SIZE) {
-		nss_warning("%p: nss firmware is truncated, size:%d", nss_ctx, nss_fw->size);
+		nss_info_always("%p: nss firmware is truncated, size:%d", nss_ctx, nss_fw->size);
 		goto err_init_0;
 	}
 
 	load_mem = ioremap_nocache(npd->load_addr, nss_fw->size);
 	if (load_mem == NULL) {
-		nss_warning("%p: ioremap_nocache failed: %x", nss_ctx, npd->load_addr);
+		nss_info_always("%p: ioremap_nocache failed: %x", nss_ctx, npd->load_addr);
 		release_firmware(nss_fw);
 		goto err_init_0;
 	}
