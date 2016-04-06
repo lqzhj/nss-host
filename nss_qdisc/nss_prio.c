@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, 2015 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -396,8 +396,9 @@ static int nss_prio_dump_class_stats(struct Qdisc *sch, unsigned long cl,
 
 	cl_q = q->queues[cl - 1];
 	cl_q->qstats.qlen = cl_q->q.qlen;
-	if (gnet_stats_copy_basic(d, &cl_q->bstats) < 0 ||
-	    gnet_stats_copy_queue(d, &cl_q->qstats) < 0)
+
+	if (nss_qdisc_gnet_stats_copy_basic(d, &cl_q->bstats) < 0 ||
+			nss_qdisc_gnet_stats_copy_queue(d, &cl_q->qstats) < 0)
 		return -1;
 
 	nss_qdisc_info("Nssprio dumping class stats\n");

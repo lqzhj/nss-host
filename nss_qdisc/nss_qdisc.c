@@ -2124,6 +2124,35 @@ void nss_qdisc_stop_basic_stats_polling(struct nss_qdisc *nq)
 }
 
 /*
+ * nss_qdisc_gnet_stats_copy_basic()
+ *  Wrapper around gnet_stats_copy_basic()
+ */
+int nss_qdisc_gnet_stats_copy_basic(struct gnet_dump *d,
+				struct gnet_stats_basic_packed *b)
+{
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3, 18, 0))
+	return gnet_stats_copy_basic(d, b);
+#else
+	return gnet_stats_copy_basic(d, NULL, b);
+#endif
+}
+
+
+/*
+ * nss_qdisc_gnet_stats_copy_queue()
+ *  Wrapper around gnet_stats_copy_queue()
+ */
+int nss_qdisc_gnet_stats_copy_queue(struct gnet_dump *d,
+					struct gnet_stats_queue *q)
+{
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3, 18, 0))
+	return gnet_stats_copy_queue(d, q);
+#else
+	return gnet_stats_copy_queue(d, NULL, q, q->qlen);
+#endif
+}
+
+/*
  * nss_qdisc_if_event_cb()
  *	Callback function that is registered to listen to events on net_device.
  */

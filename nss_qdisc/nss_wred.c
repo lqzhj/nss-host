@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, 2015 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -35,7 +35,7 @@ struct nss_wred_sched_data {
 	struct nss_qdisc nq;			/* Common base class for all nss qdiscs */
 	u32 traffic_classes;			/* # of traffic classs in this wred*/
 	u32 def_traffic_class;			/* Default traffic class if no match */
-	tc_nsswred_weight_mode_t weight_mode;	/* Weight mode */
+	enum tc_nsswred_weight_modes weight_mode;	/* Weight mode */
 	struct nss_wred_traffic_class nwtc[NSS_WRED_MAX_TRAFFIC_CLASS];
 						/* Parameters for each traffic class */
 	u8 ecn;					/* Mark ECN or drop pkt */
