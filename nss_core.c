@@ -2079,7 +2079,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		 * We failed and hence we need to unmap dma regions
 		 */
 		nss_warning("%p: failed to map DMA regions:%d", nss_ctx, -count);
-		spin_unlock_bh(&nss_ctx->h2n_desc_rings[qid].lock);
+		spin_unlock_bh(&h2n_desc_ring->lock);
 		return NSS_CORE_STATUS_FAILURE;
 	}
 
