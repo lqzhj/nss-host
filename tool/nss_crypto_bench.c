@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -513,6 +513,12 @@ static void crypto_bench_flush(void)
 	int i = 0;
 	prep = 0;
 
+	if (tx_thread != NULL) {
+		kthread_stop(tx_thread);
+		tx_thread = NULL;
+	}
+	wait_event_interruptible(tx_comp, (atomic_read(&tx_reqs) == 0));
+
 	memcpy(&param, &def_param, sizeof(struct crypto_bench_param));
 
 	while (!list_empty(&op_head)) {
@@ -534,11 +540,6 @@ static void crypto_bench_flush(void)
 		nss_crypto_session_free(crypto_hdl, crypto_sid[i]);
 
 		crypto_sid[i] = -1;
-	}
-
-	if (tx_thread != NULL) {
-		kthread_stop(tx_thread);
-		tx_thread = NULL;
 	}
 
 	param.num_loops = 0;
