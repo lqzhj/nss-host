@@ -218,7 +218,7 @@ static void nss_freq_handle_core_stats(struct nss_ctx_instance *nss_ctx, struct 
 	 */
 	if (nss_runtime_samples.freq_scale_rate_limit_up++ >= NSS_FREQUENCY_SCALE_RATE_LIMIT_UP) {
 		maximum = nss_runtime_samples.freq_scale[index].maximum;
-		if ((sample > maximum) && (index < (NSS_FREQ_MAX_SCALE - 1))) {
+		if ((nss_runtime_samples.average > maximum) && (index < (NSS_FREQ_MAX_SCALE - 1))) {
 			nss_runtime_samples.freq_scale_index++;
 			nss_runtime_samples.freq_scale_ready = 0;
 
