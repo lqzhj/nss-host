@@ -1,4 +1,4 @@
-/* Copyright (c) 2014,2015 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014,2015-2016 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -604,18 +604,7 @@ device_method_t nss_cfi_ocf_methods = {
 static nss_crypto_user_ctx_t nss_cfi_ocf_register(nss_crypto_handle_t crypto)
 {
 	struct nss_cfi_ocf *sc = &g_cfi_ocf;
-	nss_cfi_data_trap_t encrypt;
-	nss_cfi_data_trap_t decrypt;
-	nss_cfi_session_trap_t session;
 	int i;
-
-	softc_device_init(sc, NSS_CFI_DRV_NAME, 0, nss_cfi_ocf_methods);
-
-	sc->cid = crypto_get_driverid(softc_get_device(sc), CRYPTOCAP_F_HARDWARE);
-	if (sc->cid < 0) {
-		nss_cfi_err("could not get crypto driver id\n");
-		return NULL;
-	}
 
 	sc->crypto = crypto;
 
@@ -626,10 +615,6 @@ static nss_crypto_user_ctx_t nss_cfi_ocf_register(nss_crypto_handle_t crypto)
 			crypto_register(sc->cid, i, 0, 0);
 		}
 	}
-
-	encrypt = xchg(&sc->encrypt_fn, nss_cfi_ocf_encrypt_trap);
-	decrypt = xchg(&sc->decrypt_fn, nss_cfi_ocf_decrypt_trap);
-	session = xchg(&sc->session_fn, nss_cfi_ocf_session_trap);
 
 	return sc;
 }
@@ -684,6 +669,23 @@ void nss_cfi_ocf_unregister_ipsec(void)
  */
 int nss_cfi_ocf_init(void)
 {
+	struct nss_cfi_ocf *sc = &g_cfi_ocf;
+	nss_cfi_data_trap_t encrypt;
+	nss_cfi_data_trap_t decrypt;
+	nss_cfi_session_trap_t session;
+
+	softc_device_init(sc, NSS_CFI_DRV_NAME, 0, nss_cfi_ocf_methods);
+
+	sc->cid = crypto_get_driverid(softc_get_device(sc), CRYPTOCAP_F_HARDWARE);
+	if (sc->cid < 0) {
+		nss_cfi_err("could not get crypto driver id\n");
+		return -1;
+	}
+
+	encrypt = xchg(&sc->encrypt_fn, nss_cfi_ocf_encrypt_trap);
+	decrypt = xchg(&sc->decrypt_fn, nss_cfi_ocf_decrypt_trap);
+	session = xchg(&sc->session_fn, nss_cfi_ocf_session_trap);
+
 	nss_crypto_register_user(nss_cfi_ocf_register, nss_cfi_ocf_unregister, "nss_cfi_ocf");
 
 	return 0;
