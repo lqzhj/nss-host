@@ -94,6 +94,7 @@ enum nss_wifi_vdev_ext_data_pkt_type {
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_RX_ERR = 7,	/**< rx error packets meta data */
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_EXTAP_TX = 8,	/**< extap tx meta data */
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_EXTAP_RX = 9,	/**< extap rx meta data */
+	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_WNM_TFS = 10,	/**< wnm tfs related meta data */
 	NSS_WIFI_VDEV_EXT_DATA_PKT_TYPE_MAX
 };
 
@@ -113,6 +114,7 @@ enum nss_wifi_vdev_cmd {
 	NSS_WIFI_VDEV_FILTER_NEIGH_PEERS_CMD,	/**< command to set filter_neigh_peer */
 	NSS_WIFI_VDEV_CFG_DSCP_OVERRIDE_CMD,	/**< command to set dscp override */
 	NSS_WIFI_VDEV_CFG_WNM_CAP_CMD,		/**< command to set wnm capability */
+	NSS_WIFI_VDEV_CFG_WNM_TFS_CMD,		/**< command to set wnm tfs */
 	NSS_WIFI_VDEV_MAX_CMD
 };
 
