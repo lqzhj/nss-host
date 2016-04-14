@@ -561,6 +561,15 @@ int nss_hal_probe(struct platform_device *nss_dev)
 	nss_ctx->max_buf_size = NSS_NBUF_PAYLOAD_SIZE;
 
 	/*
+	 * Initialize S/G status pointers to NULL
+	 */
+	for (i = 0; i < NSS_N2H_DESC_RING_NUM; i++) {
+		nss_ctx->n2h_desc_ring[i].head = NULL;
+		nss_ctx->n2h_desc_ring[i].tail = NULL;
+		nss_ctx->n2h_desc_ring[i].jumbo_start = NULL;
+	}
+
+	/*
 	 * Increment number of cores
 	 */
 	nss_top->num_nss++;
