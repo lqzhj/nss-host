@@ -146,6 +146,11 @@
 #define NSS_CTX_MAGIC 0xDEDEDEDE
 
 /*
+ * Number of n2h descriptor rings
+ */
+#define NSS_N2H_DESC_RING_NUM 15
+
+/*
  * NSS maximum clients
  */
 #define NSS_MAX_CLIENTS 12
@@ -685,6 +690,9 @@ struct hlos_n2h_desc_ring {
 	struct n2h_desc_if_instance desc_if;
 					/* Descriptor ring */
 	uint32_t hlos_index;		/* Current HLOS index for this ring */
+	struct sk_buff *head;		/* First segment of an skb fraglist */
+	struct sk_buff *tail;		/* Last segment received of an skb fraglist */
+	struct sk_buff *jumbo_start;	/* First segment of an skb with frags[] */
 };
 
 /*
@@ -730,7 +738,7 @@ struct nss_ctx_instance {
 					/* Interrupt context instances */
 	struct hlos_h2n_desc_rings h2n_desc_rings[16];
 					/* Host to NSS descriptor rings */
-	struct hlos_n2h_desc_ring n2h_desc_ring[15];
+	struct hlos_n2h_desc_ring n2h_desc_ring[NSS_N2H_DESC_RING_NUM];
 					/* NSS to Host descriptor rings */
 	uint16_t n2h_rps_en;		/* N2H Enable Multiple queues for Data Packets */
 	uint16_t n2h_mitigate_en;	/* N2H mitigation */

@@ -658,10 +658,9 @@ static inline bool nss_core_handle_nr_frag_skb(struct nss_ctx_instance *nss_ctx,
 		 * Free the old head as the frag list is corrupt.
 		 */
 		if (unlikely(jumbo_start)) {
-			nss_warning("%p: received the second head before a last", jumbo_start);
+			nss_warning("%p: received a full frame before a last", jumbo_start);
 			dev_kfree_skb_any(jumbo_start);
 			*jumbo_start_ptr = NULL;
-			return false;
 		}
 
 		/*
@@ -697,8 +696,6 @@ static inline bool nss_core_handle_nr_frag_skb(struct nss_ctx_instance *nss_ctx,
 		if (unlikely(jumbo_start)) {
 			nss_warning("%p: received the second head before a last", jumbo_start);
 			dev_kfree_skb_any(jumbo_start);
-			*jumbo_start_ptr = NULL;
-			return false;
 		}
 
 		/*
@@ -801,10 +798,9 @@ static inline bool nss_core_handle_linear_skb(struct nss_ctx_instance *nss_ctx, 
 		 * Free the old head as the frag list is corrupt.
 		 */
 		if (unlikely(head)) {
-			nss_warning("%p: received the second head before a last", head);
+			nss_warning("%p: received a full frame before a last", head);
 			dev_kfree_skb_any(head);
 			*head_ptr = NULL;
-			return false;
 		}
 
 		/*
@@ -834,8 +830,6 @@ static inline bool nss_core_handle_linear_skb(struct nss_ctx_instance *nss_ctx, 
 		if (unlikely(head)) {
 			nss_warning("%p: received the second head before a last", head);
 			dev_kfree_skb_any(head);
-			*head_ptr = NULL;
-			return false;
 		}
 
 		/*
@@ -927,7 +921,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 	int16_t count, count_temp;
 	uint16_t size, mask, qid;
 	uint32_t nss_index, hlos_index;
-	struct sk_buff *nbuf, *head, *tail, *jumbo_start;
+	struct sk_buff *nbuf;
 	struct hlos_n2h_desc_ring *n2h_desc_ring;
 	struct n2h_desc_if_instance *desc_if;
 	struct n2h_descriptor *desc_ring;
@@ -965,7 +959,6 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 		count = weight;
 	}
 
-	head = tail = jumbo_start = NULL;
 	count_temp = count;
 	while (count_temp) {
 		unsigned int buffer_type;
@@ -1043,17 +1036,16 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 			 * Check if we received paged skb while constructing
 			 * a linear skb chain. If so we need to free.
 			 */
-			if (unlikely(head)) {
+			if (unlikely(n2h_desc_ring->head)) {
 				nss_warning("%p: we should not have an incomplete paged skb while"
-								" constructing a linear skb %p", nbuf, head);
+								" constructing a linear skb %p", nbuf, n2h_desc_ring->head);
 
 				NSS_PKT_STATS_DECREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NSS_SKB_COUNT]);
-				dev_kfree_skb_any(head);
-				head = NULL;
-				goto next;
+				dev_kfree_skb_any(n2h_desc_ring->head);
+				n2h_desc_ring->head = NULL;
 			}
 
-			if (!nss_core_handle_nr_frag_skb(nss_ctx, &nbuf, &jumbo_start, desc, buffer_type)) {
+			if (!nss_core_handle_nr_frag_skb(nss_ctx, &nbuf, &n2h_desc_ring->jumbo_start, desc, buffer_type)) {
 				goto next;
 			}
 			NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_RX_NR_FRAGS]);
@@ -1064,20 +1056,20 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 		 * Check if we received a linear skb while constructing
 		 * a paged skb. If so we need to free the paged_skb and handle the linear skb.
 		 */
-		if (unlikely(jumbo_start)) {
+		if (unlikely(n2h_desc_ring->jumbo_start)) {
 			nss_warning("%p: we should not have an incomplete linear skb while"
-							" constructing a paged skb %p", nbuf, jumbo_start);
+							" constructing a paged skb %p", nbuf, n2h_desc_ring->jumbo_start);
 
 			NSS_PKT_STATS_DECREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NSS_SKB_COUNT]);
-			dev_kfree_skb_any(jumbo_start);
-			jumbo_start = NULL;
+			dev_kfree_skb_any(n2h_desc_ring->jumbo_start);
+			n2h_desc_ring->jumbo_start = NULL;
 		}
 
 		/*
 		 * This is a simple linear skb. Use the the linear skb
 		 * handler to process it.
 		 */
-		if (!nss_core_handle_linear_skb(nss_ctx, &nbuf, &head, &tail, desc)) {
+		if (!nss_core_handle_linear_skb(nss_ctx, &nbuf, &n2h_desc_ring->head, &n2h_desc_ring->tail, desc)) {
 			goto next;
 		}
 
