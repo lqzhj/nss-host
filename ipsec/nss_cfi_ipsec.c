@@ -448,6 +448,11 @@ static void nss_cfi_ipsec_data_cb(void *cb_ctx, struct sk_buff *skb)
 	dev_hold(dev);
 
 	index = nss_cfi_ipsec_get_index(dev->name);
+	if (index < 0) {
+		nss_cfi_err("unable to find local index %s\n", dev->name);
+		return;
+	}
+
 	nss_dev = tunnel_map[index].nss_dev;
 	if (!nss_dev) {
 		nss_cfi_err("NSS IPsec tunnel dev allocation failed for %s\n", dev->name);
