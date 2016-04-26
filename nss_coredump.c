@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015, 2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -77,8 +77,7 @@ static int nss_panic_handler(struct notifier_block *nb,
 		if (nss_ctx->state & NSS_CORE_STATE_FW_DEAD || !nss_ctx->nmap)
 			continue;
 		nss_ctx->state |= NSS_CORE_STATE_PANIC;
-		nss_hal_send_interrupt(nss_ctx->nmap, 0,
-			NSS_REGS_H2N_INTR_STATUS_TRIGGER_COREDUMP);
+		nss_hal_send_interrupt(nss_ctx, NSS_H2N_INTR_TRIGGER_COREDUMP);
 		nss_warning("panic call NSS FW %x to dump %x\n",
 			nss_ctx->nmap, nss_ctx->state);
 	}
@@ -160,8 +159,7 @@ void nss_fw_coredump_notify(struct nss_ctx_instance *nss_own,
 			}
 			nss_warning("notify NSS FW %X for coredump\n",
 				nss_ctx->nmap);
-			nss_hal_send_interrupt(nss_ctx->nmap, 0,
-				NSS_REGS_H2N_INTR_STATUS_TRIGGER_COREDUMP);
+			nss_hal_send_interrupt(nss_ctx, NSS_H2N_INTR_TRIGGER_COREDUMP);
 		}
 	}
 }

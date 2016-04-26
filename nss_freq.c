@@ -107,7 +107,7 @@ nss_tx_status_t nss_freq_change(struct nss_ctx_instance *nss_ctx, uint32_t eng, 
 		return NSS_TX_FAILURE;
 	}
 
-	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit, NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
+	nss_hal_send_interrupt(nss_ctx, NSS_H2N_INTR_DATA_COMMAND_QUEUE);
 
 	return NSS_TX_SUCCESS;
 }

@@ -149,6 +149,17 @@
  * Number of n2h descriptor rings
  */
 #define NSS_N2H_DESC_RING_NUM 15
+#define NSS_H2N_DESC_RING_NUM 16
+
+/*
+ * NSS maximum data queue per core
+ */
+#define NSS_MAX_DATA_QUEUE 2
+
+/*
+ * NSS maximum IRQ per interrupt instance
+ */
+#define NSS_MAX_IRQ_PER_INSTANCE 5
 
 /*
  * NSS maximum clients
@@ -205,8 +216,9 @@
 #define NSSTCM_FREQ		400000000	/* NSS TCM Frequency in Hz */
 
 /* NSS Clock names */
-#define NSS_TCM_SRC_CLK		"nss_tcm_src"
-#define NSS_TCM_CLK		"nss_tcm_clk"
+#define NSS_CORE_CLK		"nss-core-clk"
+#define NSS_TCM_SRC_CLK		"nss-tcm-src"
+#define NSS_TCM_CLK		"nss-tcm-clk"
 #define NSS_FABRIC0_CLK		"nss-fab0-clk"
 #define NSS_FABRIC1_CLK		"nss-fab1-clk"
 
@@ -668,19 +680,18 @@ struct netdev_priv_instance {
 };
 
 /*
- * Interrupt context instance (one per IRQ per NSS core)
+ * Interrupt context instance (one per queue per NSS core)
  */
 struct int_ctx_instance {
 	struct nss_ctx_instance *nss_ctx;
 					/* Back pointer to NSS context of core that
-					owns this interrupt */
-	uint32_t irq;			/* HLOS IRQ number */
-	uint32_t shift_factor;		/* Shift factor for this IRQ number */
+					   owns this interrupt */
+	uint32_t irq[NSS_MAX_IRQ_PER_INSTANCE];
+					/* HLOS IRQ numbers bind to this instance */
+	uint32_t shift_factor;		/* Shift factor for this IRQ queue */
 	uint32_t cause;			/* Interrupt cause carried forward to BH */
-	struct net_device *ndev;	/* Network device associated with this interrupt
-					   context */
+	struct net_device *ndev;	/* Netdev associated with this interrupt ctx */
 	struct napi_struct napi;	/* NAPI handler */
-	bool napi_active;		/* NAPI is active */
 };
 
 /*
@@ -729,14 +740,16 @@ struct nss_ctx_instance {
 	uint32_t id;			/* Core ID for this instance */
 	uint32_t nmap;			/* Pointer to NSS CSM registers */
 	uint32_t vmap;			/* Virt mem pointer to virtual register map */
+	uint32_t qgic_map;		/* Virt mem pointer to QGIC register */
 	uint32_t nphys;			/* Phys mem pointer to CSM register map */
 	uint32_t vphys;			/* Phys mem pointer to virtual register map */
+	uint32_t qgic_phys;		/* Phys mem pointer to QGIC register map */
 	uint32_t load;			/* Load address for this core */
 	enum nss_core_state state;	/* State of NSS core */
 	uint32_t c2c_start;		/* C2C start address */
-	struct int_ctx_instance int_ctx[2];
-					/* Interrupt context instances */
-	struct hlos_h2n_desc_rings h2n_desc_rings[16];
+	struct int_ctx_instance int_ctx[NSS_MAX_DATA_QUEUE];
+					/* Interrupt context instances for each queue */
+	struct hlos_h2n_desc_rings h2n_desc_rings[NSS_H2N_DESC_RING_NUM];
 					/* Host to NSS descriptor rings */
 	struct hlos_n2h_desc_ring n2h_desc_ring[NSS_N2H_DESC_RING_NUM];
 					/* NSS to Host descriptor rings */
@@ -939,10 +952,7 @@ struct nss_top_instance {
 					/* PPPoE exception events for per session on per interface. Interface and session indexes start with 1. */
 	uint64_t stats_portid[NSS_STATS_PORTID_MAX];
 					/* PortID statistics */
-#if (NSS_DT_SUPPORT == 1)
-	void *nss_fpb_base;			/* Virtual address of FPB base */
 	bool nss_hal_common_init_done;
-#endif
 
 	uint16_t prev_mtu_sz;		/* mtu sz needed as of now */
 	uint16_t crypto_enabled;	/* check if crypto is enabled on the platform */
@@ -951,6 +961,7 @@ struct nss_top_instance {
 	 * TODO: Review and update following fields
 	 */
 	uint64_t last_rx_jiffies;	/* Time of the last RX message from the NA in jiffies */
+	struct nss_hal_ops *hal_ops;	/* nss_hal ops for this target platform */
 };
 
 #if (NSS_PKT_STATS_ENABLED == 1)
@@ -1060,37 +1071,60 @@ enum nss_feature_enabled {
  */
 struct nss_platform_data {
 	uint32_t id;					/* NSS core ID */
-	uint32_t num_irq;				/* No. of interrupts supported per core */
-	uint32_t irq[2];				/* IRQ numbers per interrupt */
-	uint32_t nmap;					/* Virtual address of NSS CSM space */
-	uint32_t vmap;					/* Virtual address of NSS virtual register map */
-	uint32_t nphys;					/* Physical address of NSS CSM space */
-	uint32_t vphys;					/* Physical address of NSS virtual register map */
-	uint32_t rst_addr;				/* Reset address of NSS core */
+	uint32_t num_queue;				/* No. of queues supported per core */
+	uint32_t num_irq;				/* No. of irq binded per queue */
+	uint32_t irq[5];				/* IRQ numbers per queue */
+	uint32_t nmap;					/* Virtual addr of NSS CSM space */
+	uint32_t vmap;					/* Virtual addr of NSS virtual register map */
+	uint32_t qgic_map;				/* Virtual addr of QGIC interrupt register */
+	uint32_t nphys;					/* Physical addr of NSS CSM space */
+	uint32_t vphys;					/* Physical addr of NSS virtual register map */
+	uint32_t qgic_phys;				/* Physical addr of QGIC virtual register map */
 	uint32_t load_addr;				/* Load address of NSS firmware */
-	enum nss_feature_enabled turbo_frequency;	/* Does this core support turbo frequencies */
-	enum nss_feature_enabled ipv4_enabled;		/* Does this core handle IPv4? */
-	enum nss_feature_enabled ipv4_reasm_enabled;	/* Does this core handle IPv4 reassembly? */
-	enum nss_feature_enabled ipv6_enabled;		/* Does this core handle IPv6? */
-	enum nss_feature_enabled ipv6_reasm_enabled;	/* Does this core handle IPv6 reassembly? */
-	enum nss_feature_enabled l2switch_enabled;	/* Does this core handle L2 switch? */
-	enum nss_feature_enabled crypto_enabled;	/* Does this core handle crypto? */
-	enum nss_feature_enabled ipsec_enabled;		/* Does this core handle IPsec? */
-	enum nss_feature_enabled wlanredirect_enabled;	/* Does this core handle WLAN redirect? */
-	enum nss_feature_enabled tun6rd_enabled;	/* Does this core handle 6rd Tunnel ? */
-	enum nss_feature_enabled pptp_enabled;		/* Does this core handle pptp Tunnel ? */
-	enum nss_feature_enabled l2tpv2_enabled;	/* Does this core handle l2tpv2 Tunnel ? */
-	enum nss_feature_enabled dtls_enabled;		/* Does this core handle DTLS sessions ? */
-	enum nss_feature_enabled map_t_enabled;		/* Does this core handle map-t */
-	enum nss_feature_enabled tunipip6_enabled;	/* Does this core handle ipip6 Tunnel ? */
-	enum nss_feature_enabled gre_redir_enabled;	/* Does this core handle gre_redir Tunnel ? */
-	enum nss_feature_enabled shaping_enabled;	/* Does this core handle shaping ? */
-	enum nss_feature_enabled gmac_enabled[4];	/* Does this core handle GMACs? */
-	enum nss_feature_enabled wifioffload_enabled;   /* Does this core handle WIFI OFFLOAD? */
-	enum nss_feature_enabled tstamp_enabled;	/* Does this core handle timestamping? */
-	enum nss_feature_enabled portid_enabled;	/* Does this core handle portid? */
-	enum nss_feature_enabled oam_enabled;		/* Does this core handle oam? */
-	enum nss_feature_enabled capwap_enabled;	/* Does this core handle capwap? */
+	enum nss_feature_enabled capwap_enabled;
+				/* Does this core handle capwap? */
+	enum nss_feature_enabled crypto_enabled;
+				/* Does this core handle crypto? */
+	enum nss_feature_enabled dtls_enabled;
+				/* Does this core handle DTLS sessions ? */
+	enum nss_feature_enabled gre_redir_enabled;
+				/* Does this core handle gre_redir Tunnel ? */
+	enum nss_feature_enabled ipsec_enabled;
+				/* Does this core handle IPsec? */
+	enum nss_feature_enabled ipv4_enabled;
+				/* Does this core handle IPv4? */
+	enum nss_feature_enabled ipv4_reasm_enabled;
+				/* Does this core handle IPv4 reassembly? */
+	enum nss_feature_enabled ipv6_enabled;
+				/* Does this core handle IPv6? */
+	enum nss_feature_enabled ipv6_reasm_enabled;
+				/* Does this core handle IPv6 reassembly? */
+	enum nss_feature_enabled l2tpv2_enabled;
+				/* Does this core handle l2tpv2 Tunnel ? */
+	enum nss_feature_enabled map_t_enabled;
+				/* Does this core handle map-t */
+	enum nss_feature_enabled oam_enabled;
+				/* Does this core handle oam? */
+	enum nss_feature_enabled pppoe_enabled;
+				/* Does this core handle pppoe? */
+	enum nss_feature_enabled pptp_enabled;
+				/* Does this core handle pptp Tunnel ? */
+	enum nss_feature_enabled portid_enabled;
+				/* Does this core handle portid? */
+	enum nss_feature_enabled shaping_enabled;
+				/* Does this core handle shaping ? */
+	enum nss_feature_enabled tstamp_enabled;
+				/* Does this core handle timestamping? */
+	enum nss_feature_enabled turbo_frequency;
+				/* Does this core support turbo frequencies */
+	enum nss_feature_enabled tun6rd_enabled;
+				/* Does this core handle 6rd Tunnel ? */
+	enum nss_feature_enabled tunipip6_enabled;
+				/* Does this core handle ipip6 Tunnel ? */
+	enum nss_feature_enabled wlanredirect_enabled;
+				/* Does this core handle WLAN redirect? */
+	enum nss_feature_enabled wifioffload_enabled;
+				/* Does this core handle WIFI OFFLOAD? */
 };
 #endif
 

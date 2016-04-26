@@ -22,7 +22,6 @@
 #ifndef __NSS_TX_RX_COMMON_H
 #define __NSS_TX_RX_COMMON_H
 
-#include "nss_core.h"
 #include <nss_hal.h>
 #include <linux/module.h>
 #include <linux/vmalloc.h>

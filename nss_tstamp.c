@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015, 2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -65,7 +65,9 @@ static void nss_tstamp_copy_data(struct nss_tstamp_data *ntm, struct sk_buff *sk
 
 	tstamp = skb_hwtstamps(skb);
 	tstamp->hwtstamp = ktime_set(ntm->ts_data_hi, ntm->ts_data_lo);
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3, 16, 0))
 	tstamp->syststamp = ktime_set(ntm->ts_data_hi, ntm->ts_data_lo);
+#endif
 }
 
 /*
@@ -153,7 +155,11 @@ struct net_device *nss_tstamp_register_netdev(void)
 	struct net_device *ndev;
 	uint32_t err = 0;
 
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3, 16, 0))
 	ndev = alloc_netdev(sizeof(struct netdev_priv_instance), "qca-nss-tstamp", nss_tstamp_ndev_setup);
+#else
+	ndev = alloc_netdev(sizeof(struct netdev_priv_instance), "qca-nss-tstamp", NET_NAME_ENUM, nss_tstamp_ndev_setup);
+#endif
 	if (!ndev) {
 		nss_warning("Tstamp: Could not allocate tstamp net_device ");
 		return NULL;

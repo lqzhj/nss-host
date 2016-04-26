@@ -270,8 +270,7 @@ static int32_t nss_send_c2c_map(struct nss_ctx_instance *nss_own, struct nss_ctx
 		return NSS_CORE_STATUS_FAILURE;
 	}
 
-	nss_hal_send_interrupt(nss_own->nmap, nss_own->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
-								NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
+	nss_hal_send_interrupt(nss_own, NSS_H2N_INTR_DATA_COMMAND_QUEUE);
 
 	return NSS_CORE_STATUS_SUCCESS;
 }
@@ -282,15 +281,15 @@ static int32_t nss_send_c2c_map(struct nss_ctx_instance *nss_own, struct nss_ctx
  */
 static inline uint16_t nss_core_cause_to_queue(uint16_t cause)
 {
-	if (likely(cause == NSS_REGS_N2H_INTR_STATUS_DATA_COMMAND_QUEUE)) {
+	if (likely(cause == NSS_N2H_INTR_DATA_COMMAND_QUEUE)) {
 		return NSS_IF_DATA_QUEUE_0;
 	}
 
-	if (likely(cause == NSS_REGS_N2H_INTR_STATUS_DATA_QUEUE_1)) {
+	if (likely(cause == NSS_N2H_INTR_DATA_QUEUE_1)) {
 		return NSS_IF_DATA_QUEUE_1;
 	}
 
-	if (likely(cause == NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFER_QUEUE)) {
+	if (likely(cause == NSS_N2H_INTR_EMPTY_BUFFER_QUEUE)) {
 		return NSS_IF_EMPTY_BUFFER_QUEUE;
 	}
 
@@ -1182,12 +1181,12 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 	uint16_t payload_len;
 	int32_t i;
 
-	nss_assert((cause == NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFERS_SOS) || (cause == NSS_REGS_N2H_INTR_STATUS_TX_UNBLOCKED));
+	nss_assert((cause == NSS_N2H_INTR_EMPTY_BUFFERS_SOS) || (cause == NSS_N2H_INTR_TX_UNBLOCKED));
 
 	/*
 	 * TODO: find better mechanism to handle empty buffers
 	 */
-	if (likely(cause == NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFERS_SOS)) {
+	if (likely(cause == NSS_N2H_INTR_EMPTY_BUFFERS_SOS)) {
 		struct sk_buff *nbuf;
 		struct page *npage;
 		uint16_t count, size, mask;
@@ -1371,9 +1370,9 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 		/*
 		 * Inform NSS that new buffers are available
 		 */
-		nss_hal_send_interrupt(nss_ctx->nmap, desc_if->int_bit, NSS_REGS_H2N_INTR_STATUS_EMPTY_BUFFER_QUEUE);
+		nss_hal_send_interrupt(nss_ctx, NSS_H2N_INTR_EMPTY_BUFFER_QUEUE);
 		NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_top->stats_drv[NSS_STATS_DRV_TX_EMPTY]);
-	} else if (cause == NSS_REGS_N2H_INTR_STATUS_TX_UNBLOCKED) {
+	} else if (cause == NSS_N2H_INTR_TX_UNBLOCKED) {
 		nss_trace("%p: Data queue unblocked", nss_ctx);
 
 		/*
@@ -1393,8 +1392,7 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 		/*
 		 * Mask Tx unblocked interrupt and unmask it again when queue full condition is reached
 		 */
-		nss_hal_disable_interrupt(nss_ctx->nmap, nss_ctx->int_ctx[0].irq,
-				nss_ctx->int_ctx[0].shift_factor, NSS_REGS_N2H_INTR_STATUS_TX_UNBLOCKED);
+		nss_hal_disable_interrupt(nss_ctx, nss_ctx->int_ctx[0].shift_factor, NSS_N2H_INTR_TX_UNBLOCKED);
 	}
 }
 
@@ -1414,46 +1412,46 @@ static uint32_t nss_core_get_prioritized_cause(uint32_t cause, uint32_t *type, i
 	 * TODO: Modify the algorithm later with proper weights and Round Robin
 	 */
 
-	if (cause & NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFERS_SOS) {
+	if (cause & NSS_N2H_INTR_EMPTY_BUFFERS_SOS) {
 		*type = NSS_INTR_CAUSE_NON_QUEUE;
 		*weight = NSS_EMPTY_BUFFER_SOS_PROCESSING_WEIGHT;
-		return NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFERS_SOS;
+		return NSS_N2H_INTR_EMPTY_BUFFERS_SOS;
 	}
 
-	if (cause & NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFER_QUEUE) {
+	if (cause & NSS_N2H_INTR_EMPTY_BUFFER_QUEUE) {
 		*type = NSS_INTR_CAUSE_QUEUE;
 		*weight = NSS_EMPTY_BUFFER_RETURN_PROCESSING_WEIGHT;
-		return NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFER_QUEUE;
+		return NSS_N2H_INTR_EMPTY_BUFFER_QUEUE;
 	}
 
-	if (cause & NSS_REGS_N2H_INTR_STATUS_TX_UNBLOCKED) {
+	if (cause & NSS_N2H_INTR_TX_UNBLOCKED) {
 		*type = NSS_INTR_CAUSE_NON_QUEUE;
 		*weight = NSS_TX_UNBLOCKED_PROCESSING_WEIGHT;
-		return NSS_REGS_N2H_INTR_STATUS_TX_UNBLOCKED;
+		return NSS_N2H_INTR_TX_UNBLOCKED;
 	}
 
-	if (cause & NSS_REGS_N2H_INTR_STATUS_DATA_COMMAND_QUEUE) {
+	if (cause & NSS_N2H_INTR_DATA_COMMAND_QUEUE) {
 		*type = NSS_INTR_CAUSE_QUEUE;
 		*weight = NSS_DATA_COMMAND_BUFFER_PROCESSING_WEIGHT;
-		return NSS_REGS_N2H_INTR_STATUS_DATA_COMMAND_QUEUE;
+		return NSS_N2H_INTR_DATA_COMMAND_QUEUE;
 	}
 
-	if (cause & NSS_REGS_N2H_INTR_STATUS_DATA_QUEUE_1) {
+	if (cause & NSS_N2H_INTR_DATA_QUEUE_1) {
 		*type = NSS_INTR_CAUSE_QUEUE;
 		*weight = NSS_DATA_COMMAND_BUFFER_PROCESSING_WEIGHT;
-		return NSS_REGS_N2H_INTR_STATUS_DATA_QUEUE_1;
+		return NSS_N2H_INTR_DATA_QUEUE_1;
 	}
 
-	if (cause & NSS_REGS_N2H_INTR_STATUS_COREDUMP_COMPLETE_0) {
+	if (cause & NSS_N2H_INTR_COREDUMP_COMPLETE_0) {
 		printk("NSS core 0 signal COREDUMP COMPLETE %x ", cause);
 		*type = NSS_INTR_CAUSE_EMERGENCY;
-		return NSS_REGS_N2H_INTR_STATUS_COREDUMP_COMPLETE_0;
+		return NSS_N2H_INTR_COREDUMP_COMPLETE_0;
 	}
 
-	if (cause & NSS_REGS_N2H_INTR_STATUS_COREDUMP_COMPLETE_1) {
+	if (cause & NSS_N2H_INTR_COREDUMP_COMPLETE_1) {
 		printk("NSS core 1 signal COREDUMP COMPLETE %x\n", cause);
 		*type = NSS_INTR_CAUSE_EMERGENCY;
-		return NSS_REGS_N2H_INTR_STATUS_COREDUMP_COMPLETE_1;
+		return NSS_N2H_INTR_COREDUMP_COMPLETE_1;
 	}
 
 	return 0;
@@ -1466,7 +1464,7 @@ static uint32_t nss_core_get_prioritized_cause(uint32_t cause, uint32_t *type, i
 int nss_core_handle_napi(struct napi_struct *napi, int budget)
 {
 	int16_t processed, weight, count = 0;
-	uint32_t prio_cause, int_cause, cause_type;
+	uint32_t prio_cause, int_cause = 0, cause_type;
 	struct netdev_priv_instance *ndev_priv = netdev_priv(napi->dev);
 	struct int_ctx_instance *int_ctx = ndev_priv->int_ctx;
 	struct nss_ctx_instance *nss_ctx = int_ctx->nss_ctx;
@@ -1474,8 +1472,8 @@ int nss_core_handle_napi(struct napi_struct *napi, int budget)
 	/*
 	 * Read cause of interrupt
 	 */
-	nss_hal_read_interrupt_cause(nss_ctx->nmap, int_ctx->irq, int_ctx->shift_factor, &int_cause);
-	nss_hal_clear_interrupt_cause(nss_ctx->nmap, int_ctx->irq, int_ctx->shift_factor, int_cause);
+	nss_hal_read_interrupt_cause(nss_ctx, int_ctx->shift_factor, &int_cause);
+	nss_hal_clear_interrupt_cause(nss_ctx, int_ctx->shift_factor, int_cause);
 	int_ctx->cause |= int_cause;
 
 	do {
@@ -1492,43 +1490,42 @@ int nss_core_handle_napi(struct napi_struct *napi, int budget)
 				weight = budget;
 			}
 
-		processed = 0;
-		switch (cause_type) {
-		case NSS_INTR_CAUSE_QUEUE:
-			processed = nss_core_handle_cause_queue(int_ctx, prio_cause, weight);
+			processed = 0;
+			switch (cause_type) {
+			case NSS_INTR_CAUSE_QUEUE:
+				processed = nss_core_handle_cause_queue(int_ctx, prio_cause, weight);
 
-			count += processed;
-			budget -= processed;
-			if (processed < weight) {
+				count += processed;
+				budget -= processed;
+
 				/*
-				 * If #packets processed were lesser than weight then
-				 * processing for this queue/cause is complete and
-				 * we can clear this interrupt cause from interrupt context
-				 * structure
+				 * If #packets processed were lesser than weight then processing for this queue/cause is
+				 * complete and we can clear this interrupt cause from interrupt context structure
 				 */
+				if (processed < weight) {
+					int_ctx->cause &= ~prio_cause;
+				}
+				break;
+
+			case NSS_INTR_CAUSE_NON_QUEUE:
+				nss_core_handle_cause_nonqueue(int_ctx, prio_cause, weight);
 				int_ctx->cause &= ~prio_cause;
+				break;
+
+			case NSS_INTR_CAUSE_EMERGENCY:
+				nss_fw_coredump_notify(nss_ctx, prio_cause);
+				int_ctx->cause &= ~prio_cause;
+				break;
+
+			default:
+				nss_warning("%p: Invalid cause %x received from nss", nss_ctx, int_cause);
+				nss_assert(0);
+				break;
 			}
-			break;
-
-		case NSS_INTR_CAUSE_NON_QUEUE:
-			nss_core_handle_cause_nonqueue(int_ctx, prio_cause, weight);
-			int_ctx->cause &= ~prio_cause;
-			break;
-
-		case NSS_INTR_CAUSE_EMERGENCY:
-			nss_fw_coredump_notify(nss_ctx, prio_cause);
-			int_ctx->cause &= ~prio_cause;
-			break;
-
-		default:
-			nss_warning("%p: Invalid cause %x received from nss", nss_ctx, int_cause);
-			nss_assert(0);
-			break;
 		}
-	}
 
-		nss_hal_read_interrupt_cause(nss_ctx->nmap, int_ctx->irq, int_ctx->shift_factor, &int_cause);
-		nss_hal_clear_interrupt_cause(nss_ctx->nmap, int_ctx->irq, int_ctx->shift_factor, int_cause);
+		nss_hal_read_interrupt_cause(nss_ctx, int_ctx->shift_factor, &int_cause);
+		nss_hal_clear_interrupt_cause(nss_ctx, int_ctx->shift_factor, int_cause);
 		int_ctx->cause |= int_cause;
 	} while ((int_ctx->cause) && (budget));
 
@@ -1538,7 +1535,7 @@ int nss_core_handle_napi(struct napi_struct *napi, int budget)
 		/*
 		 * Re-enable any further interrupt from this IRQ
 		 */
-		nss_hal_enable_interrupt(nss_ctx->nmap, int_ctx->irq, int_ctx->shift_factor, NSS_HAL_SUPPORTED_INTERRUPTS);
+		nss_hal_enable_interrupt(nss_ctx, int_ctx->shift_factor, NSS_HAL_SUPPORTED_INTERRUPTS);
 	}
 
 	return count;
@@ -1591,8 +1588,7 @@ int32_t nss_core_send_crypto(struct nss_ctx_instance *nss_ctx, void *buf, uint32
 		/*
 		 * Enable de-congestion interrupt from NSS
 		 */
-		nss_hal_enable_interrupt(nss_ctx->nmap, nss_ctx->int_ctx[0].irq,
-				nss_ctx->int_ctx[0].shift_factor, NSS_REGS_N2H_INTR_STATUS_TX_UNBLOCKED);
+		nss_hal_enable_interrupt(nss_ctx, nss_ctx->int_ctx[0].shift_factor, NSS_N2H_INTR_TX_UNBLOCKED);
 
 		return NSS_CORE_STATUS_FAILURE_QUEUE;
 	}
@@ -1964,8 +1960,7 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 		/*
 		 * Enable de-congestion interrupt from NSS
 		 */
-		nss_hal_enable_interrupt(nss_ctx->nmap, nss_ctx->int_ctx[0].irq,
-				nss_ctx->int_ctx[0].shift_factor, NSS_REGS_N2H_INTR_STATUS_TX_UNBLOCKED);
+		nss_hal_enable_interrupt(nss_ctx, nss_ctx->int_ctx[0].shift_factor, NSS_N2H_INTR_TX_UNBLOCKED);
 
 		return NSS_CORE_STATUS_FAILURE_QUEUE;
 	}

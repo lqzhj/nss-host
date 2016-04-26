@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -33,16 +33,9 @@ struct nss_data_plane_param {
 	struct net_device *dev;			/* net_device instance of this gmac */
 	struct nss_ctx_instance *nss_ctx;	/* which nss core */
 	int notify_open;			/* This gmac interface has been opened or not */
-	int enabled;				/* This gmac is enabled or not */
 	uint32_t features;			/* skb types supported by this interface */
 	uint32_t bypass_nw_process;		/* Do we want to bypass NW processing in NSS for this GMAC */
 };
-
-/*
- * nss_data_plane_set_enabled
- *	Mark this data plane enabled, so when nss_init complete, we can call register_to_nss_gmac
- */
-void nss_data_plane_set_enabled(int if_num);
 
 /*
  * nss_data_plane_schedule_registration()

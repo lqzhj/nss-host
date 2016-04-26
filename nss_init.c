@@ -115,6 +115,19 @@ static inline int nss_remove(struct platform_device *nss_dev)
 	return nss_hal_remove(nss_dev);
 }
 
+#if (NSS_DT_SUPPORT == 1)
+/*
+ * Platform Device ID for NSS core.
+ */
+struct of_device_id nss_dt_ids[] = {
+	{ .compatible = "qcom,nss" },
+	{ .compatible = "qcom,nss0" },
+	{ .compatible = "qcom,nss1" },
+	{},
+};
+MODULE_DEVICE_TABLE(of, nss_dt_ids);
+#endif
+
 /*
  * nss_driver
  *	Platform driver structure for NSS
@@ -438,7 +451,7 @@ static int nss_coredump_handler(struct ctl_table *ctl, int write, void __user *b
 	if (!ret) {
 		if ((write) && (nss_ctl_debug != 0)) {
 			printk("Coredumping to DDR\n");
-			nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit, NSS_REGS_H2N_INTR_STATUS_TRIGGER_COREDUMP);
+			nss_hal_send_interrupt(nss_ctx, NSS_H2N_INTR_TRIGGER_COREDUMP);
 		}
 	}
 
@@ -614,51 +627,34 @@ static struct ctl_table_header *nss_dev_header;
  */
 static int __init nss_init(void)
 {
-#if (NSS_DT_SUPPORT == 1)
-	struct device_node *cmn = NULL;
-	struct resource res_nss_fpb_base;
-#endif
-
 	nss_info("Init NSS driver");
 
 #if (NSS_DT_SUPPORT == 1)
 	/*
-	 * Get reference to NSS common device node
+	 * Pick up HAL by target information
 	 */
-	cmn = of_find_node_by_name(NULL, "nss-common");
-	if (!cmn) {
-		nss_info_always("qca-nss-drv.ko is loaded for symbol link\n");
-		return 0;
+#if defined(NSS_HAL_IPQ806X_SUPPORT)
+	if (of_machine_is_compatible("qcom,ipq8064") || of_machine_is_compatible("qcom,ipq8062")) {
+		nss_top_main.hal_ops = &nss_hal_ipq806x_ops;
 	}
-
-	if (of_address_to_resource(cmn, 0, &res_nss_fpb_base) != 0) {
-		nss_info("of_address_to_resource() return error for nss_fpb_base\n");
-		of_node_put(cmn);
+#endif
+#if defined(NSS_HAL_FSM9010_SUPPORT)
+	if (of_machine_is_compatible("qcom,fsm9010")) {
+		nss_top_main.hal_ops = &nss_hal_fsm9010_ops;
+	}
+#endif
+	if (!nss_top_main.hal_ops) {
+		nss_info_always("No supported HAL compiled on this platform\n");
 		return -EFAULT;
 	}
-
-	nss_top_main.nss_fpb_base = ioremap_nocache(res_nss_fpb_base.start,
-						    resource_size(&res_nss_fpb_base));
-	if (!nss_top_main.nss_fpb_base) {
-		nss_info("ioremap fail for nss_fpb_base\n");
-		of_node_put(cmn);
-		return -EFAULT;
-	}
-
-	nss_top_main.nss_hal_common_init_done = false;
-
-	/*
-	 * Release reference to NSS common device node
-	 */
-	of_node_put(cmn);
-	cmn = NULL;
 #else
 	/*
-	 * Perform clock init common to all NSS cores
+	 * For banana, only ipq806x is supported
 	 */
-	nss_hal_common_reset(&(nss_top_main.clk_src));
+	nss_top_main.hal_ops = &nss_hal_ipq806x_ops;
 
 #endif /* NSS_DT_SUPPORT */
+	nss_top_main.nss_hal_common_init_done = false;
 
 	/*
 	 * Initialize data_plane workqueue
@@ -758,19 +754,6 @@ static int __init nss_init(void)
  */
 static void __exit nss_cleanup(void)
 {
-#if (NSS_DT_SUPPORT == 1)
-	struct device_node *cmn = NULL;
-
-	/*
-	 * Get reference to NSS common device node
-	 */
-	cmn = of_find_node_by_name(NULL, "nss-common");
-	if (!cmn) {
-		nss_info_always("cannot find nss-common node, maybe just for symbol link\n");
-		return;
-	}
-#endif
-
 	nss_info("Exit NSS driver");
 
 	if (nss_dev_header)
@@ -786,13 +769,6 @@ static void __exit nss_cleanup(void)
 	 */
 	nss_ipv4_unregister_sysctl();
 	nss_ipv6_unregister_sysctl();
-
-#if (NSS_DT_SUPPORT == 1)
-	if(nss_top_main.nss_fpb_base) {
-		iounmap(nss_top_main.nss_fpb_base);
-		nss_top_main.nss_fpb_base = 0;
-	}
-#endif
 
 	nss_data_plane_destroy_delay_work();
 
