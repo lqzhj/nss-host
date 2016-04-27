@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, 2015 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013, 2015-2016 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -47,6 +47,9 @@
 /* Poll time in ms */
 #define CRYPTO_DELAYED_INIT_TIME	100
 
+/* Crypto turbo clock frequency */
+#define NSS_CRYPTO_CLOCK_TURBO_FREQ	2132000000
+
 /* Crypto resource index in device tree */
 enum nss_crypto_dt_res {
 	NSS_CRYPTO_DT_CRYPTO_RES = 0,
@@ -91,17 +94,47 @@ static void nss_crypto_bam_init(uint8_t *bam_iobase)
 }
 
 /*
+ * nss_crypto_clock_init()
+ * 	initialize crypto clock
+ */
+static int nss_crypto_clock_init(struct platform_device *pdev, struct device_node *np)
+{
+	struct clk *clk;
+	const char *clk_string;
+	int count, i;
+
+	count = of_property_count_strings(np, "clock-names");
+	if (count < 0) {
+		nss_crypto_info("crypto clock instance not found\n");
+		return 0;
+	}
+
+	for (i = 0; i < count ; i++) {
+		of_property_read_string_index(np, "clock-names", i, &clk_string);
+
+		clk = devm_clk_get(&pdev->dev, clk_string);
+		BUG_ON(!clk);
+
+		clk_prepare_enable(clk);
+		if (clk_set_rate(clk, NSS_CRYPTO_CLOCK_TURBO_FREQ)) {
+			nss_crypto_err("%p:Error in setting %s clock to turbo freq\n", pdev, clk_string);
+		}
+	}
+	return 0;
+}
+
+/*
  * nss_crypto_probe()
  *	probe routine called per engine from MACH-MSM
  */
 static int nss_crypto_probe(struct platform_device *pdev)
 {
-	struct nss_crypto_ctrl_eng *e_ctrl;
-	struct device_node *np;
+	struct reset_control *rst_ctl __attribute__((unused));
 	struct nss_crypto_ctrl_eng *eng_ptr;
+	struct nss_crypto_ctrl_eng *e_ctrl;
 	struct resource crypto_res = {0};
 	struct resource bam_res = {0};
-	struct reset_control *rst_ctl __attribute__((unused));
+	struct device_node *np;
 	uint32_t bam_ee = 0;
 	size_t old_sz;
 	size_t new_sz;
@@ -122,6 +155,11 @@ static int nss_crypto_probe(struct platform_device *pdev)
 	/* crypto engine resources */
 	nss_crypto_info_always("Device Tree node found\n");
 	np = of_node_get(pdev->dev.of_node);
+
+	/*
+	 * initialize crypto clock
+	 */
+	nss_crypto_clock_init(pdev, np);
 
 #if defined CONFIG_RESET_CONTROLLER
 	/*
