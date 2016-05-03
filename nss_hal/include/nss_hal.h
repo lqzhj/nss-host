@@ -35,6 +35,9 @@ extern struct clk *nss_fab1_clk;
 #if defined(NSS_HAL_IPQ806X_SUPPORT)
 extern struct nss_hal_ops nss_hal_ipq806x_ops;
 #endif
+#if defined(NSS_HAL_IPQ807x_SUPPORT)
+extern struct nss_hal_ops nss_hal_ipq807x_ops;
+#endif
 #if defined(NSS_HAL_FSM9010_SUPPORT)
 extern struct nss_hal_ops nss_hal_fsm9010_ops;
 #endif

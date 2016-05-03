@@ -55,8 +55,15 @@ qca-nss-drv-objs += nss_tx_rx_virt_if.o
 
 qca-nss-drv-objs += nss_hal/nss_hal.o
 
+# All active qsdk branches (banana/coconut/trunk) supports ipq806x
 qca-nss-drv-objs += nss_hal/ipq806x/nss_hal_pvt.o
 ccflags-y += -I$(obj)/nss_hal/ipq806x -DNSS_HAL_IPQ806X_SUPPORT
+
+# Only 4.4 Kernel (qsdk trunk) supports ipq807x
+ifneq ($(findstring 4.4., $(KERNELVERSION)),)
+qca-nss-drv-objs += nss_hal/ipq807x/nss_hal_pvt.o
+ccflags-y += -I$(obj)/nss_hal/ipq807x -DNSS_HAL_IPQ807x_SUPPORT
+endif
 
 ccflags-y += -I$(obj)/nss_hal/include -I$(obj)/exports -DNSS_DEBUG_LEVEL=0 -DNSS_PKT_STATS_ENABLED=1
 ccflags-y += -DNSS_PM_DEBUG_LEVEL=0

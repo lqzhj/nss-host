@@ -638,6 +638,11 @@ static int __init nss_init(void)
 		nss_top_main.hal_ops = &nss_hal_ipq806x_ops;
 	}
 #endif
+#if defined(NSS_HAL_IPQ807x_SUPPORT)
+	if (of_machine_is_compatible("qcom,ipq807x")) {
+		nss_top_main.hal_ops = &nss_hal_ipq807x_ops;
+	}
+#endif
 #if defined(NSS_HAL_FSM9010_SUPPORT)
 	if (of_machine_is_compatible("qcom,fsm9010")) {
 		nss_top_main.hal_ops = &nss_hal_fsm9010_ops;
