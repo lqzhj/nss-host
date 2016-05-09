@@ -13,7 +13,6 @@ qca-nss-drv-objs := \
 			nss_core.o \
 			nss_coredump.o \
 			nss_crypto.o \
-			nss_data_plane.o \
 			nss_dtls.o \
 			nss_dynamic_interface.o \
 			nss_eth_rx.o \
@@ -53,10 +52,13 @@ qca-nss-drv-objs := \
 #
 qca-nss-drv-objs += nss_tx_rx_virt_if.o
 
+# Base NSS data plane/HAL support
+qca-nss-drv-objs += nss_data_plane/nss_data_plane.o
 qca-nss-drv-objs += nss_hal/nss_hal.o
 
 # All active qsdk branches (banana/coconut/trunk) supports ipq806x
-qca-nss-drv-objs += nss_hal/ipq806x/nss_hal_pvt.o
+qca-nss-drv-objs += nss_data_plane/nss_data_plane_gmac.o \
+		    nss_hal/ipq806x/nss_hal_pvt.o
 ccflags-y += -I$(obj)/nss_hal/ipq806x -DNSS_HAL_IPQ806X_SUPPORT
 
 # Only 4.4 Kernel (qsdk trunk) supports ipq807x
@@ -65,7 +67,8 @@ qca-nss-drv-objs += nss_hal/ipq807x/nss_hal_pvt.o
 ccflags-y += -I$(obj)/nss_hal/ipq807x -DNSS_HAL_IPQ807x_SUPPORT
 endif
 
-ccflags-y += -I$(obj)/nss_hal/include -I$(obj)/exports -DNSS_DEBUG_LEVEL=0 -DNSS_PKT_STATS_ENABLED=1
+ccflags-y += -I$(obj)/nss_hal/include -I$(obj)/nss_data_plane/include -I$(obj)/exports -DNSS_DEBUG_LEVEL=0 -DNSS_PKT_STATS_ENABLED=1
+
 ccflags-y += -DNSS_PM_DEBUG_LEVEL=0
 
 ifneq ($(findstring 3.4, $(KERNELVERSION)),)

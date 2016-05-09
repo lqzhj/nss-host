@@ -38,6 +38,7 @@
 #include "nss_phys_if.h"
 #include "nss_hlos_if.h"
 #include "nss_oam.h"
+#include "nss_data_plane.h"
 
 /*
  * XXX:can't add this to api_if.h till the deprecated
@@ -962,6 +963,8 @@ struct nss_top_instance {
 	 */
 	uint64_t last_rx_jiffies;	/* Time of the last RX message from the NA in jiffies */
 	struct nss_hal_ops *hal_ops;	/* nss_hal ops for this target platform */
+	struct nss_data_plane_ops *data_plane_ops;
+					/* nss_data_plane ops for this target platform */
 };
 
 #if (NSS_PKT_STATS_ENABLED == 1)

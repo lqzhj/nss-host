@@ -560,7 +560,6 @@ int nss_hal_remove(struct platform_device *nss_dev)
 {
 	struct nss_top_instance *nss_top = &nss_top_main;
 	struct nss_ctx_instance *nss_ctx = &nss_top->nss[nss_dev->id];
-	int i;
 
 	/*
 	 * Clean up debugfs
@@ -583,14 +582,9 @@ int nss_hal_remove(struct platform_device *nss_dev)
 	}
 
 	/*
-	 * nss-drv is exiting, remove from nss-gmac
+	 * nss-drv is exiting, unregister and restore host data plane
 	 */
-	for (i = 0 ; i < NSS_MAX_PHYSICAL_INTERFACES ; i++) {
-		if (nss_top->subsys_dp_register[i].ndev) {
-			nss_data_plane_unregister_from_nss_gmac(i);
-			nss_top->subsys_dp_register[i].ndev = NULL;
-		}
-	}
+	nss_top->data_plane_ops->data_plane_unregister();
 
 #if (NSS_FABRIC_SCALING_SUPPORT == 1)
 	fab_scaling_unregister(nss_core0_clk);
