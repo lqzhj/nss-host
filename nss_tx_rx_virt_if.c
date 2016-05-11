@@ -145,6 +145,12 @@ static void nss_tx_rx_virt_if_callback(void *app_data, struct nss_cmn_msg *ncm)
 {
 	struct nss_tx_rx_virt_if_handle *handle = (struct nss_tx_rx_virt_if_handle *)app_data;
 	struct nss_tx_rx_virt_if_pvt *nvip = handle->pvt;
+	int32_t if_num = NSS_TX_RX_VIRT_IF_GET_INDEX(ncm->interface);
+
+	if (!nss_tx_rx_virt_if_handles[if_num]) {
+		nss_warning("%p: redir_if Handle does not exist\n", handle->nss_ctx);
+		return;
+	}
 
 	if (ncm->response != NSS_CMN_RESPONSE_ACK) {
 		nss_warning("%p: redir_if Error response %d\n", handle->nss_ctx, ncm->response);
