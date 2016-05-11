@@ -48,6 +48,7 @@ enum nss_wifi_vdev_msg_types {
 	NSS_WIFI_VDEV_VOW_DBG_CFG_MSG,
 	NSS_WIFI_VDEV_VOW_DBG_STATS_REQ_MSG,
 	NSS_WIFI_VDEV_DSCP_TID_MAP_MSG,
+	NSS_WIFI_VDEV_SNOOPLIST_TOGGLE_MSG,
 	NSS_WIFI_VDEV_MAX_MSG
 };
 
@@ -77,6 +78,7 @@ enum {
 	NSS_WIFI_VDEV_EINV_NAWDS_CFG,			/**< error in nawds config */
 	NSS_WIFI_VDEV_EINV_EXTAP_CFG,			/**< error in extap config */
 	NSS_WIFI_VDEV_EINV_VOW_DBG_CFG,			/**< error in VOW Debug stats config */
+	NSS_WIFI_VDEV_SNOOPTABLE_GRP_MEMBER_EXIST,	/**< grp member already exists in snooplist */
 	NSS_WIFI_VDEV_EINV_MAX_CFG
 };
 
