@@ -42,7 +42,10 @@ endif
 obj-y+=l2tp/l2tpv2/
 
 #NSS PPTP
+#TODO: The following modules will be enabled for 4.4 kernel as porting progresses
+ifneq ($(VERSION).$(PATCHLEVEL), 4.4)
 obj-y+= pptp/
+endif
 
 #TODO: The following modules will be enabled for 4.4 kernel as porting progresses
 ifneq ($(VERSION).$(PATCHLEVEL), 4.4)
