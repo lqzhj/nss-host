@@ -398,8 +398,8 @@ int __init nss_tunipip6_init_module(void)
 		return 0;
 	}
 #endif
-	nss_tunipip6_info("module (platform - IPQ806x , Build - %s:%s) loaded\n",
-			__DATE__, __TIME__);
+	nss_tunipip6_info("module (platform - IPQ806x , %s) loaded\n",
+			  NSS_CLIENT_BUILD_ID);
 
 	register_netdevice_notifier(&nss_tunipip6_notifier);
 	nss_tunipip6_trace("Netdev Notifier registerd \n");

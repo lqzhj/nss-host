@@ -690,7 +690,7 @@ static int __init nss_ipsecmgr_init(void)
 	ipsecmgr_ctx.dentry = debugfs_create_dir("qca-nss-ipsecmgr", NULL);
 	debugfs_create_file("stats", S_IRUGO, ipsecmgr_ctx.dentry, NULL, &node_stats_op);
 
-	nss_ipsecmgr_info_always("NSS IPsec manager loaded: Build date %s\n", __DATE__);
+	nss_ipsecmgr_info_always("NSS IPsec manager loaded: %s\n", NSS_CLIENT_BUILD_ID);
 	return 0;
 }
 

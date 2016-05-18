@@ -293,7 +293,7 @@ static int __init nss_nl_init(void)
 		return 0;
 	}
 #endif
-	nss_nl_info_always("NSS Netlink manager loaded: Build date %s\n", __DATE__);
+	nss_nl_info_always("NSS Netlink manager loaded: %s\n", NSS_CLIENT_BUILD_ID);
 
 	/*
 	 * initialize the handler families, the intention to init the

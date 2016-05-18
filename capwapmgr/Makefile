@@ -13,6 +13,7 @@
 ##########################################################################
 
 ccflags-y := -I$(obj)/../exports -I$(obj)/..  -I$(obj)/nss_hal/include
+ccflags-y += -DNSS_CLIENT_BUILD_ID="$(BUILD_ID)"
 
 #
 # If you want only one netdev for all the CAPWAP tunnels, then

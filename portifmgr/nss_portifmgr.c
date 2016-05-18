@@ -413,8 +413,8 @@ void nss_portifmgr_destroy_all_interfaces(void)
  */
 int __init nss_portifmgr_init_module(void)
 {
-	pr_info("module (platform - IPQ806x , Build - %s:%s) loaded\n",
-			__DATE__, __TIME__);
+	pr_info("module (platform - IPQ806x , Build %s) loaded\n",
+			 NSS_CLIENT_BUILD_ID);
 
 #ifdef NSS_PORTIFMGR_REF_AP148
 	nss_portifmgr_create_interfaces_ap148();
