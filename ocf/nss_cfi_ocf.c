@@ -446,7 +446,7 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 			return 0;
 		}
 
-		nss_cfi_assert(cfi_algo[cip_crd->crd_alg].flag == NSS_CFI_OCF_ALGO_TYPE_IS_CIPHER);
+		nss_cfi_assert((cfi_algo[cip_crd->crd_alg].flag == NSS_CFI_OCF_ALGO_TYPE_IS_CIPHER));
 		nss_cfi_assert((!(cip_crd->crd_flags & CRD_F_ENCRYPT)));
 
 		break;
@@ -463,7 +463,7 @@ static int nss_cfi_ocf_process(device_t dev, struct cryptop *crp, int hint)
 			return 0;
 		}
 
-		nss_cfi_assert(cfi_algo[auth_crd->crd_alg].flag == NSS_CFI_OCF_ALGO_TYPE_IS_AUTH);
+		nss_cfi_assert((cfi_algo[auth_crd->crd_alg].flag == NSS_CFI_OCF_ALGO_TYPE_IS_AUTH));
 		nss_cfi_assert((crd->crd_flags & CRD_F_ENCRYPT));
 
 		break;

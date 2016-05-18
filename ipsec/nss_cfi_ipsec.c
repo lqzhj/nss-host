@@ -680,7 +680,7 @@ int __init nss_cfi_ipsec_init_module(void)
 {
 	int i;
 
-	nss_cfi_info("NSS IPsec (platform - IPQ806x , Build - %s:%s) loaded\n", __DATE__, __TIME__);
+	nss_cfi_info("NSS IPsec (platform - IPQ806x , %s) loaded\n", NSS_CFI_BUILD_ID);
 
 	for (i = 0; i < NSS_CRYPTO_MAX_IDXS; i++) {
 		sa_tbl[i].type = NSS_CFI_IPSEC_RULE_TYPE_NONE;
