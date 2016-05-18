@@ -986,7 +986,7 @@ void crypto_bench_detach(nss_crypto_user_ctx_t ctx)
 
 int __init crypto_bench_init(void)
 {
-	crypto_bench_info("Crypto bench loaded build (%s, %s)\n", __DATE__, __TIME__);
+	crypto_bench_info("Crypto bench loaded build ((jiffies in ms: %u))\n", jiffies_to_msecs(jiffies));
 
 	droot = debugfs_create_dir("crypto_bench", NULL);
 
