@@ -1,4 +1,4 @@
-/* Copyright (c) 2013,2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013,2015-2016, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -256,7 +256,7 @@ void nss_crypto_delayed_init(struct work_struct *work)
 static int __init nss_crypto_module_init(void)
 {
 
-	nss_crypto_info("module loaded (platform - IPQ806x, build - %s:%s)\n", __DATE__, __TIME__);
+	nss_crypto_info_always("module loaded (platform - IPQ806x, %s)\n", NSS_CRYPTO_BUILD_ID);
 
 	nss_crypto_reset_state(&gbl_crypto_ctrl);
 

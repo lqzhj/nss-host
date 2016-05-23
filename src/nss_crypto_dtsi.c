@@ -341,7 +341,7 @@ static int __init nss_crypto_module_init(void)
 {
 	struct device_node *np;
 
-	nss_crypto_info("module loaded (platform - IPQ806x, build - (jiffies in ms: %u))\n", jiffies_to_msecs(jiffies));
+	nss_crypto_info_always("module loaded (platform - IPQ806x, build - %s)\n", NSS_CRYPTO_BUILD_ID);
 
 	nss_crypto_reset_state(&gbl_crypto_ctrl);
 
