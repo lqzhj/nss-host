@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -18,6 +18,8 @@
 
 #ifndef __NSS_CRYPTOAPI_H
 #define __NSS_CRYPTOAPI_H
+
+#define nss_cryptoapi_sg_has_frags(s) sg_next(s)
 
 /**
  * nss_cryptoapi.h

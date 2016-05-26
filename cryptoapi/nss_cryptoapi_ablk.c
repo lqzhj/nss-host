@@ -1,4 +1,4 @@
-/* Copyright (c) 2015 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -48,8 +48,6 @@
 #include <nss_crypto_if.h>
 #include <nss_cfi_if.h>
 #include "nss_cryptoapi.h"
-
-#define nss_cryptoapi_sg_has_frags(s) sg_next(s)
 
 extern struct nss_cryptoapi gbl_ctx;
 
@@ -220,6 +218,30 @@ void nss_cryptoapi_ablkcipher_done(struct nss_crypto_buf *buf)
 }
 
 /*
+ * nss_cryptoapi_ablk_checkaddr()
+ * 	Cryptoapi: obtain sg to virtual address mapping.
+ * 	Check for multiple sg in src and dst
+ */
+int nss_cryptoapi_ablk_checkaddr(struct ablkcipher_request *req)
+{
+	/*
+	 * Currently only single sg is supported
+	 * 	return error, if caller send multiple sg for any of src and dst.
+	 */
+	if (nss_cryptoapi_sg_has_frags(req->src)) {
+		nss_cfi_err("Only single sg supported: src invalid\n");
+		return -EINVAL;
+	}
+
+	if (nss_cryptoapi_sg_has_frags(req->dst)) {
+		nss_cfi_err("Only single sg supported: dst invalid\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+/*
  * nss_cryptoapi_ablk_transform()
  * 	Crytoapi common routine for encryption and decryption operations.
  */
@@ -241,6 +263,10 @@ struct nss_crypto_buf *nss_cryptoapi_ablk_transform(struct ablkcipher_request *r
 	info->params->cipher_skip = 0;
 	info->params->auth_skip = 0;
 
+	if (nss_cryptoapi_ablk_checkaddr(req)) {
+		nss_cfi_err("Invalid address!!\n");
+		return NULL;
+	}
 	/*
 	 * Update the crypto session data
 	 */

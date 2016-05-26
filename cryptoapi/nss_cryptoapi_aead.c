@@ -1,4 +1,4 @@
-/* Copyright (c) 2015 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -49,8 +49,6 @@
 #include <nss_crypto_if.h>
 #include <nss_cfi_if.h>
 #include "nss_cryptoapi.h"
-
-#define nss_cryptoapi_sg_has_frags(s) sg_next(s)
 
 extern struct nss_cryptoapi gbl_ctx;
 
