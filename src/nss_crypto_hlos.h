@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013 - 2016, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -28,7 +28,6 @@
 #include <linux/timer.h>
 #include <linux/random.h>
 #include <linux/skbuff.h>
-#include <asm/scatterlist.h>
 #include <linux/moduleparam.h>
 #include <linux/spinlock.h>
 #include <asm/cmpxchg.h>
