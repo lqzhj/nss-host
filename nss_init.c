@@ -160,7 +160,9 @@ static void nss_reset_frequency_stats_samples (void)
  */
 void nss_wq_function (struct work_struct *work)
 {
+	nss_crypto_pm_event_callback_t crypto_pm_cb;
 	nss_work_t *my_work = (nss_work_t *)work;
+	bool turbo = false;
 
 	nss_freq_change(&nss_top_main.nss[NSS_CORE_0], my_work->frequency, my_work->stats_enable, 0);
 	if (nss_top_main.nss[NSS_CORE_1].state == NSS_CORE_STATE_INITIALIZED) {
@@ -206,6 +208,15 @@ out:
 		} else {
 			clk_set_rate(nss_fab0_clk, NSS_FABRIC0_IDLE);
 			clk_set_rate(nss_fab1_clk, NSS_FABRIC1_IDLE);
+		}
+
+		/*
+		 * notify crypto about the clock change
+		 */
+		crypto_pm_cb = nss_top_main.crypto_pm_callback;
+		if (crypto_pm_cb) {
+			turbo = (my_work->frequency >= NSS_FREQ_733);
+			crypto_pm_cb(nss_top_main.crypto_pm_ctx, turbo);
 		}
 	}
 #endif

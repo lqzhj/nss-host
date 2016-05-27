@@ -862,6 +862,7 @@ struct nss_top_instance {
 					/* IPsec event callback function */
 	nss_crypto_msg_callback_t crypto_msg_callback;
 	nss_crypto_buf_callback_t crypto_buf_callback;
+	nss_crypto_pm_event_callback_t crypto_pm_callback;
 					/* crypto interface callback functions */
 	nss_profiler_callback_t profiler_callback[NSS_MAX_CORES];
 					/* Profiler interface callback function */
@@ -895,6 +896,7 @@ struct nss_top_instance {
 	void *ipv4_ctx;			/* IPv4 connection manager context */
 	void *ipv6_ctx;			/* IPv6 connection manager context */
 	void *crypto_ctx;		/* Crypto interface context */
+	void *crypto_pm_ctx;		/* Crypto PM context */
 	void *profiler_ctx[NSS_MAX_CORES];
 					/* Profiler interface context */
 
