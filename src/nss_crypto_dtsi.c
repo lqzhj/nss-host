@@ -47,10 +47,26 @@
 /* Poll time in ms */
 #define CRYPTO_DELAYED_INIT_TIME	100
 
-/* Crypto turbo clock frequency */
-#define NSS_CRYPTO_CLOCK_TURBO_FREQ	2132000000
+/*
+ * Crypto Clock Freq Table
+ * +------------------+-------------+--------------+
+ * | Clock            | Nominal     |  Turbo       |
+ * +------------------+-------------+--------------+
+ * | NSS_CE5_CORE_CLK | 150 Mhz     |  213.2 Mhz   |
+ * +------------------+-------------+--------------+
+ * | NSS_CE5_AHB_CLK  | 160 Mhz     |  213.2 Mhz   |
+ * +------------------+-------------+--------------+
+ * | NSS_CE5_AXI_CLK  | 160 Mhz     |  213.2 Mhz   |
+ * +------------------+-------------+--------------+
+ *
+ */
+#define NSS_CRYPTO_CLOCK_TURBO 213200000	/* Turbo Freq for Core, AXI and AHB */
+#define NSS_CRYPTO_CLOCK_CORE_NOMINAL 150000000	/* Nominal freq for Core Clock */
+#define NSS_CRYPTO_CLOCK_AUX_NOMINAL 160000000	/* Nominal freq for AXI and AHB */
 
-/* Crypto resource index in device tree */
+/*
+ * Crypto resource index in device tree
+ */
 enum nss_crypto_dt_res {
 	NSS_CRYPTO_DT_CRYPTO_RES = 0,
 	NSS_CRYPTO_DT_BAM_RES = 1,
@@ -94,33 +110,85 @@ static void nss_crypto_bam_init(uint8_t *bam_iobase)
 }
 
 /*
+ * nss_crypto_pm_event_cb()
+ * 	Crypto PM event callback
+ */
+void nss_crypto_pm_event_cb(void *app_data, bool turbo)
+{
+	struct nss_crypto_ctrl *ctrl = (struct nss_crypto_ctrl *)app_data;
+	struct nss_crypto_clock *clock = ctrl->clocks;
+	uint32_t freq;
+	int count;
+
+	BUG_ON(!clock);
+	count = ctrl->max_clocks;
+
+	for (; count--; clock++) {
+		freq = turbo ? clock->turbo_freq : clock->nominal_freq;
+		if (clk_set_rate(clock->clk, freq)) {
+			nss_crypto_err("Error in setting clock(%d) to %d\n", count, freq);
+			continue;
+		}
+	}
+}
+
+/*
  * nss_crypto_clock_init()
  * 	initialize crypto clock
  */
-static int nss_crypto_clock_init(struct platform_device *pdev, struct device_node *np)
+static void nss_crypto_clock_init(struct platform_device *pdev, struct device_node *np)
 {
-	struct clk *clk;
+	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
+	struct nss_crypto_clock *clock;
 	const char *clk_string;
+	size_t clock_array_sz;
 	int count, i;
 
 	count = of_property_count_strings(np, "clock-names");
 	if (count < 0) {
 		nss_crypto_info("crypto clock instance not found\n");
-		return 0;
+		return;
 	}
 
-	for (i = 0; i < count ; i++) {
+	clock_array_sz = sizeof(struct nss_crypto_clock) * count;
+
+	clock = kzalloc(clock_array_sz, GFP_KERNEL);
+	if (!clock) {
+		nss_crypto_err("Error in allocating clock array (size:%d)\n", clock_array_sz);
+		return;
+	}
+
+	ctrl->max_clocks = count;
+	ctrl->clocks = clock;
+
+	for (i = 0; i < count; i++, clock++) {
+		/*
+		 * parse clock names from DTSI
+		 */
 		of_property_read_string_index(np, "clock-names", i, &clk_string);
 
-		clk = devm_clk_get(&pdev->dev, clk_string);
-		BUG_ON(!clk);
+		clock->clk = devm_clk_get(&pdev->dev, clk_string);
+		BUG_ON(!clock->clk);
 
-		clk_prepare_enable(clk);
-		if (clk_set_rate(clk, NSS_CRYPTO_CLOCK_TURBO_FREQ)) {
-			nss_crypto_err("%p:Error in setting %s clock to turbo freq\n", pdev, clk_string);
+		nss_crypto_info("clock mapping clock(%d) --> %s\n", i, clk_string);
+
+		clk_prepare_enable(clock->clk);
+
+		clock->nominal_freq = NSS_CRYPTO_CLOCK_AUX_NOMINAL;
+		clock->turbo_freq = NSS_CRYPTO_CLOCK_TURBO;
+
+		/*
+		 * switch the core clock for nominal frequency
+		 */
+		if (unlikely(!strncmp(clk_string, "ce5_core", sizeof("ce5_core")))) {
+			clock->nominal_freq = NSS_CRYPTO_CLOCK_CORE_NOMINAL;
 		}
 	}
-	return 0;
+
+	/*
+	 * register for PM notification
+	 */
+	nss_crypto_pm_notify_register(nss_crypto_pm_event_cb, ctrl);
 }
 
 /*
@@ -255,9 +323,18 @@ static int nss_crypto_probe(struct platform_device *pdev)
  */
 static int nss_crypto_remove(struct platform_device *pdev)
 {
-	struct nss_crypto_ctrl_eng *ctrl;
+	struct nss_crypto_ctrl_eng *e_ctrl;
+	struct nss_crypto_ctrl *ctrl;
 
-	ctrl = platform_get_drvdata(pdev);
+	e_ctrl = platform_get_drvdata(pdev);
+
+	/*
+	 * free clock references if any
+	 */
+	ctrl = container_of(&e_ctrl, struct nss_crypto_ctrl, eng);
+	if (ctrl->clocks) {
+		kfree(ctrl->clocks);
+	}
 
 	return 0;
 };

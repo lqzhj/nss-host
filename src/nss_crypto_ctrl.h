@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013, 2015-2016, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -100,6 +100,15 @@ struct nss_crypto_idx_info {
 };
 
 /**
+ * @brief NSS crypto clock control
+ */
+struct nss_crypto_clock {
+	struct clk *clk;			/**< Linux clock */
+	uint32_t turbo_freq;			/**< turbo frequency */
+	uint32_t nominal_freq;			/**< nominal frequency */
+};
+
+/**
  * @brief Main Crypto Control structure, holds information about number of session indexes
  * number of engines etc.,
  *
@@ -128,6 +137,9 @@ struct nss_crypto_ctrl {
 	struct dentry *root_dentry;		/**< debufs entry corresponding to qca-nss-crypto directory */
 	struct dentry *stats_dentry;		/**< debufs entry corresponding to stats directory */
 	struct dentry *cfg_dentry;		/**< debufs entry corresponding to config directory */
+
+	struct nss_crypto_clock *clocks;	/**< array of crypto clocks */
+	size_t max_clocks;			/**< maximum no. of available clocks */
 
 	struct nss_crypto_idx_info idx_info[NSS_CRYPTO_MAX_IDXS];
 						/**< per index info */
