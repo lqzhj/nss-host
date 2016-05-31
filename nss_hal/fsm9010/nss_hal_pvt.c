@@ -264,7 +264,7 @@ out:
 }
 
 /*
- * nss_probe()
+ * nss_hal_probe()
  *	HLOS device probe callback
  */
 int nss_hal_probe(struct platform_device *nss_dev)
