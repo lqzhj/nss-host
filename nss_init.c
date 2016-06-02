@@ -160,9 +160,11 @@ static void nss_reset_frequency_stats_samples (void)
  */
 void nss_wq_function (struct work_struct *work)
 {
-	nss_crypto_pm_event_callback_t crypto_pm_cb;
 	nss_work_t *my_work = (nss_work_t *)work;
+#if (NSS_DT_SUPPORT == 1)
+	nss_crypto_pm_event_callback_t crypto_pm_cb;
 	bool turbo = false;
+#endif
 
 	nss_freq_change(&nss_top_main.nss[NSS_CORE_0], my_work->frequency, my_work->stats_enable, 0);
 	if (nss_top_main.nss[NSS_CORE_1].state == NSS_CORE_STATE_INITIALIZED) {
