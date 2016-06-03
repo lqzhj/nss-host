@@ -1,4 +1,4 @@
-/* Copyright (c) 2015 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -62,7 +62,7 @@ static struct crypto_alg cryptoapi_aead_algos[] = {
 		.cra_name       = "authenc(hmac(sha1),cbc(aes))",
 		.cra_driver_name = "cryptoapi-aead-hmac-sha1-cbc-aes",
 		.cra_priority   = 300,
-		.cra_flags      = CRYPTO_ALG_TYPE_AEAD | CRYPTO_ALG_ASYNC,
+		.cra_flags      = CRYPTO_ALG_TYPE_AEAD | CRYPTO_ALG_ASYNC | CRYPTO_ALG_NOSUPP_SG,
 		.cra_blocksize  = AES_BLOCK_SIZE,
 		.cra_ctxsize    = sizeof(struct nss_cryptoapi_ctx),
 		.cra_alignmask  = 0,
@@ -87,7 +87,7 @@ static struct crypto_alg cryptoapi_aead_algos[] = {
 		.cra_name       = "authenc(hmac(sha1),cbc(des3_ede))",
 		.cra_driver_name = "cryptoapi-aead-hmac-sha1-cbc-3des",
 		.cra_priority   = 300,
-		.cra_flags      = CRYPTO_ALG_TYPE_AEAD | CRYPTO_ALG_ASYNC,
+		.cra_flags      = CRYPTO_ALG_TYPE_AEAD | CRYPTO_ALG_ASYNC | CRYPTO_ALG_NOSUPP_SG,
 		.cra_blocksize  = DES3_EDE_BLOCK_SIZE,
 		.cra_ctxsize    = sizeof(struct nss_cryptoapi_ctx),
 		.cra_alignmask  = 0,
@@ -112,7 +112,7 @@ static struct crypto_alg cryptoapi_aead_algos[] = {
 		.cra_name       = "authenc(hmac(sha256),cbc(aes))",
 		.cra_driver_name = "cryptoapi-aead-hmac-sha256-cbc-aes",
 		.cra_priority   = 300,
-		.cra_flags      = CRYPTO_ALG_TYPE_AEAD | CRYPTO_ALG_ASYNC,
+		.cra_flags      = CRYPTO_ALG_TYPE_AEAD | CRYPTO_ALG_ASYNC | CRYPTO_ALG_NOSUPP_SG,
 		.cra_blocksize  = AES_BLOCK_SIZE,
 		.cra_ctxsize    = sizeof(struct nss_cryptoapi_ctx),
 		.cra_alignmask  = 0,
@@ -137,7 +137,7 @@ static struct crypto_alg cryptoapi_aead_algos[] = {
 		.cra_name       = "authenc(hmac(sha256),cbc(des3_ede))",
 		.cra_driver_name = "cryptoapi-aead-hmac-sha256-cbc-3des",
 		.cra_priority   = 300,
-		.cra_flags      = CRYPTO_ALG_TYPE_AEAD | CRYPTO_ALG_ASYNC,
+		.cra_flags      = CRYPTO_ALG_TYPE_AEAD | CRYPTO_ALG_ASYNC | CRYPTO_ALG_NOSUPP_SG,
 		.cra_blocksize  = DES3_EDE_BLOCK_SIZE,
 		.cra_ctxsize    = sizeof(struct nss_cryptoapi_ctx),
 		.cra_alignmask  = 0,
@@ -162,7 +162,7 @@ static struct crypto_alg cryptoapi_aead_algos[] = {
 		.cra_name       = "cbc(aes)",
 		.cra_driver_name = "cryptoapi-ablkcipher-cbc-aes",
 		.cra_priority   = 300,
-		.cra_flags      = CRYPTO_ALG_TYPE_ABLKCIPHER | CRYPTO_ALG_ASYNC,
+		.cra_flags      = CRYPTO_ALG_TYPE_ABLKCIPHER | CRYPTO_ALG_ASYNC | CRYPTO_ALG_NOSUPP_SG,
 		.cra_blocksize  = AES_BLOCK_SIZE,
 		.cra_ctxsize    = sizeof(struct nss_cryptoapi_ctx),
 		.cra_alignmask  = 0,
@@ -185,7 +185,7 @@ static struct crypto_alg cryptoapi_aead_algos[] = {
 		.cra_name       = "cbc(des3_ede)",
 		.cra_driver_name = "cryptoapi-ablkcipher-cbc-3des",
 		.cra_priority   = 300,
-		.cra_flags      = CRYPTO_ALG_TYPE_ABLKCIPHER | CRYPTO_ALG_ASYNC,
+		.cra_flags      = CRYPTO_ALG_TYPE_ABLKCIPHER | CRYPTO_ALG_ASYNC | CRYPTO_ALG_NOSUPP_SG,
 		.cra_blocksize  = DES3_EDE_BLOCK_SIZE,
 		.cra_ctxsize    = sizeof(struct nss_cryptoapi_ctx),
 		.cra_alignmask  = 0,

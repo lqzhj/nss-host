@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
@@ -35,10 +35,20 @@
 /*
  * Compile messages for dynamic enable/disable
  */
-#define nss_cfi_err(s, ...) pr_alert("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
-#define nss_cfi_warn(s, ...) pr_warn("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
-#define nss_cfi_info(s, ...) pr_debug("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
-#define nss_cfi_trace(s, ...) pr_debug("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define nss_cfi_err(s, ...) do {	\
+	if (net_ratelimit()) {	\
+		pr_alert("%s[%d]:" s, __func__, __LINE__, ##__VA_ARGS__);	\
+	}	\
+} while (0)
+
+#define nss_cfi_warn(s, ...) do {	\
+	if (net_ratelimit()) {	\
+		pr_warn("%s[%d]:" s, __func__, __LINE__, ##__VA_ARGS__);	\
+	}	\
+} while (0)
+
+#define nss_cfi_info(s, ...) pr_debug("%s[%d]:" s, __func__, __LINE__, ##__VA_ARGS__)
+#define nss_cfi_trace(s, ...) pr_debug("%s[%d]:" s, __func__, __LINE__, ##__VA_ARGS__)
 
 #else
 /*
@@ -46,22 +56,22 @@
  */
 #define nss_cfi_err(s, ...) {	\
 	if (NSS_CFI_DEBUG_LEVEL > NSS_CFI_DEBUG_LVL_ERROR) {	\
-		pr_alert("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__);	\
+		pr_alert("%s[%d]:" s, __func__, __LINE__, ##__VA_ARGS__);	\
 	}	\
 }
 #define nss_cfi_warn(s, ...) {	\
 	if (NSS_CFI_DEBUG_LEVEL > NSS_CFI_DEBUG_LVL_WARN) {	\
-		pr_warn("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__);	\
+		pr_warn("%s[%d]:" s, __func__, __LINE__, ##__VA_ARGS__);	\
 	}	\
 }
 #define nss_cfi_info(s, ...) {	\
 	if (NSS_CFI_DEBUG_LEVEL > NSS_CFI_DEBUG_LVL_INFO) {	\
-		pr_notice("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__);	\
+		pr_notice("%s[%d]:" s, __func__, __LINE__, ##__VA_ARGS__);	\
 	}	\
 }
 #define nss_cfi_trace(s, ...) {	\
 	if (NSS_CFI_DEBUG_LEVEL > NSS_CFI_DEBUG_LVL_TRACE) {	\
-		pr_info("%s[%d]:" s, __FUNCTION__, __LINE__, ##__VA_ARGS__);	\
+		pr_info("%s[%d]:" s, __func__, __LINE__, ##__VA_ARGS__);	\
 	}	\
 }
 

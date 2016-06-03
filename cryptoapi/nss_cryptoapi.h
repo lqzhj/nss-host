@@ -19,6 +19,7 @@
 #ifndef __NSS_CRYPTOAPI_H
 #define __NSS_CRYPTOAPI_H
 
+#define NSS_CRYPTOAPI_MAX_DATA_LEN ((uint16_t) -1)
 #define nss_cryptoapi_sg_has_frags(s) sg_next(s)
 
 /**
@@ -51,6 +52,7 @@ struct nss_cryptoapi {
 struct nss_cryptoapi_ctx {
 	uint64_t queued;
 	uint64_t completed;
+	uint64_t queue_failed;
 	uint32_t sid;
 	unsigned int authsize;
 	enum nss_crypto_cipher cip_alg;

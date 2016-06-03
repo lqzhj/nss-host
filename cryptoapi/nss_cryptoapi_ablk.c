@@ -71,6 +71,7 @@ int nss_cryptoapi_ablkcipher_init(struct crypto_tfm *tfm)
 	ctx->sid = NSS_CRYPTO_MAX_IDXS;
 	ctx->queued = 0;
 	ctx->completed = 0;
+	ctx->queue_failed = 0;
 	atomic_set(&ctx->refcnt, 0);
 
 	nss_cryptoapi_set_magic(ctx);
@@ -238,6 +239,14 @@ int nss_cryptoapi_ablk_checkaddr(struct ablkcipher_request *req)
 		return -EINVAL;
 	}
 
+	/*
+	 * If the size of data is more than 65K reject transformation
+	 */
+	if (req->nbytes > NSS_CRYPTOAPI_MAX_DATA_LEN) {
+		nss_cfi_err("Buffer length exceeded limit\n");
+		return -EINVAL;
+	}
+
 	return 0;
 }
 
@@ -369,8 +378,9 @@ int nss_cryptoapi_aes_cbc_encrypt(struct ablkcipher_request *req)
 	 *  Send the buffer to CORE layer for processing
 	 */
 	if (nss_crypto_transform_payload(sc->crypto, buf) !=  NSS_CRYPTO_STATUS_OK) {
-		nss_cfi_err("Not enough resources with driver\n");
+		nss_cfi_info("Not enough resources with driver\n");
 		nss_crypto_buf_free(sc->crypto, buf);
+		ctx->queue_failed++;
 		return -EINVAL;
 	}
 
@@ -431,8 +441,9 @@ int nss_cryptoapi_aes_cbc_decrypt(struct ablkcipher_request *req)
 	 *  Send the buffer to CORE layer for processing
 	 */
 	if (nss_crypto_transform_payload(sc->crypto, buf) !=  NSS_CRYPTO_STATUS_OK) {
-		nss_cfi_err("Not enough resources with driver\n");
+		nss_cfi_info("Not enough resources with driver\n");
 		nss_crypto_buf_free(sc->crypto, buf);
+		ctx->queue_failed++;
 		return -EINVAL;
 	}
 
@@ -556,8 +567,9 @@ int nss_cryptoapi_3des_cbc_encrypt(struct ablkcipher_request *req)
 	 *  Send the buffer to CORE layer for processing
 	 */
 	if (nss_crypto_transform_payload(sc->crypto, buf) !=  NSS_CRYPTO_STATUS_OK) {
-		nss_cfi_err("Not enough resources with driver\n");
+		nss_cfi_info("Not enough resources with driver\n");
 		nss_crypto_buf_free(sc->crypto, buf);
+		ctx->queue_failed++;
 		return -EINVAL;
 	}
 
@@ -618,8 +630,9 @@ int nss_cryptoapi_3des_cbc_decrypt(struct ablkcipher_request *req)
 	 *  Send the buffer to CORE layer for processing
 	 */
 	if (nss_crypto_transform_payload(sc->crypto, buf) !=  NSS_CRYPTO_STATUS_OK) {
-		nss_cfi_err("Not enough resources with driver\n");
+		nss_cfi_info("Not enough resources with driver\n");
 		nss_crypto_buf_free(sc->crypto, buf);
+		ctx->queue_failed++;
 		return -EINVAL;
 	}
 

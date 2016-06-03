@@ -74,6 +74,7 @@ int nss_cryptoapi_aead_init(struct crypto_tfm *tfm)
 	ctx->sid = NSS_CRYPTO_MAX_IDXS;
 	ctx->queued = 0;
 	ctx->completed = 0;
+	ctx->queue_failed = 0;
 	atomic_set(&ctx->refcnt, 0);
 
 	nss_cryptoapi_set_magic(ctx);
@@ -620,6 +621,7 @@ int nss_cryptoapi_validate_addr(struct nss_cryptoapi_addr *sg_addr)
  */
 int nss_cryptoapi_checknget_addr(struct aead_request *req, struct nss_cryptoapi_addr *sg_addr)
 {
+	uint32_t data_len;
 	/*
 	 * Currently only single sg is supported
 	 * 	return error, if caller send multiple sg for any of src, assoc and dst.
@@ -636,6 +638,16 @@ int nss_cryptoapi_checknget_addr(struct aead_request *req, struct nss_cryptoapi_
 
 	if (nss_cryptoapi_sg_has_frags(req->assoc)) {
 		nss_cfi_err("Only single sg supported: assoc invalid\n");
+		return -EINVAL;
+	}
+
+	/*
+	 * If the size of data is more than 65K reject transformation
+	 */
+	data_len = req->cryptlen + nss_cryptoapi_get_iv_sz(req);
+	data_len += req->assoclen + nss_cryptoapi_get_hmac_sz(req);
+	if (data_len > NSS_CRYPTOAPI_MAX_DATA_LEN) {
+		nss_cfi_err("Buffer length exceeded limit\n");
 		return -EINVAL;
 	}
 
@@ -820,8 +832,9 @@ int nss_cryptoapi_sha1_aes_encrypt(struct aead_request *req)
 	 *  Send the buffer to CORE layer for processing
 	 */
 	if (nss_crypto_transform_payload(sc->crypto, buf) !=  NSS_CRYPTO_STATUS_OK) {
-		nss_cfi_err("Not enough resources with driver\n");
+		nss_cfi_info("Not enough resources with driver\n");
 		nss_crypto_buf_free(sc->crypto, buf);
+		ctx->queue_failed++;
 		return -EINVAL;
 	}
 
@@ -883,8 +896,9 @@ int nss_cryptoapi_sha256_aes_encrypt(struct aead_request *req)
 	 *  Send the buffer to CORE layer for processing
 	 */
 	if (nss_crypto_transform_payload(sc->crypto, buf) !=  NSS_CRYPTO_STATUS_OK) {
-		nss_cfi_err("Not enough resources with driver\n");
+		nss_cfi_info("Not enough resources with driver\n");
 		nss_crypto_buf_free(sc->crypto, buf);
+		ctx->queue_failed++;
 		return -EINVAL;
 	}
 
@@ -947,8 +961,9 @@ int nss_cryptoapi_sha1_3des_encrypt(struct aead_request *req)
 	 *  Send the buffer to CORE layer for processing
 	 */
 	if (nss_crypto_transform_payload(sc->crypto, buf) !=  NSS_CRYPTO_STATUS_OK) {
-		nss_cfi_err("Not enough resources with driver\n");
+		nss_cfi_info("Not enough resources with driver\n");
 		nss_crypto_buf_free(sc->crypto, buf);
+		ctx->queue_failed++;
 		return -EINVAL;
 	}
 
@@ -1010,8 +1025,9 @@ int nss_cryptoapi_sha256_3des_encrypt(struct aead_request *req)
 	 *  Send the buffer to CORE layer for processing
 	 */
 	if (nss_crypto_transform_payload(sc->crypto, buf) !=  NSS_CRYPTO_STATUS_OK) {
-		nss_cfi_err("Not enough resources with driver\n");
+		nss_cfi_info("Not enough resources with driver\n");
 		nss_crypto_buf_free(sc->crypto, buf);
+		ctx->queue_failed++;
 		return -EINVAL;
 	}
 
@@ -1078,8 +1094,9 @@ int nss_cryptoapi_sha1_aes_decrypt(struct aead_request *req)
 	 *  Send the buffer to CORE layer for processing
 	 */
 	if (nss_crypto_transform_payload(sc->crypto, buf) !=  NSS_CRYPTO_STATUS_OK) {
-		nss_cfi_err("Not enough resources with driver\n");
+		nss_cfi_info("Not enough resources with driver\n");
 		nss_crypto_buf_free(sc->crypto, buf);
+		ctx->queue_failed++;
 		return -EINVAL;
 	}
 
@@ -1146,8 +1163,9 @@ int nss_cryptoapi_sha256_aes_decrypt(struct aead_request *req)
 	 *  Send the buffer to CORE layer for processing
 	 */
 	if (nss_crypto_transform_payload(sc->crypto, buf) !=  NSS_CRYPTO_STATUS_OK) {
-		nss_cfi_err("Not enough resources with driver\n");
+		nss_cfi_info("Not enough resources with driver\n");
 		nss_crypto_buf_free(sc->crypto, buf);
+		ctx->queue_failed++;
 		return -EINVAL;
 	}
 
@@ -1214,8 +1232,9 @@ int nss_cryptoapi_sha1_3des_decrypt(struct aead_request *req)
 	 *  Send the buffer to CORE layer for processing
 	 */
 	if (nss_crypto_transform_payload(sc->crypto, buf) !=  NSS_CRYPTO_STATUS_OK) {
-		nss_cfi_err("Not enough resources with driver\n");
+		nss_cfi_info("Not enough resources with driver\n");
 		nss_crypto_buf_free(sc->crypto, buf);
+		ctx->queue_failed++;
 		return -EINVAL;
 	}
 
@@ -1282,8 +1301,9 @@ int nss_cryptoapi_sha256_3des_decrypt(struct aead_request *req)
 	 *  Send the buffer to CORE layer for processing
 	 */
 	if (nss_crypto_transform_payload(sc->crypto, buf) !=  NSS_CRYPTO_STATUS_OK) {
-		nss_cfi_err("Not enough resources with driver\n");
+		nss_cfi_info("Not enough resources with driver\n");
 		nss_crypto_buf_free(sc->crypto, buf);
+		ctx->queue_failed++;
 		return -EINVAL;
 	}
 
@@ -1351,8 +1371,9 @@ int nss_cryptoapi_sha1_aes_geniv_encrypt(struct aead_givcrypt_request *req)
 	 *  Send the buffer to CORE layer for processing
 	 */
 	if (nss_crypto_transform_payload(sc->crypto, buf) !=  NSS_CRYPTO_STATUS_OK) {
-		nss_cfi_err("Not enough resources with driver\n");
+		nss_cfi_info("Not enough resources with driver\n");
 		nss_crypto_buf_free(sc->crypto, buf);
+		ctx->queue_failed++;
 		return -EINVAL;
 	}
 
@@ -1420,8 +1441,9 @@ int nss_cryptoapi_sha256_aes_geniv_encrypt(struct aead_givcrypt_request *req)
 	 *  Send the buffer to CORE layer for processing
 	 */
 	if (nss_crypto_transform_payload(sc->crypto, buf) !=  NSS_CRYPTO_STATUS_OK) {
-		nss_cfi_err("Not enough resources with driver\n");
+		nss_cfi_info("Not enough resources with driver\n");
 		nss_crypto_buf_free(sc->crypto, buf);
+		ctx->queue_failed++;
 		return -EINVAL;
 	}
 
@@ -1489,8 +1511,9 @@ int nss_cryptoapi_sha1_3des_geniv_encrypt(struct aead_givcrypt_request *req)
 	 *  Send the buffer to CORE layer for processing
 	 */
 	if (nss_crypto_transform_payload(sc->crypto, buf) !=  NSS_CRYPTO_STATUS_OK) {
-		nss_cfi_err("Not enough resources with driver\n");
+		nss_cfi_info("Not enough resources with driver\n");
 		nss_crypto_buf_free(sc->crypto, buf);
+		ctx->queue_failed++;
 		return -EINVAL;
 	}
 
@@ -1558,8 +1581,9 @@ int nss_cryptoapi_sha256_3des_geniv_encrypt(struct aead_givcrypt_request *req)
 	 *  Send the buffer to CORE layer for processing
 	 */
 	if (nss_crypto_transform_payload(sc->crypto, buf) !=  NSS_CRYPTO_STATUS_OK) {
-		nss_cfi_err("Not enough resources with driver\n");
+		nss_cfi_info("Not enough resources with driver\n");
 		nss_crypto_buf_free(sc->crypto, buf);
+		ctx->queue_failed++;
 		return -EINVAL;
 	}
 

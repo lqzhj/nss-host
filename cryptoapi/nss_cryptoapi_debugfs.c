@@ -1,4 +1,4 @@
-/* Copyright (c) 2015 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -59,6 +59,7 @@ void nss_cryptoapi_debugfs_add_stats(struct dentry *parent, struct nss_cryptoapi
 {
 	debugfs_create_u64("queued", S_IRUGO, parent, &session_ctx->queued);
 	debugfs_create_u64("completed", S_IRUGO, parent, &session_ctx->completed);
+	debugfs_create_u64("queue_failed", S_IRUGO, parent, &session_ctx->queue_failed);
 }
 
 /*
