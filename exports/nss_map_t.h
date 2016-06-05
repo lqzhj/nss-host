@@ -59,7 +59,7 @@ struct nss_map_t_instance_rule_config_msg {
 	uint32_t local_ea_len;			/**< EA bits length */
 	uint32_t local_psid_offset;		/**< PSID offset */
 
-	uint32_t end_user_ipv6_prefix_len;	/**< End user ipv6 prefix len */
+	uint32_t reserve_a;			/**< Reserved */
 
 	uint32_t remote_ipv6_prefix_len;	/**< IPv6 prefix length */
 	uint32_t remote_ipv4_prefix;		/**< IPv4 prefix */
@@ -71,7 +71,7 @@ struct nss_map_t_instance_rule_config_msg {
 	uint32_t remote_map_style;		/**< Remote MAP style */
 
 	uint8_t local_ipv6_prefix[16];		/**< IPv6 prefix */
-	uint8_t end_user_ipv6_prefix[16];	/**< End user ipv6 prefix */
+	uint8_t reserve_b[16];			/**< Reserve */
 	uint8_t remote_ipv6_prefix[16];		/**< IPv6 prefix */
 
 	uint8_t valid_rule;			/**< Correctness of map-t rule */
@@ -96,7 +96,7 @@ struct nss_map_t_sync_stats_msg {
 			uint32_t exception_pkts;		/**< Exceptioned packets */
 			uint32_t no_matching_rule;		/**< Not matching any rule */
 			uint32_t not_tcp_or_udp;		/**< TCP or UDP ?  */
-			uint32_t rule_err_local_psid_mismatch;	/**< local psid mismatch */
+			uint32_t rule_err_local_psid;		/**< calculate local psid err */
 			uint32_t rule_err_local_ipv6;		/**< Calculate local ipv6 err */
 			uint32_t rule_err_remote_psid;		/**< Remote psid err */
 			uint32_t rule_err_remote_ea_bits;	/**< Remote ea bits err */

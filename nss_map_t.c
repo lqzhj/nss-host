@@ -66,7 +66,7 @@ void nss_map_t_instance_debug_stats_sync(struct nss_ctx_instance *nss_ctx, struc
 			nss_map_t_debug_stats[i].stats[NSS_STATS_MAP_T_V4_TO_V6_PBUF_EXCEPTION] += stats_msg->debug_stats.v4_to_v6.exception_pkts;
 			nss_map_t_debug_stats[i].stats[NSS_STATS_MAP_T_V4_TO_V6_PBUF_NO_MATCHING_RULE] += stats_msg->debug_stats.v4_to_v6.no_matching_rule;
 			nss_map_t_debug_stats[i].stats[NSS_STATS_MAP_T_V4_TO_V6_PBUF_NOT_TCP_OR_UDP] += stats_msg->debug_stats.v4_to_v6.not_tcp_or_udp;
-			nss_map_t_debug_stats[i].stats[NSS_STATS_MAP_T_V4_TO_V6_RULE_ERR_LOCAL_PSID_MISMATCH] += stats_msg->debug_stats.v4_to_v6.rule_err_local_psid_mismatch;
+			nss_map_t_debug_stats[i].stats[NSS_STATS_MAP_T_V4_TO_V6_RULE_ERR_LOCAL_PSID] += stats_msg->debug_stats.v4_to_v6.rule_err_local_psid;
 			nss_map_t_debug_stats[i].stats[NSS_STATS_MAP_T_V4_TO_V6_RULE_ERR_LOCAL_IPV6] += stats_msg->debug_stats.v4_to_v6.rule_err_local_ipv6;
 			nss_map_t_debug_stats[i].stats[NSS_STATS_MAP_T_V4_TO_V6_RULE_ERR_REMOTE_PSID] += stats_msg->debug_stats.v4_to_v6.rule_err_remote_psid;
 			nss_map_t_debug_stats[i].stats[NSS_STATS_MAP_T_V4_TO_V6_RULE_ERR_REMOTE_EA_BITS] += stats_msg->debug_stats.v4_to_v6.rule_err_remote_ea_bits;
