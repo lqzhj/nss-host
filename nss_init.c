@@ -101,7 +101,7 @@ extern struct of_device_id nss_dt_ids[];
  * nss_probe()
  * 	HLOS device probe callback
  */
-inline int nss_probe(struct platform_device *nss_dev)
+static inline int nss_probe(struct platform_device *nss_dev)
 {
 	return nss_hal_probe(nss_dev);
 }
@@ -110,7 +110,7 @@ inline int nss_probe(struct platform_device *nss_dev)
  * nss_remove()
  * 	HLOS device remove callback
  */
-inline int nss_remove(struct platform_device *nss_dev)
+static inline int nss_remove(struct platform_device *nss_dev)
 {
 	return nss_hal_remove(nss_dev);
 }
