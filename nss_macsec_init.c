@@ -23,6 +23,7 @@
 #include <mach/msm_iomap.h>
 #else
 #include <linux/of.h>
+#include <soc/qcom/socinfo.h>
 #endif
 
 #include <linux/platform_device.h>
@@ -370,9 +371,11 @@ static int __init nss_macsec_init_module(void)
 		macsec_ctx.macsec_base[dev_id] = NULL;
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0))
-	for (dev_id = 0; dev_id < MACSEC_DEVICE_NUM; dev_id++) {
-		if (nss_macsec_dt_init(dev_id) != 0)
-			return -EIO;
+	if (cpu_is_ipq8066() || cpu_is_ipq8068() || cpu_is_ipq8069()) {
+		for (dev_id = 0; dev_id < MACSEC_DEVICE_NUM; dev_id++) {
+			if (nss_macsec_dt_init(dev_id) != 0)
+				return -EIO;
+		}
 	}
 #else
 	if (platform_driver_register(&nss_macsec_drv) != 0) {
