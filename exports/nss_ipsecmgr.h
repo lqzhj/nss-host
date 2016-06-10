@@ -159,16 +159,12 @@ struct nss_ipsecmgr_encap_v4_subnet {
 /**
  * @brief IPv6 encap flow subnet
  *
- * According to RFC 4291 the subnetting in IPv6 looks like.
- *
- *  |          64 bits              |           64 bits               |
- *  +-------------------------------+---------------------------------+
- *  |       subnet prefix           |           interface ID          |
- *  +-------------------------------+---------------------------------+
+ * We will store least significant word in dst_subnet[0] and
+ * most significant in dst_subnet[3]
  */
 struct nss_ipsecmgr_encap_v6_subnet {
-	uint32_t dst_subnet[2];		/**< destination subnet */
-	uint32_t dst_mask[2];		/**< destination subnet mask */
+	uint32_t dst_subnet[4];		/**< destination subnet */
+	uint32_t dst_mask[4];		/**< destination subnet mask */
 	uint32_t next_hdr;		/**< next header */
 };
 
