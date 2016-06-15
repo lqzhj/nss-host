@@ -64,6 +64,10 @@
 #define NSS_CRYPTO_CLOCK_CORE_NOMINAL 150000000	/* Nominal freq for Core Clock */
 #define NSS_CRYPTO_CLOCK_AUX_NOMINAL 160000000	/* Nominal freq for AXI and AHB */
 
+static bool crypto_clk_scale;
+module_param(crypto_clk_scale, bool, S_IRUGO);
+MODULE_PARM_DESC(crypto_clk_scale, "Enable clock scaling for Crypto");
+
 /*
  * Crypto resource index in device tree
  */
@@ -185,10 +189,13 @@ static void nss_crypto_clock_init(struct platform_device *pdev, struct device_no
 		}
 	}
 
-	/*
-	 * register for PM notification
-	 */
-	nss_crypto_pm_notify_register(nss_crypto_pm_event_cb, ctrl);
+	if (crypto_clk_scale) {
+		/*
+		 * register for PM notification if crypto clock
+		 * scaling is enabled. Else stay in nominal mode
+		 */
+		nss_crypto_pm_notify_register(nss_crypto_pm_event_cb, ctrl);
+	}
 }
 
 /*
