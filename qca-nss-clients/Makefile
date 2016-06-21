@@ -19,6 +19,20 @@ PKG_BUILD_DEPENDS := \
 
 include $(INCLUDE_DIR)/package.mk
 
+define KernelPackage/qca-nss-drv-dtlsmgr
+  SECTION:=kernel
+  CATEGORY:=Kernel modules
+  SUBMENU:=Network Devices
+  TITLE:=Kernel driver for NSS (connection manager) - dtlsmgr
+  DEPENDS:=@TARGET_ipq806x +kmod-qca-nss-drv +kmod-qca-nss-crypto
+  FILES:=$(PKG_BUILD_DIR)/dtls/qca-nss-dtlsmgr.ko
+  AUTOLOAD:=$(call AutoLoad,60,qca-nss-dtlsmgr)
+endef
+
+define KernelPackage/qca-nss-drv-dtls/Description
+Kernel modules for NSS connection manager - Support for DTLS sessions
+endef
+
 define KernelPackage/qca-nss-drv-tun6rd
   SECTION:=kernel
   CATEGORY:=Kernel modules
@@ -162,6 +176,7 @@ endef
 $(eval $(call KernelPackage,qca-nss-drv-profile))
 $(eval $(call KernelPackage,qca-nss-drv-capwapmgr))
 $(eval $(call KernelPackage,qca-nss-drv-tun6rd))
+$(eval $(call KernelPackage,qca-nss-drv-dtlsmgr))
 $(eval $(call KernelPackage,qca-nss-drv-l2tpv2))
 $(eval $(call KernelPackage,qca-nss-drv-pptp))
 $(eval $(call KernelPackage,qca-nss-drv-map-t))
