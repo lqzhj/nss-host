@@ -54,6 +54,7 @@
 #include "nss_profiler.h"
 #include "nss_dynamic_interface.h"
 #include "nss_gre_redir.h"
+#include "nss_gre_tunnel.h"
 #include "nss_sjack.h"
 #include "nss_capwap.h"
 #include "nss_wifi.h"
@@ -148,6 +149,7 @@
 #define NSS_MAP_T_INTERFACE (NSS_SPECIAL_IF_START + 39)  /* Special MAP-T interface */
 #define NSS_PPE_INTERFACE (NSS_SPECIAL_IF_START + 40)	/* Special PPE interface */
 #define NSS_EDMA_INTERFACE (NSS_SPECIAL_IF_START + 41)	/* Special EDMA interface */
+#define NSS_GRE_TUNNEL_INTERFACE (NSS_SPECIAL_IF_START + 42)  /* Special NSS GRE TUNNEL interface */
 
 /**
  * This macro converts format for IPv6 address (from Linux to NSS)

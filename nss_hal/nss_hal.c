@@ -102,6 +102,7 @@ void nss_hal_dt_parse_features(struct device_node *np, struct nss_platform_data 
 	npd->crypto_enabled = of_property_read_bool(np, "qcom,crypto-enabled");
 	npd->dtls_enabled = of_property_read_bool(np, "qcom,dtls-enabled");
 	npd->gre_redir_enabled = of_property_read_bool(np, "qcom,gre-redir-enabled");
+	npd->gre_tunnel_enabled = of_property_read_bool(np, "qcom,gre_tunnel_enabled");
 	npd->ipsec_enabled = of_property_read_bool(np, "qcom,ipsec-enabled");
 	npd->ipv4_enabled = of_property_read_bool(np, "qcom,ipv4-enabled");
 	npd->ipv4_reasm_enabled = of_property_read_bool(np, "qcom,ipv4-reasm-enabled");
@@ -439,9 +440,14 @@ int nss_hal_probe(struct platform_device *nss_dev)
 
 	if (npd->gre_redir_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->gre_redir_handler_id = nss_dev->id;
-		nss_top->dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_GRE_REDIR] =  nss_dev->id;
+		nss_top->dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_GRE_REDIR] = nss_dev->id;
 		nss_gre_redir_register_handler();
 		nss_sjack_register_handler();
+	}
+
+	if (npd->gre_tunnel_enabled == NSS_FEATURE_ENABLED) {
+		nss_top->gre_tunnel_handler_id = nss_dev->id;
+		nss_top->dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_GRE_TUNNEL] = nss_dev->id;
 	}
 
 	if (npd->portid_enabled == NSS_FEATURE_ENABLED) {
@@ -452,9 +458,9 @@ int nss_hal_probe(struct platform_device *nss_dev)
 
 	if (npd->wifioffload_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->wifi_handler_id = nss_dev->id;
-		nss_top->dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_RADIO_0] =  nss_dev->id;
-		nss_top->dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_RADIO_1] =  nss_dev->id;
-		nss_top->dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_RADIO_2] =  nss_dev->id;
+		nss_top->dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_RADIO_0] = nss_dev->id;
+		nss_top->dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_RADIO_1] = nss_dev->id;
+		nss_top->dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_RADIO_2] = nss_dev->id;
 		nss_wifi_register_handler();
 	}
 

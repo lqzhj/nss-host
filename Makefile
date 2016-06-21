@@ -18,6 +18,7 @@ qca-nss-drv-objs := \
 			nss_edma.o \
 			nss_eth_rx.o \
 			nss_gre_redir.o \
+			nss_gre_tunnel.o \
 			nss_if.o \
 			nss_init.o \
 			nss_ipsec.o \

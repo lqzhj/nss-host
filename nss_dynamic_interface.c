@@ -258,7 +258,7 @@ int nss_dynamic_interface_alloc_node(enum nss_dynamic_interface_type type)
 	 * Check di.response and return -1 if its a NACK else proceed.
 	 */
 	if (di.response != NSS_CMN_RESPONSE_ACK) {
-		nss_warning("%p Received NACK from NSS\n", nss_ctx);
+		nss_warning("%p Received NACK from NSS - Response:%d\n", nss_ctx, di.response);
 		return -1;
 	}
 

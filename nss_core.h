@@ -855,48 +855,50 @@ struct nss_subsystem_dataplane_register {
  * Main NSS context structure (singleton)
  */
 struct nss_top_instance {
-	uint8_t num_nss;		/* Number of NSS cores supported */
-	uint8_t num_phys_ports;		/* Number of physical ports supported */
-	uint32_t clk_src;		/* Clock source: default/alternate */
-	spinlock_t lock;		/* Big lock for NSS driver */
-	spinlock_t stats_lock;		/* Statistics lock */
-	struct dentry *top_dentry;	/* Top dentry for nss */
-	struct dentry *stats_dentry;	/* Top dentry for nss stats */
-	struct dentry *ipv4_dentry;	/* IPv4 stats dentry */
+	uint8_t num_nss;			/* Number of NSS cores supported */
+	uint8_t num_phys_ports;			/* Number of physical ports supported */
+	uint32_t clk_src;			/* Clock source: default/alternate */
+	spinlock_t lock;			/* Big lock for NSS driver */
+	spinlock_t stats_lock;			/* Statistics lock */
+	struct dentry *top_dentry;		/* Top dentry for nss */
+	struct dentry *stats_dentry;		/* Top dentry for nss stats */
+	struct dentry *ipv4_dentry;		/* IPv4 stats dentry */
 	struct dentry *ipv4_reasm_dentry;
-					/* IPv4 reassembly stats dentry */
-	struct dentry *ipv6_dentry;	/* IPv6 stats dentry */
+						/* IPv4 reassembly stats dentry */
+	struct dentry *ipv6_dentry;		/* IPv6 stats dentry */
 	struct dentry *ipv6_reasm_dentry;
-					/* IPv6 reassembly stats dentry */
-	struct dentry *eth_rx_dentry;	/* ETH_RX stats dentry */
-	struct dentry *n2h_dentry;	/* N2H stats dentry */
-	struct dentry *lso_rx_dentry;	/* LSO_RX stats dentry */
-	struct dentry *drv_dentry;	/* HLOS driver stats dentry */
-	struct dentry *pppoe_dentry;	/* PPPOE stats dentry */
-	struct dentry *pptp_dentry;	/* PPTP  stats dentry */
-	struct dentry *l2tpv2_dentry;	/* L2TPV2  stats dentry */
-	struct dentry *dtls_dentry;     /* DTLS stats dentry */
-	struct dentry *map_t_dentry;	/* MAP-T stats dentry */
-	struct dentry *gmac_dentry;	/* GMAC ethnode stats dentry */
-	struct dentry *capwap_decap_dentry;     /* CAPWAP decap ethnode stats dentry */
-	struct dentry *capwap_encap_dentry;     /* CAPWAP encap ethnode stats dentry */
+						/* IPv6 reassembly stats dentry */
+	struct dentry *eth_rx_dentry;		/* ETH_RX stats dentry */
+	struct dentry *n2h_dentry;		/* N2H stats dentry */
+	struct dentry *lso_rx_dentry;		/* LSO_RX stats dentry */
+	struct dentry *drv_dentry;		/* HLOS driver stats dentry */
+	struct dentry *pppoe_dentry;		/* PPPOE stats dentry */
+	struct dentry *pptp_dentry;		/* PPTP  stats dentry */
+	struct dentry *l2tpv2_dentry;		/* L2TPV2  stats dentry */
+	struct dentry *dtls_dentry;		/* DTLS stats dentry */
+	struct dentry *gre_tunnel_dentry;	/* GRE Tunnel stats dentry */
+	struct dentry *map_t_dentry;		/* MAP-T stats dentry */
+	struct dentry *gmac_dentry;		/* GMAC ethnode stats dentry */
+	struct dentry *capwap_decap_dentry;	/* CAPWAP decap ethnode stats dentry */
+	struct dentry *capwap_encap_dentry;	/* CAPWAP encap ethnode stats dentry */
 	struct dentry *gre_redir_dentry;	/* gre_redir ethnode stats dentry */
 	struct dentry *sjack_dentry;		/* sjack stats dentry */
 	struct dentry *portid_dentry;		/* portid stats dentry */
 	struct dentry *wifi_dentry;		/* wifi stats dentry */
-	struct dentry *logs_dentry;	/* NSS FW logs directory */
-	struct dentry *core_log_dentry;	/* NSS Core's FW log file */
+	struct dentry *logs_dentry;		/* NSS FW logs directory */
+	struct dentry *core_log_dentry;		/* NSS Core's FW log file */
 	struct dentry *wifi_if_dentry;		/* wifi_if stats dentry */
-	struct dentry *virt_if_dentry;	/* virt_if stats dentry */
-	struct dentry *tx_rx_virt_if_dentry; /* tx_rx_virt_if stats dentry. Will be deprecated soon */
+	struct dentry *virt_if_dentry;		/* virt_if stats dentry */
+	struct dentry *tx_rx_virt_if_dentry;	/* tx_rx_virt_if stats dentry. Will be deprecated soon */
 	struct nss_ctx_instance nss[NSS_MAX_CORES];
-					/* NSS contexts */
+						/* NSS contexts */
 	/*
 	 * Network processing handler core ids (CORE0/CORE1) for various interfaces
 	 */
 	uint8_t phys_if_handler_id[NSS_MAX_PHYSICAL_INTERFACES];
 	uint8_t virt_if_handler_id[NSS_MAX_VIRTUAL_INTERFACES];
 	uint8_t gre_redir_handler_id;
+	uint8_t gre_tunnel_handler_id;
 	uint8_t shaping_handler_id;
 	uint8_t ipv4_handler_id;
 	uint8_t ipv4_reasm_handler_id;
@@ -952,6 +954,8 @@ struct nss_top_instance {
 	nss_l2tpv2_msg_callback_t l2tpv2_msg_callback;
 					/* l2tP tunnel interface event callback function */
 	nss_dtls_msg_callback_t dtls_msg_callback; /* dtls interface event callback */
+
+	nss_gre_tunnel_msg_callback_t gre_tunnel_msg_callback; /* gre tunnel interface event callback */
 
 	nss_map_t_msg_callback_t map_t_msg_callback;
 					/* map-t interface event callback function */
@@ -1140,7 +1144,7 @@ enum nss_feature_enabled {
 
 /*
  * nss_platform_data
- *      Platform data per core
+ *	Platform data per core
  */
 struct nss_platform_data {
 	uint32_t id;					/* NSS core ID */
@@ -1154,6 +1158,7 @@ struct nss_platform_data {
 	uint32_t vphys;					/* Physical addr of NSS virtual register map */
 	uint32_t qgic_phys;				/* Physical addr of QGIC virtual register map */
 	uint32_t load_addr;				/* Load address of NSS firmware */
+
 	enum nss_feature_enabled capwap_enabled;
 				/* Does this core handle capwap? */
 	enum nss_feature_enabled crypto_enabled;
@@ -1162,6 +1167,8 @@ struct nss_platform_data {
 				/* Does this core handle DTLS sessions ? */
 	enum nss_feature_enabled gre_redir_enabled;
 				/* Does this core handle gre_redir Tunnel ? */
+	enum nss_feature_enabled gre_tunnel_enabled;
+				/* Does this core handle gre_tunnel Tunnel ? */
 	enum nss_feature_enabled ipsec_enabled;
 				/* Does this core handle IPsec? */
 	enum nss_feature_enabled ipv4_enabled;
