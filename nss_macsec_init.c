@@ -280,6 +280,7 @@ static int nss_macsec_dt_init(uint32_t dev_id)
 static int nss_macsec_clean(void)
 {
 	uint32_t dev_id = 0;
+	int ret = 0;
 
 	if (macsec_notifier_register_status) {
 		nss_gmac_link_state_change_notify_unregister(&macsec_notifier);
@@ -292,6 +293,7 @@ static int nss_macsec_clean(void)
 				    NSS_MACSEC_REG_LEN);
 	}
 
+	return ret;
 }
 #endif
 
