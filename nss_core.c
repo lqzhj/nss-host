@@ -1674,9 +1674,6 @@ static inline int32_t nss_core_send_buffer_simple_skb(struct nss_ctx_instance *n
 	uint16_t bit_flags;
 	uint16_t mask;
 	uint32_t frag0phyaddr;
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3, 6, 0))
-	uint16_t sz;
-#endif
 
 	bit_flags = flags | H2N_BIT_FLAG_FIRST_SEGMENT | H2N_BIT_FLAG_LAST_SEGMENT;
 	if (likely(nbuf->ip_summed == CHECKSUM_PARTIAL)) {
@@ -1687,57 +1684,6 @@ static inline int32_t nss_core_send_buffer_simple_skb(struct nss_ctx_instance *n
 
 	mask = desc_if->size - 1;
 	desc = &desc_ring[hlos_index];
-
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(3, 6, 0))
-	/*
-	 * Don't re-use if this is a virtual interface.
-	 */
-	if (nss_cmn_interface_is_virtual(nss_ctx, if_num)) {
-		goto no_reuse;
-	}
-
-	/*
-	 * If we have to call a destructor, we can't re-use the buffer?
-	 */
-	if (unlikely(nbuf->destructor != NULL)) {
-		goto no_reuse;
-	}
-
-	/*
-	 * Check if the skb is recyclable without resetting its fields.
-	 */
-	if (unlikely(!skb_is_recycleable(nbuf, nss_ctx->max_buf_size))) {
-		goto no_reuse;
-	}
-
-	/*
-	* We are going to do both Tx and then Rx on this buffer, unmap the Tx
-	* and then map Rx over the entire buffer.
-	*/
-	sz = max((uint16_t)(nbuf->tail - nbuf->head), (uint16_t)(nss_ctx->max_buf_size + NET_SKB_PAD));
-	frag0phyaddr = (uint32_t)dma_map_single(NULL, nbuf->head, sz, DMA_TO_DEVICE);
-	if (unlikely(dma_mapping_error(NULL, frag0phyaddr))) {
-		goto no_reuse;
-	}
-
-	/*
-	* We are allowed to re-use the packet
-	*/
-	bit_flags |= H2N_BIT_FLAG_BUFFER_REUSE;
-	nss_core_write_one_descriptor(desc, buffer_type, frag0phyaddr, if_num,
-		(uint32_t)nbuf, (uint16_t)(nbuf->data - nbuf->head), nbuf->len,
-		sz, (uint32_t)nbuf->priority, mss, bit_flags);
-
-	/*
-	 * We are done using the skb fields and can recycle it now
-	 */
-	skb_recycle(nbuf);
-
-	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_BUFFER_REUSE]);
-	return 1;
-
-no_reuse:
-#endif
 
 	frag0phyaddr = 0;
 	frag0phyaddr = (uint32_t)dma_map_single(NULL, nbuf->head, (nbuf->tail - nbuf->head), DMA_TO_DEVICE);
