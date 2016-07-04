@@ -28,6 +28,7 @@
 #define NSS_WIFI_RX_EXT_INV_PEER_TYPE 0
 #define NSS_WIFI_RX_EXT_PKTLOG_TYPE 1
 #define NSS_WIFI_TX_NUM_TOS_TIDS 8
+#define NSS_WIFI_PEER_STATS_DATA_LEN 232
 
 /**
  * max no of wifi peers per radio is the sum of max no of station peers (513),
@@ -72,6 +73,7 @@ enum nss_wifi_metadata_types {
 	NSS_WIFI_STORE_OTHER_PDEV_STAVAP_MSG,
 	NSS_WIFI_STA_KICKOUT_MSG,
 	NSS_WIFI_WNM_PEER_RX_ACTIVITY_MSG,
+	NSS_WIFI_PEER_STATS_MSG,
 	NSS_WIFI_MAX_MSG
 };
 
@@ -459,6 +461,20 @@ struct nss_wifi_wnm_peer_rx_activity_msg {
 	uint16_t peer_id[NSS_WIFI_MAX_PEER];	/**< array to hold the peer_id's for which the activity is reported */
 };
 
+/*
+ * wifi peer statistics
+ */
+struct nss_wifi_peer_stats_msg {
+	uint32_t peer_id;					/**< Peer ID */
+	uint32_t tidq_byte_cnt[NSS_WIFI_TX_NUM_TOS_TIDS];	/**< Number of bytes in each TIDQ */
+	uint32_t tidq_queue_max[NSS_WIFI_TX_NUM_TOS_TIDS];	/**< Maximum depth for TID queue */
+	uint32_t tidq_enqueue_cnt[NSS_WIFI_TX_NUM_TOS_TIDS];	/**< Number of packets enqueued to  TIDQ */
+	uint32_t tidq_dequeue_cnt[NSS_WIFI_TX_NUM_TOS_TIDS];	/**< Number of packets dequeued from  TIDQ */
+	uint32_t tidq_ttl_expire_cnt[NSS_WIFI_TX_NUM_TOS_TIDS];	/**< Number of packets expired from  TIDQ */
+	uint32_t tidq_dequeue_req_cnt[NSS_WIFI_TX_NUM_TOS_TIDS];	/**< Dequeue request count from wifi fw */
+	uint32_t tidq_full_cnt[NSS_WIFI_TX_NUM_TOS_TIDS];	/**< Total number of packets dropped due to TID queue full condition */
+};
+
 /**
  * Message structure to send/receive wifi messages
  */
@@ -494,6 +510,7 @@ struct nss_wifi_msg {
 		struct nss_wifi_store_other_pdev_stavap_msg wsops_msg;
 		struct nss_wifi_sta_kickout_msg sta_kickout_msg;
 		struct nss_wifi_wnm_peer_rx_activity_msg wprm;
+		struct nss_wifi_peer_stats_msg peer_stats_msg;
 	} msg;
 };
 
@@ -538,7 +555,7 @@ typedef void (*nss_wifi_callback_t)(struct net_device *netdev, struct sk_buff *s
  * @return nss_ctx_instance* NSS context
  */
 struct nss_ctx_instance *nss_register_wifi_if(uint32_t if_num, nss_wifi_callback_t wifi_callback,
-			nss_wifi_callback_t wifi_ext_callback, nss_wifi_msg_callback_t event_callback, struct net_device *netdev, uint32_t features);
+					      nss_wifi_callback_t wifi_ext_callback, nss_wifi_msg_callback_t event_callback, struct net_device *netdev, uint32_t features);
 
 /**
  * @brief Unregister wifi interface with NSS
