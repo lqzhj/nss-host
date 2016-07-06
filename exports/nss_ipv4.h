@@ -604,5 +604,11 @@ extern void nss_ipv4_msg_init(struct nss_ipv4_msg *nim, uint16_t if_num, uint32_
  */
 extern int nss_ipv4_update_conn_count(int ipv4_max_conn);
 
+/**
+ * Logger APIs
+ */
+void nss_ipv4_log_tx_msg(struct nss_ipv4_msg *nim);
+void nss_ipv4_log_rx_msg(struct nss_ipv4_msg *nim);
+
 #endif /*__KERNEL__ */
 #endif /* __NSS_IPV4_H */

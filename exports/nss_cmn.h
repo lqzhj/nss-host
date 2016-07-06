@@ -97,6 +97,11 @@ enum nss_cmn_response {
 };
 
 /**
+ * Common response structure string
+ */
+extern int8_t *nss_cmn_response_str[NSS_CMN_RESPONSE_LAST];
+
+/**
  * Common structures
  */
 

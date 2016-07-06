@@ -141,9 +141,9 @@ static void nss_ipv6_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 	}
 
 	/*
-	 * Log failures
+	 * Trace messages.
 	 */
-	nss_core_log_msg_failures(nss_ctx, ncm);
+	nss_ipv6_log_rx_msg(nim);
 
 	/*
 	 * Handle deprecated messages.  Eventually these messages should be removed.
@@ -246,6 +246,11 @@ nss_tx_status_t nss_ipv6_tx_with_size(struct nss_ctx_instance *nss_ctx, struct n
 	 */
 	nim2 = (struct nss_ipv6_msg *)skb_put(nbuf, sizeof(struct nss_ipv6_msg));
 	memcpy(nim2, nim, sizeof(struct nss_ipv6_msg));
+
+	/*
+	 * Trace messages.
+	 */
+	nss_ipv6_log_tx_msg(nim);
 
 	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
 	if (status != NSS_CORE_STATUS_SUCCESS) {
