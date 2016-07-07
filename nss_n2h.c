@@ -899,7 +899,7 @@ static inline void nss_n2h_buf_pool_free(struct nss_n2h_buf_pool *buf_pool)
  *	Send Message to NSS to enable pbufs.
  */
 static nss_tx_status_t nss_n2h_buf_pool_cfg(struct nss_ctx_instance *nss_ctx,
-	       				int buf_pool_size, nss_core_id_t core_num)
+					int buf_pool_size, nss_core_id_t core_num)
 {
 	static struct nss_n2h_msg nnm;
 	struct nss_n2h_buf_pool *buf_pool;
@@ -923,13 +923,11 @@ static nss_tx_status_t nss_n2h_buf_pool_cfg(struct nss_ctx_instance *nss_ctx,
 		buf_pool->nss_buf_page_size = PAGE_SIZE;
 
 		for (page_count = 0; page_count < MAX_PAGES_PER_MSG && num_pages; page_count++, num_pages--) {
-
 			void *kern_addr = kzalloc(PAGE_SIZE, GFP_ATOMIC);
 			if (!kern_addr) {
 				BUG_ON(!page_count);
 				break;
 			}
-			BUG_ON((long unsigned int)kern_addr % PAGE_SIZE);
 
 			buf_pool->nss_buf_pool_vaddr[page_count] = kern_addr;
 			buf_pool->nss_buf_pool_addr[page_count] = dma_map_single(NULL, kern_addr, PAGE_SIZE, DMA_TO_DEVICE);
