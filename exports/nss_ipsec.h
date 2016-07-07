@@ -206,6 +206,7 @@ struct nss_ipsec_node_stats {
 	uint32_t exceptioned;			/**< packets exception from NSS */
 	uint32_t completed;			/**< packets processed by the node */
 	uint32_t fail_enqueue;			/**< packets failed to enqueue */
+	uint32_t linearized;			/**< linearized the packet */
 };
 
 /**
