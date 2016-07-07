@@ -256,12 +256,16 @@ static int nss_current_freq_handler(struct ctl_table *ctl, int write, void __use
 	}
 	if (i == NSS_FREQ_MAX_SCALE) {
 		printk("Frequency not found. Please check Frequency Table\n");
+		nss_cmd_buf.current_freq = nss_runtime_samples.freq_scale[nss_runtime_samples.freq_scale_index].frequency;
 		return ret;
 	}
 
-	/* Turn off Auto Scale */
+	/*
+	 * Turn off Auto Scale
+	*/
 	nss_cmd_buf.auto_scale = 0;
 	nss_runtime_samples.freq_scale_ready = 0;
+	nss_runtime_samples.freq_scale_index = i;
 
 	nss_work = (nss_work_t *)kmalloc(sizeof(nss_work_t), GFP_ATOMIC);
 	if (!nss_work) {
@@ -272,7 +276,9 @@ static int nss_current_freq_handler(struct ctl_table *ctl, int write, void __use
 	nss_work->frequency = nss_cmd_buf.current_freq;
 	nss_work->stats_enable = 0;
 
-	/* Ensure we start with a fresh set of samples later */
+	/*
+	 * Ensure we start with a fresh set of samples later
+	 */
 	nss_reset_frequency_stats_samples();
 
 	queue_work(nss_wq, (struct work_struct *)nss_work);
