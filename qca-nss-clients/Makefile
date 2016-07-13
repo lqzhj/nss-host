@@ -19,12 +19,26 @@ PKG_BUILD_DEPENDS := \
 
 include $(INCLUDE_DIR)/package.mk
 
+define KernelPackage/qca-nss-drv-dtlsmgr
+  SECTION:=kernel
+  CATEGORY:=Kernel modules
+  SUBMENU:=Network Devices
+  TITLE:=Kernel driver for NSS (connection manager) - dtlsmgr
+  DEPENDS:=@TARGET_ipq806x +kmod-qca-nss-drv +kmod-qca-nss-crypto @!LINUX_3_18
+  FILES:=$(PKG_BUILD_DIR)/dtls/qca-nss-dtlsmgr.ko
+  AUTOLOAD:=$(call AutoLoad,60,qca-nss-dtlsmgr)
+endef
+
+define KernelPackage/qca-nss-drv-dtls/Description
+Kernel modules for NSS connection manager - Support for DTLS sessions
+endef
+
 define KernelPackage/qca-nss-drv-tun6rd
   SECTION:=kernel
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
   TITLE:=Kernel driver for NSS (connection manager) - tun6rd
-  DEPENDS:=kmod-qca-nss-drv +kmod-sit
+  DEPENDS:=kmod-qca-nss-drv +kmod-sit @!LINUX_3_18
   FILES:=$(PKG_BUILD_DIR)/qca-nss-tun6rd.ko
   AUTOLOAD:=$(call AutoLoad,60,qca-nss-tun6rd)
 endef
@@ -38,7 +52,7 @@ define KernelPackage/qca-nss-drv-l2tpv2
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
   TITLE:=Kernel driver for NSS (connection manager) - l2tp
-  DEPENDS:=kmod-qca-nss-drv kmod-l2tp
+  DEPENDS:=kmod-qca-nss-drv kmod-l2tp @!LINUX_3_18
   FILES:=$(PKG_BUILD_DIR)/l2tp/l2tpv2/qca-nss-l2tpv2.ko
   AUTOLOAD:=$(call AutoLoad,51,qca-nss-l2tpv2)
 endef
@@ -52,7 +66,7 @@ define KernelPackage/qca-nss-drv-pptp
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
   TITLE:=Kernel driver for NSS (connection manager) - PPTP
-  DEPENDS:=kmod-qca-nss-drv kmod-pptp
+  DEPENDS:=kmod-qca-nss-drv kmod-pptp @!LINUX_3_18
   FILES:=$(PKG_BUILD_DIR)/pptp/qca-nss-pptp.ko
   AUTOLOAD:=$(call AutoLoad,51,qca-nss-pptp)
 endef
@@ -66,7 +80,7 @@ define KernelPackage/qca-nss-drv-map-t
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
   TITLE:=Kernel driver for NSS (connection manager) - MAP-T
-  DEPENDS:=kmod-qca-nss-drv kmod-nat46
+  DEPENDS:=kmod-qca-nss-drv kmod-nat46 @!LINUX_3_18
   FILES:=$(PKG_BUILD_DIR)/map/map-t/qca-nss-map-t.ko
   AUTOLOAD:=$(call AutoLoad,51,qca-nss-map-t)
 endef
@@ -80,7 +94,7 @@ define KernelPackage/qca-nss-drv-tunipip6
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
   TITLE:=Kernel driver for NSS (connection manager) - DS-lite and ipip6 Tunnel
-  DEPENDS:=kmod-qca-nss-drv +kmod-iptunnel6 +kmod-ip6-tunnel
+  DEPENDS:=kmod-qca-nss-drv +kmod-iptunnel6 +kmod-ip6-tunnel @!LINUX_3_18
   FILES:=$(PKG_BUILD_DIR)/qca-nss-tunipip6.ko
   AUTOLOAD:=$(call AutoLoad,60,qca-nss-tunipip6)
 endef
@@ -94,7 +108,7 @@ define KernelPackage/qca-nss-drv-profile
   SECTION:=kernel
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
-  DEPENDS:=kmod-qca-nss-drv
+  DEPENDS:=kmod-qca-nss-drv @!LINUX_3_18
   TITLE:=Profiler for QCA NSS driver (IPQ806x)
   FILES:=$(PKG_BUILD_DIR)/profiler/qca-nss-profile-drv.ko
 endef
@@ -108,7 +122,7 @@ define KernelPackage/qca-nss-drv-ipsecmgr
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
   TITLE:=Kernel driver for NSS (ipsec manager) - ipsecmgr
-  DEPENDS:=kmod-qca-nss-drv
+  DEPENDS:=kmod-qca-nss-drv @!LINUX_3_18
   FILES:=$(PKG_BUILD_DIR)/ipsecmgr/qca-nss-ipsecmgr.ko
   AUTOLOAD:=$(call AutoLoad,58,qca-nss-ipsecmgr)
 endef
@@ -121,7 +135,7 @@ define KernelPackage/qca-nss-drv-capwapmgr
   SECTION:=kernel
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
-  DEPENDS:=kmod-qca-nss-drv
+  DEPENDS:=kmod-qca-nss-drv @!LINUX_3_18
   TITLE:=NSS CAPWAP Manager for QCA NSS driver (IPQ806x)
   FILES:=$(PKG_BUILD_DIR)/capwapmgr/qca-nss-capwapmgr.ko
 endef
@@ -135,7 +149,7 @@ define KernelPackage/qca-nss-drv-qdisc
   CATEGORY:=Kernel modules
   SUBMENU:=Network Support
   TITLE:=Qdisc for configuring shapers in NSS
-  DEPENDS:=kmod-qca-nss-drv
+  DEPENDS:=kmod-qca-nss-drv @!LINUX_3_18
   FILES:=$(PKG_BUILD_DIR)/nss_qdisc/qca-nss-qdisc.ko
   AUTOLOAD:=$(call AutoLoad,58,qca-nss-qdisc)
 endef
@@ -162,6 +176,7 @@ endef
 $(eval $(call KernelPackage,qca-nss-drv-profile))
 $(eval $(call KernelPackage,qca-nss-drv-capwapmgr))
 $(eval $(call KernelPackage,qca-nss-drv-tun6rd))
+$(eval $(call KernelPackage,qca-nss-drv-dtlsmgr))
 $(eval $(call KernelPackage,qca-nss-drv-l2tpv2))
 $(eval $(call KernelPackage,qca-nss-drv-pptp))
 $(eval $(call KernelPackage,qca-nss-drv-map-t))
