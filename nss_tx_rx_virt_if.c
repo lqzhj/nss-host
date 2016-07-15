@@ -653,7 +653,7 @@ nss_tx_status_t nss_destroy_virt_if(void *ctx)
 	}
 
 	dev = nss_top_main.subsys_dp_register[if_num].ndev;
-	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
+	nss_unregister_virt_if(handle);
 	spin_unlock_bh(&nss_top_main.lock);
 	dev_put(dev);
 
@@ -748,4 +748,3 @@ EXPORT_SYMBOL(nss_tx_virt_if_rx_nwifibuf);
 EXPORT_SYMBOL(nss_create_virt_if);
 EXPORT_SYMBOL(nss_destroy_virt_if);
 EXPORT_SYMBOL(nss_register_virt_if);
-EXPORT_SYMBOL(nss_unregister_virt_if);
