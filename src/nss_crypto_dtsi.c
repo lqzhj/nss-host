@@ -64,10 +64,6 @@
 #define NSS_CRYPTO_CLOCK_CORE_NOMINAL 150000000	/* Nominal freq for Core Clock */
 #define NSS_CRYPTO_CLOCK_AUX_NOMINAL 160000000	/* Nominal freq for AXI and AHB */
 
-static bool crypto_clk_scale;
-module_param(crypto_clk_scale, bool, S_IRUGO);
-MODULE_PARM_DESC(crypto_clk_scale, "Enable clock scaling for Crypto");
-
 /*
  * Crypto resource index in device tree
  */
@@ -117,23 +113,53 @@ static void nss_crypto_bam_init(uint8_t *bam_iobase)
  * nss_crypto_pm_event_cb()
  * 	Crypto PM event callback
  */
-void nss_crypto_pm_event_cb(void *app_data, bool turbo)
+bool nss_crypto_pm_event_cb(void *app_data, bool turbo, bool auto_scale)
 {
 	struct nss_crypto_ctrl *ctrl = (struct nss_crypto_ctrl *)app_data;
 	struct nss_crypto_clock *clock = ctrl->clocks;
-	uint32_t freq;
+	bool no_session;
 	int count;
 
 	BUG_ON(!clock);
 	count = ctrl->max_clocks;
 
+	/*
+	 * only enable turbo
+	 * - if there is an active session and the NSS has scaled to turbo
+	 * - or the NSS is forcing everybody to turbo
+	 * Once, crypto goes to turbo mode it should tell NSS to keep the
+	 * fabric1 in turbo mode forever
+	 */
+	spin_lock_bh(&ctrl->lock); /* index lock*/
+	no_session = !ctrl->idx_bitmap;
+	spin_unlock_bh(&ctrl->lock);
+
+	if (auto_scale && !turbo) { 		/* auto-scaling  & non-turbo */
+		return false;
+	} else if (auto_scale && no_session) { 	/* auto-scaling & no-sessions */
+		return false;
+	} else if (!turbo) {			/* non-turbo */
+		return false;
+	}
+
+	/*
+	 * if auto-scaling is disabled then move crypto to turbo mode
+	 * and notify NSS to switch fabric1 to turbo
+	 */
 	for (; count--; clock++) {
-		freq = turbo ? clock->turbo_freq : clock->nominal_freq;
-		if (clk_set_rate(clock->clk, freq)) {
-			nss_crypto_err("Error in setting clock(%d) to %d\n", count, freq);
+		if (clk_set_rate(clock->clk, clock->turbo_freq)) {
+			nss_crypto_err("Error in setting clock(%d) to %d\n", count, clock->turbo_freq);
 			continue;
 		}
 	}
+
+	/*
+	 * we will remove the callback at this point to ensure that crypto doesn't
+	 * scale down anymore
+	 */
+	nss_crypto_pm_notify_unregister();
+
+	return true;
 }
 
 /*
@@ -189,13 +215,7 @@ static void nss_crypto_clock_init(struct platform_device *pdev, struct device_no
 		}
 	}
 
-	if (crypto_clk_scale) {
-		/*
-		 * register for PM notification if crypto clock
-		 * scaling is enabled. Else stay in nominal mode
-		 */
-		nss_crypto_pm_notify_register(nss_crypto_pm_event_cb, ctrl);
-	}
+	nss_crypto_pm_notify_register(nss_crypto_pm_event_cb, ctrl);
 }
 
 /*
