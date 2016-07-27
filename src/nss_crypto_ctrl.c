@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013, 2015-2016, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -934,12 +934,19 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
 		nss_crypto_key_update(&ctrl->eng[i], idx, &encr_cfg, &auth_cfg);
 	}
 
-	*session_idx = idx;
-
 	cipher_algo = cipher ? cipher->algo : NSS_CRYPTO_CIPHER_NULL;
-	nss_crypto_send_session_update(idx, NSS_CRYPTO_SESSION_STATE_ACTIVE, cipher_algo);
-
 	spin_unlock_bh(&ctrl->lock); /* index unlock*/
+
+	status = nss_crypto_send_session_update(idx, NSS_CRYPTO_SESSION_STATE_ACTIVE, cipher_algo);
+
+	/*
+	 * If the message sending fails, reset the ctrl information
+	 */
+	if (status != NSS_CRYPTO_STATUS_OK) {
+		nss_crypto_trace("failed to inform NSS for session update during alloc\n");
+	}
+
+	*session_idx = idx;
 
 	/*
 	 * scale the fabric up to turbo as this the first index
@@ -981,9 +988,7 @@ nss_crypto_status_t nss_crypto_session_free(nss_crypto_handle_t crypto, uint32_t
 	 * timer for delayed freeing of the session. After the timeout
 	 * resources attached to session index will be deallocated
 	 */
-	nss_crypto_send_session_update(session_idx, NSS_CRYPTO_SESSION_STATE_FREE, NSS_CRYPTO_CIPHER_NULL);
-
-	return NSS_CRYPTO_STATUS_OK;
+	return nss_crypto_send_session_update(session_idx, NSS_CRYPTO_SESSION_STATE_FREE, NSS_CRYPTO_CIPHER_NULL);
 }
 EXPORT_SYMBOL(nss_crypto_session_free);
 
@@ -1220,6 +1225,10 @@ void nss_crypto_ctrl_init(void)
 	spin_lock_init(&ctrl->lock);
 
 	mutex_init(&ctrl->mutex);
+
+	sema_init(&ctrl->sem, 1);
+
+	init_completion(&ctrl->complete);
 
 	ctrl->idx_bitmap = 0;
 	ctrl->num_eng = 0;

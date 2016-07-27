@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -345,8 +345,6 @@ void nss_crypto_process_event(void *app_data, struct nss_crypto_msg *nim)
 	struct nss_crypto_ctrl_eng *e_ctrl;
 	struct nss_crypto_idx_info *idx;
 	struct nss_crypto_sync_stats *stats;
-	struct nss_crypto_config_eng *open;
-	struct nss_crypto_config_session *session;
 	int i;
 
 	switch (nim->cm.type) {
@@ -376,47 +374,83 @@ void nss_crypto_process_event(void *app_data, struct nss_crypto_msg *nim)
 
 		break;
 
-	case NSS_CRYPTO_MSG_TYPE_OPEN_ENG:
-		open = &nim->msg.eng;
-
-		if (nim->cm.response != NSS_CMN_RESPONSE_ACK) {
-			nss_crypto_err("unable to Open the engine: resp code (%d), error code (%d)\n",
-					nim->cm.response, nim->cm.error);
-			return;
-		}
-
-		nss_crypto_info("engine(%d) opened successfully\n", open->eng_id);
-
-		break;
-
-	case NSS_CRYPTO_MSG_TYPE_UPDATE_SESSION:
-		session = &nim->msg.session;
-
-		if (nim->cm.response != NSS_CMN_RESPONSE_ACK) {
-			nss_crypto_err("unable to update session: resp code (%d), error code (%d)\n",
-					nim->cm.response, nim->cm.error);
-
-			return;
-		}
-
-		nss_crypto_info("session(%d) reset successfully\n", session->idx);
-
-		nss_crypto_assert(session->idx < NSS_CRYPTO_MAX_IDXS);
-
-		/*
-		 * If NSS state has changed to free, start the delayed free
-		 * timer for de-allocating session resources
-		 */
-		if (session->state == NSS_CRYPTO_SESSION_STATE_FREE) {
-			nss_crypto_start_idx_free(session->idx);
-		}
-
-		break;
-
 	default:
 		nss_crypto_err("unsupported sync type %d\n", nim->cm.type);
 		return;
 	}
+}
+
+/*
+ * nss_crypto_msg_sync_cb()
+ * 	callback handler for for NSS synchronous messages
+ */
+void nss_crypto_msg_sync_cb(void *app_data, struct nss_crypto_msg *nim)
+{
+	struct nss_crypto_msg *nim_resp = (struct nss_crypto_msg *)app_data;
+	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
+
+	/*
+	 * make sure there was no timeout
+	 */
+	if (atomic_read(&ctrl->complete_timeo)) {
+		nss_crypto_dbg("response received after timeout (type - %d)\n", cm->type);
+		return;
+	}
+
+	memcpy(nim_resp, nim, sizeof(struct nss_crypto_msg));
+
+	complete(&ctrl->complete);
+}
+
+/*
+ * nss_crypto_send_msg_sync
+ * 	Send synchronous message to NSS.
+ */
+nss_crypto_status_t nss_crypto_send_msg_sync(struct nss_crypto_msg *nim, enum nss_crypto_msg_type type)
+{
+	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
+	nss_crypto_status_t status = NSS_CRYPTO_STATUS_OK;
+	int ret;
+
+	/*
+	 * only one caller will be allowed to send a message
+	 */
+	down_interruptible(&ctrl->sem);
+
+	nss_cmn_msg_init(&nim->cm, NSS_CRYPTO_INTERFACE, type, NSS_CRYPTO_MSG_LEN, nss_crypto_msg_sync_cb, nim);
+
+	if (nss_crypto_tx_msg(nss_drv_hdl, nim) != NSS_TX_SUCCESS) {
+		nss_crypto_dbg("failed to send message to NSS(type - %d)\n", type);
+		goto fail;
+	}
+
+	atomic_set(&ctrl->complete_timeo, 0);
+
+	ret = wait_for_completion_timeout(&ctrl->complete, NSS_CRYPTO_RESP_TIMEO_TICKS);
+	if (!ret) {
+		atomic_inc(&ctrl->complete_timeo);
+		nss_crypto_err("no response received from NSS(type - %d)\n", type);
+		goto fail;
+	}
+
+	/*
+	 * need to ensure that the response data has correctly arrived in
+	 * current CPU cache
+	 */
+	smp_rmb();
+
+	if (nim->cm.response != NSS_CMN_RESPONSE_ACK) {
+		nss_crypto_err("Error from NSS: resp code (%d) error code (%d) \n",
+				nim->cm.response, nim->cm.error);
+		goto fail;
+	}
+
+	up(&ctrl->sem);
+	return status;
+
+fail:
+	up(&ctrl->sem);
+	return NSS_CRYPTO_STATUS_FAIL;
 }
 
 /*
@@ -502,22 +536,12 @@ void nss_crypto_init(void)
 int nss_crypto_engine_init(uint32_t eng_num)
 {
 	struct nss_crypto_msg nim;
-	struct nss_cmn_msg *ncm = &nim.cm;
 	struct nss_crypto_config_eng *open = &nim.msg.eng;
 	struct nss_crypto_ctrl_eng *e_ctrl;
 	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
 	int i;
 
 	e_ctrl = &ctrl->eng[eng_num];
-
-	memset(&nim, 0, sizeof(struct nss_crypto_msg));
-
-	nss_cmn_msg_init(ncm,
-			NSS_CRYPTO_INTERFACE,
-			NSS_CRYPTO_MSG_TYPE_OPEN_ENG,
-			NSS_CRYPTO_MSG_LEN,
-			nss_crypto_process_event,
-			(void *)eng_num);
 
 	/*
 	 * prepare the open config message
@@ -537,24 +561,19 @@ int nss_crypto_engine_init(uint32_t eng_num)
 	/*
 	 * send open config message to NSS crypto
 	 */
-	if (nss_crypto_tx_msg(nss_drv_hdl, &nim) != NSS_TX_SUCCESS) {
-		nss_crypto_err("Failed to send the message to NSS\n");
-		return NSS_CRYPTO_STATUS_FAIL;
-	}
-
-	return NSS_CRYPTO_STATUS_OK;
+	return nss_crypto_send_msg_sync(&nim, NSS_CRYPTO_MSG_TYPE_OPEN_ENG);
 }
 
 /*
  * nss_crypto_send_session_update()
  * 	reset session specific state (alloc or free)
  */
-void nss_crypto_send_session_update(uint32_t session_idx, enum nss_crypto_session_state state, enum nss_crypto_cipher algo)
+nss_crypto_status_t nss_crypto_send_session_update(uint32_t session_idx, enum nss_crypto_session_state state, enum nss_crypto_cipher algo)
 {
 	struct nss_crypto_msg nim;
-	struct nss_cmn_msg *ncm = &nim.cm;
 	struct nss_crypto_config_session *session = &nim.msg.session;
 	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
+	nss_crypto_status_t status;
 	uint32_t iv_len = 0;
 
 	switch (state) {
@@ -568,7 +587,7 @@ void nss_crypto_send_session_update(uint32_t session_idx, enum nss_crypto_sessio
 
 	default:
 		nss_crypto_err("incorrect session state = %d\n", state);
-		return;
+		return NSS_CRYPTO_STATUS_FAIL;
 	}
 
 	switch (algo) {
@@ -586,16 +605,8 @@ void nss_crypto_send_session_update(uint32_t session_idx, enum nss_crypto_sessio
 
 	default:
 		nss_crypto_err("invalid cipher\n");
-		return;
+		return NSS_CRYPTO_STATUS_FAIL;
 	}
-
-	memset(&nim, 0, sizeof(struct nss_crypto_msg));
-	nss_cmn_msg_init(ncm,
-			NSS_CRYPTO_INTERFACE,
-			NSS_CRYPTO_MSG_TYPE_UPDATE_SESSION,
-			NSS_CRYPTO_MSG_LEN,
-			nss_crypto_process_event,
-			(void *)session_idx);
 
 	session->idx = session_idx;
 	session->state = state;
@@ -604,7 +615,21 @@ void nss_crypto_send_session_update(uint32_t session_idx, enum nss_crypto_sessio
 	/*
 	 * send reset stats config message to NSS crypto
 	 */
-	nss_crypto_tx_msg(nss_drv_hdl, &nim);
+	status = nss_crypto_send_msg_sync(&nim, NSS_CRYPTO_MSG_TYPE_UPDATE_SESSION);
+	if (status != NSS_CRYPTO_STATUS_OK) {
+		nss_crypto_info_always("session(%d) update failed\n", session->idx);
+		return status;
+	}
+
+	/*
+	 * If NSS state has changed to free, start the delayed free
+	 * timer for de-allocating session resources
+	 */
+	if (session->state == NSS_CRYPTO_SESSION_STATE_FREE) {
+		nss_crypto_start_idx_free(session->idx);
+	}
+
+	return status;
 }
 
 /**

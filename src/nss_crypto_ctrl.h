@@ -22,6 +22,7 @@
  * @brief session free timeout parameters
  */
 #define NSS_CRYPTO_SESSION_FREE_TIMEOUT_SEC 60	/* session free request timeout in sec */
+#define NSS_CRYPTO_RESP_TIMEO_TICKS 100		/* Timeout for NSS reponses to Host messages */
 
 /**
  * @brief max key lengths supported for various algorithms
@@ -127,6 +128,10 @@ struct nss_crypto_ctrl {
 
 	spinlock_t lock;			/**< lock */
 	struct mutex mutex;			/**< mutex lock */
+	struct semaphore sem;			/**< semaphore lock */
+
+	struct completion complete;		/**< completion for NSS message */
+	atomic_t complete_timeo;		/**< indicates whether completion has timeout */
 
 	struct delayed_work crypto_work;	/**< crypto_work structure */
 
@@ -222,9 +227,12 @@ void nss_crypto_ctrl_init(void);
  * @brief update IV parameters
  *
  * @param session_idx[IN] session index
+ * @param state[IN] crypto state (active/free)
  * @param cipher[IN] cipher algorithm
+ *
+ * @return status of the call
  */
-void nss_crypto_send_session_update(uint32_t session_idx, enum nss_crypto_session_state state, enum nss_crypto_cipher cipher);
+nss_crypto_status_t nss_crypto_send_session_update(uint32_t session_idx, enum nss_crypto_session_state state, enum nss_crypto_cipher cipher);
 
 /**
  * @brief reallocate memory.
