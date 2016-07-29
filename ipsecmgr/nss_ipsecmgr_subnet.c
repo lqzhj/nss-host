@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -72,7 +72,7 @@ static inline bool nss_ipsecmgr_netmask_is_default(struct nss_ipsecmgr_key *key)
 	}
 
 	mask64_low = nss_ipsecmgr_key_read_mask64(key, NSS_IPSECMGR_KEY_POS_IPV6_DST);
-	mask64_high = nss_ipsecmgr_key_read_mask64(key, NSS_IPSECMGR_KEY_POS_IPV6_DST + 2);
+	mask64_high = nss_ipsecmgr_key_read_mask64(key, NSS_IPSECMGR_KEY_POS_IPV6_DST + 64);
 
 	return !(mask64_low || mask64_high);
 }
@@ -101,7 +101,7 @@ static inline uint32_t nss_ipsecmgr_netmask2idx(struct nss_ipsecmgr_key *key)
 		return __ffs64(mask64_low);
 	}
 
-	mask64_high = nss_ipsecmgr_key_read_mask64(key, NSS_IPSECMGR_KEY_POS_IPV6_DST + 2);
+	mask64_high = nss_ipsecmgr_key_read_mask64(key, NSS_IPSECMGR_KEY_POS_IPV6_DST + 64);
 	if (mask64_high) {
 		return __ffs64(mask64_high) + 64;
 	}
