@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -122,7 +122,8 @@ typedef void (*nss_crypto_comp_t)(struct nss_crypto_buf *buf);
 struct nss_crypto_key {
 	uint32_t algo;			/**< algorithm for Cipher or Auth*/
 	uint32_t key_len;		/**< key length */
-	uint8_t *key;			/**< location of the key stored in memory */
+	uint32_t index;			/**< index of the key stored in secure memory */
+	uint8_t *key;			/**< Location of key stored in memory */
 };
 
 /**
@@ -244,6 +245,24 @@ void nss_crypto_buf_free(nss_crypto_handle_t crypto, struct nss_crypto_buf *buf)
  *
  */
 nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct nss_crypto_key *cipher, struct nss_crypto_key *auth,
+						uint32_t *session_idx);
+
+/**
+ * @brief Allocate a new session index with key information in secure memory
+ *        this should create the necessary state across all the layers
+ *
+ * @param crypto[IN] crypto device handle
+ * @param cipher[IN] cipher specific elements {cipher_algo, key_idx & key_length}
+ * @param auth[IN] auth specific elememts {auth_algo, key_idx & key_length}
+ * @param session_idx[OUT] session index for the crypto transform
+ *
+ * @return status of the call
+ *
+ * ENOMEM implies out of index
+ * ENOSUPP implies unsupported configuration
+ *
+ */
+nss_crypto_status_t nss_crypto_session_alloc_nokey(nss_crypto_handle_t crypto, struct nss_crypto_key *cipher, struct nss_crypto_key *auth,
 						uint32_t *session_idx);
 
 /**

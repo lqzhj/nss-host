@@ -861,6 +861,17 @@ nss_crypto_status_t nss_crypto_session_update(nss_crypto_handle_t crypto, uint32
 EXPORT_SYMBOL(nss_crypto_session_update);
 
 /*
+ * nss_crypto_session_alloc_nokey()
+ * 	allocate a new crypto session for operation
+ */
+nss_crypto_status_t nss_crypto_session_alloc_nokey(nss_crypto_handle_t crypto, struct nss_crypto_key *cipher, struct nss_crypto_key *auth,
+						uint32_t *session_idx)
+{
+	return NSS_CRYPTO_STATUS_OK;
+}
+EXPORT_SYMBOL(nss_crypto_session_alloc_nokey);
+
+/*
  * nss_crypto_session_alloc()
  * 	allocate a new crypto session for operation
  */
