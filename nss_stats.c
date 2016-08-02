@@ -40,6 +40,7 @@ uint64_t stats_shadow_pppoe_except[NSS_PPPOE_NUM_SESSION_PER_INTERFACE][NSS_PPPO
 struct nss_stats_data {
 	uint32_t if_num;	/**< Interface number for stats */
 	uint32_t index;		/**< Index for GRE_REDIR stats */
+	uint32_t edma_id;	/**< EDMA port ID or ring ID */
 };
 
 /*
@@ -211,6 +212,53 @@ static int8_t *nss_stats_str_gmac[NSS_STATS_GMAC_MAX] = {
 	"ticks",
 	"worst_ticks",
 	"iterations"
+};
+
+/*
+ * nss_stats_str_edma_tx
+ */
+static int8_t *nss_stats_str_edma_tx[NSS_STATS_EDMA_TX_MAX] = {
+	"tx_err",
+	"tx_dropped",
+	"desc_cnt"
+};
+
+/*
+ * nss_stats_str_edma_rx
+ */
+static int8_t *nss_stats_str_edma_rx[NSS_STATS_EDMA_RX_MAX] = {
+	"rx_csum_err",
+	"desc_cnt"
+};
+
+/*
+ * nss_stats_str_edma_txcmpl
+ */
+static int8_t *nss_stats_str_edma_txcmpl[NSS_STATS_EDMA_TXCMPL_MAX] = {
+	"desc_cnt"
+};
+
+/*
+ * nss_stats_str_edma_rxfill
+ */
+static int8_t *nss_stats_str_edma_rxfill[NSS_STATS_EDMA_RXFILL_MAX] = {
+	"desc_cnt"
+};
+
+/*
+ * nss_stats_str_edma_port_type
+ */
+static int8_t *nss_stats_str_edma_port_type[NSS_EDMA_PORT_TYPE_MAX] = {
+	"physical_port",
+	"virtual_port"
+};
+
+/*
+ * nss_stats_str_edma_port_ring_map
+ */
+static int8_t *nss_stats_str_edma_port_ring_map[NSS_EDMA_PORT_RING_MAP_MAX] = {
+	"rx_ring",
+	"tx_ring"
 };
 
 /*
@@ -896,6 +944,410 @@ static ssize_t nss_stats_ipv6_reasm_read(struct file *fp, char __user *ubuf, siz
 	}
 
 	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nipv6 reasm stats end\n\n");
+	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, strlen(lbuf));
+	kfree(lbuf);
+	kfree(stats_shadow);
+
+	return bytes_read;
+}
+
+/*
+ * nss_stats_edma_port_stats_read()
+ *	Read EDMA port stats
+ */
+static ssize_t nss_stats_edma_port_stats_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
+{
+	int32_t i;
+
+	/*
+	 * max output lines = #stats + start tag line + end tag line + three blank lines
+	 */
+	uint32_t max_output_lines = (NSS_STATS_NODE_MAX + 2) + 3;
+	size_t size_al = NSS_STATS_MAX_STR_LENGTH * max_output_lines;
+	size_t size_wr = 0;
+	ssize_t bytes_read = 0;
+	uint64_t *stats_shadow;
+	struct nss_stats_data *data = fp->private_data;
+
+	char *lbuf = kzalloc(size_al, GFP_KERNEL);
+	if (unlikely(lbuf == NULL)) {
+		nss_warning("Could not allocate memory for local statistics buffer");
+		return 0;
+	}
+
+	/*
+	 * Note: The assumption here is that we do not have more than 64 stats
+	 */
+	stats_shadow = kzalloc(64 * 8, GFP_KERNEL);
+	if (unlikely(stats_shadow == NULL)) {
+		nss_warning("Could not allocate memory for local shadow buffer");
+		kfree(lbuf);
+		return 0;
+	}
+
+	size_wr = scnprintf(lbuf, size_al, "edma stats start:\n\n");
+
+	/*
+	 * Common node stats
+	 */
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "edma port %d stats:\n\n", data->edma_id);
+	spin_lock_bh(&nss_top_main.stats_lock);
+	for (i = 0; (i < NSS_STATS_NODE_MAX); i++) {
+		stats_shadow[i] = nss_top_main.stats_edma.port[data->edma_id].port_stats[i];
+	}
+
+	spin_unlock_bh(&nss_top_main.stats_lock);
+
+	for (i = 0; (i < NSS_STATS_NODE_MAX); i++) {
+		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+					"%s = %llu\n", nss_stats_str_node[i], stats_shadow[i]);
+	}
+
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nedma stats end\n\n");
+	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, strlen(lbuf));
+	kfree(lbuf);
+	kfree(stats_shadow);
+
+	return bytes_read;
+}
+
+/*
+ * nss_stats_edma_port_type_read()
+ *	Read EDMA port type
+ */
+static ssize_t nss_stats_edma_port_type_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
+{
+	int32_t i;
+
+	/*
+	 * max output lines = #stats + start tag line + end tag line + three blank lines
+	 */
+	uint32_t max_output_lines = (1 + 2) + 3;
+	size_t size_al = NSS_STATS_MAX_STR_LENGTH * max_output_lines;
+	size_t size_wr = 0;
+	ssize_t bytes_read = 0;
+	uint64_t port_type;
+	struct nss_stats_data *data = fp->private_data;
+
+	char *lbuf = kzalloc(size_al, GFP_KERNEL);
+	if (unlikely(lbuf == NULL)) {
+		nss_warning("Could not allocate memory for local statistics buffer");
+		return 0;
+	}
+
+	size_wr = scnprintf(lbuf, size_al, "edma port type start:\n\n");
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "edma port %d type:\n\n", data->edma_id);
+
+	/*
+	 * Port type
+	 */
+	spin_lock_bh(&nss_top_main.stats_lock);
+	port_type = nss_top_main.stats_edma.port[data->edma_id].port_type;
+	spin_unlock_bh(&nss_top_main.stats_lock);
+
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+					"port_type = %s\n", nss_stats_str_edma_port_type[port_type]);
+
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nedma stats end\n");
+	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, strlen(lbuf));
+	kfree(lbuf);
+
+	return bytes_read;
+}
+
+/*
+ * nss_stats_edma_port_ring_map_read()
+ *	Read EDMA port ring map
+ */
+static ssize_t nss_stats_edma_port_ring_map_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
+{
+	int32_t i;
+
+	/*
+	 * max output lines = #stats + start tag line + end tag line + three blank lines
+	 */
+	uint32_t max_output_lines = (4 + 2) + 3;
+	size_t size_al = NSS_STATS_MAX_STR_LENGTH * max_output_lines;
+	size_t size_wr = 0;
+	ssize_t bytes_read = 0;
+	uint64_t *stats_shadow;
+	struct nss_stats_data *data = fp->private_data;
+
+	char *lbuf = kzalloc(size_al, GFP_KERNEL);
+	if (unlikely(lbuf == NULL)) {
+		nss_warning("Could not allocate memory for local statistics buffer");
+		return 0;
+	}
+
+	/*
+	 * Note: The assumption here is that we do not have more than 64 stats
+	 */
+	stats_shadow = kzalloc(64 * 8, GFP_KERNEL);
+	if (unlikely(stats_shadow == NULL)) {
+		nss_warning("Could not allocate memory for local shadow buffer");
+		kfree(lbuf);
+		return 0;
+	}
+
+	size_wr = scnprintf(lbuf, size_al, "edma port ring map start:\n\n");
+
+	/*
+	 * Port ring map
+	 */
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "edma port %d ring map:\n\n", data->edma_id);
+	spin_lock_bh(&nss_top_main.stats_lock);
+	for (i = 0; i < NSS_EDMA_PORT_RING_MAP_MAX; i++) {
+		stats_shadow[i] = nss_top_main.stats_edma.port[data->edma_id].port_ring_map[i];
+	}
+
+	spin_unlock_bh(&nss_top_main.stats_lock);
+
+	for (i = 0; i < NSS_EDMA_PORT_RING_MAP_MAX; i++) {
+		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+					"%s = %llu\n", nss_stats_str_edma_port_ring_map[i], stats_shadow[i]);
+	}
+
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nedma stats end\n\n");
+	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, strlen(lbuf));
+	kfree(lbuf);
+	kfree(stats_shadow);
+
+	return bytes_read;
+}
+
+/*
+ * nss_stats_edma_txring_read()
+ *	Read EDMA Tx ring stats
+ */
+static ssize_t nss_stats_edma_txring_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
+{
+	int32_t i;
+
+	/*
+	 * max output lines = #stats + start tag line + end tag line + three blank lines
+	 */
+	uint32_t max_output_lines = (NSS_STATS_EDMA_TX_MAX + 2) + 3;
+	size_t size_al = NSS_STATS_MAX_STR_LENGTH * max_output_lines;
+	size_t size_wr = 0;
+	ssize_t bytes_read = 0;
+	uint64_t *stats_shadow;
+	struct nss_stats_data *data = fp->private_data;
+
+	char *lbuf = kzalloc(size_al, GFP_KERNEL);
+	if (unlikely(lbuf == NULL)) {
+		nss_warning("Could not allocate memory for local statistics buffer");
+		return 0;
+	}
+
+	/*
+	 * Note: The assumption here is that we do not have more than 64 stats
+	 */
+	stats_shadow = kzalloc(64 * 8, GFP_KERNEL);
+	if (unlikely(stats_shadow == NULL)) {
+		nss_warning("Could not allocate memory for local shadow buffer");
+		kfree(lbuf);
+		return 0;
+	}
+
+	size_wr = scnprintf(lbuf, size_al, "edma Tx ring stats start:\n\n");
+
+	/*
+	 * Tx ring stats
+	 */
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "Tx ring %d stats:\n\n", data->edma_id);
+	spin_lock_bh(&nss_top_main.stats_lock);
+	for (i = 0; i < NSS_STATS_EDMA_TX_MAX; i++) {
+		stats_shadow[i] = nss_top_main.stats_edma.tx_stats[data->edma_id][i];
+	}
+
+	spin_unlock_bh(&nss_top_main.stats_lock);
+
+	for (i = 0; i < NSS_STATS_EDMA_TX_MAX; i++) {
+		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+					"%s = %llu\n", nss_stats_str_edma_tx[i], stats_shadow[i]);
+	}
+
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nedma Tx ring stats end\n\n");
+	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, strlen(lbuf));
+	kfree(lbuf);
+	kfree(stats_shadow);
+
+	return bytes_read;
+}
+
+/*
+ * nss_stats_edma_rxring_read()
+ *	Read EDMA rxring stats
+ */
+static ssize_t nss_stats_edma_rxring_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
+{
+	int32_t i;
+
+	/*
+	 * max output lines = #stats + start tag line + end tag line + three blank lines
+	 */
+	uint32_t max_output_lines = (NSS_STATS_EDMA_RX_MAX + 2) + 3;
+	size_t size_al = NSS_STATS_MAX_STR_LENGTH * max_output_lines;
+	size_t size_wr = 0;
+	ssize_t bytes_read = 0;
+	uint64_t *stats_shadow;
+	struct nss_stats_data *data = fp->private_data;
+
+	char *lbuf = kzalloc(size_al, GFP_KERNEL);
+	if (unlikely(lbuf == NULL)) {
+		nss_warning("Could not allocate memory for local statistics buffer");
+		return 0;
+	}
+
+	/*
+	 * Note: The assumption here is that we do not have more than 64 stats
+	 */
+	stats_shadow = kzalloc(64 * 8, GFP_KERNEL);
+	if (unlikely(stats_shadow == NULL)) {
+		nss_warning("Could not allocate memory for local shadow buffer");
+		kfree(lbuf);
+		return 0;
+	}
+
+	size_wr = scnprintf(lbuf, size_al, "edma Rx ring stats start:\n\n");
+
+	/*
+	 * RX ring stats
+	 */
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "Rx ring %d stats:\n\n", data->edma_id);
+	spin_lock_bh(&nss_top_main.stats_lock);
+	for (i = 0; i < NSS_STATS_EDMA_RX_MAX; i++) {
+		stats_shadow[i] = nss_top_main.stats_edma.rx_stats[data->edma_id][i];
+	}
+
+	spin_unlock_bh(&nss_top_main.stats_lock);
+
+	for (i = 0; i < NSS_STATS_EDMA_RX_MAX; i++) {
+		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+					"%s = %llu\n", nss_stats_str_edma_rx[i], stats_shadow[i]);
+	}
+
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nedma Rx ring stats end\n\n");
+	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, strlen(lbuf));
+	kfree(lbuf);
+	kfree(stats_shadow);
+
+	return bytes_read;
+}
+
+/*
+ * nss_stats_edma_txcmplring_read()
+ *	Read EDMA txcmplring stats
+ */
+static ssize_t nss_stats_edma_txcmplring_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
+{
+	int32_t i;
+
+	/*
+	 * max output lines = #stats + start tag line + end tag line + three blank lines
+	 */
+	uint32_t max_output_lines = (NSS_STATS_EDMA_TXCMPL_MAX + 2) + 3;
+	size_t size_al = NSS_STATS_MAX_STR_LENGTH * max_output_lines;
+	size_t size_wr = 0;
+	ssize_t bytes_read = 0;
+	uint64_t *stats_shadow;
+	struct nss_stats_data *data = fp->private_data;
+
+	char *lbuf = kzalloc(size_al, GFP_KERNEL);
+	if (unlikely(lbuf == NULL)) {
+		nss_warning("Could not allocate memory for local statistics buffer");
+		return 0;
+	}
+
+	/*
+	 * Note: The assumption here is that we do not have more than 64 stats
+	 */
+	stats_shadow = kzalloc(64 * 8, GFP_KERNEL);
+	if (unlikely(stats_shadow == NULL)) {
+		nss_warning("Could not allocate memory for local shadow buffer");
+		kfree(lbuf);
+		return 0;
+	}
+
+	size_wr = scnprintf(lbuf, size_al, "edma Tx cmpl ring stats start:\n\n");
+
+	/*
+	 * Tx cmpl ring stats
+	 */
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "Tx cmpl ring %d stats:\n\n", data->edma_id);
+	spin_lock_bh(&nss_top_main.stats_lock);
+	for (i = 0; i < NSS_STATS_EDMA_TXCMPL_MAX; i++) {
+		stats_shadow[i] = nss_top_main.stats_edma.txcmpl_stats[data->edma_id][i];
+	}
+
+	spin_unlock_bh(&nss_top_main.stats_lock);
+
+	for (i = 0; i < NSS_STATS_EDMA_TXCMPL_MAX; i++) {
+		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+					"%s = %llu\n", nss_stats_str_edma_txcmpl[i], stats_shadow[i]);
+	}
+
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nedma Tx cmpl ring stats end\n\n");
+	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, strlen(lbuf));
+	kfree(lbuf);
+	kfree(stats_shadow);
+
+	return bytes_read;
+}
+
+/*
+ * nss_stats_edma_rxfillring_read()
+ *	Read EDMA rxfillring stats
+ */
+static ssize_t nss_stats_edma_rxfillring_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
+{
+	int32_t i;
+
+	/*
+	 * max output lines = #stats + start tag line + end tag line + three blank lines
+	 */
+	uint32_t max_output_lines = (NSS_STATS_EDMA_RXFILL_MAX + 2) + 3;
+	size_t size_al = NSS_STATS_MAX_STR_LENGTH * max_output_lines;
+	size_t size_wr = 0;
+	ssize_t bytes_read = 0;
+	uint64_t *stats_shadow;
+	struct nss_stats_data *data = fp->private_data;
+
+	char *lbuf = kzalloc(size_al, GFP_KERNEL);
+	if (unlikely(lbuf == NULL)) {
+		nss_warning("Could not allocate memory for local statistics buffer");
+		return 0;
+	}
+
+	/*
+	 * Note: The assumption here is that we do not have more than 64 stats
+	 */
+	stats_shadow = kzalloc(64 * 8, GFP_KERNEL);
+	if (unlikely(stats_shadow == NULL)) {
+		nss_warning("Could not allocate memory for local shadow buffer");
+		kfree(lbuf);
+		return 0;
+	}
+
+	size_wr = scnprintf(lbuf, size_al, "edma Rx fill ring stats start:\n\n");
+
+	/*
+	 * Rx fill ring stats
+	 */
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "Rx fill ring %d stats:\n\n", data->edma_id);
+	spin_lock_bh(&nss_top_main.stats_lock);
+	for (i = 0; i < NSS_STATS_EDMA_RXFILL_MAX; i++) {
+		stats_shadow[i] = nss_top_main.stats_edma.rxfill_stats[data->edma_id][i];
+	}
+
+	spin_unlock_bh(&nss_top_main.stats_lock);
+
+	for (i = 0; i < NSS_STATS_EDMA_RXFILL_MAX; i++) {
+		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+					"%s = %llu\n", nss_stats_str_edma_rxfill[i], stats_shadow[i]);
+	}
+
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nedma Rx fill ring stats end\n\n");
 	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, strlen(lbuf));
 	kfree(lbuf);
 	kfree(stats_shadow);
@@ -2392,6 +2844,7 @@ static int nss_stats_open(struct inode *inode, struct file *filp)
 	memset(data, 0, sizeof (struct nss_stats_data));
 	data->if_num = NSS_DYNAMIC_IF_START;
 	data->index = 0;
+	data->edma_id = (uint32_t)inode->i_private;
 	filp->private_data = data;
 
 	return 0;
@@ -2491,6 +2944,41 @@ NSS_STATS_DECLARE_FILE_OPERATIONS(capwap_decap)
 NSS_STATS_DECLARE_FILE_OPERATIONS(eth_rx)
 
 /*
+ * edma_port_stats_ops
+ */
+NSS_STATS_DECLARE_FILE_OPERATIONS(edma_port_stats)
+
+/*
+ * edma_port_type_ops
+ */
+NSS_STATS_DECLARE_FILE_OPERATIONS(edma_port_type)
+
+/*
+ * edma_port_ring_map_ops
+ */
+NSS_STATS_DECLARE_FILE_OPERATIONS(edma_port_ring_map)
+
+/*
+ * edma_txring_stats_ops
+ */
+NSS_STATS_DECLARE_FILE_OPERATIONS(edma_txring)
+
+/*
+ * edma_rxring_stats_ops
+ */
+NSS_STATS_DECLARE_FILE_OPERATIONS(edma_rxring)
+
+/*
+ * edma_txcmplring_stats_ops
+ */
+NSS_STATS_DECLARE_FILE_OPERATIONS(edma_txcmplring)
+
+/*
+ * edma_rxfillring_stats_ops
+ */
+NSS_STATS_DECLARE_FILE_OPERATIONS(edma_rxfillring)
+
+/*
  * gre_redir_ops
  */
 NSS_STATS_DECLARE_FILE_OPERATIONS(gre_redir)
@@ -2527,6 +3015,26 @@ NSS_STATS_DECLARE_FILE_OPERATIONS(dtls)
  */
 void nss_stats_init(void)
 {
+	int i = 0;
+	struct dentry *edma_d = NULL;
+	struct dentry *edma_port_dir_d = NULL;
+	struct dentry *edma_port_d = NULL;
+	struct dentry *edma_port_type_d = NULL;
+	struct dentry *edma_port_stats_d = NULL;
+	struct dentry *edma_port_ring_map_d = NULL;
+
+	struct dentry *edma_rings_dir_d = NULL;
+	struct dentry *edma_tx_dir_d = NULL;
+	struct dentry *edma_tx_d = NULL;
+	struct dentry *edma_rx_dir_d = NULL;
+	struct dentry *edma_rx_d = NULL;
+	struct dentry *edma_txcmpl_dir_d = NULL;
+	struct dentry *edma_txcmpl_d = NULL;
+	struct dentry *edma_rxfill_dir_d = NULL;
+	struct dentry *edma_rxfill_d = NULL;
+
+	char file_name[10];
+
 	/*
 	 * NSS driver entry
 	 */
@@ -2604,6 +3112,146 @@ void nss_stats_init(void)
 	if (unlikely(nss_top_main.eth_rx_dentry == NULL)) {
 		nss_warning("Failed to create qca-nss-drv/stats/eth_rx file in debugfs");
 		return;
+	}
+
+	/*
+	 * edma stats
+	 */
+	edma_d = debugfs_create_dir("edma", nss_top_main.stats_dentry);
+	if (unlikely(edma_d == NULL)) {
+		nss_warning("Failed to create qca-nss-drv/stats/edma directory in debugfs");
+		return;
+	}
+
+	/*
+	 * edma port stats
+	 */
+	edma_port_dir_d = debugfs_create_dir("ports", edma_d);
+	if (unlikely(edma_port_dir_d == NULL)) {
+		nss_warning("Failed to create qca-nss-drv/stats/edma/ports directory in debugfs");
+		return;
+	}
+
+	for (i = 0; i < NSS_EDMA_NUM_PORTS_MAX; i++) {
+		memset(file_name, 0, sizeof(file_name));
+		snprintf(file_name, sizeof(file_name), "%d", i);
+		edma_port_d  = NULL;
+		edma_port_stats_d = NULL;
+		edma_port_type_d = NULL;
+		edma_port_ring_map_d = NULL;
+
+		edma_port_d = debugfs_create_dir(file_name, edma_port_dir_d);
+		if (unlikely(edma_port_d == NULL)) {
+			nss_warning("Failed to create qca-nss-drv/stats/edma/ports/%d dir in debugfs", i);
+			return;
+		}
+
+		edma_port_stats_d = debugfs_create_file("stats", 0400, edma_port_d, i, &nss_stats_edma_port_stats_ops);
+		if (unlikely(edma_port_stats_d == NULL)) {
+			nss_warning("Failed to create qca-nss-drv/stats/edma/ports/%d/stats file in debugfs", i);
+			return;
+		}
+
+		edma_port_type_d = debugfs_create_file("type", 0400, edma_port_d, i, &nss_stats_edma_port_type_ops);
+		if (unlikely(edma_port_type_d == NULL)) {
+			nss_warning("Failed to create qca-nss-drv/stats/edma/ports/%d/type file in debugfs", i);
+			return;
+		}
+
+		edma_port_ring_map_d = debugfs_create_file("ring_map", 0400, edma_port_d, i, &nss_stats_edma_port_ring_map_ops);
+		if (unlikely(edma_port_ring_map_d == NULL)) {
+			nss_warning("Failed to create qca-nss-drv/stats/edma/ports/%d/ring_map file in debugfs", i);
+			return;
+		}
+	}
+
+	/*
+	 * edma ring stats
+	 */
+	edma_rings_dir_d = debugfs_create_dir("rings", edma_d);
+	if (unlikely(edma_rings_dir_d == NULL)) {
+		nss_warning("Failed to create qca-nss-drv/stats/edma/rings directory in debugfs");
+		return;
+	}
+
+	/*
+	 * edma tx ring stats
+	 */
+	edma_tx_dir_d = debugfs_create_dir("tx", edma_rings_dir_d);
+	if (unlikely(edma_tx_dir_d == NULL)) {
+		nss_warning("Failed to create qca-nss-drv/stats/edma/rings/tx directory in debugfs");
+		return;
+	}
+
+	for (i = 0; i < NSS_EDMA_NUM_TX_RING_MAX; i++) {
+		memset(file_name, 0, sizeof(file_name));
+		scnprintf(file_name, sizeof(file_name), "%d", i);
+		edma_tx_d = NULL;
+		edma_tx_d = debugfs_create_file(file_name, 0400, edma_tx_dir_d, i, &nss_stats_edma_txring_ops);
+		if (unlikely(edma_tx_d == NULL)) {
+			nss_warning("Failed to create qca-nss-drv/stats/edma/rings/tx/%d file in debugfs", i);
+			return;
+		}
+	}
+
+	/*
+	 * edma rx ring stats
+	 */
+	edma_rx_dir_d = debugfs_create_dir("rx", edma_rings_dir_d);
+	if (unlikely(edma_rx_dir_d == NULL)) {
+		nss_warning("Failed to create qca-nss-drv/stats/edma/rings/rx directory in debugfs");
+		return;
+	}
+
+	for (i = 0; i < NSS_EDMA_NUM_RX_RING_MAX; i++) {
+		memset(file_name, 0, sizeof(file_name));
+		scnprintf(file_name, sizeof(file_name), "%d", i);
+		edma_rx_d = NULL;
+		edma_rx_d = debugfs_create_file(file_name, 0400, edma_rx_dir_d, i, &nss_stats_edma_rxring_ops);
+		if (unlikely(edma_rx_d == NULL)) {
+			nss_warning("Failed to create qca-nss-drv/stats/edma/rings/rx/%d file in debugfs", i);
+			return;
+		}
+	}
+
+	/*
+	 * edma tx cmpl ring stats
+	 */
+	edma_txcmpl_dir_d = debugfs_create_dir("txcmpl", edma_rings_dir_d);
+	if (unlikely(edma_txcmpl_dir_d == NULL)) {
+		nss_warning("Failed to create qca-nss-drv/stats/edma/rings/txcmpl directory in debugfs");
+		return;
+	}
+
+	for (i = 0; i < NSS_EDMA_NUM_TXCMPL_RING_MAX; i++) {
+		memset(file_name, 0, sizeof(file_name));
+		scnprintf(file_name, sizeof(file_name), "%d", i);
+		edma_txcmpl_d = NULL;
+		edma_txcmpl_d = debugfs_create_file(file_name, 0400, edma_txcmpl_dir_d, i, &nss_stats_edma_txcmplring_ops);
+		if (unlikely(edma_txcmpl_d == NULL)) {
+			nss_warning("Failed to create qca-nss-drv/stats/edma/rings/txcmpl/%d file in debugfs", i);
+			return;
+		}
+	}
+
+	/*
+	 * edma rx fill ring stats
+	 */
+	edma_rxfill_dir_d = debugfs_create_dir("rxfill", edma_rings_dir_d);
+	if (unlikely(edma_rxfill_dir_d == NULL)) {
+		nss_warning("Failed to create qca-nss-drv/stats/edma/rings/rxfill directory in debugfs");
+		return;
+	}
+
+	for (i = 0; i < NSS_EDMA_NUM_RXFILL_RING_MAX; i++) {
+		memset(file_name, 0, sizeof(file_name));
+		scnprintf(file_name, sizeof(file_name), "%d", i);
+		edma_rxfill_d = NULL;
+		edma_rxfill_d = debugfs_create_file(file_name, 0400, edma_rxfill_dir_d, i, &nss_stats_edma_rxfillring_ops);
+		if (unlikely(edma_rxfill_d == NULL)) {
+			nss_warning("Failed to create qca-nss-drv/stats/edma/rings/rxfill/%d file in debugfs", i);
+			return;
+		}
 	}
 
 	/*

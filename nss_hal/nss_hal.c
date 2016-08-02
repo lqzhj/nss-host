@@ -357,6 +357,9 @@ int nss_hal_probe(struct platform_device *nss_dev)
 		if (npd->pppoe_enabled == NSS_FEATURE_ENABLED) {
 			nss_pppoe_register_handler();
 		}
+
+		nss_top->edma_handler_id = nss_dev->id;
+		nss_edma_register_handler();
 		nss_eth_rx_register_handler();
 		nss_n2h_register_handler();
 		nss_lag_register_handler();

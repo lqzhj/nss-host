@@ -15,6 +15,7 @@ qca-nss-drv-objs := \
 			nss_crypto.o \
 			nss_dtls.o \
 			nss_dynamic_interface.o \
+			nss_edma.o \
 			nss_eth_rx.o \
 			nss_gre_redir.o \
 			nss_if.o \

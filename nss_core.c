@@ -1216,7 +1216,6 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 		int paged_mode = nss_core_get_paged_mode();
 		int jumbo_mru = nss_core_get_jumbo_mru();
 
-
 		/*
 		 * If this is the first time we are receiving this interrupt then
 		 * we need to initialize local state of NSS core. This helps us save an

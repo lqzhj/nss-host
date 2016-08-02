@@ -652,6 +652,70 @@ struct nss_stats_map_t_instance_debug {
 };
 
 /*
+ * Types of EDMA Tx ring stats
+ */
+enum nss_stats_edma_tx_t {
+	NSS_STATS_EDMA_TX_ERR,
+	NSS_STATS_EDMA_TX_DROPPED,
+	NSS_STATS_EDMA_TX_DESC,
+	NSS_STATS_EDMA_TX_MAX
+};
+
+/*
+ * Types of EDMA Rx ring stats
+ */
+enum nss_stats_edma_rx_t {
+	NSS_STATS_EDMA_RX_CSUM_ERR,
+	NSS_STATS_EDMA_RX_DESC,
+	NSS_STATS_EDMA_RX_MAX
+};
+
+/*
+ * Types of EDMA Tx complete stats
+ */
+enum nss_stats_edma_txcmpl_t {
+	NSS_STATS_EDMA_TXCMPL_DESC,
+	NSS_STATS_EDMA_TXCMPL_MAX
+};
+
+/*
+ * Types of EDMA Rx fill stats
+ */
+enum nss_stats_edma_rxfill_t {
+	NSS_STATS_EDMA_RXFILL_DESC,
+	NSS_STATS_EDMA_RXFILL_MAX
+};
+
+/*
+ * Port to EDMA ring map
+ */
+enum nss_edma_port_ring_map_t {
+	NSS_EDMA_PORT_RX_RING,
+	NSS_EDMA_PORT_TX_RING,
+	NSS_EDMA_PORT_RING_MAP_MAX
+};
+
+/*
+ * NSS EDMA port stats
+ */
+struct nss_edma_port_info {
+	uint64_t port_stats[NSS_STATS_NODE_MAX];
+	uint64_t port_type;
+	uint64_t port_ring_map[NSS_EDMA_PORT_RING_MAP_MAX];
+};
+
+/*
+ * NSS EDMA node statistics
+ */
+struct nss_edma_stats {
+	struct nss_edma_port_info port[NSS_EDMA_NUM_PORTS_MAX];
+	uint64_t tx_stats[NSS_EDMA_NUM_TX_RING_MAX][NSS_STATS_EDMA_TX_MAX];
+	uint64_t rx_stats[NSS_EDMA_NUM_RX_RING_MAX][NSS_STATS_EDMA_RX_MAX];
+	uint64_t txcmpl_stats[NSS_EDMA_NUM_TXCMPL_RING_MAX][NSS_STATS_EDMA_TXCMPL_MAX];
+	uint64_t rxfill_stats[NSS_EDMA_NUM_RXFILL_RING_MAX][NSS_STATS_EDMA_RXFILL_MAX];
+};
+
+/*
  * NSS core state
  */
 enum nss_core_state {
@@ -854,6 +918,7 @@ struct nss_top_instance {
 	uint8_t tstamp_handler_id;
 	uint8_t portid_handler_id;
 	uint8_t oam_handler_id;
+	uint8_t edma_handler_id;
 
 	/* subsystem registration data */
 	struct nss_subsystem_dataplane_register subsys_dp_register[NSS_MAX_NET_INTERFACES];
@@ -902,6 +967,8 @@ struct nss_top_instance {
 					/* Registrants for lag operations */
 	nss_oam_msg_callback_t oam_callback;
 					/* OAM call back */
+	nss_edma_msg_callback_t edma_callback;
+					/* EDMA callback */
 	uint32_t dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_MAX];
 
 	/*
@@ -917,6 +984,7 @@ struct nss_top_instance {
 	void *ipsec_encap_ctx;		/* IPsec encap context */
 	void *ipsec_decap_ctx;		/* IPsec decap context */
 	void *oam_ctx;			/* oam context */
+	void *edma_ctx;			/* edma context */
 
 	/*
 	 * Statistics for various interfaces
@@ -953,6 +1021,8 @@ struct nss_top_instance {
 					/* PPPoE exception events for per session on per interface. Interface and session indexes start with 1. */
 	uint64_t stats_portid[NSS_STATS_PORTID_MAX];
 					/* PortID statistics */
+	struct nss_edma_stats stats_edma;
+					/* EDMA node stats */
 	bool nss_hal_common_init_done;
 
 	uint16_t prev_mtu_sz;		/* mtu sz needed as of now */
