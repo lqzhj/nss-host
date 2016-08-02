@@ -955,7 +955,7 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
 		nss_pm_set_perf_level(gbl_ctx.pm_hdl, NSS_PM_PERF_LEVEL_TURBO);
 	}
 
-	nss_crypto_info_always("new index (used - %d, max - %d)\n", ctrl->num_idxs, NSS_CRYPTO_MAX_IDXS);
+	nss_crypto_info("new index (used - %d, max - %d)\n", ctrl->num_idxs, NSS_CRYPTO_MAX_IDXS);
 	nss_crypto_dbg("index bitmap = 0x%x, index assigned = %d\n", ctrl->idx_bitmap, idx);
 
 	return NSS_CRYPTO_STATUS_OK;
@@ -1051,7 +1051,7 @@ void nss_crypto_idx_free(unsigned long session_idx)
 		nss_pm_set_perf_level(gbl_ctx.pm_hdl, NSS_PM_PERF_LEVEL_IDLE);
 	}
 
-	nss_crypto_info_always("deallocated index (used - %d, max - %d)\n", ctrl->num_idxs, NSS_CRYPTO_MAX_IDXS);
+	nss_crypto_info("deallocated index (used - %d, max - %d)\n", ctrl->num_idxs, NSS_CRYPTO_MAX_IDXS);
 	nss_crypto_dbg("index freed  = 0x%x, index = %d\n", ctrl->idx_bitmap, session_idx);
 }
 
