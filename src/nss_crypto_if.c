@@ -415,7 +415,10 @@ nss_crypto_status_t nss_crypto_send_msg_sync(struct nss_crypto_msg *nim, enum ns
 	/*
 	 * only one caller will be allowed to send a message
 	 */
-	down_interruptible(&ctrl->sem);
+	if (down_interruptible(&ctrl->sem)) {
+		nss_crypto_dbg("failed to acquire semaphore\n");
+		return NSS_CRYPTO_STATUS_FAIL;
+	}
 
 	nss_cmn_msg_init(&nim->cm, NSS_CRYPTO_INTERFACE, type, NSS_CRYPTO_MSG_LEN, nss_crypto_msg_sync_cb, nim);
 
