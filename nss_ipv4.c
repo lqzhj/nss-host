@@ -21,8 +21,23 @@
 #include <linux/sysctl.h>
 #include "nss_tx_rx_common.h"
 
+#define NSS_IPV4_TX_MSG_TIMEOUT 1000	/* 1 sec timeout for IPv4 messages */
+
+/*
+ * Private data structure for ipv4 configure messages
+ */
+struct nss_ipv4_cfg_pvt {
+	struct semaphore sem;			/* Semaphore structure */
+	struct completion complete;		/* completion structure */
+	int current_value;			/* valid entry */
+	int response;				/* Response from FW */
+};
+
 int nss_ipv4_conn_cfg __read_mostly = NSS_DEFAULT_NUM_CONN;
-static struct  nss_conn_cfg_pvt i4cfgp;
+int nss_ipv4_accel_mode_cfg __read_mostly = 1;
+
+static struct nss_ipv4_cfg_pvt i4_conn_cfgp;
+static struct nss_ipv4_cfg_pvt i4_accel_mode_cfgp;
 
 /*
  * Callback for conn_sync_many request message.
@@ -415,8 +430,8 @@ static void nss_ipv4_conn_cfg_callback(void *app_data, struct nss_ipv4_msg *nim)
 		 * Error, hence we are not updating the nss_ipv4_conn_cfg
 		 * Restore the current_value to its previous state
 		 */
-		i4cfgp.response = NSS_FAILURE;
-		complete(&i4cfgp.complete);
+		i4_conn_cfgp.response = NSS_FAILURE;
+		complete(&i4_conn_cfgp.complete);
 		return;
 	}
 
@@ -425,8 +440,8 @@ static void nss_ipv4_conn_cfg_callback(void *app_data, struct nss_ipv4_msg *nim)
 	 * saved at the sysctl handler.
 	 */
 	nss_info("IPv4 connection configuration success: %d\n", nim->cm.error);
-	i4cfgp.response = NSS_SUCCESS;
-	complete(&i4cfgp.complete);
+	i4_conn_cfgp.response = NSS_SUCCESS;
+	complete(&i4_conn_cfgp.complete);
 }
 
 /*
@@ -442,19 +457,19 @@ static int nss_ipv4_conn_cfg_handler(struct ctl_table *ctl, int write, void __us
 	/*
 	 * Acquiring semaphore
 	 */
-	down(&i4cfgp.sem);
+	down(&i4_conn_cfgp.sem);
 
 	/*
 	 * Take snap shot of current value
 	 */
-	i4cfgp.current_value = nss_ipv4_conn_cfg;
+	i4_conn_cfgp.current_value = nss_ipv4_conn_cfg;
 
 	/*
 	 * Write the variable with user input
 	 */
 	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
 	if (ret || (!write)) {
-		up(&i4cfgp.sem);
+		up(&i4_conn_cfgp.sem);
 		return ret;
 	}
 
@@ -469,7 +484,7 @@ static int nss_ipv4_conn_cfg_handler(struct ctl_table *ctl, int write, void __us
 	/*
 	 * Blocking call, wait till we get ACK for this msg.
 	 */
-	ret = wait_for_completion_timeout(&i4cfgp.complete, msecs_to_jiffies(NSS_CONN_CFG_TIMEOUT));
+	ret = wait_for_completion_timeout(&i4_conn_cfgp.complete, msecs_to_jiffies(NSS_CONN_CFG_TIMEOUT));
 	if (ret == 0) {
 		nss_warning("%p: Waiting for ack timed out\n", nss_ctx);
 		goto failure;
@@ -478,21 +493,21 @@ static int nss_ipv4_conn_cfg_handler(struct ctl_table *ctl, int write, void __us
 	/*
 	 * ACK/NACK received from NSS FW
 	 * If ACK: Callback function will update nss_ipv4_conn_cfg with
-	 * i4cfgp.num_conn_valid, which holds the user input
+	 * i4_conn_cfgp.num_conn_valid, which holds the user input
 	 */
-	if (NSS_FAILURE == i4cfgp.response) {
+	if (NSS_FAILURE == i4_conn_cfgp.response) {
 		goto failure;
 	}
 
-	up(&i4cfgp.sem);
+	up(&i4_conn_cfgp.sem);
 	return 0;
 
 failure:
 	/*
 	 * Restore the current_value to its previous state
 	 */
-	nss_ipv4_conn_cfg = i4cfgp.current_value;
-	up(&i4cfgp.sem);
+	nss_ipv4_conn_cfg = i4_conn_cfgp.current_value;
+	up(&i4_conn_cfgp.sem);
 	return -EINVAL;
 }
 
@@ -536,13 +551,106 @@ int nss_ipv4_update_conn_count(int ipv4_num_conn)
 	return 0;
 }
 
+/*
+ * nss_ipv4_accel_mode_cfg_callback()
+ *	call back function for the ipv4 acceleration mode configurate handler
+ */
+static void nss_ipv4_accel_mode_cfg_callback(void *app_data, struct nss_ipv4_msg *nim)
+{
+	if (nim->cm.response != NSS_CMN_RESPONSE_ACK) {
+		nss_warning("IPv4 acceleration mode configuration failed with error: %d\n", nim->cm.error);
+		i4_accel_mode_cfgp.response = NSS_FAILURE;
+		complete(&i4_accel_mode_cfgp.complete);
+		return;
+	}
+
+	nss_info("IPv4 acceleration mode configuration success\n");
+	i4_accel_mode_cfgp.response = NSS_SUCCESS;
+	complete(&i4_accel_mode_cfgp.complete);
+}
+
+/*
+ * nss_ipv4_accel_mode_cfg_handler()
+ *	Configure acceleration mode for IPv4
+ */
+static int nss_ipv4_accel_mode_cfg_handler(struct ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	struct nss_top_instance *nss_top = &nss_top_main;
+	struct nss_ctx_instance *nss_ctx = &nss_top->nss[0];
+	struct nss_ipv4_msg nim;
+	struct nss_ipv4_accel_mode_cfg_msg *nipcm;
+	nss_tx_status_t nss_tx_status;
+	int ret = NSS_FAILURE;
+
+	/*
+	 * Acquiring semaphore
+	 */
+	down(&i4_accel_mode_cfgp.sem);
+
+	/*
+	 * Take snap shot of current value
+	 */
+	i4_accel_mode_cfgp.current_value = nss_ipv4_accel_mode_cfg;
+
+	/*
+	 * Write the variable with user input
+	 */
+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+	if (ret || (!write)) {
+		up(&i4_accel_mode_cfgp.sem);
+		return ret;
+	}
+
+	memset(&nim, 0, sizeof(struct nss_ipv4_msg));
+	nss_ipv4_msg_init(&nim, NSS_IPV4_RX_INTERFACE, NSS_IPV4_TX_ACCEL_MODE_CFG_MSG,
+		sizeof(struct nss_ipv4_accel_mode_cfg_msg), nss_ipv4_accel_mode_cfg_callback, NULL);
+
+	nipcm = &nim.msg.accel_mode_cfg;
+	nipcm->mode = htonl(nss_ipv4_accel_mode_cfg);
+	nss_tx_status = nss_ipv4_tx(nss_ctx, &nim);
+
+	if (nss_tx_status != NSS_TX_SUCCESS) {
+		nss_warning("%p: Send acceleration mode message failed\n", nss_ctx);
+		goto fail;
+	}
+
+	/*
+	 * Blocking call, wait till we get ACK for this msg.
+	 */
+	ret = wait_for_completion_timeout(&i4_accel_mode_cfgp.complete, msecs_to_jiffies(NSS_IPV4_TX_MSG_TIMEOUT));
+	if (ret == 0) {
+		nss_warning("%p: Waiting for ack timed out\n", nss_ctx);
+		goto fail;
+	}
+
+	if (NSS_FAILURE == i4_accel_mode_cfgp.response) {
+		nss_warning("%p: accel mode configure failed\n", nss_ctx);
+		goto fail;
+	}
+
+	up(&i4_accel_mode_cfgp.sem);
+	return 0;
+
+fail:
+	nss_ipv4_accel_mode_cfg = i4_accel_mode_cfgp.current_value;
+	up(&i4_accel_mode_cfgp.sem);
+	return -EIO;
+}
+
 static struct ctl_table nss_ipv4_table[] = {
 	{
 		.procname		= "ipv4_conn",
 		.data			= &nss_ipv4_conn_cfg,
 		.maxlen			= sizeof(int),
 		.mode			= 0644,
-		.proc_handler   	= &nss_ipv4_conn_cfg_handler,
+		.proc_handler		= &nss_ipv4_conn_cfg_handler,
+	},
+	{
+		.procname		= "ipv4_accel_mode",
+		.data			= &nss_ipv4_accel_mode_cfg,
+		.maxlen			= sizeof(int),
+		.mode			= 0644,
+		.proc_handler		= &nss_ipv4_accel_mode_cfg_handler,
 	},
 	{ }
 };
@@ -583,9 +691,11 @@ static struct ctl_table_header *nss_ipv4_header;
  */
 void nss_ipv4_register_sysctl(void)
 {
-	sema_init(&i4cfgp.sem, 1);
-	init_completion(&i4cfgp.complete);
-	i4cfgp.current_value = nss_ipv4_conn_cfg;
+	sema_init(&i4_conn_cfgp.sem, 1);
+	init_completion(&i4_conn_cfgp.complete);
+
+	sema_init(&i4_accel_mode_cfgp.sem, 1);
+	init_completion(&i4_accel_mode_cfgp.complete);
 
 	/*
 	 * Register sysctl table.

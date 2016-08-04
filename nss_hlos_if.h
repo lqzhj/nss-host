@@ -34,16 +34,6 @@ enum {
 };
 
 /*
- * Private data structure for configuring ipv4/6 connections
- */
-struct nss_conn_cfg_pvt {
-	struct semaphore sem;			/* Semaphore structure */
-	struct completion complete;		/* completion structure */
-	int current_value;			/* valid entry */
-	int response;				/* Response from FW */
-};
-
-/*
  * Request/Response types
  */
 enum nss_if_metadata_types {

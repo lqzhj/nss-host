@@ -39,6 +39,7 @@ enum nss_ipv4_message_types {
 	NSS_IPV4_TX_CONN_CFG_RULE_MSG,		/**< IPv4 number of connections supported rule message */
 	NSS_IPV4_TX_CREATE_MC_RULE_MSG,		/**< IPv4 multicast create rule message */
 	NSS_IPV4_TX_CONN_STATS_SYNC_MANY_MSG,	/**< IPv4 request FW to send many conn sync message */
+	NSS_IPV4_TX_ACCEL_MODE_CFG_MSG,		/**< IPv4 acceleration mode message */
 	NSS_IPV4_MAX_MSG_TYPES,			/**< IPv4 message max type number */
 };
 
@@ -213,6 +214,7 @@ enum nss_ipv4_error_response_types {
 	NSS_IPV4_CR_MULTICAST_INVALID_PROTOCOL,			/**< NSS Error: Invalid L4 protocol for multicast rule create */
 	NSS_IPV4_CR_MULTICAST_UPDATE_INVALID_FLAGS,		/**< NSS Error: Invalid multicast flags for multicast update */
 	NSS_IPV4_CR_MULTICAST_UPDATE_INVALID_IF,		/**< NSS Error: Invalid interface for multicast update */
+	NSS_IPV4_CR_ACCEL_MODE_CONFIG_INVALID,			/**< NSS Error: Invalid config value for acceleration mode */
 	NSS_IPV4_LAST						/**< NSS IPv4 max error response type */
 };
 
@@ -365,6 +367,13 @@ struct nss_ipv4_conn_sync_many_msg {
 };
 
 /**
+ * The NSS IPv4 acceleration mode configure message.
+ */
+struct nss_ipv4_accel_mode_cfg_msg {
+	uint32_t mode;	/**< Acceleration mode */
+};
+
+/**
  * Exception events from bridge/route handler
  */
 enum exception_events_ipv4 {
@@ -504,6 +513,7 @@ struct nss_ipv4_msg {
 		struct nss_ipv4_rule_conn_cfg_msg rule_conn_cfg;	/**< Message: rule connections supported */
 		struct nss_ipv4_mc_rule_create_msg mc_rule_create; /**< Message: Multicast rule create */
 		struct nss_ipv4_conn_sync_many_msg conn_stats_many;	/**< Message: connection stats sync */
+		struct nss_ipv4_accel_mode_cfg_msg accel_mode_cfg;	/**< Message: Accel mode */
 	} msg;
 };
 

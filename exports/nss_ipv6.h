@@ -39,6 +39,7 @@ enum nss_ipv6_message_types {
 	NSS_IPV6_TX_CONN_CFG_RULE_MSG,		/**< IPv6 connection cfg rule message */
 	NSS_IPV6_TX_CREATE_MC_RULE_MSG,		/**< IPv6 create multicast rule message */
 	NSS_IPV6_TX_CONN_STATS_SYNC_MANY_MSG,	/**< IPv6 connection stats sync many message */
+	NSS_IPV6_TX_ACCEL_MODE_CFG_MSG,		/**< IPv6 configure acceleration mode message */
 	NSS_IPV6_MAX_MSG_TYPES,
 };
 
@@ -268,6 +269,8 @@ enum nss_ipv6_error_response_types {
 	NSS_IPV6_CR_MULTICAST_INVALID_PROTOCOL,			/**< NSS Error: Invalid L4 protocol for multicast rule create */
 	NSS_IPV6_CR_MULTICAST_UPDATE_INVALID_FLAGS,		/**< NSS Error: Invalid multicast flags for multicast update */
 	NSS_IPV6_CR_MULTICAST_UPDATE_INVALID_IF,		/**< NSS Error: Invalid interface for multicast update */
+	NSS_IPV6_CR_ACCEL_MODE_CONFIG_INVALID,			/**< NSS Error: Invalid config value for acceleration mode */
+	NSS_IPV6_LAST						/**< NSS IPv6 max error response type */
 };
 
 /**
@@ -414,6 +417,13 @@ struct nss_ipv6_conn_sync_many_msg {
 };
 
 /**
+ * The NSS IPv6 acceleration mode configure message.
+ */
+struct nss_ipv6_accel_mode_cfg_msg {
+	uint32_t mode;	/**< Acceleration mode */
+};
+
+/**
  * NSS IPv6 node stats sync structure
  */
 struct nss_ipv6_node_sync {
@@ -468,8 +478,9 @@ struct nss_ipv6_msg {
 		struct nss_ipv6_conn_sync conn_stats;		/**< Message: stats sync */
 		struct nss_ipv6_node_sync node_stats;		/**< Message: node stats sync */
 		struct nss_ipv6_rule_conn_cfg_msg rule_conn_cfg;/**< Message: rule conn cfg */
-		struct nss_ipv6_mc_rule_create_msg mc_rule_create; /**< Message: Multicast rule create */
-		struct nss_ipv6_conn_sync_many_msg conn_stats_many; /**< Message: stats sync many */
+		struct nss_ipv6_mc_rule_create_msg mc_rule_create;	/**< Message: Multicast rule create */
+		struct nss_ipv6_conn_sync_many_msg conn_stats_many;	/**< Message: stats sync many */
+		struct nss_ipv6_accel_mode_cfg_msg accel_mode_cfg;	/**< Message: Accel mode */
 	} msg;
 };
 

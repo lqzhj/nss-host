@@ -20,8 +20,23 @@
  */
 #include "nss_tx_rx_common.h"
 
+#define NSS_IPV6_TX_MSG_TIMEOUT 1000	/* 1 sec timeout for IPv4 messages */
+
+/*
+ * Private data structure for ipv6 configure messages
+ */
+struct nss_ipv6_cfg_pvt {
+	struct semaphore sem;			/* Semaphore structure */
+	struct completion complete;		/* completion structure */
+	int current_value;			/* valid entry */
+	int response;				/* Response from FW */
+};
+
 int nss_ipv6_conn_cfg __read_mostly = NSS_DEFAULT_NUM_CONN;
-static struct  nss_conn_cfg_pvt i6cfgp;
+int nss_ipv6_accel_mode_cfg __read_mostly = 1;
+
+static struct nss_ipv6_cfg_pvt i6_conn_cfgp;
+static struct nss_ipv6_cfg_pvt i6_accel_mode_cfgp;
 
 /*
  * Callback for conn_sync_many request message.
@@ -151,7 +166,7 @@ static void nss_ipv6_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 	nss_ipv6_log_rx_msg(nim);
 
 	/*
-	 * Handle deprecated messages.  Eventually these messages should be removed.
+	 * Handle deprecated messages. Eventually these messages should be removed.
 	 */
 	switch (nim->cm.type) {
 	case NSS_IPV6_RX_NODE_STATS_SYNC_MSG:
@@ -417,8 +432,8 @@ static void nss_ipv6_conn_cfg_callback(void *app_data, struct nss_ipv6_msg *nim)
 		 * Error, hence we are not updating the nss_ipv6_conn_cfg
 		 * Restore the current_value to its previous state
 		 */
-		i6cfgp.response = NSS_FAILURE;
-		complete(&i6cfgp.complete);
+		i6_conn_cfgp.response = NSS_FAILURE;
+		complete(&i6_conn_cfgp.complete);
 		return;
 	}
 
@@ -427,8 +442,8 @@ static void nss_ipv6_conn_cfg_callback(void *app_data, struct nss_ipv6_msg *nim)
 	 * saved at the sysctl handler.
 	 */
 	nss_info("IPv6 connection configuration success: %d\n", nim->cm.error);
-	i6cfgp.response = NSS_SUCCESS;
-	complete(&i6cfgp.complete);
+	i6_conn_cfgp.response = NSS_SUCCESS;
+	complete(&i6_conn_cfgp.complete);
 }
 
 
@@ -445,16 +460,16 @@ static int nss_ipv6_conn_cfg_handler(struct ctl_table *ctl, int write, void __us
 	/*
 	 * Acquiring semaphore
 	 */
-	down(&i6cfgp.sem);
+	down(&i6_conn_cfgp.sem);
 
 	/*
 	 *  Take a snapshot of the current value
 	 */
-	i6cfgp.current_value = nss_ipv6_conn_cfg;
+	i6_conn_cfgp.current_value = nss_ipv6_conn_cfg;
 
 	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
 	if (ret || (!write)) {
-		up(&i6cfgp.sem);
+		up(&i6_conn_cfgp.sem);
 		return ret;
 	}
 
@@ -469,7 +484,7 @@ static int nss_ipv6_conn_cfg_handler(struct ctl_table *ctl, int write, void __us
 	/*
 	 * Blocking call, wait till we get ACK for this msg.
 	 */
-	ret = wait_for_completion_timeout(&i6cfgp.complete, msecs_to_jiffies(NSS_CONN_CFG_TIMEOUT));
+	ret = wait_for_completion_timeout(&i6_conn_cfgp.complete, msecs_to_jiffies(NSS_CONN_CFG_TIMEOUT));
 	if (ret == 0) {
 		nss_warning("%p: Waiting for ack timed out\n", nss_ctx);
 		goto failure;
@@ -478,21 +493,21 @@ static int nss_ipv6_conn_cfg_handler(struct ctl_table *ctl, int write, void __us
 	/*
 	 * ACK/NACK received from NSS FW
 	 * If ACK: Callback function will update nss_ipv6_conn_cfg with
-	 * i6cfgp.num_conn_valid, which holds the user input
+	 * i6_conn_cfgp.num_conn_valid, which holds the user input
 	 */
-	if (NSS_FAILURE == i6cfgp.response) {
+	if (NSS_FAILURE == i6_conn_cfgp.response) {
 		goto failure;
 	}
 
-	up(&i6cfgp.sem);
+	up(&i6_conn_cfgp.sem);
 	return 0;
 
 failure:
 	/*
 	 * Restore the current_value to its previous state
 	 */
-	nss_ipv6_conn_cfg = i6cfgp.current_value;
-	up(&i6cfgp.sem);
+	nss_ipv6_conn_cfg = i6_conn_cfgp.current_value;
+	up(&i6_conn_cfgp.sem);
 	return -EINVAL;
 }
 
@@ -538,13 +553,106 @@ failure:
 	return -EINVAL;
 }
 
+/*
+ * nss_ipv6_accel_mode_cfg_callback()
+ *	call back function for the ipv6 acceleration mode configurate handler
+ */
+static void nss_ipv6_accel_mode_cfg_callback(void *app_data, struct nss_ipv6_msg *nim)
+{
+	if (nim->cm.response != NSS_CMN_RESPONSE_ACK) {
+		nss_warning("IPv6 acceleration mode configuration failed with error: %d\n", nim->cm.error);
+		i6_accel_mode_cfgp.response = NSS_FAILURE;
+		complete(&i6_accel_mode_cfgp.complete);
+		return;
+	}
+
+	nss_info("IPv6 acceleration mode configuration success\n");
+	i6_accel_mode_cfgp.response = NSS_SUCCESS;
+	complete(&i6_accel_mode_cfgp.complete);
+}
+
+/*
+ * nss_ipv6_accel_mode_cfg_handler()
+ *	Configure acceleration mode for IPv6
+ */
+static int nss_ipv6_accel_mode_cfg_handler(struct ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	struct nss_top_instance *nss_top = &nss_top_main;
+	struct nss_ctx_instance *nss_ctx = &nss_top->nss[0];
+	struct nss_ipv6_msg nim;
+	struct nss_ipv6_accel_mode_cfg_msg *nipcm;
+	nss_tx_status_t nss_tx_status;
+	int ret = NSS_FAILURE;
+
+	/*
+	 * Acquiring semaphore
+	 */
+	down(&i6_accel_mode_cfgp.sem);
+
+	/*
+	 * Take snap shot of current value
+	 */
+	i6_accel_mode_cfgp.current_value = nss_ipv6_accel_mode_cfg;
+
+	/*
+	 * Write the variable with user input
+	 */
+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+	if (ret || (!write)) {
+		up(&i6_accel_mode_cfgp.sem);
+		return ret;
+	}
+
+	memset(&nim, 0, sizeof(struct nss_ipv6_msg));
+	nss_ipv6_msg_init(&nim, NSS_IPV6_RX_INTERFACE, NSS_IPV6_TX_ACCEL_MODE_CFG_MSG,
+		sizeof(struct nss_ipv6_accel_mode_cfg_msg), nss_ipv6_accel_mode_cfg_callback, NULL);
+
+	nipcm = &nim.msg.accel_mode_cfg;
+	nipcm->mode = htonl(nss_ipv6_accel_mode_cfg);
+	nss_tx_status = nss_ipv6_tx(nss_ctx, &nim);
+
+	if (nss_tx_status != NSS_TX_SUCCESS) {
+		nss_warning("%p: Send acceleration mode message failed\n", nss_ctx);
+		goto fail;
+	}
+
+	/*
+	 * Blocking call, wait till we get ACK for this msg.
+	 */
+	ret = wait_for_completion_timeout(&i6_accel_mode_cfgp.complete, msecs_to_jiffies(NSS_IPV6_TX_MSG_TIMEOUT));
+	if (ret == 0) {
+		nss_warning("%p: Waiting for ack timed out\n", nss_ctx);
+		goto fail;
+	}
+
+	if (NSS_FAILURE == i6_accel_mode_cfgp.response) {
+		nss_warning("%p: accel mode configure failed\n", nss_ctx);
+		goto fail;
+	}
+
+	up(&i6_accel_mode_cfgp.sem);
+	return 0;
+
+fail:
+	nss_ipv6_accel_mode_cfg = i6_accel_mode_cfgp.current_value;
+	up(&i6_accel_mode_cfgp.sem);
+	return -EIO;
+}
+
 static struct ctl_table nss_ipv6_table[] = {
 	{
 		.procname		= "ipv6_conn",
 		.data			= &nss_ipv6_conn_cfg,
 		.maxlen			= sizeof(int),
 		.mode			= 0644,
-		.proc_handler   	= &nss_ipv6_conn_cfg_handler,
+		.proc_handler		= &nss_ipv6_conn_cfg_handler,
+	},
+	{
+		.procname		= "ipv6_accel_mode",
+		.data			= &nss_ipv6_accel_mode_cfg,
+		.maxlen			= sizeof(int),
+		.mode			= 0644,
+		.proc_handler		= &nss_ipv6_accel_mode_cfg_handler,
 	},
 	{ }
 };
@@ -584,9 +692,11 @@ static struct ctl_table_header *nss_ipv6_header;
  */
 void nss_ipv6_register_sysctl(void)
 {
-	sema_init(&i6cfgp.sem, 1);
-	init_completion(&i6cfgp.complete);
-	i6cfgp.current_value = nss_ipv6_conn_cfg;
+	sema_init(&i6_conn_cfgp.sem, 1);
+	init_completion(&i6_conn_cfgp.complete);
+
+	sema_init(&i6_accel_mode_cfgp.sem, 1);
+	init_completion(&i6_accel_mode_cfgp.complete);
 
 	/*
 	 * Register sysctl table.
@@ -610,7 +720,7 @@ void nss_ipv6_unregister_sysctl(void)
 
 /*
  * nss_ipv6_msg_init()
- *      Initialize IPv6 message.
+ *	Initialize IPv6 message.
  */
 void nss_ipv6_msg_init(struct nss_ipv6_msg *nim, uint16_t if_num, uint32_t type, uint32_t len,
 			nss_ipv6_msg_callback_t cb, void *app_data)
