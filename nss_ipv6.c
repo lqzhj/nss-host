@@ -24,6 +24,11 @@ int nss_ipv6_conn_cfg __read_mostly = NSS_DEFAULT_NUM_CONN;
 static struct  nss_conn_cfg_pvt i6cfgp;
 
 /*
+ * Callback for conn_sync_many request message.
+ */
+nss_ipv6_msg_callback_t nss_ipv6_conn_sync_many_msg_cb = NULL;
+
+/*
  * nss_ipv6_max_conn_count()
  *	Return the maximum number of IPv6 connections that the NSS acceleration engine supports.
  */
@@ -168,6 +173,7 @@ static void nss_ipv6_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 		 * Update driver statistics on connection sync many.
 		 */
 		nss_ipv6_driver_conn_sync_many_update(nss_ctx, &nim->msg.conn_stats_many);
+		ncm->cb = (uint32_t)nss_ipv6_conn_sync_many_msg_cb;
 		break;
 	}
 
@@ -263,7 +269,7 @@ nss_tx_status_t nss_ipv6_tx_with_size(struct nss_ctx_instance *nss_ctx, struct n
 
 /*
  * nss_ipv6_tx()
- *	Transmit an ipv4 message to the FW.
+ *	Transmit an ipv6 message to the FW.
  */
 nss_tx_status_t nss_ipv6_tx(struct nss_ctx_instance *nss_ctx, struct nss_ipv6_msg *nim)
 {
@@ -302,6 +308,24 @@ struct nss_ctx_instance *nss_ipv6_notify_register(nss_ipv6_msg_callback_t cb, vo
 void nss_ipv6_notify_unregister(void)
 {
 	nss_top_main.ipv6_callback = NULL;
+}
+
+/*
+ * nss_ipv6_conn_sync_many_notify_register()
+ *	Register to receive IPv6 conn_sync_many message response.
+ */
+void nss_ipv6_conn_sync_many_notify_register(nss_ipv6_msg_callback_t cb)
+{
+	nss_ipv6_conn_sync_many_msg_cb = cb;
+}
+
+/*
+ * nss_ipv6_conn_sync_many_notify_unregister()
+ *	Unregister to receive IPv6 conn_sync_many message response.
+ */
+void nss_ipv6_conn_sync_many_notify_unregister(void)
+{
+	nss_ipv6_conn_sync_many_msg_cb = NULL;
 }
 
 /*
@@ -594,6 +618,8 @@ EXPORT_SYMBOL(nss_ipv6_tx);
 EXPORT_SYMBOL(nss_ipv6_tx_with_size);
 EXPORT_SYMBOL(nss_ipv6_notify_register);
 EXPORT_SYMBOL(nss_ipv6_notify_unregister);
+EXPORT_SYMBOL(nss_ipv6_conn_sync_many_notify_register);
+EXPORT_SYMBOL(nss_ipv6_conn_sync_many_notify_unregister);
 EXPORT_SYMBOL(nss_ipv6_get_mgr);
 EXPORT_SYMBOL(nss_ipv6_register_handler);
 EXPORT_SYMBOL(nss_ipv6_register_sysctl);

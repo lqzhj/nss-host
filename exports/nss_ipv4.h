@@ -562,6 +562,22 @@ extern struct nss_ctx_instance *nss_ipv4_notify_register(nss_ipv4_msg_callback_t
 extern void nss_ipv4_notify_unregister(void);
 
 /**
+ * @brief Register a notifier callback for IPv4 conn sync messages response from NSS
+ *
+ * @param cb The callback pointer
+ *
+ * @return None
+ */
+extern void nss_ipv4_conn_sync_many_notify_register(nss_ipv4_msg_callback_t cb);
+
+/**
+ * @brief Un-Register a notifier callback for IPv4 conn sync messages response from NSS
+ *
+ * @return None
+ */
+extern void nss_ipv4_conn_sync_many_notify_unregister(void);
+
+/**
  * @brief Get the NSS context which is managing IPv4
  *
  * @return struct nss_ctx_instance * The NSS context

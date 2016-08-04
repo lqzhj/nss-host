@@ -25,6 +25,11 @@ int nss_ipv4_conn_cfg __read_mostly = NSS_DEFAULT_NUM_CONN;
 static struct  nss_conn_cfg_pvt i4cfgp;
 
 /*
+ * Callback for conn_sync_many request message.
+ */
+nss_ipv4_msg_callback_t nss_ipv4_conn_sync_many_msg_cb = NULL;
+
+/*
  * nss_ipv4_max_conn_count()
  *	Return the maximum number of IPv4 connections that the NSS acceleration engine supports.
  */
@@ -165,6 +170,7 @@ static void nss_ipv4_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 		 * Update driver statistics on connection sync many.
 		 */
 		nss_ipv4_driver_conn_sync_many_update(nss_ctx, &nim->msg.conn_stats_many);
+		ncm->cb = (uint32_t)nss_ipv4_conn_sync_many_msg_cb;
 		break;
 	}
 
@@ -299,6 +305,24 @@ struct nss_ctx_instance *nss_ipv4_notify_register(nss_ipv4_msg_callback_t cb, vo
 void nss_ipv4_notify_unregister(void)
 {
 	nss_top_main.ipv4_callback = NULL;
+}
+
+/*
+ * nss_ipv4_conn_sync_many_notify_register()
+ *	Register to receive IPv4 conn_sync_many message response.
+ */
+void nss_ipv4_conn_sync_many_notify_register(nss_ipv4_msg_callback_t cb)
+{
+	nss_ipv4_conn_sync_many_msg_cb = cb;
+}
+
+/*
+ * nss_ipv4_conn_sync_many_notify_unregister()
+ *	Unregister to receive IPv4 conn_sync_many message response.
+ */
+void nss_ipv4_conn_sync_many_notify_unregister(void)
+{
+	nss_ipv4_conn_sync_many_msg_cb = NULL;
 }
 
 /*
@@ -593,6 +617,8 @@ EXPORT_SYMBOL(nss_ipv4_tx);
 EXPORT_SYMBOL(nss_ipv4_tx_with_size);
 EXPORT_SYMBOL(nss_ipv4_notify_register);
 EXPORT_SYMBOL(nss_ipv4_notify_unregister);
+EXPORT_SYMBOL(nss_ipv4_conn_sync_many_notify_register);
+EXPORT_SYMBOL(nss_ipv4_conn_sync_many_notify_unregister);
 EXPORT_SYMBOL(nss_ipv4_get_mgr);
 EXPORT_SYMBOL(nss_ipv4_register_sysctl);
 EXPORT_SYMBOL(nss_ipv4_unregister_sysctl);
