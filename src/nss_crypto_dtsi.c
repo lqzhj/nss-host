@@ -117,34 +117,30 @@ bool nss_crypto_pm_event_cb(void *app_data, bool turbo, bool auto_scale)
 {
 	struct nss_crypto_ctrl *ctrl = (struct nss_crypto_ctrl *)app_data;
 	struct nss_crypto_clock *clock = ctrl->clocks;
-	bool no_session;
+	bool session;
 	int count;
 
 	BUG_ON(!clock);
 	count = ctrl->max_clocks;
 
-	/*
-	 * only enable turbo
-	 * - if there is an active session and the NSS has scaled to turbo
-	 * - or the NSS is forcing everybody to turbo
-	 * Once, crypto goes to turbo mode it should tell NSS to keep the
-	 * fabric1 in turbo mode forever
-	 */
 	spin_lock_bh(&ctrl->lock); /* index lock*/
-	no_session = !ctrl->idx_bitmap;
-	spin_unlock_bh(&ctrl->lock);
+	session = !!ctrl->idx_bitmap;
+	spin_unlock_bh(&ctrl->lock); /* index unlock */
 
-	if (auto_scale && !turbo) { 		/* auto-scaling  & non-turbo */
+	/*
+	 * if, there is no-sessions & the system is not in
+	 * turbo then crypto doesn't need to scale. Once,
+	 * the system has moved to turbo then we cannot
+	 * roll back
+	 */
+	if (!session) {
 		return false;
-	} else if (auto_scale && no_session) { 	/* auto-scaling & no-sessions */
-		return false;
-	} else if (!turbo) {			/* non-turbo */
+	} else if (session && !turbo) {
 		return false;
 	}
 
 	/*
-	 * if auto-scaling is disabled then move crypto to turbo mode
-	 * and notify NSS to switch fabric1 to turbo
+	 * notify NSS to switch NSS subsystem to turbo
 	 */
 	for (; count--; clock++) {
 		if (clk_set_rate(clock->clk, clock->turbo_freq)) {
