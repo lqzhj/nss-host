@@ -17,14 +17,19 @@ PKG_SOURCE_VERSION:=$(PKG_VERSION)
 LOCAL_VARIANT=$(patsubst qca-nss-ecm-%,%,$(patsubst qca-nss-ecm-%,%,$(BUILD_VARIANT)))
 include $(INCLUDE_DIR)/package.mk
 
+ifeq ($(CONFIG_QCA_NSS_ECM_EXAMPLES_PCC),y)
+	FILES_EXAMPLES:=$(PKG_BUILD_DIR)/examples/ecm_pcc_test.ko
+endif
+
 define KernelPackage/qca-nss-ecm/Default
   SECTION:=kernel
   CATEGORY:=Kernel modules
   SUBMENU:=Network Support
-  DEPENDS:=@TARGET_ipq806x +kmod-qca-nss-drv +iptables-mod-extra +kmod-ipt-conntrack +kmod-ipv6 +kmod-shortcut-fe-drv +kmod-l2tp +kmod-pppol2tp +kmod-bonding +kmod-pptp
+  DEPENDS:=@TARGET_ipq806x +kmod-qca-nss-drv +iptables-mod-extra +kmod-ipt-conntrack +kmod-ipv6 +kmod-shortcut-fe-drv +kmod-l2tp +kmod-pppol2tp +kmod-bonding +kmod-pptp @!LINUX_3_18
   TITLE:=QCA NSS Enhanced Connection Manager (ECM)
-  FILES:=$(PKG_BUILD_DIR)/ecm.ko
+  FILES:=$(PKG_BUILD_DIR)/*.ko $(FILES_EXAMPLES)
   KCONFIG:=CONFIG_BRIDGE_NETFILTER=y
+  MENU:=1
 endef
 
 define KernelPackage/qca-nss-ecm/Description/Default
@@ -32,10 +37,11 @@ This package contains the QCA NSS Enhanced Connection Manager
 endef
 
 define KernelPackage/qca-nss-ecm/Default/install
-	$(INSTALL_DIR) $(1)/etc/firewall.d $(1)/etc/init.d $(1)/usr/bin
+	$(INSTALL_DIR) $(1)/etc/firewall.d $(1)/etc/init.d $(1)/usr/bin $(1)/lib/netifd/offload
 	$(INSTALL_DATA) ./files/qca-nss-ecm.firewall $(1)/etc/firewall.d/qca-nss-ecm
 	$(INSTALL_BIN) ./files/qca-nss-ecm.init $(1)/etc/init.d/qca-nss-ecm
 	$(INSTALL_BIN) ./files/ecm_dump.sh $(1)/usr/bin/
+	$(INSTALL_BIN) ./files/on-demand-down $(1)/lib/netifd/offload/on-demand-down
 endef
 
 define KernelPackage/qca-nss-ecm
@@ -135,12 +141,20 @@ define Build/Compile
 		ARCH="$(LINUX_KARCH)" \
 		SUBDIRS="$(PKG_BUILD_DIR)" \
 		EXTRA_CFLAGS="$(EXTRA_CFLAGS)" \
+		EXAMPLES_BUILD_PCC="$(CONFIG_QCA_NSS_ECM_EXAMPLES_PCC)" \
 		modules
 endef
 
-define KernelPackage/qca-nss-ecm/config/Default
+define KernelPackage/qca-nss-ecm/config
 $(call Package/$(PKG_NAME)/override_source_path,kmod-$(PKG_NAME))
 $(call Package/$(PKG_NAME)/override_version,kmod-$(PKG_NAME),$(PKG_SUPPORTED_VERSION))
+menu "ECM Configuration"
+	config QCA_NSS_ECM_EXAMPLES_PCC
+		bool "Build PCC usage example"
+		help
+			Selecting this will build the PCC classifier usage example module.
+		default n
+endmenu
 endef
 
 $(eval $(call KernelPackage,qca-nss-ecm-noload))
