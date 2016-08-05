@@ -68,78 +68,23 @@ static void nss_freq_handle_ack(struct nss_ctx_instance *nss_ctx, struct nss_fre
 }
 
 /*
- * nss_freq_change()
- *	NSS frequency change API.
- */
-nss_tx_status_t nss_freq_change(struct nss_ctx_instance *nss_ctx, uint32_t eng, uint32_t stats_enable, uint32_t start_or_end)
-{
-	struct sk_buff *nbuf;
-	int32_t status;
-	struct nss_corefreq_msg *ncm;
-	struct nss_freq_msg *nfc;
-
-	nss_info("%p: frequency changing to: %d\n", nss_ctx, eng);
-
-	NSS_VERIFY_CTX_MAGIC(nss_ctx);
-	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
-		return NSS_TX_FAILURE_NOT_READY;
-	}
-
-	nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
-	if (unlikely(!nbuf)) {
-		NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]);
-		return NSS_TX_FAILURE;
-	}
-
-	ncm = (struct nss_corefreq_msg *)skb_put(nbuf, sizeof(struct nss_corefreq_msg));
-
-	nss_freq_msg_init(ncm, NSS_COREFREQ_INTERFACE, NSS_TX_METADATA_TYPE_NSS_FREQ_CHANGE,
-				sizeof(struct nss_freq_msg), NULL, NULL);
-	nfc = &ncm->msg.nfc;
-	nfc->frequency = eng;
-	nfc->start_or_end = start_or_end;
-	nfc->stats_enable = stats_enable;
-
-	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
-	if (status != NSS_CORE_STATUS_SUCCESS) {
-		dev_kfree_skb_any(nbuf);
-		nss_info("%p: unable to enqueue 'nss frequency change' - marked as stopped\n", nss_ctx);
-		return NSS_TX_FAILURE;
-	}
-
-	nss_hal_send_interrupt(nss_ctx, NSS_H2N_INTR_DATA_COMMAND_QUEUE);
-
-	return NSS_TX_SUCCESS;
-}
-
-/*
  * nss_freq_queue_work()
  *	Queue Work to the NSS Workqueue based on Current index.
  */
 static int nss_freq_queue_work(void)
 {
-	uint32_t index = nss_runtime_samples.freq_scale_index;
+	nss_freq_scales_t index = nss_runtime_samples.freq_scale_index;
+
 	BUG_ON(!nss_wq);
 
 	nss_info("frequency:%d index:%d sample count:%x\n", nss_runtime_samples.freq_scale[index].frequency,
 					index, nss_runtime_samples.average);
 
-	nss_work = (nss_work_t *)kmalloc(sizeof(nss_work_t), GFP_ATOMIC);
-	if (!nss_work) {
-		nss_info("NSS FREQ WQ kmalloc fail");
-		return 1;
-	}
-
 	/*
-	 * Update proc node
+	 * schedule freq change with autoscale ON
 	 */
-	nss_cmd_buf.current_freq = nss_runtime_samples.freq_scale[index].frequency;
+	nss_freq_sched_change(index, true);
 
-	INIT_WORK((struct work_struct *)nss_work, nss_wq_function);
-	nss_work->frequency = nss_runtime_samples.freq_scale[index].frequency;
-	nss_work->stats_enable =  1;
-
-	queue_work(nss_wq, (struct work_struct *)nss_work);
 	return 0;
 }
 
@@ -286,6 +231,77 @@ static void nss_freq_interface_handler(struct nss_ctx_instance *nss_ctx, struct 
 			nss_info("%p: Received response %d for type %d, interface %d", nss_ctx, ncm->response, ncm->type, ncm->interface);
 		}
 	}
+}
+
+/*
+ * nss_freq_change()
+ *	NSS frequency change API.
+ */
+nss_tx_status_t nss_freq_change(struct nss_ctx_instance *nss_ctx, uint32_t eng, uint32_t stats_enable, uint32_t start_or_end)
+{
+	struct sk_buff *nbuf;
+	int32_t status;
+	struct nss_corefreq_msg *ncm;
+	struct nss_freq_msg *nfc;
+
+	nss_info("%p: frequency changing to: %d\n", nss_ctx, eng);
+
+	NSS_VERIFY_CTX_MAGIC(nss_ctx);
+	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
+		return NSS_TX_FAILURE_NOT_READY;
+	}
+
+	nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
+	if (unlikely(!nbuf)) {
+		NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]);
+		return NSS_TX_FAILURE;
+	}
+
+	ncm = (struct nss_corefreq_msg *)skb_put(nbuf, sizeof(struct nss_corefreq_msg));
+
+	nss_freq_msg_init(ncm, NSS_COREFREQ_INTERFACE, NSS_TX_METADATA_TYPE_NSS_FREQ_CHANGE,
+				sizeof(struct nss_freq_msg), NULL, NULL);
+	nfc = &ncm->msg.nfc;
+	nfc->frequency = eng;
+	nfc->start_or_end = start_or_end;
+	nfc->stats_enable = stats_enable;
+
+	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
+	if (status != NSS_CORE_STATUS_SUCCESS) {
+		dev_kfree_skb_any(nbuf);
+		nss_info("%p: unable to enqueue 'nss frequency change' - marked as stopped\n", nss_ctx);
+		return NSS_TX_FAILURE;
+	}
+
+	nss_hal_send_interrupt(nss_ctx, NSS_H2N_INTR_DATA_COMMAND_QUEUE);
+
+	return NSS_TX_SUCCESS;
+}
+
+/*
+ * nss_freq_sched_change()
+ *	schedule a frequency work
+ */
+void nss_freq_sched_change(nss_freq_scales_t index, bool auto_scale)
+{
+	if (index >= NSS_FREQ_MAX_SCALE) {
+		nss_info("NSS freq scale beyond limit\n");
+		return;
+	}
+
+	nss_work = (nss_work_t *)kmalloc(sizeof(nss_work_t), GFP_ATOMIC);
+	if (!nss_work) {
+		nss_info("NSS Freq WQ kmalloc fail");
+		return;
+	}
+
+	INIT_WORK((struct work_struct *)nss_work, nss_wq_function);
+
+	nss_work->frequency = nss_runtime_samples.freq_scale[index].frequency;
+
+	nss_work->stats_enable = auto_scale;
+	nss_cmd_buf.current_freq = nss_work->frequency;
+	queue_work(nss_wq, (struct work_struct *)nss_work);
 }
 
 /*

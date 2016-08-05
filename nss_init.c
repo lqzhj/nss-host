@@ -181,9 +181,11 @@ void nss_wq_function (struct work_struct *work)
 	bool turbo;
 
 	/*
-	 * Disable scaling if crypto is scaled to turbo
+	 * If crypto clock is in Turbo, disable scaling for other
+	 * NSS subsystem components and retain them at turbo
 	 */
 	if (nss_crypto_is_scaled) {
+		nss_cmd_buf.current_freq = nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].frequency;
 		return;
 	}
 #endif

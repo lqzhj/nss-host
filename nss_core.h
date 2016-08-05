@@ -1148,12 +1148,12 @@ struct nss_cmd_buffer {
 /*
  * The scales for NSS
  */
-enum nss_scales {
+typedef enum nss_freq_scales {
 	NSS_FREQ_LOW_SCALE = 0,
 	NSS_FREQ_MID_SCALE = 1,
 	NSS_FREQ_HIGH_SCALE = 2,
 	NSS_FREQ_MAX_SCALE = 3,
-};
+} nss_freq_scales_t;
 
 /*
  * NSS Core Statistics and Frequencies
@@ -1184,7 +1184,7 @@ struct nss_scale_info {
  */
 struct nss_runtime_sampling {
 	struct nss_scale_info freq_scale[NSS_FREQ_MAX_SCALE];	/* NSS Max Scale Per Freq */
-	uint32_t freq_scale_index;				/* Current Freq Index */
+	nss_freq_scales_t freq_scale_index;				/* Current Freq Index */
 	uint32_t freq_scale_ready;				/* Allow Freq Scaling */
 	uint32_t freq_scale_rate_limit_up;			/* Scaling Change Rate Limit */
 	uint32_t freq_scale_rate_limit_down;			/* Scaling Change Rate Limit */
@@ -1360,8 +1360,14 @@ extern void nss_fw_coredump_notify(struct nss_ctx_instance *nss_own, int intr);
 extern int nss_coredump_init_delay_work(void);
 
 /*
+ * APIs provided by nss_freq.c
+ */
+extern void nss_freq_sched_change(nss_freq_scales_t index, bool auto_scale);
+
+/*
  * APIs for PPE
  */
 extern void nss_ppe_init(void);
 extern void nss_ppe_free(void);
+
 #endif /* __NSS_CORE_H */
