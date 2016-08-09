@@ -19,13 +19,12 @@
  *    NSS Power Management APIs
  *
  */
+#if (NSS_PM_SUPPORT == 1)
 #include <linux/debugfs.h>
 #include <linux/module.h>
 #include <linux/netdevice.h>
-#include <nss_hal.h>
+#include <nss_clocks.h>
 #include <nss_api_if.h>
-
-#if (NSS_PM_SUPPORT == 1)
 #include "nss_pm.h"
 
 /*

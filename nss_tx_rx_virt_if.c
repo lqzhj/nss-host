@@ -300,9 +300,7 @@ nss_tx_status_t nss_tx_virt_if_recvbuf(void *ctx, struct sk_buff *skb, uint32_t 
 	/*
 	 * Kick the NSS awake so it can process our new entry.
 	 */
-	nss_hal_send_interrupt(nss_ctx->nmap,
-				nss_ctx->h2n_desc_rings[NSS_IF_DATA_QUEUE_0].desc_ring.int_bit,
-				NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
+	nss_hal_send_interrupt(nss_ctx, NSS_H2N_INTR_DATA_COMMAND_QUEUE);
 	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_PACKET]);
 	return NSS_TX_SUCCESS;
 }
@@ -473,9 +471,7 @@ nss_tx_status_t nss_tx_rx_virt_if_tx_msg(struct nss_ctx_instance *nss_ctx, struc
 		return NSS_TX_FAILURE;
 	}
 
-	nss_hal_send_interrupt(nss_ctx->nmap,
-				nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
-				NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
+	nss_hal_send_interrupt(nss_ctx, NSS_H2N_INTR_DATA_COMMAND_QUEUE);
 
 	/*
 	 * The context returned is the redir interface # which is, essentially, the index into the if_ctx

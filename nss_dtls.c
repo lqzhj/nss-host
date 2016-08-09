@@ -252,7 +252,6 @@ nss_tx_status_t nss_dtls_tx_buf(struct sk_buff *skb, uint32_t if_num,
 				struct nss_ctx_instance *nss_ctx)
 {
 	int32_t status;
-	uint16_t int_bit = 0;
 
 	NSS_VERIFY_CTX_MAGIC(nss_ctx);
 
@@ -262,8 +261,6 @@ nss_tx_status_t nss_dtls_tx_buf(struct sk_buff *skb, uint32_t if_num,
 	}
 
 	BUG_ON(!nss_dtls_verify_if_num(if_num));
-
-	int_bit = nss_ctx->h2n_desc_rings[NSS_IF_DATA_QUEUE_0].desc_ring.int_bit;
 
 	status = nss_core_send_buffer(nss_ctx, if_num, skb,
 				      NSS_IF_DATA_QUEUE_0,
@@ -278,8 +275,7 @@ nss_tx_status_t nss_dtls_tx_buf(struct sk_buff *skb, uint32_t if_num,
 		return NSS_TX_FAILURE;
 	}
 
-	nss_hal_send_interrupt(nss_ctx->nmap, int_bit,
-			       NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
+	nss_hal_send_interrupt(nss_ctx, NSS_H2N_INTR_DATA_COMMAND_QUEUE);
 
 	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_PACKET]);
 	return NSS_TX_SUCCESS;
@@ -296,7 +292,6 @@ nss_tx_status_t nss_dtls_tx_msg(struct nss_ctx_instance *nss_ctx,
 	struct nss_dtls_msg *nm;
 	struct nss_cmn_msg *ncm = &msg->cm;
 	struct sk_buff *nbuf;
-	uint16_t int_bit = 0;
 	int32_t status;
 
 	NSS_VERIFY_CTX_MAGIC(nss_ctx);
@@ -309,8 +304,6 @@ nss_tx_status_t nss_dtls_tx_msg(struct nss_ctx_instance *nss_ctx,
 	 * Sanity check the message
 	 */
 	BUG_ON(!nss_dtls_verify_if_num(ncm->interface));
-
-	int_bit = nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit;
 
 	if (ncm->type > NSS_DTLS_MSG_MAX) {
 		nss_warning("%p: dtls message type out of range: %d",
@@ -350,8 +343,7 @@ nss_tx_status_t nss_dtls_tx_msg(struct nss_ctx_instance *nss_ctx,
 		return NSS_TX_FAILURE;
 	}
 
-	nss_hal_send_interrupt(nss_ctx->nmap, int_bit,
-			       NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
+	nss_hal_send_interrupt(nss_ctx, NSS_H2N_INTR_DATA_COMMAND_QUEUE);
 
 	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_CMD_REQ]);
 	return NSS_TX_SUCCESS;
@@ -449,7 +441,7 @@ struct nss_ctx_instance *nss_dtls_register_if(uint32_t if_num,
 	nss_top_main.dtls_msg_callback = ev_cb;
 	nss_core_register_handler(if_num, nss_dtls_handler, app_ctx);
 
-	return (struct nss_ctx_instance *)&nss_top_main.nss[nss_top_main.dtls_handler_id];
+	return nss_ctx;
 }
 EXPORT_SYMBOL(nss_dtls_register_if);
 

@@ -160,14 +160,6 @@ static struct nss_gmac_data_plane_ops dp_ops =
 };
 
 /*
- * nss_data_plane_set_enabled()
- */
-void nss_data_plane_set_enabled(int if_num)
-{
-	nss_data_plane_params[if_num].enabled = 1;
-}
-
-/*
  * nss_data_plane_register_to_nss_gmac()
  */
 bool nss_data_plane_register_to_nss_gmac(struct nss_ctx_instance *nss_ctx, int if_num)
@@ -176,10 +168,6 @@ bool nss_data_plane_register_to_nss_gmac(struct nss_ctx_instance *nss_ctx, int i
 	struct nss_top_instance *nss_top = nss_ctx->nss_top;
 	struct net_device *netdev;
 	bool is_open;
-
-	if (!ndpp->enabled) {
-		return false;
-	}
 
 	netdev = nss_gmac_get_netdev_by_macid(if_num);
 	if (!netdev) {
@@ -254,7 +242,6 @@ void nss_data_plane_unregister_from_nss_gmac(int if_num)
 	nss_data_plane_params[if_num].nss_ctx = NULL;
 	nss_data_plane_params[if_num].if_num = 0;
 	nss_data_plane_params[if_num].notify_open = 0;
-	nss_data_plane_params[if_num].enabled = 0;
 	nss_data_plane_params[if_num].bypass_nw_process = 0;
 }
 

@@ -327,8 +327,7 @@ nss_tx_status_t nss_capwap_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_c
 		goto out;
 	}
 
-	nss_hal_send_interrupt(nss_ctx->nmap, nss_ctx->h2n_desc_rings[NSS_IF_CMD_QUEUE].desc_ring.int_bit,
-				NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
+	nss_hal_send_interrupt(nss_ctx, NSS_H2N_INTR_DATA_COMMAND_QUEUE);
 
 	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_CMD_REQ]);
 
@@ -345,7 +344,6 @@ EXPORT_SYMBOL(nss_capwap_tx_msg);
 nss_tx_status_t nss_capwap_tx_buf(struct nss_ctx_instance *nss_ctx, struct sk_buff *os_buf, uint32_t if_num)
 {
 	int32_t status;
-	uint16_t int_bit = 0;
 
 	NSS_VERIFY_CTX_MAGIC(nss_ctx);
 
@@ -356,7 +354,6 @@ nss_tx_status_t nss_capwap_tx_buf(struct nss_ctx_instance *nss_ctx, struct sk_bu
 
 	BUG_ON(!nss_capwap_verify_if_num(if_num));
 
-	int_bit = nss_ctx->h2n_desc_rings[NSS_IF_DATA_QUEUE_0].desc_ring.int_bit;
 	status = nss_core_send_buffer(nss_ctx, if_num, os_buf, NSS_IF_DATA_QUEUE_0, H2N_BUFFER_PACKET, H2N_BIT_FLAG_VIRTUAL_BUFFER);
 	if (unlikely(status != NSS_CORE_STATUS_SUCCESS)) {
 		nss_warning("%p: Unable to enqueue capwap packet\n", nss_ctx);
@@ -366,7 +363,7 @@ nss_tx_status_t nss_capwap_tx_buf(struct nss_ctx_instance *nss_ctx, struct sk_bu
 		return NSS_TX_FAILURE;
 	}
 
-	nss_hal_send_interrupt(nss_ctx->nmap, int_bit, NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE);
+	nss_hal_send_interrupt(nss_ctx, NSS_H2N_INTR_DATA_COMMAND_QUEUE);
 
 	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_PACKET]);
 	return NSS_TX_SUCCESS;

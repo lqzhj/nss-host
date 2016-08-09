@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2015, 2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -23,11 +23,8 @@
 #define __NSS_REGS_H
 
 #include <linux/types.h>
-#include <asm/io.h>
+#include <linux/io.h>
 
-#define NSS_FSM9010_TCM_SIZE SZ_64K
-#define NSS_FSM9010_TCM_BASE IOMEM(0xe4000000)
-#define NSS_FSM9010_FPB_BASE 0xfc800000
 /*
  * CSM register offsets
  */
@@ -62,22 +59,21 @@
  * It is required to have 2 COREDUMP_COMPLETE interrupts because
  * both NSS cores may generate interrupt simultaneously
  */
-#define NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFER_QUEUE	(1 << 0)
-#define NSS_REGS_N2H_INTR_STATUS_DATA_COMMAND_QUEUE	(1 << 1)
-#define NSS_REGS_N2H_INTR_STATUS_DATA_QUEUE_1	    	(1 << 2)
-#define NSS_REGS_N2H_INTR_STATUS_EMPTY_BUFFERS_SOS	(1 << 10)
-#define NSS_REGS_N2H_INTR_STATUS_TX_UNBLOCKED		(1 << 11)
-#define NSS_REGS_N2H_INTR_STATUS_COREDUMP_COMPLETE_1	(1 << 13)
-#define NSS_REGS_N2H_INTR_STATUS_COREDUMP_COMPLETE_0	(1 << 14)
+#define NSS_N2H_INTR_EMPTY_BUFFER_QUEUE		(1 << 0)
+#define NSS_N2H_INTR_DATA_COMMAND_QUEUE		(1 << 1)
+#define NSS_N2H_INTR_DATA_QUEUE_1		(1 << 2)
+#define NSS_N2H_INTR_EMPTY_BUFFERS_SOS		(1 << 10)
+#define NSS_N2H_INTR_TX_UNBLOCKED		(1 << 11)
+#define NSS_N2H_INTR_COREDUMP_COMPLETE_1	(1 << 13)
+#define NSS_N2H_INTR_COREDUMP_COMPLETE_0	(1 << 14)
 
 /*
- * Defines for H2N interrupts
+ * Types of H2N interrupts
  */
-#define NSS_REGS_H2N_INTR_STATUS_EMPTY_BUFFER_QUEUE	(1 << 0)
-#define NSS_REGS_H2N_INTR_STATUS_DATA_COMMAND_QUEUE	(1 << 1)
-#define NSS_REGS_H2N_INTR_STATUS_RESET			(1 << 10)	/** Unused */
-#define NSS_REGS_H2N_INTR_STATUS_TX_UNBLOCKED		(1 << 11)
-#define NSS_REGS_H2N_INTR_STATUS_TRIGGER_COREDUMP	(1 << 15)
+#define NSS_H2N_INTR_EMPTY_BUFFER_QUEUE	0
+#define NSS_H2N_INTR_DATA_COMMAND_QUEUE	1
+#define NSS_H2N_INTR_TX_UNBLOCKED	2
+#define NSS_H2N_INTR_TRIGGER_COREDUMP	3
 
 /*
  * clock source for NSS cores
@@ -93,7 +89,7 @@ enum nss_regs_clk_src_select {
  */
 static inline uint32_t nss_read_32(uint32_t addr, uint32_t offs)
 {
-	return readl((uint32_t *)(addr + offs));
+	return readl((void *)(addr + offs));
 }
 
 /*
@@ -102,7 +98,7 @@ static inline uint32_t nss_read_32(uint32_t addr, uint32_t offs)
  */
 static inline void nss_write_32(uint32_t addr, uint32_t offs, uint32_t val)
 {
-	writel(val, (uint32_t *)(addr + offs));
+	writel(val, (void *)(addr + offs));
 }
 
 #endif /* __NSS_REGS_H */

@@ -23,73 +23,72 @@
 #define __NSS_HAL_H
 
 #include <linux/platform_device.h>
-#include <linux/version.h>
+#include <nss_core.h>
+#include <nss_regs.h>
+#include <nss_hal_ops.h>
 
-#include <nss_hal_pvt.h>
+extern struct clk *nss_core0_clk;
+extern struct nss_runtime_sampling nss_runtime_samples;
+extern struct clk *nss_fab0_clk;
+extern struct clk *nss_fab1_clk;
 
-#if (NSS_DT_SUPPORT != 1)
-/*
- * nss_hal_common_reset()
- */
-static inline void nss_hal_common_reset(uint32_t *clk_src)
-{
-	__nss_hal_common_reset(clk_src);
-}
+#if defined(NSS_HAL_IPQ806X_SUPPORT)
+extern struct nss_hal_ops nss_hal_ipq806x_ops;
+#endif
+#if defined(NSS_HAL_IPQ807x_SUPPORT)
+extern struct nss_hal_ops nss_hal_ipq807x_ops;
+#endif
+#if defined(NSS_HAL_FSM9010_SUPPORT)
+extern struct nss_hal_ops nss_hal_fsm9010_ops;
 #endif
 
-/*
- * nss_hal_core_reset()
- */
-#if (NSS_DT_SUPPORT != 1)
-static inline void nss_hal_core_reset(uint32_t core_id, uint32_t map, uint32_t addr, uint32_t clk_src)
-{
-	__nss_hal_core_reset(core_id, map, addr, clk_src);
-}
-#else
-static inline void nss_hal_core_reset(uint32_t map_base, uint32_t reset_addr)
-{
-	__nss_hal_core_reset(map_base, reset_addr);
-}
-#endif
+#define NSS_HAL_SUPPORTED_INTERRUPTS (NSS_N2H_INTR_EMPTY_BUFFER_QUEUE | \
+					NSS_N2H_INTR_DATA_COMMAND_QUEUE | \
+					NSS_N2H_INTR_DATA_QUEUE_1 | \
+					NSS_N2H_INTR_EMPTY_BUFFERS_SOS | \
+					NSS_N2H_INTR_TX_UNBLOCKED | \
+					NSS_N2H_INTR_COREDUMP_COMPLETE_0 | \
+					NSS_N2H_INTR_COREDUMP_COMPLETE_1)
+#define NSS_MAX_IRQ_PER_QUEUE 5
 
 /*
  * nss_hal_read_interrupt_cause()
  */
-static inline void nss_hal_read_interrupt_cause(uint32_t map, uint32_t irq, uint32_t shift_factor, uint32_t *cause)
+static inline void nss_hal_read_interrupt_cause(struct nss_ctx_instance *nss_ctx, uint32_t shift_factor, uint32_t *cause)
 {
-	__nss_hal_read_interrupt_cause(map, irq, shift_factor, cause);
+	nss_top_main.hal_ops->read_interrupt_cause(nss_ctx, shift_factor, cause);
 }
 
 /*
  * nss_hal_clear_interrupt_cause()
  */
-static inline void nss_hal_clear_interrupt_cause(uint32_t map, uint32_t irq, uint32_t shift_factor, uint32_t cause)
+static inline void nss_hal_clear_interrupt_cause(struct nss_ctx_instance *nss_ctx, uint32_t shift_factor, uint32_t cause)
 {
-	__nss_hal_clear_interrupt_cause(map, irq, shift_factor, cause);
+	nss_top_main.hal_ops->clear_interrupt_cause(nss_ctx, shift_factor, cause);
 }
 
 /*
  * nss_hal_disable_interrupt()
  */
-static inline void nss_hal_disable_interrupt(uint32_t map, uint32_t irq, uint32_t shift_factor, uint32_t cause)
+static inline void nss_hal_disable_interrupt(struct nss_ctx_instance *nss_ctx, uint32_t shift_factor, uint32_t cause)
 {
-	__nss_hal_disable_interrupt(map, irq, shift_factor, cause);
+	nss_top_main.hal_ops->disable_interrupt(nss_ctx, shift_factor, cause);
 }
 
 /*
  * nss_hal_enable_interrupt()
  */
-static inline void nss_hal_enable_interrupt(uint32_t map, uint32_t irq, uint32_t shift_factor, uint32_t cause)
+static inline void nss_hal_enable_interrupt(struct nss_ctx_instance *nss_ctx, uint32_t shift_factor, uint32_t cause)
 {
-	__nss_hal_enable_interrupt(map, irq, shift_factor, cause);
+	nss_top_main.hal_ops->enable_interrupt(nss_ctx, shift_factor, cause);
 }
 
 /*
  * nss_hal_send_interrupt()
  */
-static inline void nss_hal_send_interrupt(uint32_t map, uint32_t irq, uint32_t cause)
+static inline void nss_hal_send_interrupt(struct nss_ctx_instance *nss_ctx, uint32_t cause)
 {
-	__nss_hal_send_interrupt(map, irq, cause);
+	nss_top_main.hal_ops->send_interrupt(nss_ctx, cause);
 }
 
 /*
@@ -97,7 +96,7 @@ static inline void nss_hal_send_interrupt(uint32_t map, uint32_t irq, uint32_t c
  */
 static inline void nss_hal_debug_enable(void)
 {
-	__nss_hal_debug_enable();
+	nss_top_main.hal_ops->debug_enable();
 }
 
 /*
@@ -110,4 +109,13 @@ int nss_hal_probe(struct platform_device *nss_dev);
  */
 int nss_hal_remove(struct platform_device *nss_dev);
 
+/*
+ * nss_hal_firmware_load()
+ */
+int nss_hal_firmware_load(struct nss_ctx_instance *nss_ctx, struct platform_device *nss_dev, struct nss_platform_data *npd);
+
+/*
+ * nss_hal_dt_parse_features()
+ */
+void nss_hal_dt_parse_features(struct device_node *np, struct nss_platform_data *npd);
 #endif /* __NSS_HAL_H */
