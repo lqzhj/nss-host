@@ -22,8 +22,10 @@ qca-nss-drv-objs := \
 			nss_init.o \
 			nss_ipsec.o \
 			nss_ipv4.o \
+			nss_ipv4_log.o \
 			nss_ipv4_reasm.o \
 			nss_ipv6.o \
+			nss_ipv6_log.o \
 			nss_ipv6_reasm.o \
 			nss_l2tpv2.o \
 			nss_lag.o \

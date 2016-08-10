@@ -26,6 +26,19 @@
 #include "nss_tx_rx_common.h"
 
 /*
+ * nss_cmn_response_str
+ *	Common response structure string
+ */
+int8_t *nss_cmn_response_str[NSS_CMN_RESPONSE_LAST] = {
+	"Message Acknowledge without errors",
+	"Common message version not supported",
+	"Unknown Interface",
+	"Length Error",
+	"Message Error",
+	"FW Notification Message",
+};
+
+/*
  * nss_cmn_msg_init()
  *	Initialize the common message structure.
  */
