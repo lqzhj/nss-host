@@ -39,6 +39,7 @@ qca-nss-drv-objs := \
 			nss_phys_if.o \
 			nss_profiler.o \
 			nss_portid.o \
+			nss_ppe.o \
 			nss_pppoe.o \
 			nss_pptp.o \
 			nss_shaper.o \

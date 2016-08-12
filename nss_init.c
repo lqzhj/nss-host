@@ -752,6 +752,13 @@ static int __init nss_init(void)
 	nss_capwap_init();
 
 	/*
+	 * INIT ppe on supported platform
+	 */
+	if (of_machine_is_compatible("qcom,ipq807x")) {
+		nss_ppe_init();
+	}
+
+	/*
 	 * Register platform_driver
 	 */
 	return platform_driver_register(&nss_driver);
@@ -780,6 +787,13 @@ static void __exit nss_cleanup(void)
 	nss_ipv6_unregister_sysctl();
 
 	nss_data_plane_destroy_delay_work();
+
+	/*
+	 * cleanup ppe on supported platform
+	 */
+	if (of_machine_is_compatible("qcom,ipq807x")) {
+		nss_ppe_free();
+	}
 
 	platform_driver_unregister(&nss_driver);
 }

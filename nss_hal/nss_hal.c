@@ -111,6 +111,7 @@ void nss_hal_dt_parse_features(struct device_node *np, struct nss_platform_data 
 	npd->l2tpv2_enabled = of_property_read_bool(np, "qcom,l2tpv2-enabled");
 	npd->map_t_enabled = of_property_read_bool(np, "qcom,map-t-enabled");
 	npd->oam_enabled = of_property_read_bool(np, "qcom,oam-enabled");
+	npd->ppe_enabled = of_property_read_bool(np, "qcom,ppe-enabled");
 	npd->pppoe_enabled = of_property_read_bool(np, "qcom,pppoe-enabled");
 	npd->pptp_enabled = of_property_read_bool(np, "qcom,pptp-enabled");
 	npd->portid_enabled = of_property_read_bool(np, "qcom,portid-enabled");
@@ -416,6 +417,11 @@ int nss_hal_probe(struct platform_device *nss_dev)
 	if (npd->pptp_enabled == NSS_FEATURE_ENABLED) {
 		nss_top->pptp_handler_id = nss_dev->id;
 		nss_pptp_register_handler();
+	}
+
+	if (npd->ppe_enabled == NSS_FEATURE_ENABLED) {
+		nss_top->ppe_handler_id = nss_dev->id;
+		nss_ppe_register_handler();
 	}
 
 	if (npd->l2tpv2_enabled == NSS_FEATURE_ENABLED) {

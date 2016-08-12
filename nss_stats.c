@@ -625,6 +625,57 @@ static int8_t *nss_stats_str_map_t_instance_debug_stats[NSS_STATS_MAP_T_MAX] = {
 };
 
 /*
+ * nss_stats_str_ppe_conn
+ *	PPE statistics strings for nss flow stats
+ */
+static int8_t *nss_stats_str_ppe_conn[NSS_STATS_PPE_CONN_MAX] = {
+	"v4 routed flows",
+	"v4 bridge flows",
+	"v4 conn create req",
+	"v4 conn create fail",
+	"v4 conn destroy req",
+	"v4 conn destroy fail",
+
+	"v6 routed flows",
+	"v6 bridge flows",
+	"v6 conn create req",
+	"v6 conn create fail",
+	"v6 conn destroy req",
+	"v6 conn destroy fail",
+
+	"conn fail - nexthop full",
+	"conn fail - flow full",
+	"conn fail - host full",
+	"conn fail - pub-ip full",
+	"conn fail - port not setup",
+	"conn fail - rw fifo full",
+	"conn fail - unknown proto",
+	"conn fail - ppe not responding",
+};
+
+/*
+ * nss_stats_str_ppe_l3
+ *	PPE statistics strings for nss debug stats
+ */
+static int8_t *nss_stats_str_ppe_l3[NSS_STATS_PPE_L3_MAX] = {
+	"PPE L3 dbg reg 0",
+	"PPE L3 dbg reg 1",
+	"PPE L3 dbg reg 2",
+	"PPE L3 dbg reg 3",
+	"PPE L3 dbg reg 4",
+	"PPE L3 dbg reg port",
+};
+
+/*
+ * nss_stats_str_ppe_code
+ *	PPE statistics strings for nss debug stats
+ */
+static int8_t *nss_stats_str_ppe_code[NSS_STATS_PPE_CODE_MAX] = {
+	"PPE CPU_CODE",
+	"PPE DROP_CODE",
+};
+
+/*
  * nss_stats_str_ppt_session_stats
  *	PPTP statistics strings for nss session stats
  */
@@ -2171,6 +2222,157 @@ static ssize_t nss_stats_map_t_read(struct file *fp, char __user *ubuf, size_t s
 }
 
 /*
+ * nss_stats_ppe_conn_read()
+ *	Read ppe connection stats
+ */
+static ssize_t nss_stats_ppe_conn_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
+{
+
+	int i;
+	char *lbuf = NULL;
+	size_t size_wr = 0;
+	ssize_t bytes_read = 0;
+	uint32_t ppe_stats[NSS_STATS_PPE_CONN_MAX];
+	uint32_t max_output_lines = 2 /* header & footer for session stats */
+				+ NSS_STATS_PPE_CONN_MAX /* PPE flow counters */
+				+ 2;
+	size_t size_al = NSS_STATS_MAX_STR_LENGTH * max_output_lines;
+
+
+	lbuf = kzalloc(size_al, GFP_KERNEL);
+	if (unlikely(lbuf == NULL)) {
+		nss_warning("Could not allocate memory for local statistics buffer");
+		return 0;
+	}
+
+	memset(&ppe_stats, 0, sizeof(uint32_t) * NSS_STATS_PPE_CONN_MAX);
+
+	/*
+	 * Get all stats
+	 */
+	nss_ppe_stats_conn_get(ppe_stats);
+
+	/*
+	 * flow stats
+	 */
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nppe flow counters start:\n\n");
+
+	for (i = 0; i < NSS_STATS_PPE_CONN_MAX; i++) {
+		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+				"\t%s = %u\n", nss_stats_str_ppe_conn[i],
+				ppe_stats[i]);
+	}
+
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\n");
+
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nppe flow counters end\n");
+	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, size_wr);
+
+	kfree(lbuf);
+	return bytes_read;
+}
+
+/*
+ * nss_stats_ppe_l3_read()
+ *	Read ppe L3 debug stats
+ */
+static ssize_t nss_stats_ppe_l3_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
+{
+
+	int i;
+	char *lbuf = NULL;
+	size_t size_wr = 0;
+	ssize_t bytes_read = 0;
+	uint32_t ppe_stats[NSS_STATS_PPE_L3_MAX];
+	uint32_t max_output_lines = 2 /* header & footer for session stats */
+				+ NSS_STATS_PPE_L3_MAX /* PPE flow counters */
+				+ 2;
+	size_t size_al = NSS_STATS_MAX_STR_LENGTH * max_output_lines;
+
+	lbuf = kzalloc(size_al, GFP_KERNEL);
+	if (unlikely(!lbuf)) {
+		nss_warning("Could not allocate memory for local statistics buffer");
+		return 0;
+	}
+
+	memset(ppe_stats, 0, sizeof(uint32_t) * NSS_STATS_PPE_L3_MAX);
+
+	/*
+	 * Get all stats
+	 */
+	nss_ppe_stats_l3_get(ppe_stats);
+
+	/*
+	 * flow stats
+	 */
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nppe l3 debug stats start:\n\n");
+
+	for (i = 0; i < NSS_STATS_PPE_L3_MAX; i++) {
+		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+				"\t%s = 0x%x\n", nss_stats_str_ppe_l3[i],
+				ppe_stats[i]);
+	}
+
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\n");
+
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nppe l3 debug stats end\n");
+	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, size_wr);
+
+	kfree(lbuf);
+	return bytes_read;
+}
+
+/*
+ * nss_stats_ppe_code_read()
+ *	Read ppe CPU & DROP code
+ */
+static ssize_t nss_stats_ppe_code_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
+{
+
+	int i;
+	char *lbuf = NULL;
+	size_t size_wr = 0;
+	ssize_t bytes_read = 0;
+	uint32_t ppe_stats[NSS_STATS_PPE_CODE_MAX];
+	uint32_t max_output_lines = 2 /* header & footer for session stats */
+				+ NSS_STATS_PPE_CODE_MAX /* PPE flow counters */
+				+ 2;
+	size_t size_al = NSS_STATS_MAX_STR_LENGTH * max_output_lines;
+
+	lbuf = kzalloc(size_al, GFP_KERNEL);
+	if (unlikely(!lbuf)) {
+		nss_warning("Could not allocate memory for local statistics buffer");
+		return 0;
+	}
+
+	memset(ppe_stats, 0, sizeof(uint32_t) * NSS_STATS_PPE_CODE_MAX);
+
+	/*
+	 * Get all stats
+	 */
+	nss_ppe_stats_code_get(ppe_stats);
+
+	/*
+	 * flow stats
+	 */
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nppe session stats start:\n\n");
+
+	for (i = 0; i < NSS_STATS_PPE_CODE_MAX; i++) {
+		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+				"\t%s = %u\n", nss_stats_str_ppe_code[i],
+				ppe_stats[i]);
+	}
+
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\n");
+
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\nppe session stats end\n");
+	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, size_wr);
+
+	kfree(lbuf);
+	return bytes_read;
+}
+
+/*
  * nss_stats_pptp_read()
  *	Read pptp statistics
  */
@@ -3032,6 +3234,13 @@ NSS_STATS_DECLARE_FILE_OPERATIONS(l2tpv2)
 NSS_STATS_DECLARE_FILE_OPERATIONS(map_t)
 
 /*
+ * ppe_stats_ops
+ */
+NSS_STATS_DECLARE_FILE_OPERATIONS(ppe_conn)
+NSS_STATS_DECLARE_FILE_OPERATIONS(ppe_l3)
+NSS_STATS_DECLARE_FILE_OPERATIONS(ppe_code)
+
+/*
  * pptp_stats_ops
  */
 NSS_STATS_DECLARE_FILE_OPERATIONS(pptp)
@@ -3517,6 +3726,33 @@ void nss_stats_init(void)
 	if (unlikely(nss_top_main.map_t_dentry == NULL)) {
 		nss_warning("Failed to create qca-nss-drv/stats/map_t file in debugfs");
 		return;
+	}
+
+	/*
+	 *  PPE Stats
+	 */
+	nss_top_main.ppe_dentry = debugfs_create_dir("ppe", nss_top_main.stats_dentry);
+	if (unlikely(nss_top_main.ppe_dentry == NULL)) {
+		nss_warning("Failed to create qca-nss-drv directory in debugfs");
+		return;
+	}
+
+	nss_top_main.ppe_conn_dentry = debugfs_create_file("connection", 0400,
+						nss_top_main.ppe_dentry, &nss_top_main, &nss_stats_ppe_conn_ops);
+	if (unlikely(nss_top_main.ppe_dentry == NULL)) {
+		nss_warning("Failed to create qca-nss-drv/stats/ppe/connection file in debugfs");
+	}
+
+	nss_top_main.ppe_l3_dentry = debugfs_create_file("l3", 0400,
+						nss_top_main.ppe_dentry, &nss_top_main, &nss_stats_ppe_l3_ops);
+	if (unlikely(nss_top_main.ppe_dentry == NULL)) {
+		nss_warning("Failed to create qca-nss-drv/stats/ppe/l3 file in debugfs");
+	}
+
+	nss_top_main.ppe_l3_dentry = debugfs_create_file("ppe_code", 0400,
+						nss_top_main.ppe_dentry, &nss_top_main, &nss_stats_ppe_code_ops);
+	if (unlikely(nss_top_main.ppe_dentry == NULL)) {
+		nss_warning("Failed to create qca-nss-drv/stats/ppe/ppe_code file in debugfs");
 	}
 
 	/*

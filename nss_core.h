@@ -622,6 +622,61 @@ struct nss_stats_pptp_session_debug {
 };
 
 /*
+ * PPE stats
+ */
+enum nss_stats_ppe_conn {
+	NSS_STATS_PPE_V4_L3_FLOWS,		/* No of v4 routed flows */
+	NSS_STATS_PPE_V4_L2_FLOWS,		/* No of v4 bridge flows */
+	NSS_STATS_PPE_V4_CREATE_REQ,		/* No of v4 create requests */
+	NSS_STATS_PPE_V4_CREATE_FAIL,		/* No of v4 create failure */
+	NSS_STATS_PPE_V4_DESTROY_REQ,		/* No of v4 delete requests */
+	NSS_STATS_PPE_V4_DESTROY_FAIL,		/* No of v4 delete failure */
+
+	NSS_STATS_PPE_V6_L3_FLOWS,		/* No of v6 routed flows */
+	NSS_STATS_PPE_V6_L2_FLOWS,		/* No of v6 bridge flows */
+	NSS_STATS_PPE_V6_CREATE_REQ,		/* No of v6 create requests */
+	NSS_STATS_PPE_V6_CREATE_FAIL,		/* No of v6 create failure */
+	NSS_STATS_PPE_V6_DESTROY_REQ,		/* No of v6 delete requests */
+	NSS_STATS_PPE_V6_DESTROY_FAIL,		/* No of v6 delete failure */
+
+	NSS_STATS_PPE_FAIL_NH_FULL,		/* Create req fail due to nexthop table full */
+	NSS_STATS_PPE_FAIL_FLOW_FULL,		/* Create req fail due to flow table full */
+	NSS_STATS_PPE_FAIL_HOST_FULL,		/* Create req fail due to host table full */
+	NSS_STATS_PPE_FAIL_PUBIP_FULL,		/* Create req fail due to pub-ip table full */
+	NSS_STATS_PPE_FAIL_PORT_SETUP,		/* Create req fail due to PPE port not setup */
+	NSS_STATS_PPE_FAIL_RW_FIFO_FULL,	/* Create req fail due to rw fifo full */
+	NSS_STATS_PPE_FAIL_FLOW_COMMAND,	/* Create req fail due to PPE flow command failure */
+	NSS_STATS_PPE_FAIL_UNKNOWN_PROTO,	/* Create req fail due to unknown protocol */
+	NSS_STATS_PPE_FAIL_PPE_UNRESPONSIVE,	/* Create req fail due to PPE not responding */
+	NSS_STATS_PPE_CONN_MAX
+};
+
+enum nss_stats_ppe_l3 {
+	NSS_STATS_PPE_L3_DBG_0,		/* PPE L3 debug register 0 */
+	NSS_STATS_PPE_L3_DBG_1,		/* PPE L3 debug register 1 */
+	NSS_STATS_PPE_L3_DBG_2,		/* PPE L3 debug register 2 */
+	NSS_STATS_PPE_L3_DBG_3,		/* PPE L3 debug register 3 */
+	NSS_STATS_PPE_L3_DBG_4,		/* PPE L3 debug register 4 */
+	NSS_STATS_PPE_L3_DBG_PORT,	/* PPE L3 debug register Port */
+	NSS_STATS_PPE_L3_MAX
+};
+
+enum nss_stats_ppe_code {
+	NSS_STATS_PPE_CODE_CPU,		/* PPE CPU code for last packet processed */
+	NSS_STATS_PPE_CODE_DROP,	/* PPE DROP code for last packet processed */
+	NSS_STATS_PPE_CODE_MAX
+};
+
+struct nss_stats_ppe_debug {
+	uint32_t conn_stats[NSS_STATS_PPE_CONN_MAX];
+	uint32_t l3_stats[NSS_STATS_PPE_L3_MAX];
+	uint32_t code_stats[NSS_STATS_PPE_CODE_MAX];
+	int32_t if_index;
+	uint32_t if_num; /* nss interface number */
+	bool valid;
+};
+
+/*
  * MAP-T debug error types
  */
 enum nss_stats_map_t_instance {
@@ -881,6 +936,10 @@ struct nss_top_instance {
 	struct dentry *gmac_dentry;		/* GMAC ethnode stats dentry */
 	struct dentry *capwap_decap_dentry;	/* CAPWAP decap ethnode stats dentry */
 	struct dentry *capwap_encap_dentry;	/* CAPWAP encap ethnode stats dentry */
+	struct dentry *ppe_dentry;	/* PPE root dentry */
+	struct dentry *ppe_conn_dentry;	/* PPE connection stats dentry */
+	struct dentry *ppe_l3_dentry;	/* PPE L3 debug stats dentry */
+	struct dentry *ppe_code_dentry;	/* PPE code stats dentry */
 	struct dentry *gre_redir_dentry;	/* gre_redir ethnode stats dentry */
 	struct dentry *sjack_dentry;		/* sjack stats dentry */
 	struct dentry *portid_dentry;		/* portid stats dentry */
@@ -909,6 +968,7 @@ struct nss_top_instance {
 	uint8_t wlan_handler_id;
 	uint8_t tun6rd_handler_id;
 	uint8_t wifi_handler_id;
+	uint8_t ppe_handler_id;
 	uint8_t pptp_handler_id;
 	uint8_t l2tpv2_handler_id;
 	uint8_t dtls_handler_id;
@@ -1189,6 +1249,8 @@ struct nss_platform_data {
 				/* Does this core handle map-t */
 	enum nss_feature_enabled oam_enabled;
 				/* Does this core handle oam? */
+	enum nss_feature_enabled ppe_enabled;
+				/* Does this core handle ppe ? */
 	enum nss_feature_enabled pppoe_enabled;
 				/* Does this core handle pppoe? */
 	enum nss_feature_enabled pptp_enabled;
@@ -1296,4 +1358,10 @@ extern int nss_core_get_paged_mode(void);
 extern void nss_coredump_notify_register(void);
 extern void nss_fw_coredump_notify(struct nss_ctx_instance *nss_own, int intr);
 extern int nss_coredump_init_delay_work(void);
+
+/*
+ * APIs for PPE
+ */
+extern void nss_ppe_init(void);
+extern void nss_ppe_free(void);
 #endif /* __NSS_CORE_H */

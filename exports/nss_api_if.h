@@ -66,6 +66,7 @@
 #include "nss_dtls.h"
 #include "nss_edma.h"
 #include "nss_bridge.h"
+#include "nss_ppe.h"
 
 /*
  * Interface numbers are reserved in the
