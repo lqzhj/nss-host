@@ -378,11 +378,19 @@ struct nss_wifi_vdev_per_packet_metadata {
 };
 
 /**
+ * wifi receive meta data for meshmode rx
+ */
+struct nss_wifi_vdev_meshmode_rx_metadata {
+	uint16_t vdev_id;	/**< vdev_id */
+	uint16_t peer_id;	/**< peer_id */
+};
+
+/**
  * wifi receive meta data for rawmode rx
  */
 struct nss_wifi_vdev_rawmode_rx_metadata {
-	uint16_t vdev_id;               /**< vdev_id */
-	uint16_t peer_id;               /**< peer_id */
+	uint16_t vdev_id;	/**< vdev_id */
+	uint16_t peer_id;	/**< peer_id */
 };
 
 /**
