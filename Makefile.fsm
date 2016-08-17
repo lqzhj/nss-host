@@ -12,7 +12,6 @@ qca-nss-drv-objs := \
 			nss_core.o \
 			nss_coredump.o \
 			nss_crypto.o \
-			nss_data_plane.o \
 			nss_dtls.o \
 			nss_dynamic_interface.o \
 			nss_eth_rx.o \
@@ -57,9 +56,11 @@ qca-nss-drv-objs += nss_tx_rx_virt_if.o
 
 qca-nss-drv-objs += nss_hal/nss_hal.o
 qca-nss-drv-objs += nss_hal/fsm9010/nss_hal_pvt.o
+qca-nss-drv-objs += nss_data_plane/nss_data_plane.o
+qca-nss-drv-objs += nss_data_plane/nss_data_plane_gmac.o
 
 ccflags-y += -I$(obj)/nss_hal/include
-ccflags-y += -I$(obj)/nss_hal/
+ccflags-y += -I$(obj)/nss_data_plane/include
 ccflags-y += -I$(obj)/exports
 ccflags-y += -I$(obj)/nss_hal/fsm9010 -DNSS_HAL_FSM9010_SUPPORT
 ccflags-y += -DNSS_DEBUG_LEVEL=0 -DNSS_EMPTY_BUFFER_SIZE=1984 -DNSS_PKT_STATS_ENABLED=1

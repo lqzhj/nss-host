@@ -20,20 +20,16 @@
 #include "nss_tx_rx_common.h"
 #include <nss_gmac_api_if.h>
 
-extern int nss_skip_nw_process;
+#define NSS_DP_GMAC_SUPPORTED_FEATURES (NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_FRAGLIST | (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO))
+#define NSS_DATA_PLANE_GMAC_MAX_INTERFACES 4
 
-#define NSS_DP_SUPPORTED_FEATURES NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_FRAGLIST | (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO)
-
-static struct delayed_work nss_data_plane_work;
-static struct workqueue_struct *nss_data_plane_workqueue;
-
-struct nss_data_plane_param nss_data_plane_params[NSS_MAX_PHYSICAL_INTERFACES];
+struct nss_data_plane_param nss_data_plane_gmac_params[NSS_DATA_PLANE_GMAC_MAX_INTERFACES];
 
 /*
- * nss_data_plane_open()
+ * __nss_data_plane_open()
  *	Called by gmac to notify open to nss-fw
  */
-static int nss_data_plane_open(void *arg, uint32_t tx_desc_ring, uint32_t rx_desc_ring, uint32_t mode)
+static int __nss_data_plane_open(void *arg, uint32_t tx_desc_ring, uint32_t rx_desc_ring, uint32_t mode)
 {
 	struct nss_data_plane_param *dp = (struct nss_data_plane_param *)arg;
 
@@ -48,10 +44,10 @@ static int nss_data_plane_open(void *arg, uint32_t tx_desc_ring, uint32_t rx_des
 }
 
 /*
- * nss_data_plane_close()
+ * __nss_data_plane_close()
  *	Called by gmac to notify close to nss-fw
  */
-static int nss_data_plane_close(void *arg)
+static int __nss_data_plane_close(void *arg)
 {
 	/*
 	 * We don't actually do synopsys gmac close in fw, just return success
@@ -60,10 +56,10 @@ static int nss_data_plane_close(void *arg)
 }
 
 /*
- * nss_data_plane_link_state()
+ * __nss_data_plane_link_state()
  *	Called by gmac to notify link state change to nss-fw
  */
-static int nss_data_plane_link_state(void *arg, uint32_t link_state)
+static int __nss_data_plane_link_state(void *arg, uint32_t link_state)
 {
 	struct nss_data_plane_param *dp = (struct nss_data_plane_param *)arg;
 
@@ -71,10 +67,10 @@ static int nss_data_plane_link_state(void *arg, uint32_t link_state)
 }
 
 /*
- * nss_data_plane_mac_addr()
+ * __nss_data_plane_mac_addr()
  *	Called by gmac to set mac address
  */
-static int nss_data_plane_mac_addr(void *arg, uint8_t *addr)
+static int __nss_data_plane_mac_addr(void *arg, uint8_t *addr)
 {
 	struct nss_data_plane_param *dp = (struct nss_data_plane_param *)arg;
 
@@ -82,10 +78,10 @@ static int nss_data_plane_mac_addr(void *arg, uint8_t *addr)
 }
 
 /*
- * nss_data_plane_change_mtu()
+ * __nss_data_plane_change_mtu()
  *	Called by gmac to change mtu of a gmac
  */
-static int nss_data_plane_change_mtu(void *arg, uint32_t mtu)
+static int __nss_data_plane_change_mtu(void *arg, uint32_t mtu)
 {
 	struct nss_data_plane_param *dp = (struct nss_data_plane_param *)arg;
 
@@ -93,10 +89,10 @@ static int nss_data_plane_change_mtu(void *arg, uint32_t mtu)
 }
 
 /*
- * nss_data_plane_pause_on_off()
+ * __nss_data_plane_pause_on_off()
  *	Called by gmac to enable/disable pause frames
  */
-static int nss_data_plane_pause_on_off(void *arg, uint32_t pause_on)
+static int __nss_data_plane_pause_on_off(void *arg, uint32_t pause_on)
 {
 	struct nss_data_plane_param *dp = (struct nss_data_plane_param *)arg;
 
@@ -104,10 +100,10 @@ static int nss_data_plane_pause_on_off(void *arg, uint32_t pause_on)
 }
 
 /*
- * nss_data_plane_buf()
+ * __nss_data_plane_buf()
  *	Called by gmac to pass a sk_buff for xmit
  */
-static int nss_data_plane_buf(void *arg, struct sk_buff *os_buf)
+static int __nss_data_plane_buf(void *arg, struct sk_buff *os_buf)
 {
 	struct nss_data_plane_param *dp = (struct nss_data_plane_param *)arg;
 
@@ -115,56 +111,37 @@ static int nss_data_plane_buf(void *arg, struct sk_buff *os_buf)
 }
 
 /*
- * nss_data_plane_set_features()
+ * __nss_data_plane_set_features()
  *	Called by gmac to allow data plane to modify the set of features it supports
 */
-static void nss_data_plane_set_features(struct net_device *netdev)
+static void __nss_data_plane_set_features(struct net_device *netdev)
 {
-	netdev->features |= NSS_DP_SUPPORTED_FEATURES;
-	netdev->hw_features |= NSS_DP_SUPPORTED_FEATURES;
-	netdev->vlan_features |= NSS_DP_SUPPORTED_FEATURES;
-	netdev->wanted_features |= NSS_DP_SUPPORTED_FEATURES;
-}
-
-/*
- * nss_data_plane_work_function()
- *	Work function that gets queued to "install" the gmac overlays
- */
-static void nss_data_plane_work_function(struct work_struct *work)
-{
-	int i;
-	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[NSS_CORE_0];
-
-	for (i = 0; i < NSS_MAX_PHYSICAL_INTERFACES; i++) {
-		if (!nss_data_plane_register_to_nss_gmac(nss_ctx, i)) {
-			nss_warning("%p: Register data plane failed for gmac:%d\n", nss_ctx, i);
-		} else {
-			nss_info("%p: Register data plan to gmac:%d success\n", nss_ctx, i);
-		}
-	}
+	netdev->features |= NSS_DP_GMAC_SUPPORTED_FEATURES;
+	netdev->hw_features |= NSS_DP_GMAC_SUPPORTED_FEATURES;
+	netdev->vlan_features |= NSS_DP_GMAC_SUPPORTED_FEATURES;
+	netdev->wanted_features |= NSS_DP_GMAC_SUPPORTED_FEATURES;
 }
 
 /*
  * nss offload data plane ops
  */
-static struct nss_gmac_data_plane_ops dp_ops =
-{
-	.open		= nss_data_plane_open,
-	.close		= nss_data_plane_close,
-	.link_state	= nss_data_plane_link_state,
-	.mac_addr	= nss_data_plane_mac_addr,
-	.change_mtu	= nss_data_plane_change_mtu,
-	.xmit		= nss_data_plane_buf,
-	.set_features	= nss_data_plane_set_features,
-	.pause_on_off	= nss_data_plane_pause_on_off,
+static struct nss_gmac_data_plane_ops dp_ops = {
+	.open		= __nss_data_plane_open,
+	.close		= __nss_data_plane_close,
+	.link_state	= __nss_data_plane_link_state,
+	.mac_addr	= __nss_data_plane_mac_addr,
+	.change_mtu	= __nss_data_plane_change_mtu,
+	.xmit		= __nss_data_plane_buf,
+	.set_features	= __nss_data_plane_set_features,
+	.pause_on_off	= __nss_data_plane_pause_on_off,
 };
 
 /*
  * nss_data_plane_register_to_nss_gmac()
  */
-bool nss_data_plane_register_to_nss_gmac(struct nss_ctx_instance *nss_ctx, int if_num)
+static bool nss_data_plane_register_to_nss_gmac(struct nss_ctx_instance *nss_ctx, int if_num)
 {
-	struct nss_data_plane_param *ndpp = &nss_data_plane_params[if_num];
+	struct nss_data_plane_param *ndpp = &nss_data_plane_gmac_params[if_num];
 	struct nss_top_instance *nss_top = nss_ctx->nss_top;
 	struct net_device *netdev;
 	bool is_open;
@@ -218,52 +195,55 @@ bool nss_data_plane_register_to_nss_gmac(struct nss_ctx_instance *nss_ctx, int i
 }
 
 /*
- * nss_data_plane_schedule_registration()
- *	Called from nss_init to schedule a work to do data_plane register to nss-gmac
- */
-bool nss_data_plane_schedule_registration(void)
-{
-	if (!queue_work_on(1, nss_data_plane_workqueue, &nss_data_plane_work.work)) {
-		nss_warning("Failed to register data plane workqueue on core 1\n");
-		return false;
-	} else {
-		nss_info("Register data plane workqueue on core 1\n");
-		return true;
-	}
-}
-
-/*
  * nss_data_plane_unregister_from_nss_gmac()
  */
-void nss_data_plane_unregister_from_nss_gmac(int if_num)
+static void nss_data_plane_unregister_from_nss_gmac(int if_num)
 {
-	nss_gmac_restore_data_plane(nss_data_plane_params[if_num].dev);
-	nss_data_plane_params[if_num].dev = NULL;
-	nss_data_plane_params[if_num].nss_ctx = NULL;
-	nss_data_plane_params[if_num].if_num = 0;
-	nss_data_plane_params[if_num].notify_open = 0;
-	nss_data_plane_params[if_num].bypass_nw_process = 0;
+	nss_gmac_restore_data_plane(nss_data_plane_gmac_params[if_num].dev);
+	nss_data_plane_gmac_params[if_num].dev = NULL;
+	nss_data_plane_gmac_params[if_num].nss_ctx = NULL;
+	nss_data_plane_gmac_params[if_num].if_num = 0;
+	nss_data_plane_gmac_params[if_num].notify_open = 0;
+	nss_data_plane_gmac_params[if_num].bypass_nw_process = 0;
 }
 
 /*
- * nss_data_plane_init_delay_work()
+ * __nss_data_plane_register()
  */
-int nss_data_plane_init_delay_work(void)
+static void __nss_data_plane_register(struct nss_ctx_instance *nss_ctx)
 {
-	nss_data_plane_workqueue = create_singlethread_workqueue("nss_data_plane_workqueue");
-	if (!nss_data_plane_workqueue) {
-		nss_warning("Can't allocate workqueue\n");
-		return -ENOMEM;
+	int i;
+
+	for (i = 0; i < NSS_DATA_PLANE_GMAC_MAX_INTERFACES; i++) {
+		if (!nss_data_plane_register_to_nss_gmac(nss_ctx, i)) {
+			nss_warning("%p: Register data plane failed for gmac:%d\n", nss_ctx, i);
+		} else {
+			nss_info("%p: Register data plan to gmac:%d success\n", nss_ctx, i);
+		}
 	}
-
-	INIT_DELAYED_WORK(&nss_data_plane_work, nss_data_plane_work_function);
-	return 0;
 }
 
 /*
- * nss_data_plane_destroy_delay_work()
+ * __nss_data_plane_unregister()
  */
-void nss_data_plane_destroy_delay_work(void)
+static void __nss_data_plane_unregister(void)
 {
-	destroy_workqueue(nss_data_plane_workqueue);
+	struct nss_top_instance *nss_top = &nss_top_main;
+	int i;
+
+	for (i = 0; i < NSS_DATA_PLANE_GMAC_MAX_INTERFACES; i++) {
+		if (nss_top->subsys_dp_register[i].ndev) {
+			nss_data_plane_unregister_from_nss_gmac(i);
+			nss_top->subsys_dp_register[i].ndev = NULL;
+		}
+	}
 }
+
+/*
+ * nss_data_plane_gmac_ops
+ */
+struct nss_data_plane_ops nss_data_plane_gmac_ops = {
+	.data_plane_register = &__nss_data_plane_register,
+	.data_plane_unregister = &__nss_data_plane_unregister,
+};
+

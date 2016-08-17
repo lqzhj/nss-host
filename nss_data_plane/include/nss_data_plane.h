@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014 - 2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -14,9 +14,9 @@
  **************************************************************************
  */
 
- /**
+/**
  * nss_data_plane
- *	Data plane used for communication between qca-nss-drv & qca-nss-gmac
+ *	Data plane used for communication between qca-nss-drv & data plane host
  */
 
 #ifndef __NSS_DATA_PLANE_H
@@ -26,34 +26,22 @@
 
 /*
  * nss_data_plane_param
- *	Holds the information that is going to pass to gmac as a cookie
+ *	Holds the information that is going to pass to data plane host as a cookie
  */
 struct nss_data_plane_param {
-	int if_num;				/* gmac interface number */
-	struct net_device *dev;			/* net_device instance of this gmac */
+	int if_num;				/* physical interface number */
+	struct net_device *dev;			/* net_device instance of this data plane */
 	struct nss_ctx_instance *nss_ctx;	/* which nss core */
-	int notify_open;			/* This gmac interface has been opened or not */
+	int notify_open;			/* This data plane interface has been opened or not */
 	uint32_t features;			/* skb types supported by this interface */
-	uint32_t bypass_nw_process;		/* Do we want to bypass NW processing in NSS for this GMAC */
+	uint32_t bypass_nw_process;		/* Do we want to bypass NW processing in NSS for this data plane? */
 };
 
 /*
  * nss_data_plane_schedule_registration()
- *	Called from nss_init to schedule a work to do data_plane register to nss-gmac
+ *	Called from nss_init to schedule a work to do data_plane register to data plane host driver
  */
 bool nss_data_plane_schedule_registration(void);
-
-/*
- * nss_data_plane_register_to_nss_gmac()
- *	Called from scheduled function to register fast path data plane
- */
-bool nss_data_plane_register_to_nss_gmac(struct nss_ctx_instance *nss_ctx, int if_num);
-
-/*
- * nss_data_plane_unregister_from_nss_gmac()
- *	Called from nss_remove to ask gmac to restore to slowpath data plane
- */
-void nss_data_plane_unregister_from_nss_gmac(int if_num);
 
 /*
  * nss_data_plane_init_delay_work()
@@ -66,4 +54,15 @@ int nss_data_plane_init_delay_work(void);
  *	Destroy data_plane workqueue
  */
 void nss_data_plane_destroy_delay_work(void);
+
+/*
+ * nss_data_plane_ops defines the API required to support multiple data plane targets
+ */
+struct nss_data_plane_ops {
+	void (*data_plane_register)(struct nss_ctx_instance *nss_ctx);
+	void (*data_plane_unregister)(void);
+};
+
+extern struct nss_data_plane_ops nss_data_plane_gmac_ops;
+extern int nss_skip_nw_process;
 #endif

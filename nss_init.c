@@ -636,6 +636,7 @@ static int __init nss_init(void)
 #if defined(NSS_HAL_IPQ806X_SUPPORT)
 	if (of_machine_is_compatible("qcom,ipq8064") || of_machine_is_compatible("qcom,ipq8062")) {
 		nss_top_main.hal_ops = &nss_hal_ipq806x_ops;
+		nss_top_main.data_plane_ops = &nss_data_plane_gmac_ops;
 	}
 #endif
 #if defined(NSS_HAL_IPQ807x_SUPPORT)
@@ -646,6 +647,7 @@ static int __init nss_init(void)
 #if defined(NSS_HAL_FSM9010_SUPPORT)
 	if (of_machine_is_compatible("qcom,fsm9010")) {
 		nss_top_main.hal_ops = &nss_hal_fsm9010_ops;
+		nss_top_main.data_plane_ops = &nss_data_plane_gmac_ops;
 	}
 #endif
 	if (!nss_top_main.hal_ops) {
@@ -657,6 +659,7 @@ static int __init nss_init(void)
 	 * For banana, only ipq806x is supported
 	 */
 	nss_top_main.hal_ops = &nss_hal_ipq806x_ops;
+	nss_top_main.data_plane_ops = &nss_data_plane_gmac_ops;
 
 #endif /* NSS_DT_SUPPORT */
 	nss_top_main.nss_hal_common_init_done = false;
