@@ -64,5 +64,7 @@ struct nss_data_plane_ops {
 };
 
 extern struct nss_data_plane_ops nss_data_plane_gmac_ops;
+extern struct nss_data_plane_ops nss_data_plane_edma_ops;
+
 extern int nss_skip_nw_process;
 #endif

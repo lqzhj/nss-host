@@ -65,7 +65,8 @@ ccflags-y += -I$(obj)/nss_hal/ipq806x -DNSS_HAL_IPQ806X_SUPPORT
 
 # Only 4.4 Kernel (qsdk trunk) supports ipq807x
 ifneq ($(findstring 4.4., $(KERNELVERSION)),)
-qca-nss-drv-objs += nss_hal/ipq807x/nss_hal_pvt.o
+qca-nss-drv-objs += nss_data_plane/nss_data_plane_edma.o \
+		    nss_hal/ipq807x/nss_hal_pvt.o
 ccflags-y += -I$(obj)/nss_hal/ipq807x -DNSS_HAL_IPQ807x_SUPPORT
 endif
 
