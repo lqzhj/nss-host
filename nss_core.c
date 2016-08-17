@@ -29,6 +29,24 @@
 
 #define NSS_CORE_JUMBO_LINEAR_BUF_SIZE 128
 
+#if (NSS_SKB_RECYCLE_SUPPORT == 1)
+/*
+ * We have validated the skb recycling code within the NSS for the
+ * following kernel versions. Before enabling the driver in new kernels,
+ * the skb recycle code must be checked against Linux skb handling.
+ *
+ * Tested on: 3.4, 3.10, 3.14, 3.18 and 4.4.
+ */
+#if (!( \
+(((LINUX_VERSION_CODE >= KERNEL_VERSION(3, 4, 0)) && (LINUX_VERSION_CODE < KERNEL_VERSION(3, 5, 0)))) || \
+(((LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)) && (LINUX_VERSION_CODE < KERNEL_VERSION(3, 15, 0)))) || \
+(((LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)) && (LINUX_VERSION_CODE < KERNEL_VERSION(3, 11, 0)))) || \
+(((LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18, 0)) && (LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0)))) || \
+(((LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0)) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0))))))
+#error "Check skb recycle code in this file to match Linux version"
+#endif
+#endif /* NSS_SKB_RECYCLE_SUPPORT */
+
 static int max_ipv4_conn = NSS_DEFAULT_NUM_CONN;
 module_param(max_ipv4_conn, int, S_IRUGO);
 MODULE_PARM_DESC(max_ipv4_conn, "Max number of IPv4 connections");
@@ -1657,6 +1675,115 @@ static inline void nss_core_send_unwind_dma(struct h2n_desc_if_instance *desc_if
 	}
 }
 
+#if (NSS_SKB_RECYCLE_SUPPORT == 1)
+/*
+ * nss_skb_can_recycle
+ *	check if skb can be recyled
+ */
+static inline bool nss_skb_can_recycle(struct nss_ctx_instance *nss_ctx,
+	uint32_t if_num, struct sk_buff *nbuf, int min_skb_size)
+{
+	/*
+	 * Don't re-use if this is a virtual interface.
+	 */
+	if (nss_cmn_interface_is_virtual(nss_ctx, if_num)) {
+		return false;
+	}
+
+	/*
+	 * If we have to call a destructor, we can't re-use the buffer?
+	 */
+	if (unlikely(nbuf->destructor != NULL)) {
+		return false;
+	}
+
+	/*
+	 * check skb user count
+	 */
+	if (likely(atomic_read(&nbuf->users) == 1)) {
+		smp_rmb();
+	} else if (likely(!atomic_dec_and_test(&nbuf->users))) {
+		return false;
+	}
+
+#if IS_ENABLED(CONFIG_NF_CONNTRACK)
+	/*
+	 * This check is added to avoid deadlock from nf_conntrack
+	 * when ecm is trying to flush a rule.
+	 */
+	if (unlikely(nbuf->nfct)) {
+		return false;
+	}
+#endif
+
+#ifdef CONFIG_BRIDGE_NETFILTER
+	/*
+	 * This check is added to avoid deadlock from nf_bridge
+	 * when ecm is trying to flush a rule.
+	 */
+	if (unlikely(nbuf->nf_bridge)) {
+		return false;
+	}
+#endif
+
+#ifdef CONFIG_XFRM
+	/*
+	 * If skb has security parameters set do not reuse
+	 */
+	if (unlikely(nbuf->sp)) {
+		return false;
+	}
+#endif
+
+	if (unlikely(irqs_disabled()))
+		return false;
+
+	if (unlikely(skb_shinfo(nbuf)->tx_flags & SKBTX_DEV_ZEROCOPY))
+		return false;
+
+	if (unlikely(skb_is_nonlinear(nbuf)))
+		return false;
+
+	if (unlikely(nbuf->fclone != SKB_FCLONE_UNAVAILABLE))
+		return false;
+
+	min_skb_size = SKB_DATA_ALIGN(min_skb_size + NET_SKB_PAD);
+	if (unlikely(skb_end_pointer(nbuf) - nbuf->head < min_skb_size))
+		return false;
+
+	if (unlikely(skb_cloned(nbuf)))
+		return false;
+
+	return true;
+}
+
+/*
+ * nss_skb_recycle - clean up an skb for reuse
+ *	Recycles the skb to be reused as a receive buffer.
+ *
+ * NOTE: This function does any necessary reference count dropping, and
+ * cleans up the skbuff as if its allocated fresh.
+ */
+void nss_skb_recycle(struct sk_buff *nbuf)
+{
+	struct skb_shared_info *shinfo;
+
+	/*
+	 * Reset all the necessary head state information from skb which
+	 * we found can be recycled for NSS.
+	 */
+	skb_dst_drop(nbuf);
+
+	shinfo = skb_shinfo(nbuf);
+	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
+	atomic_set(&shinfo->dataref, 1);
+
+	memset(nbuf, 0, offsetof(struct sk_buff, tail));
+	nbuf->data = nbuf->head + NET_SKB_PAD;
+	skb_reset_tail_pointer(nbuf);
+}
+#endif
+
 /*
  * nss_core_send_buffer_simple_skb()
  *	Sends one skb to NSS FW
@@ -1671,6 +1798,10 @@ static inline int32_t nss_core_send_buffer_simple_skb(struct nss_ctx_instance *n
 	uint16_t mask;
 	uint32_t frag0phyaddr;
 
+#if (NSS_SKB_RECYCLE_SUPPORT == 1)
+	uint16_t sz;
+#endif
+
 	bit_flags = flags | H2N_BIT_FLAG_FIRST_SEGMENT | H2N_BIT_FLAG_LAST_SEGMENT;
 	if (likely(nbuf->ip_summed == CHECKSUM_PARTIAL)) {
 		bit_flags |= H2N_BIT_FLAG_GEN_IP_TRANSPORT_CHECKSUM;
@@ -1680,6 +1811,43 @@ static inline int32_t nss_core_send_buffer_simple_skb(struct nss_ctx_instance *n
 
 	mask = desc_if->size - 1;
 	desc = &desc_ring[hlos_index];
+
+#if (NSS_SKB_RECYCLE_SUPPORT == 1)
+	/*
+	 * Check if the skb is recyclable without resetting its fields.
+	 */
+	if (unlikely(!nss_skb_can_recycle(nss_ctx, if_num, nbuf, nss_ctx->max_buf_size))) {
+		goto no_reuse;
+	}
+
+	/*
+	 * We are going to do both Tx and then Rx on this buffer, unmap the Tx
+	 * and then map Rx over the entire buffer.
+	 */
+	sz = max((uint16_t)(nbuf->tail - nbuf->head), (uint16_t)(nss_ctx->max_buf_size + NET_SKB_PAD));
+	frag0phyaddr = (uint32_t)dma_map_single(NULL, nbuf->head, sz, DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(NULL, frag0phyaddr))) {
+		goto no_reuse;
+	}
+
+	/*
+	 * We are allowed to re-use the packet
+	 */
+	bit_flags |= H2N_BIT_FLAG_BUFFER_REUSE;
+	nss_core_write_one_descriptor(desc, buffer_type, frag0phyaddr, if_num,
+		(uint32_t)nbuf, (uint16_t)(nbuf->data - nbuf->head), nbuf->len,
+		sz, (uint32_t)nbuf->priority, mss, bit_flags);
+
+	/*
+	 * We are done using the skb fields and can recycle it now
+	 */
+	nss_skb_recycle(nbuf);
+
+	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_BUFFER_REUSE]);
+	return 1;
+
+no_reuse:
+#endif
 
 	frag0phyaddr = 0;
 	frag0phyaddr = (uint32_t)dma_map_single(NULL, nbuf->head, (nbuf->tail - nbuf->head), DMA_TO_DEVICE);

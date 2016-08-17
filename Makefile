@@ -72,7 +72,7 @@ endif
 
 ccflags-y += -I$(obj)/nss_hal/include -I$(obj)/nss_data_plane/include -I$(obj)/exports -DNSS_DEBUG_LEVEL=0 -DNSS_PKT_STATS_ENABLED=1
 
-ccflags-y += -DNSS_PM_DEBUG_LEVEL=0
+ccflags-y += -DNSS_PM_DEBUG_LEVEL=0 -DNSS_SKB_RECYCLE_SUPPORT=1
 
 ifneq ($(findstring 3.4, $(KERNELVERSION)),)
 NSS_CCFLAGS = -DNSS_DT_SUPPORT=0 -DNSS_FW_DBG_SUPPORT=1 -DNSS_PM_SUPPORT=1 -DNSS_EMPTY_BUFFER_SIZE=1984
