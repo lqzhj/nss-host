@@ -25,6 +25,7 @@
 #define NSS_WIFI_VDEV_PER_PACKET_METADATA_OFFSET 4
 #define NSS_WIFI_VDEV_DSCP_MAP_LEN 64
 #define NSS_WIFI_IPV6_ADDR_LENGTH 16
+#define NSS_WIFI_MAX_SRCS 4
 
 /**
  * WIFI VDEV messages
@@ -190,7 +191,6 @@ struct nss_wifi_vdev_snooplist_grp_list_delete_msg {
  * wifi snooplist add grp_member
  */
 struct nss_wifi_vdev_snooplist_grp_member_add_msg {
-	uint32_t src_ip_addr;					/**< source ip address */
 	uint32_t ether_type;					/**< multicast group ether_type */
 	union {
 		uint32_t grpaddr_ip4;				/**< ipv4 address */
@@ -200,6 +200,8 @@ struct nss_wifi_vdev_snooplist_grp_member_add_msg {
 	uint8_t grp_addr[ETH_ALEN];				/**< multicast group mac address */
 	uint8_t grp_member_addr[ETH_ALEN];			/**< multicast group member mac address */
 	uint8_t mode;						/**< mode */
+	uint8_t nsrcs;						/**< no of src ip addresses in case of SSM */
+	uint8_t src_ip_addr[NSS_WIFI_IPV6_ADDR_LENGTH * NSS_WIFI_MAX_SRCS];	/**< source ip address */
 };
 
 /**
@@ -219,7 +221,6 @@ struct nss_wifi_vdev_snooplist_grp_member_remove_msg {
  * Wifi snooplist update grp_member.
  */
 struct nss_wifi_vdev_snooplist_grp_member_update_msg {
-	uint32_t src_ip_addr;					/**< source ip address */
 	uint32_t ether_type;					/**< multicast group ether_type */
 	union {
 		uint32_t grpaddr_ip4;				/**< ipv4 address */
@@ -228,6 +229,8 @@ struct nss_wifi_vdev_snooplist_grp_member_update_msg {
 	uint8_t grp_addr[ETH_ALEN];				/**< multicast group mac address */
 	uint8_t grp_member_addr[ETH_ALEN];			/**< multicast group member mac address */
 	uint8_t mode;						/**< mode */
+	uint8_t nsrcs;						/**< no of src ip addresses in case of SSM */
+	uint8_t src_ip_addr[NSS_WIFI_IPV6_ADDR_LENGTH * NSS_WIFI_MAX_SRCS];	/**< source ip address */
 };
 
 /**
