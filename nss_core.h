@@ -921,6 +921,7 @@ struct nss_top_instance {
 	uint8_t portid_handler_id;
 	uint8_t oam_handler_id;
 	uint8_t edma_handler_id;
+	uint8_t bridge_handler_id;
 
 	/* subsystem registration data */
 	struct nss_subsystem_dataplane_register subsys_dp_register[NSS_MAX_NET_INTERFACES];
@@ -973,6 +974,8 @@ struct nss_top_instance {
 					/* OAM call back */
 	nss_edma_msg_callback_t edma_callback;
 					/* EDMA callback */
+	nss_bridge_msg_callback_t bridge_callback;
+					/* Bridge callback */
 	uint32_t dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_MAX];
 
 	/*
@@ -989,6 +992,7 @@ struct nss_top_instance {
 	void *ipsec_decap_ctx;		/* IPsec decap context */
 	void *oam_ctx;			/* oam context */
 	void *edma_ctx;			/* edma context */
+	void *bridge_ctx;		/* Bridge context */
 
 	/*
 	 * Statistics for various interfaces
@@ -1205,6 +1209,8 @@ struct nss_platform_data {
 				/* Does this core handle WLAN redirect? */
 	enum nss_feature_enabled wifioffload_enabled;
 				/* Does this core handle WIFI OFFLOAD? */
+	enum nss_feature_enabled bridge_enabled;
+				/* Does this core handle bridge configuration */
 };
 #endif
 

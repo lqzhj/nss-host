@@ -44,6 +44,7 @@ enum nss_dynamic_interface_type {
 	NSS_DYNAMIC_INTERFACE_TYPE_DTLS,                /* DTLS Interface Type */
 	NSS_DYNAMIC_INTERFACE_TYPE_MAP_T,		/* MAP-T Interface Type */
 	NSS_DYNAMIC_INTERFACE_TYPE_GRE_TUNNEL,		/* GRE Tunnel Interface Type */
+	NSS_DYNAMIC_INTERFACE_TYPE_BRIDGE,		/* Bridge Interface Type */
 	NSS_DYNAMIC_INTERFACE_TYPE_MAX
 };
 

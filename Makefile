@@ -8,6 +8,7 @@ obj-m += qca-nss-drv.o
 # List the files that belong to the driver in alphabetical order.
 #
 qca-nss-drv-objs := \
+			nss_bridge.o \
 			nss_capwap.o \
 			nss_cmn.o \
 			nss_core.o \
