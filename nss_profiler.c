@@ -76,7 +76,8 @@ static void nss_profiler_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct
  * nss_tx_profiler_if_buf()
  *	NSS profiler Tx API
  */
-nss_tx_status_t nss_profiler_if_tx_buf(void *ctx, void *buf, uint32_t len, void *cb)
+nss_tx_status_t nss_profiler_if_tx_buf(void *ctx, void *buf, uint32_t len,
+					void *cb, void *app_data)
 {
 	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *)ctx;
 	struct sk_buff *nbuf;
@@ -105,7 +106,7 @@ nss_tx_status_t nss_profiler_if_tx_buf(void *ctx, void *buf, uint32_t len, void 
 
 	npm = (struct nss_profiler_msg *)skb_put(nbuf, sizeof(npm->cm) + len);
 	nss_profiler_msg_init(npm, NSS_PROFILER_INTERFACE, pdm->hd_magic & 0xFF, len,
-				cb, ctx);
+				cb, app_data);
 	memcpy(&npm->payload, pdm, len);
 
 	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);

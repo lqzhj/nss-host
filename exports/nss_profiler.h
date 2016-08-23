@@ -51,6 +51,9 @@ enum nss_profiler_message_types {
 	NSS_PROFILER_FIXED_INFO_MSG,	/**< N2H: constant data */
 	NSS_PROFILER_COUNTERS_MSG,	/**< N2H: counters information */
 	NSS_PROFILER_SAMPLES_MSG,	/**< N2H: main sample data */
+	NSS_PROFILER_START_CAL,		/**< not for HOST to use */
+	NSS_PROFILER_GET_SYS_STAT_EVENT,
+	NSS_PROFILER_SET_SYS_STAT_EVENT,
 	NSS_PROFILER_MAX_MSG_TYPES,	/**< end mark */
 };
 
@@ -149,7 +152,8 @@ extern void nss_profiler_notify_unregister(nss_core_id_t core_id);
  * @note Valid context must be provided (for the right core).
  *	This context was returned during registration.
  */
-extern nss_tx_status_t nss_profiler_if_tx_buf(void *nss_ctx, void *buf, uint32_t len, void *cb);
+extern nss_tx_status_t nss_profiler_if_tx_buf(void *nss_ctx,
+		void *buf, uint32_t len, void *cb, void *app_data);
 
 /**
  * @brief Handling NSS less changed control information change
