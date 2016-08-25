@@ -1594,6 +1594,5 @@ module_init(nss_gmac_host_interface_init);
 module_exit(nss_gmac_host_interface_exit);
 
 MODULE_AUTHOR("Qualcomm Atheros");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("NSS GMAC Network Driver");
-
