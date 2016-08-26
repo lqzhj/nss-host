@@ -1006,4 +1006,3 @@ module_exit(crypto_bench_exit);
 
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("QCA NSS Crypto driver");
-MODULE_AUTHOR("Qualcomm Atheros Inc");
