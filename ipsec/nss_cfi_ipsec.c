@@ -707,7 +707,6 @@ void __exit nss_cfi_ipsec_exit_module(void)
 
 
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_AUTHOR("Qualcomm Atheros");
 MODULE_DESCRIPTION("NSS IPsec offload glue");
 
 module_init(nss_cfi_ipsec_init_module);
