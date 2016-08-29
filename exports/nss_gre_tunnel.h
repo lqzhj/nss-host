@@ -95,9 +95,7 @@ struct nss_gre_tunnel_configure {
 	uint32_t crypto_idx_encrypt;		/**< Crypto index for encrypt */
 	uint32_t crypto_idx_decrypt;		/**< Crypto index for decrypt */
 	uint32_t word0;				/**< Word0 Header */
-	uint32_t iv_len;			/**< IV Length */
 	uint8_t iv_val[16];			/**< IV Value */
-	uint8_t key[32];			/**< AES128/256 CBC Key */
 	uint8_t ttl;				/**< IP header TTL field value */
 };
 
@@ -114,14 +112,14 @@ struct nss_gre_tunnel_stats {
 	uint32_t buffer_alloc_fail;		/**< Buffer Memory Alloc Failure */
 	uint32_t buffer_copy_fail;		/**< Buffer Memory Copy Failure */
 	uint32_t outflow_queue_full;		/**< Outflow Queue Full */
-	uint32_t tx_dropped_hroom;		/**< Transmit Drop, Insufficient Headroom */
+	uint32_t rx_dropped_hroom;		/**< Transmit Drop, Insufficient Headroom */
 	uint32_t rx_cbuf_alloc_fail;		/**< RX Crypto Buffer Alloc Failure */
 	uint32_t rx_cenqueue_fail;		/**< RX Crypto Enqueue Failure */
 	uint32_t rx_decrypt_done;		/**< RX Decrypt Done */
 	uint32_t rx_forward_enqueue_fail;	/**< RX Forward Enqueue Failure */
 	uint32_t tx_cbuf_alloc_fail;		/**< RX Crypto Buffer Alloc Failure */
 	uint32_t tx_cenqueue_fail;		/**< TX Crypto Enqueue Failure */
-	uint32_t tx_dropped_troom;		/**< TX Dropped, Insufficient Tailroom */
+	uint32_t rx_dropped_troom;		/**< RX Dropped, Insufficient Tailroom */
 	uint32_t tx_forward_enqueue_fail;	/**< TX Forward Enqueue Failure */
 	uint32_t tx_cipher_done;		/**< TX Cipher Complete */
 	uint32_t crypto_nosupp;			/**< Crypto no supported count error */
