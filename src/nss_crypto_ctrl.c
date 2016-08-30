@@ -28,7 +28,11 @@ struct nss_crypto_ctrl gbl_crypto_ctrl = {0};
 
 extern struct nss_crypto_drv_ctx gbl_ctx;
 
-#define NSS_CRYPTO_SESSION_FREE_DELAY_TICKS  msecs_to_jiffies(NSS_CRYPTO_SESSION_FREE_TIMEOUT_SEC * 1000)
+static int session_timeout = NSS_CRYPTO_SESSION_FREE_TIMEOUT_SEC;
+module_param(session_timeout, int, 0644);
+MODULE_PARM_DESC(session_timeout, "Max Timeout for Crypto session deallocation");
+
+#define NSS_CRYPTO_SESSION_FREE_DELAY_TICKS  (msecs_to_jiffies(session_timeout * 1000))
 #define NSS_CRYPTO_SIZE_KB(x) ((x) >> 10)
 
 /*
