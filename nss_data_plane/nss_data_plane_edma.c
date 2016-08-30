@@ -23,7 +23,7 @@
 #define NSS_DP_EDMA_SUPPORTED_FEATURES (NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_FRAGLIST | (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO))
 #define NSS_DATA_PLANE_EDMA_MAX_INTERFACES 6
 
-struct nss_data_plane_param nss_data_plane_edma_params[NSS_DATA_PLANE_EDMA_MAX_INTERFACES];
+struct nss_data_plane_param nss_data_plane_edma_params[NSS_DATA_PLANE_EDMA_MAX_INTERFACES + 1];
 
 /*
  * __nss_data_plane_init()
@@ -236,7 +236,7 @@ static void __nss_data_plane_register(struct nss_ctx_instance *nss_ctx)
 {
 	int i;
 
-	for (i = 0; i < NSS_DATA_PLANE_EDMA_MAX_INTERFACES; i++) {
+	for (i = 1; i < NSS_DATA_PLANE_EDMA_MAX_INTERFACES + 1; i++) {
 		if (!nss_data_plane_register_to_nss_dp(nss_ctx, i)) {
 			nss_warning("%p: Register data plane failed for data plane %d\n", nss_ctx, i);
 		} else {
@@ -253,7 +253,7 @@ static void __nss_data_plane_unregister(void)
 	struct nss_top_instance *nss_top = &nss_top_main;
 	int i;
 
-	for (i = 0; i < NSS_DATA_PLANE_EDMA_MAX_INTERFACES; i++) {
+	for (i = 1; i < NSS_DATA_PLANE_EDMA_MAX_INTERFACES + 1; i++) {
 		if (nss_top->subsys_dp_register[i].ndev) {
 			nss_data_plane_unregister_from_nss_dp(i);
 			nss_top->subsys_dp_register[i].ndev = NULL;
