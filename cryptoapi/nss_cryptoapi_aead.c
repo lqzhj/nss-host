@@ -68,6 +68,7 @@ struct cryptoapi_aead_info {
 int nss_cryptoapi_aead_init(struct crypto_tfm *tfm)
 {
 	struct nss_cryptoapi_ctx *ctx = crypto_tfm_ctx(tfm);
+	struct crypto_aead *sw_tfm;
 
 	nss_cfi_assert(ctx);
 
@@ -75,9 +76,21 @@ int nss_cryptoapi_aead_init(struct crypto_tfm *tfm)
 	ctx->queued = 0;
 	ctx->completed = 0;
 	ctx->queue_failed = 0;
+	ctx->fallback_req = 0;
 	atomic_set(&ctx->refcnt, 0);
 
 	nss_cryptoapi_set_magic(ctx);
+
+	/* Alloc fallback transform for future use */
+	sw_tfm = crypto_alloc_aead(crypto_tfm_alg_name(tfm), 0, CRYPTO_ALG_ASYNC | CRYPTO_ALG_NEED_FALLBACK);
+	if (IS_ERR(sw_tfm)) {
+		nss_cfi_err("Unable to alloc fallback aead:%s\n", crypto_tfm_alg_name(tfm));
+		return -EINVAL;
+	}
+
+	/* set this tfm reqsize same to fallback tfm */
+	crypto_aead_crt(__crypto_aead_cast(tfm))->reqsize = crypto_aead_reqsize(sw_tfm);
+	ctx->sw_tfm = crypto_aead_tfm(sw_tfm);
 
 	return 0;
 }
@@ -98,6 +111,17 @@ void nss_cryptoapi_aead_exit(struct crypto_tfm *tfm)
 		nss_cfi_err("Process done is not completed, while exit is called\n");
 		nss_cfi_assert(false);
 	}
+
+	nss_cfi_assert(ctx->sw_tfm);
+	crypto_free_aead(__crypto_aead_cast(ctx->sw_tfm));
+	ctx->sw_tfm = NULL;
+
+	/*
+	 * When sid is NSS_CRYPTO_MAX_IDXS, it means that it didn't allocate
+	 * session from qca-nss-crypto, it maybe uses software crypto.
+	 */
+	if (ctx->sid == NSS_CRYPTO_MAX_IDXS)
+		return;
 
 	nss_cryptoapi_debugfs_del_session(ctx);
 
@@ -165,6 +189,7 @@ int nss_cryptoapi_sha1_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsign
 	struct nss_crypto_key cip = { .algo = NSS_CRYPTO_CIPHER_AES };
 	struct nss_crypto_key auth = { .algo = NSS_CRYPTO_AUTH_SHA1_HMAC };
 	uint32_t flag = CRYPTO_TFM_RES_BAD_KEY_LEN;
+	int ret;
 	nss_crypto_status_t status;
 
 	/*
@@ -186,13 +211,44 @@ int nss_cryptoapi_sha1_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsign
 	}
 
 	/*
-	 * Validate cipher key length
+	 * Initialize IV for this session
+	 */
+	get_random_bytes(ctx->ctx_iv, AES_BLOCK_SIZE);
+
+	/*
+	 * When the specified length request can't be handled by hardware,
+	 * fallback to other crypto
 	 */
 	switch (cip.key_len) {
 	case NSS_CRYPTOAPI_KEYLEN_AES128:
 	case NSS_CRYPTOAPI_KEYLEN_AES256:
 		/* success */
+		ctx->fallback_req = false;
 		break;
+	case NSS_CRYPTOAPI_KEYLEN_AES192:
+		/* We don't support AES192, fallback to software crypto*/
+		nss_cfi_assert(ctx->sw_tfm);
+
+		ctx->fallback_req = true;
+		ctx->sid = NSS_CRYPTO_MAX_IDXS;
+
+		/* set flag to fallback tfm */
+		crypto_tfm_clear_flags(ctx->sw_tfm, CRYPTO_TFM_REQ_MASK);
+		crypto_tfm_set_flags(ctx->sw_tfm, crypto_aead_get_flags(tfm) & CRYPTO_TFM_REQ_MASK);
+
+		/* set key to the fallback tfm */
+		ret = crypto_aead_setkey(__crypto_aead_cast(ctx->sw_tfm), key, keylen);
+		if (ret) {
+			nss_cfi_err("Setting key to software cryto failed\n");
+
+			/*
+			 * set key to the fallback tfm
+			 * Set back the fallback tfm flag to the original flag one after
+			 * doing setkey
+			 */
+			crypto_aead_set_flags(tfm, crypto_tfm_get_flags(ctx->sw_tfm));
+		}
+		return ret;
 	default:
 		nss_cfi_err("Bad Cipher key_len(%d)\n", cip.key_len);
 		goto fail;
@@ -220,12 +276,6 @@ int nss_cryptoapi_sha1_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsign
 
 	nss_cryptoapi_debugfs_add_session(sc, ctx);
 
-	/*
-	 * Initialize IV for this session
-	 */
-	get_random_bytes(ctx->ctx_iv, AES_BLOCK_SIZE);
-
-
 	nss_cfi_info("session id created: %d\n", ctx->sid);
 
 	ctx->cip_alg = NSS_CRYPTO_CIPHER_AES;
@@ -249,6 +299,7 @@ int nss_cryptoapi_sha256_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsi
 	struct nss_crypto_key cip = { .algo = NSS_CRYPTO_CIPHER_AES };
 	struct nss_crypto_key auth = { .algo = NSS_CRYPTO_AUTH_SHA256_HMAC };
 	uint32_t flag = CRYPTO_TFM_RES_BAD_KEY_LEN;
+	int ret;
 	nss_crypto_status_t status;
 
 	/*
@@ -270,20 +321,50 @@ int nss_cryptoapi_sha256_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsi
 	}
 
 	/*
-	 * Validate cipher key length
+	 * Initialize IV for this session
+	 */
+	get_random_bytes(ctx->ctx_iv, AES_BLOCK_SIZE);
+
+	/*
+	 * When the specified length request can't be handled by hardware,
+	 * fallback to other crypto
 	 */
 	switch (cip.key_len) {
 	case NSS_CRYPTOAPI_KEYLEN_AES128:
 	case NSS_CRYPTOAPI_KEYLEN_AES256:
 		/* success */
+		ctx->fallback_req = false;
 		break;
+	case NSS_CRYPTOAPI_KEYLEN_AES192:
+		nss_cfi_assert(ctx->sw_tfm);
+
+		ctx->fallback_req = true;
+		ctx->sid = NSS_CRYPTO_MAX_IDXS;
+
+		/* set flag to fallback tfm */
+		crypto_tfm_clear_flags(ctx->sw_tfm, CRYPTO_TFM_REQ_MASK);
+		crypto_tfm_set_flags(ctx->sw_tfm, crypto_aead_get_flags(tfm) & CRYPTO_TFM_REQ_MASK);
+
+		/* set key to the fallback tfm */
+		ret = crypto_aead_setkey(__crypto_aead_cast(ctx->sw_tfm), key, keylen);
+		if (ret) {
+			nss_cfi_err("Setting key to software cryto failed\n");
+
+			/*
+			 * Set back the fallback tfm flag to the original flag one after
+			 * doing setkey
+			 */
+			crypto_aead_set_flags(tfm, crypto_tfm_get_flags(ctx->sw_tfm));
+		}
+		return ret;
 	default:
 		nss_cfi_err("Bad Cipher key_len(%d)\n", cip.key_len);
 		goto fail;
+
 	}
 
 	/*
-	 * Validate cipher key length
+	 * Validate auth key length
 	 */
 	switch (auth.key_len) {
 	case NSS_CRYPTO_MAX_KEYLEN_SHA256:
@@ -304,10 +385,6 @@ int nss_cryptoapi_sha256_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsi
 
 	nss_cryptoapi_debugfs_add_session(sc, ctx);
 
-	/*
-	 * Initialize IV for this session
-	 */
-	get_random_bytes(ctx->ctx_iv, AES_BLOCK_SIZE);
 
 	nss_cfi_info("session id created: %d\n", ctx->sid);
 
@@ -498,6 +575,9 @@ int nss_cryptoapi_aead_setauthsize(struct crypto_aead *authenc, unsigned int aut
 	struct nss_cryptoapi_ctx *ctx = crypto_aead_ctx(authenc);
 
 	ctx->authsize = authsize;
+	nss_cfi_assert(ctx->sw_tfm);
+
+	crypto_aead_setauthsize(__crypto_aead_cast(ctx->sw_tfm), authsize);
 	return 0;
 }
 
@@ -781,6 +861,49 @@ struct nss_crypto_buf *nss_cryptoapi_aead_transform(struct aead_request *req, st
 
 
 /*
+ * nss_cryptoapi_aead_fallback()
+ *	Cryptoapi fallback for aes algorithm.
+ */
+int nss_cryptoapi_aead_fallback(struct nss_cryptoapi_ctx *ctx, struct aead_request *req, int type)
+{
+	struct crypto_aead *orig_tfm = crypto_aead_reqtfm(req);
+	struct aead_givcrypt_request *giv_req;
+	int err;
+
+	nss_cfi_assert(ctx->sw_tfm);
+
+	aead_request_set_tfm(req, __crypto_aead_cast(ctx->sw_tfm));
+
+	ctx->queued++;
+
+	switch (type) {
+	case NSS_CRYPTOAPI_ENCRYPT:
+		err = crypto_aead_encrypt(req);
+		break;
+	case NSS_CRYPTOAPI_DECRYPT:
+		err = crypto_aead_decrypt(req);
+		break;
+	case NSS_CRYPTOAPI_GIVENCRYPT:
+		/*
+		 * We need use cast back to struct aead_givcrypt_request, in the
+		 * case of GIVENCRYPT, the caller has moved to givcrypt_request->areq,
+		 * we need move back to the beginning of givcrypt
+		 */
+		giv_req = container_of(req, struct aead_givcrypt_request, areq);
+		err = crypto_aead_givencrypt(giv_req);
+		break;
+	default:
+		err = -EINVAL;
+	}
+
+	if (!err)
+		ctx->completed++;
+
+	aead_request_set_tfm(req, orig_tfm);
+
+	return err;
+}
+/*
  * nss_cryptoapi_sha1_aes_encrypt()
  * 	Crytoapi encrypt for sha1/aes algorithm.
  */
@@ -797,6 +920,9 @@ int nss_cryptoapi_sha1_aes_encrypt(struct aead_request *req)
 	 * check cryptoapi context magic number.
 	 */
 	nss_cryptoapi_verify_magic(ctx);
+
+	if (ctx->fallback_req)
+		return nss_cryptoapi_aead_fallback(ctx, req, NSS_CRYPTOAPI_ENCRYPT);
 
 	/*
 	 * Check if previous call to setkey couldn't allocate session with core crypto.
@@ -861,6 +987,9 @@ int nss_cryptoapi_sha256_aes_encrypt(struct aead_request *req)
 	 * check cryptoapi context magic number.
 	 */
 	nss_cryptoapi_verify_magic(ctx);
+
+	if (ctx->fallback_req)
+		return nss_cryptoapi_aead_fallback(ctx, req, NSS_CRYPTOAPI_ENCRYPT);
 
 	/*
 	 * Check if previous call to setkey couldn't allocate session with core crypto.
@@ -1055,6 +1184,9 @@ int nss_cryptoapi_sha1_aes_decrypt(struct aead_request *req)
 	 */
 	nss_cryptoapi_verify_magic(ctx);
 
+	if (ctx->fallback_req)
+		return nss_cryptoapi_aead_fallback(ctx, req, NSS_CRYPTOAPI_DECRYPT);
+
 	/*
 	 * Check if previous call to setkey couldn't allocate session with core crypto.
 	 */
@@ -1123,6 +1255,9 @@ int nss_cryptoapi_sha256_aes_decrypt(struct aead_request *req)
 	 * check cryptoapi context magic number.
 	 */
 	nss_cryptoapi_verify_magic(ctx);
+
+	if (ctx->fallback_req)
+		return nss_cryptoapi_aead_fallback(ctx, req, NSS_CRYPTOAPI_DECRYPT);
 
 	/*
 	 * Check if previous call to setkey couldn't allocate session with core crypto.
@@ -1326,10 +1461,21 @@ int nss_cryptoapi_sha1_aes_geniv_encrypt(struct aead_givcrypt_request *req)
 	struct nss_crypto_buf *buf;
 	struct cryptoapi_aead_info info;
 
+
 	/*
 	 * check cryptoapi context magic number.
 	 */
 	nss_cryptoapi_verify_magic(ctx);
+
+	if (ctx->fallback_req) {
+		/*
+		 * fill in iv.
+		 */
+		memcpy(req->giv, ctx->ctx_iv, AES_BLOCK_SIZE);
+		*(__be64 *)req->giv ^= cpu_to_be64(req->seq);
+
+		return nss_cryptoapi_aead_fallback(ctx, &req->areq, NSS_CRYPTOAPI_GIVENCRYPT);
+	}
 
 	/*
 	 * Check if previous call to setkey couldn't allocate session with core crypto.
@@ -1400,6 +1546,17 @@ int nss_cryptoapi_sha256_aes_geniv_encrypt(struct aead_givcrypt_request *req)
 	 * check cryptoapi context magic number.
 	 */
 	nss_cryptoapi_verify_magic(ctx);
+
+
+	if (ctx->fallback_req) {
+		/*
+		 * fill in iv.
+		 */
+		memcpy(req->giv, ctx->ctx_iv, AES_BLOCK_SIZE);
+		*(__be64 *)req->giv ^= cpu_to_be64(req->seq);
+
+		return nss_cryptoapi_aead_fallback(ctx, &req->areq, NSS_CRYPTOAPI_GIVENCRYPT);
+	}
 
 	/*
 	 * Check if previous call to setkey couldn't allocate session with core crypto.

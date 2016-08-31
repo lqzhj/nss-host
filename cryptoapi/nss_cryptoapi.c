@@ -54,15 +54,15 @@ struct nss_cryptoapi gbl_ctx;
 
 /*
  * crypto_alg structure initialization
- * 	Only AEAD (Cipher and Authentication) is supported by core crypto driver.
+ *	AEAD (Cipher and Authentication) and ABLK are supported by core crypto driver.
  */
 
-static struct crypto_alg cryptoapi_aead_algos[] = {
+static struct crypto_alg cryptoapi_algs[] = {
 	{	/* sha1, aes */
 		.cra_name       = "authenc(hmac(sha1),cbc(aes))",
 		.cra_driver_name = "cryptoapi-aead-hmac-sha1-cbc-aes",
-		.cra_priority   = 300,
-		.cra_flags      = CRYPTO_ALG_TYPE_AEAD | CRYPTO_ALG_ASYNC | CRYPTO_ALG_NOSUPP_SG,
+		.cra_priority   = 10000,
+		.cra_flags      = CRYPTO_ALG_TYPE_AEAD | CRYPTO_ALG_ASYNC | CRYPTO_ALG_NOSUPP_SG | CRYPTO_ALG_NEED_FALLBACK,
 		.cra_blocksize  = AES_BLOCK_SIZE,
 		.cra_ctxsize    = sizeof(struct nss_cryptoapi_ctx),
 		.cra_alignmask  = 0,
@@ -111,8 +111,8 @@ static struct crypto_alg cryptoapi_aead_algos[] = {
 	{	/* sha256, aes */
 		.cra_name       = "authenc(hmac(sha256),cbc(aes))",
 		.cra_driver_name = "cryptoapi-aead-hmac-sha256-cbc-aes",
-		.cra_priority   = 300,
-		.cra_flags      = CRYPTO_ALG_TYPE_AEAD | CRYPTO_ALG_ASYNC | CRYPTO_ALG_NOSUPP_SG,
+		.cra_priority   = 10000,
+		.cra_flags      = CRYPTO_ALG_TYPE_AEAD | CRYPTO_ALG_ASYNC | CRYPTO_ALG_NOSUPP_SG | CRYPTO_ALG_NEED_FALLBACK,
 		.cra_blocksize  = AES_BLOCK_SIZE,
 		.cra_ctxsize    = sizeof(struct nss_cryptoapi_ctx),
 		.cra_alignmask  = 0,
@@ -161,8 +161,8 @@ static struct crypto_alg cryptoapi_aead_algos[] = {
 	{
 		.cra_name       = "cbc(aes)",
 		.cra_driver_name = "cryptoapi-ablkcipher-cbc-aes",
-		.cra_priority   = 300,
-		.cra_flags      = CRYPTO_ALG_TYPE_ABLKCIPHER | CRYPTO_ALG_ASYNC | CRYPTO_ALG_NOSUPP_SG,
+		.cra_priority   = 10000,
+		.cra_flags      = CRYPTO_ALG_TYPE_ABLKCIPHER | CRYPTO_ALG_ASYNC | CRYPTO_ALG_NOSUPP_SG | CRYPTO_ALG_NEED_FALLBACK,
 		.cra_blocksize  = AES_BLOCK_SIZE,
 		.cra_ctxsize    = sizeof(struct nss_cryptoapi_ctx),
 		.cra_alignmask  = 0,
@@ -220,14 +220,14 @@ static nss_crypto_user_ctx_t nss_cryptoapi_register(nss_crypto_handle_t crypto)
 
 	sc->crypto = crypto;
 
-	for (i = 0; i < ARRAY_SIZE(cryptoapi_aead_algos); i++) {
+	for (i = 0; i < ARRAY_SIZE(cryptoapi_algs); i++) {
 
-		rc = crypto_register_alg(&cryptoapi_aead_algos[i]);
+		rc = crypto_register_alg(&cryptoapi_algs[i]);
 		if (rc) {
-			nss_cfi_err("Aead registeration failed, algo: %s\n", cryptoapi_aead_algos[i].cra_name);
+			nss_cfi_err("Aead registeration failed, algo: %s\n", cryptoapi_algs[i].cra_name);
 			continue;
 		}
-		nss_cfi_info("Aead registeration succeed, algo: %s\n", cryptoapi_aead_algos[i].cra_name);
+		nss_cfi_info("Aead registeration succeed, algo: %s\n", cryptoapi_algs[i].cra_name);
 	}
 
 	/*
@@ -250,14 +250,14 @@ static void nss_cryptoapi_unregister(nss_crypto_user_ctx_t cfi)
 
 	nss_cfi_info("unregister nss_cryptoapi\n");
 
-	for (i = 0; i < ARRAY_SIZE(cryptoapi_aead_algos); i++) {
+	for (i = 0; i < ARRAY_SIZE(cryptoapi_algs); i++) {
 
-		rc = crypto_unregister_alg(&cryptoapi_aead_algos[i]);
+		rc = crypto_unregister_alg(&cryptoapi_algs[i]);
 		if (rc) {
-			nss_cfi_err("Aead unregister failed, algo: %s\n", cryptoapi_aead_algos[i].cra_name);
+			nss_cfi_err("Aead unregister failed, algo: %s\n", cryptoapi_algs[i].cra_name);
 			continue;
 		}
-		nss_cfi_info("Aead unregister succeed, algo: %s\n", cryptoapi_aead_algos[i].cra_name);
+		nss_cfi_info("Aead unregister succeed, algo: %s\n", cryptoapi_algs[i].cra_name);
 	}
 
 	/*

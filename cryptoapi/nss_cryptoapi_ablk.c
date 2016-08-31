@@ -58,13 +58,13 @@ struct nss_cryptoapi_ablk_info {
 };
 
 /*
- *
  * nss_cryptoapi_ablkcipher_init()
  * 	Cryptoapi ablkcipher init function.
  */
 int nss_cryptoapi_ablkcipher_init(struct crypto_tfm *tfm)
 {
 	struct nss_cryptoapi_ctx *ctx = crypto_tfm_ctx(tfm);
+	struct crypto_ablkcipher *sw_tfm;
 
 	nss_cfi_assert(ctx);
 
@@ -72,9 +72,21 @@ int nss_cryptoapi_ablkcipher_init(struct crypto_tfm *tfm)
 	ctx->queued = 0;
 	ctx->completed = 0;
 	ctx->queue_failed = 0;
+	ctx->fallback_req = 0;
 	atomic_set(&ctx->refcnt, 0);
 
 	nss_cryptoapi_set_magic(ctx);
+
+	/* Alloc fallback transform for future use */
+	sw_tfm = crypto_alloc_ablkcipher(crypto_tfm_alg_name(tfm), 0, CRYPTO_ALG_ASYNC | CRYPTO_ALG_NEED_FALLBACK);
+	if (IS_ERR(sw_tfm)) {
+		nss_cfi_err("unable to alloc software crypto for %s\n", crypto_tfm_alg_name(tfm));
+		return -EINVAL;
+	}
+
+	/* set this tfm reqsize same to fallback tfm */
+	crypto_ablkcipher_crt(__crypto_ablkcipher_cast(tfm))->reqsize = crypto_ablkcipher_reqsize(sw_tfm);
+	ctx->sw_tfm = crypto_ablkcipher_tfm(sw_tfm);
 
 	return 0;
 }
@@ -95,6 +107,17 @@ void nss_cryptoapi_ablkcipher_exit(struct crypto_tfm *tfm)
 		nss_cfi_err("Process done is not completed, while exit is called\n");
 		nss_cfi_assert(false);
 	}
+
+	nss_cfi_assert(ctx->sw_tfm);
+	crypto_free_ablkcipher(__crypto_ablkcipher_cast(ctx->sw_tfm));
+	ctx->sw_tfm = NULL;
+
+	/*
+	 * When NSS_CRYPTO_MAX_IDXS is set, it means that fallback tfm was used
+	 * we didn't create any sessions
+	 */
+	if (ctx->sid == NSS_CRYPTO_MAX_IDXS)
+		return;
 
 	nss_cryptoapi_debugfs_del_session(ctx);
 
@@ -128,6 +151,7 @@ int nss_cryptoapi_aes_cbc_setkey(struct crypto_ablkcipher *cipher, const u8 *key
 	struct nss_crypto_key cip = { .algo = NSS_CRYPTO_CIPHER_AES };
 	struct nss_crypto_key *cip_ptr = &cip;
 	uint32_t flag = CRYPTO_TFM_RES_BAD_KEY_LEN;
+	int ret;
 	nss_crypto_status_t status;
 
 	/*
@@ -152,7 +176,33 @@ int nss_cryptoapi_aes_cbc_setkey(struct crypto_ablkcipher *cipher, const u8 *key
 	case NSS_CRYPTOAPI_KEYLEN_AES128:
 	case NSS_CRYPTOAPI_KEYLEN_AES256:
 		/* success */
+		ctx->fallback_req = false;
 		break;
+	case NSS_CRYPTOAPI_KEYLEN_AES192:
+		/*
+		 * AES192 is not supported by hardware, falling back to software
+		 * crypto.
+		 */
+		nss_cfi_assert(ctx->sw_tfm);
+		ctx->fallback_req = true;
+		ctx->sid = NSS_CRYPTO_MAX_IDXS;
+
+		/* set flag to fallback tfm */
+		crypto_tfm_clear_flags(ctx->sw_tfm, CRYPTO_TFM_REQ_MASK);
+		crypto_tfm_set_flags(ctx->sw_tfm, crypto_ablkcipher_get_flags(cipher) & CRYPTO_TFM_REQ_MASK);
+
+		 /* Set key to the fallback tfm */
+		ret = crypto_ablkcipher_setkey(__crypto_ablkcipher_cast(ctx->sw_tfm), key, keylen);
+		if (ret) {
+			nss_cfi_err("Failed to set key to the sw crypto");
+
+			/*
+			 * Set back the fallback tfm flag to the original flag one after
+			 * doing setkey
+			 */
+			crypto_ablkcipher_set_flags(cipher, crypto_tfm_get_flags(ctx->sw_tfm));
+		}
+		return ret;
 	default:
 		nss_cfi_err("Bad Cipher key_len(%d)\n", cip.key_len);
 		goto fail;
@@ -328,6 +378,42 @@ struct nss_crypto_buf *nss_cryptoapi_ablk_transform(struct ablkcipher_request *r
 }
 
 /*
+ * nss_cryptoapi_ablkcipher_fallback()
+ *	Cryptoapi fallback for ablkcipher algorithm.
+ */
+int nss_cryptoapi_ablkcipher_fallback(struct nss_cryptoapi_ctx *ctx, struct ablkcipher_request *req, int type)
+{
+	struct crypto_ablkcipher *orig_tfm = crypto_ablkcipher_reqtfm(req);
+	int err;
+
+	nss_cfi_assert(ctx->sw_tfm);
+
+	/* Set new fallback tfm to the request */
+	ablkcipher_request_set_tfm(req, __crypto_ablkcipher_cast(ctx->sw_tfm));
+
+	ctx->queued++;
+
+	switch (type) {
+	case NSS_CRYPTOAPI_ENCRYPT:
+		err = crypto_ablkcipher_encrypt(req);
+		break;
+	case NSS_CRYPTOAPI_DECRYPT:
+		err = crypto_ablkcipher_decrypt(req);
+		break;
+	default:
+		err = -EINVAL;
+	}
+
+	if (!err)
+		ctx->completed++;
+
+	/* Set original tfm to the request */
+	ablkcipher_request_set_tfm(req, orig_tfm);
+
+	return err;
+}
+
+/*
  *
  * nss_cryptoapi_ablkcipher_init()
  * 	Cryptoapi ablkcipher init function.
@@ -344,6 +430,9 @@ int nss_cryptoapi_aes_cbc_encrypt(struct ablkcipher_request *req)
 	 * check cryptoapi context magic number.
 	 */
 	nss_cryptoapi_verify_magic(ctx);
+
+	if (ctx->fallback_req)
+		return nss_cryptoapi_ablkcipher_fallback(ctx, req, NSS_CRYPTOAPI_ENCRYPT);
 
 	/*
 	 * Check if previous call to setkey couldn't allocate session with core crypto.
@@ -407,6 +496,9 @@ int nss_cryptoapi_aes_cbc_decrypt(struct ablkcipher_request *req)
 	 * check cryptoapi context magic number.
 	 */
 	nss_cryptoapi_verify_magic(ctx);
+
+	if (ctx->fallback_req)
+		return nss_cryptoapi_ablkcipher_fallback(ctx, req, NSS_CRYPTOAPI_DECRYPT);
 
 	/*
 	 * Check if previous call to setkey couldn't allocate session with core crypto.

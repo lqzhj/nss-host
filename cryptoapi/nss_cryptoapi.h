@@ -63,6 +63,8 @@ struct nss_cryptoapi_ctx {
 	uint16_t magic;
 	uint8_t ctx_iv[AES_BLOCK_SIZE];
 	uint16_t rsvd;
+	struct crypto_tfm *sw_tfm;
+	bool fallback_req;
 };
 
 /**
@@ -71,7 +73,14 @@ struct nss_cryptoapi_ctx {
 enum nss_cryptoapi_keylen {
 	NSS_CRYPTOAPI_KEYLEN_AES128 = 16,
 	NSS_CRYPTOAPI_KEYLEN_AES256 = 32,
+	NSS_CRYPTOAPI_KEYLEN_AES192 = 24,
 	NSS_CRYPTOAPI_KEYLEN_3DES = 24,
+};
+
+enum nss_cryptoapi_fallback_type {
+	NSS_CRYPTOAPI_ENCRYPT,
+	NSS_CRYPTOAPI_DECRYPT,
+	NSS_CRYPTOAPI_GIVENCRYPT,
 };
 
 #define NSS_CRYPTOAPI_DEBUGFS_NAME_SZ 64
