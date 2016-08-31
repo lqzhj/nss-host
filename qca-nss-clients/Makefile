@@ -14,24 +14,7 @@ PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE_VERSION:=$(PKG_VERSION)
 
-PKG_BUILD_DEPENDS := \
-	PACKAGE_kmod-qca-nss-crypto:kmod-qca-nss-crypto
-
 include $(INCLUDE_DIR)/package.mk
-
-define KernelPackage/qca-nss-drv-dtlsmgr
-  SECTION:=kernel
-  CATEGORY:=Kernel modules
-  SUBMENU:=Network Devices
-  TITLE:=Kernel driver for NSS (connection manager) - dtlsmgr
-  DEPENDS:=@TARGET_ipq806x +kmod-qca-nss-drv +kmod-qca-nss-crypto @!LINUX_3_18
-  FILES:=$(PKG_BUILD_DIR)/dtls/qca-nss-dtlsmgr.ko
-  AUTOLOAD:=$(call AutoLoad,60,qca-nss-dtlsmgr)
-endef
-
-define KernelPackage/qca-nss-drv-dtls/Description
-Kernel modules for NSS connection manager - Support for DTLS sessions
-endef
 
 define KernelPackage/qca-nss-drv-tun6rd
   SECTION:=kernel
@@ -117,31 +100,31 @@ define KernelPackage/qca-nss-drv-profile/Description
 This package contains a NSS driver profiler for QCA chipset
 endef
 
-define KernelPackage/qca-nss-drv-ipsecmgr
-  SECTION:=kernel
-  CATEGORY:=Kernel modules
-  SUBMENU:=Network Devices
-  TITLE:=Kernel driver for NSS (ipsec manager) - ipsecmgr
-  DEPENDS:=kmod-qca-nss-drv @!LINUX_3_18
-  FILES:=$(PKG_BUILD_DIR)/ipsecmgr/qca-nss-ipsecmgr.ko
-  AUTOLOAD:=$(call AutoLoad,58,qca-nss-ipsecmgr)
-endef
-
-define KernelPackage/qca-nss-drv-ipsecmgr/Description
-Kernel module for NSS IPsec offload manager
-endef
-
 define KernelPackage/qca-nss-drv-capwapmgr
   SECTION:=kernel
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
-  DEPENDS:=kmod-qca-nss-drv @!LINUX_3_18
+  DEPENDS:=@TARGET_ipq806x +kmod-qca-nss-drv @!LINUX_3_18
   TITLE:=NSS CAPWAP Manager for QCA NSS driver (IPQ806x)
   FILES:=$(PKG_BUILD_DIR)/capwapmgr/qca-nss-capwapmgr.ko
 endef
 
 define KernelPackage/qca-nss-drv-capwapmgr/Description
 This package contains a NSS CAPWAP Manager
+endef
+
+define KernelPackage/qca-nss-drv-bridge-mgr
+  SECTION:=kernel
+  CATEGORY:=Kernel modules
+  SUBMENU:=Network Devices
+  TITLE:=Kernel driver for NSS bridge manager
+  DEPENDS:=@TARGET_ipq806x +kmod-qca-nss-drv @!LINUX_3_18
+  FILES:=$(PKG_BUILD_DIR)/bridge/qca-nss-bridge-mgr.ko
+  AUTOLOAD:=$(call AutoLoad,51,qca-nss-bridge-mgr)
+endef
+
+define KernelPackage/qca-nss-drv-bridge-mgr/Description
+Kernel modules for NSS bridge manager
 endef
 
 define KernelPackage/qca-nss-drv-qdisc
@@ -176,10 +159,9 @@ endef
 $(eval $(call KernelPackage,qca-nss-drv-profile))
 $(eval $(call KernelPackage,qca-nss-drv-capwapmgr))
 $(eval $(call KernelPackage,qca-nss-drv-tun6rd))
-$(eval $(call KernelPackage,qca-nss-drv-dtlsmgr))
 $(eval $(call KernelPackage,qca-nss-drv-l2tpv2))
 $(eval $(call KernelPackage,qca-nss-drv-pptp))
 $(eval $(call KernelPackage,qca-nss-drv-map-t))
 $(eval $(call KernelPackage,qca-nss-drv-tunipip6))
-$(eval $(call KernelPackage,qca-nss-drv-ipsecmgr))
 $(eval $(call KernelPackage,qca-nss-drv-qdisc))
+$(eval $(call KernelPackage,qca-nss-drv-bridge-mgr))
