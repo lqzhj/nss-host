@@ -167,7 +167,7 @@ static void nss_gre_tunnel_handler(struct nss_ctx_instance *nss_ctx, struct nss_
 	 */
 	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
 		ncm->cb = (nss_ptr_t)nss_ctx->nss_top->gre_tunnel_msg_callback;
-		ncm->app_data = (nss_ptr_t)nss_ctx->nss_top->subsys_dp_register[ncm->interface].app_data;
+		ncm->app_data = (nss_ptr_t)nss_ctx->subsys_dp_register[ncm->interface].app_data;
 	}
 
 	nss_core_log_msg_failures(nss_ctx, ncm);
@@ -418,7 +418,7 @@ struct nss_ctx_instance *nss_gre_tunnel_register_if(uint32_t if_num,
 		return NULL;
 	}
 
-	if (nss_top_main.subsys_dp_register[if_num].ndev) {
+	if (nss_ctx->subsys_dp_register[if_num].ndev) {
 		nss_warning("%p: Cannot find free slot for GRE Tunnel NSS I/F:%u\n", nss_ctx, if_num);
 		nss_gre_tunnel_session_debug_stats[i].valid = false;
 		nss_gre_tunnel_session_debug_stats[i].if_num = 0;
@@ -426,10 +426,10 @@ struct nss_ctx_instance *nss_gre_tunnel_register_if(uint32_t if_num,
 		return NULL;
 	}
 
-	nss_top_main.subsys_dp_register[if_num].ndev = netdev;
-	nss_top_main.subsys_dp_register[if_num].cb = cb;
-	nss_top_main.subsys_dp_register[if_num].app_data = app_ctx;
-	nss_top_main.subsys_dp_register[if_num].features = features;
+	nss_ctx->subsys_dp_register[if_num].ndev = netdev;
+	nss_ctx->subsys_dp_register[if_num].cb = cb;
+	nss_ctx->subsys_dp_register[if_num].app_data = app_ctx;
+	nss_ctx->subsys_dp_register[if_num].features = features;
 	nss_top_main.gre_tunnel_msg_callback = ev_cb;
 	nss_core_register_handler(if_num, nss_gre_tunnel_handler, app_ctx);
 
@@ -444,6 +444,7 @@ EXPORT_SYMBOL(nss_gre_tunnel_register_if);
 void nss_gre_tunnel_unregister_if(uint32_t if_num)
 {
 	int32_t i;
+	struct nss_ctx_instance *nss_ctx = nss_gre_tunnel_get_ctx();
 
 	BUG_ON(!nss_gre_tunnel_verify_if_num(if_num));
 
@@ -458,20 +459,20 @@ void nss_gre_tunnel_unregister_if(uint32_t if_num)
 	spin_unlock_bh(&nss_gre_tunnel_session_debug_stats_lock);
 
 	if (i == NSS_MAX_GRE_TUNNEL_SESSIONS) {
-		nss_warning("%p: Cannot find debug stats for GRE Tunnel session: %d\n", nss_gre_tunnel_get_ctx(), if_num);
+		nss_warning("%p: Cannot find debug stats for GRE Tunnel session: %d\n", nss_ctx, if_num);
 		return;
 	}
 
-	if (!nss_top_main.subsys_dp_register[if_num].ndev) {
-		nss_warning("%p: Cannot find registered netdev for GRE Tunnel NSS I/F: %d\n", nss_gre_tunnel_get_ctx(), if_num);
+	if (!nss_ctx->subsys_dp_register[if_num].ndev) {
+		nss_warning("%p: Cannot find registered netdev for GRE Tunnel NSS I/F: %d\n", nss_ctx, if_num);
 
 		return;
 	}
 
-	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
-	nss_top_main.subsys_dp_register[if_num].cb = NULL;
-	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
-	nss_top_main.subsys_dp_register[if_num].features = 0;
+	nss_ctx->subsys_dp_register[if_num].ndev = NULL;
+	nss_ctx->subsys_dp_register[if_num].cb = NULL;
+	nss_ctx->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->subsys_dp_register[if_num].features = 0;
 	nss_top_main.gre_tunnel_msg_callback = NULL;
 	nss_core_unregister_handler(if_num);
 }

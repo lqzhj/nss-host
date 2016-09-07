@@ -134,7 +134,7 @@ static void nss_portid_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_
 	 */
 	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
 		ncm->cb = (nss_ptr_t)nss_ctx->nss_top->if_rx_msg_callback[ncm->interface];
-		ncm->app_data = (nss_ptr_t)nss_ctx->nss_top->subsys_dp_register[ncm->interface].ndev;
+		ncm->app_data = (nss_ptr_t)nss_ctx->subsys_dp_register[ncm->interface].ndev;
 	}
 
 	/*
@@ -416,6 +416,8 @@ EXPORT_SYMBOL(nss_portid_tx_unconfigure_port_if_msg);
 struct nss_ctx_instance *nss_portid_register_port_if(uint32_t if_num, uint32_t port_id, struct net_device *netdev,
 						nss_portid_buf_callback_t buf_callback)
 {
+	struct nss_ctx_instance *nss_ctx = nss_portid_get_ctx();
+
 	if (nss_portid_verify_if_num(if_num) == false) {
 		nss_warning("nss portid register received invalid interface %d", if_num);
 		return NULL;
@@ -435,11 +437,11 @@ struct nss_ctx_instance *nss_portid_register_port_if(uint32_t if_num, uint32_t p
 	nss_portid_hdl[port_id].if_num = if_num;
 	spin_unlock(&nss_portid_spinlock);
 
-	nss_top_main.subsys_dp_register[if_num].ndev = netdev;
-	nss_top_main.subsys_dp_register[if_num].cb = buf_callback;
-	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->subsys_dp_register[if_num].ndev = netdev;
+	nss_ctx->subsys_dp_register[if_num].cb = buf_callback;
+	nss_ctx->subsys_dp_register[if_num].app_data = NULL;
 
-	return nss_portid_get_ctx();
+	return nss_ctx;
 }
 EXPORT_SYMBOL(nss_portid_register_port_if);
 
@@ -468,10 +470,10 @@ bool nss_portid_unregister_port_if(uint32_t if_num)
 
 	(void) nss_core_unregister_handler(if_num);
 
-	nss_ctx->nss_top->subsys_dp_register[if_num].cb = NULL;
-	nss_ctx->nss_top->subsys_dp_register[if_num].app_data = NULL;
-	nss_ctx->nss_top->subsys_dp_register[if_num].ndev = NULL;
-	nss_ctx->nss_top->subsys_dp_register[if_num].features = 0;
+	nss_ctx->subsys_dp_register[if_num].cb = NULL;
+	nss_ctx->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->subsys_dp_register[if_num].ndev = NULL;
+	nss_ctx->subsys_dp_register[if_num].features = 0;
 
 	return true;
 }

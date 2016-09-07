@@ -239,10 +239,10 @@ static bool nss_data_plane_register_to_nss_dp(struct nss_ctx_instance *nss_ctx, 
 	nss_top->phys_if_handler_id[if_num] = nss_ctx->id;
 	nss_phys_if_register_handler(if_num);
 
-	nss_top->subsys_dp_register[if_num].ndev = netdev;
-	nss_top->subsys_dp_register[if_num].cb = nss_dp_receive;
-	nss_top->subsys_dp_register[if_num].app_data = NULL;
-	nss_top->subsys_dp_register[if_num].features = ndpp->features;
+	nss_ctx->subsys_dp_register[if_num].ndev = netdev;
+	nss_ctx->subsys_dp_register[if_num].cb = nss_dp_receive;
+	nss_ctx->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->subsys_dp_register[if_num].features = ndpp->features;
 
 	/*
 	 * Now we are registered and our side is ready, if the data plane was opened, ask it to start again
@@ -287,13 +287,13 @@ static void __nss_data_plane_register(struct nss_ctx_instance *nss_ctx)
  */
 static void __nss_data_plane_unregister(void)
 {
-	struct nss_top_instance *nss_top = &nss_top_main;
+	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[NSS_CORE_0];
 	int i;
 
 	for (i = 1; i < NSS_DATA_PLANE_EDMA_MAX_INTERFACES + 1; i++) {
-		if (nss_top->subsys_dp_register[i].ndev) {
+		if (nss_ctx->subsys_dp_register[i].ndev) {
 			nss_data_plane_unregister_from_nss_dp(i);
-			nss_top->subsys_dp_register[i].ndev = NULL;
+			nss_ctx->subsys_dp_register[i].ndev = NULL;
 		}
 	}
 }

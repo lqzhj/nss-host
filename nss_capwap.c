@@ -489,7 +489,7 @@ struct nss_ctx_instance *nss_capwap_data_register(uint32_t if_num, nss_capwap_bu
 	}
 
 	spin_lock(&nss_capwap_spinlock);
-	if (nss_ctx->nss_top->subsys_dp_register[if_num].ndev != NULL) {
+	if (nss_ctx->subsys_dp_register[if_num].ndev != NULL) {
 		spin_unlock(&nss_capwap_spinlock);
 		return NULL;
 	}
@@ -506,10 +506,10 @@ struct nss_ctx_instance *nss_capwap_data_register(uint32_t if_num, nss_capwap_bu
 		return NULL;
 	}
 
-	nss_ctx->nss_top->subsys_dp_register[if_num].cb = cb;
-	nss_ctx->nss_top->subsys_dp_register[if_num].app_data = NULL;
-	nss_ctx->nss_top->subsys_dp_register[if_num].ndev = netdev;
-	nss_ctx->nss_top->subsys_dp_register[if_num].features = features;
+	nss_ctx->subsys_dp_register[if_num].cb = cb;
+	nss_ctx->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->subsys_dp_register[if_num].ndev = netdev;
+	nss_ctx->subsys_dp_register[if_num].features = features;
 
 	return nss_ctx;
 }
@@ -545,10 +545,10 @@ bool nss_capwap_data_unregister(uint32_t if_num)
 
 	(void) nss_core_unregister_handler(if_num);
 
-	nss_ctx->nss_top->subsys_dp_register[if_num].cb = NULL;
-	nss_ctx->nss_top->subsys_dp_register[if_num].app_data = NULL;
-	nss_ctx->nss_top->subsys_dp_register[if_num].ndev = NULL;
-	nss_ctx->nss_top->subsys_dp_register[if_num].features = 0;
+	nss_ctx->subsys_dp_register[if_num].cb = NULL;
+	nss_ctx->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->subsys_dp_register[if_num].ndev = NULL;
+	nss_ctx->subsys_dp_register[if_num].features = 0;
 
 	kfree(h);
 	return true;

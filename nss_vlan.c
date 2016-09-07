@@ -393,16 +393,18 @@ EXPORT_SYMBOL(nss_vlan_tx_add_tag_msg);
 struct nss_ctx_instance *nss_register_vlan_if(uint32_t if_num, nss_vlan_callback_t vlan_data_callback,
 					      struct net_device *netdev, uint32_t features, void *app_ctx)
 {
+	struct nss_ctx_instance *nss_ctx = nss_vlan_get_context();
+
 	nss_assert(nss_vlan_verify_if_num(if_num));
 
-	nss_top_main.subsys_dp_register[if_num].ndev = netdev;
-	nss_top_main.subsys_dp_register[if_num].cb = vlan_data_callback;
-	nss_top_main.subsys_dp_register[if_num].app_data = app_ctx;
-	nss_top_main.subsys_dp_register[if_num].features = features;
+	nss_ctx->subsys_dp_register[if_num].ndev = netdev;
+	nss_ctx->subsys_dp_register[if_num].cb = vlan_data_callback;
+	nss_ctx->subsys_dp_register[if_num].app_data = app_ctx;
+	nss_ctx->subsys_dp_register[if_num].features = features;
 
 	nss_core_register_handler(if_num, nss_vlan_handler, app_ctx);
 
-	return nss_vlan_get_context();
+	return nss_ctx;
 }
 EXPORT_SYMBOL(nss_register_vlan_if);
 
@@ -411,12 +413,14 @@ EXPORT_SYMBOL(nss_register_vlan_if);
  */
 void nss_unregister_vlan_if(uint32_t if_num)
 {
+	struct nss_ctx_instance *nss_ctx = nss_vlan_get_context();
+
 	nss_assert(nss_vlan_verify_if_num(if_num));
 
-	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
-	nss_top_main.subsys_dp_register[if_num].cb = NULL;
-	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
-	nss_top_main.subsys_dp_register[if_num].features = 0;
+	nss_ctx->subsys_dp_register[if_num].ndev = NULL;
+	nss_ctx->subsys_dp_register[if_num].cb = NULL;
+	nss_ctx->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->subsys_dp_register[if_num].features = 0;
 
 	nss_core_unregister_handler(if_num);
 }

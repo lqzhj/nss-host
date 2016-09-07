@@ -261,14 +261,14 @@ struct nss_ctx_instance *nss_crypto_data_register(uint32_t if_num, nss_crypto_bu
 	 * Avoid multiple data callback registration with the
 	 * sama interface number
 	 */
-	if (nss_ctx->nss_top->subsys_dp_register[if_num].cb) {
+	if (nss_ctx->subsys_dp_register[if_num].cb) {
 		return nss_ctx;
 	}
 
-	nss_ctx->nss_top->subsys_dp_register[if_num].cb = cb;
-	nss_ctx->nss_top->subsys_dp_register[if_num].app_data = NULL;
-	nss_ctx->nss_top->subsys_dp_register[if_num].ndev = netdev;
-	nss_ctx->nss_top->subsys_dp_register[if_num].features = features;
+	nss_ctx->subsys_dp_register[if_num].cb = cb;
+	nss_ctx->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->subsys_dp_register[if_num].ndev = netdev;
+	nss_ctx->subsys_dp_register[if_num].features = features;
 
 	return nss_ctx;
 }
@@ -287,14 +287,14 @@ void nss_crypto_data_unregister(struct nss_ctx_instance *nss_ctx, uint32_t if_nu
 	/*
 	 * if already unregistered then return
 	 */
-	if (!nss_ctx->nss_top->subsys_dp_register[if_num].cb) {
+	if (!nss_ctx->subsys_dp_register[if_num].cb) {
 		return;
 	}
 
-	nss_ctx->nss_top->subsys_dp_register[if_num].cb = NULL;
-	nss_ctx->nss_top->subsys_dp_register[if_num].app_data = NULL;
-	nss_ctx->nss_top->subsys_dp_register[if_num].ndev = NULL;
-	nss_ctx->nss_top->subsys_dp_register[if_num].features = 0;
+	nss_ctx->subsys_dp_register[if_num].cb = NULL;
+	nss_ctx->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->subsys_dp_register[if_num].ndev = NULL;
+	nss_ctx->subsys_dp_register[if_num].features = 0;
 }
 
 /*

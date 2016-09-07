@@ -186,7 +186,7 @@ static void nss_dtls_handler(struct nss_ctx_instance *nss_ctx,
 	 */
 	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
 		ncm->cb = (nss_ptr_t)nss_ctx->nss_top->dtls_msg_callback;
-		ncm->app_data = (nss_ptr_t)nss_ctx->nss_top->subsys_dp_register[ncm->interface].app_data;
+		ncm->app_data = (nss_ptr_t)nss_ctx->subsys_dp_register[ncm->interface].app_data;
 	}
 
 	/*
@@ -426,17 +426,17 @@ struct nss_ctx_instance *nss_dtls_register_if(uint32_t if_num,
 		return NULL;
 	}
 
-	if (nss_top_main.subsys_dp_register[if_num].ndev) {
+	if (nss_ctx->subsys_dp_register[if_num].ndev) {
 		nss_warning("%p: Cannot find free slot for "
 			    "DTLS NSS I/F:%u\n", nss_ctx, if_num);
 
 		return NULL;
 	}
 
-	nss_top_main.subsys_dp_register[if_num].ndev = netdev;
-	nss_top_main.subsys_dp_register[if_num].cb = cb;
-	nss_top_main.subsys_dp_register[if_num].app_data = app_ctx;
-	nss_top_main.subsys_dp_register[if_num].features = features;
+	nss_ctx->subsys_dp_register[if_num].ndev = netdev;
+	nss_ctx->subsys_dp_register[if_num].cb = cb;
+	nss_ctx->subsys_dp_register[if_num].app_data = app_ctx;
+	nss_ctx->subsys_dp_register[if_num].features = features;
 
 	nss_top_main.dtls_msg_callback = ev_cb;
 	nss_core_register_handler(if_num, nss_dtls_handler, app_ctx);
@@ -450,6 +450,7 @@ EXPORT_SYMBOL(nss_dtls_register_if);
  */
 void nss_dtls_unregister_if(uint32_t if_num)
 {
+	struct nss_ctx_instance *nss_ctx = nss_dtls_get_context();
 	int32_t i;
 
 	BUG_ON(!nss_dtls_verify_if_num(if_num));
@@ -465,22 +466,20 @@ void nss_dtls_unregister_if(uint32_t if_num)
 	spin_unlock_bh(&nss_dtls_session_debug_stats_lock);
 
 	if (i == NSS_MAX_DTLS_SESSIONS) {
-		nss_warning("%p: Cannot find debug stats for "
-			    "DTLS session %d\n", nss_dtls_get_context(), if_num);
+		nss_warning("%p: Cannot find debug stats for DTLS session %d\n", nss_ctx, if_num);
 		return;
 	}
 
-	if (!nss_top_main.subsys_dp_register[if_num].ndev) {
-		nss_warning("%p: Cannot find registered netdev for "
-			    "DTLS NSS I/F:%u\n", nss_dtls_get_context(), if_num);
+	if (!nss_ctx->subsys_dp_register[if_num].ndev) {
+		nss_warning("%p: Cannot find registered netdev for DTLS NSS I/F:%u\n", nss_ctx, if_num);
 
 		return;
 	}
 
-	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
-	nss_top_main.subsys_dp_register[if_num].cb = NULL;
-	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
-	nss_top_main.subsys_dp_register[if_num].features = 0;
+	nss_ctx->subsys_dp_register[if_num].ndev = NULL;
+	nss_ctx->subsys_dp_register[if_num].cb = NULL;
+	nss_ctx->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->subsys_dp_register[if_num].features = 0;
 
 	nss_top_main.dtls_msg_callback = NULL;
 	nss_core_unregister_handler(if_num);

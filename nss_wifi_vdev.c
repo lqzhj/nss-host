@@ -49,7 +49,7 @@ static void nss_wifi_vdev_handler(struct nss_ctx_instance *nss_ctx, struct nss_c
 	/*
 	 * callback
 	 */
-	if (!nss_ctx->nss_top->subsys_dp_register[ncm->interface].ndev) {
+	if (!nss_ctx->subsys_dp_register[ncm->interface].ndev) {
 		nss_warning("%p: Event received wifi vdev interface %d before registration", nss_ctx, ncm->interface);
 		return;
 
@@ -57,7 +57,7 @@ static void nss_wifi_vdev_handler(struct nss_ctx_instance *nss_ctx, struct nss_c
 
 	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
 		ncm->cb = (nss_ptr_t)nss_ctx->nss_top->if_rx_msg_callback[ncm->interface];
-		ncm->app_data = (nss_ptr_t)nss_ctx->nss_top->subsys_dp_register[ncm->interface].ndev;
+		ncm->app_data = (nss_ptr_t)nss_ctx->subsys_dp_register[ncm->interface].ndev;
 	}
 
 	/*
@@ -256,11 +256,11 @@ uint32_t nss_register_wifi_vdev_if(struct nss_ctx_instance *nss_ctx,
 {
 	nss_assert((if_num >= NSS_DYNAMIC_IF_START) && (if_num < (NSS_DYNAMIC_IF_START + NSS_MAX_DYNAMIC_INTERFACES)));
 
-	nss_top_main.subsys_dp_register[if_num].ndev = netdev;
-	nss_top_main.subsys_dp_register[if_num].cb = vdev_data_callback;
-	nss_top_main.subsys_dp_register[if_num].ext_cb = vdev_ext_data_callback;
-	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
-	nss_top_main.subsys_dp_register[if_num].features = features;
+	nss_ctx->subsys_dp_register[if_num].ndev = netdev;
+	nss_ctx->subsys_dp_register[if_num].cb = vdev_data_callback;
+	nss_ctx->subsys_dp_register[if_num].ext_cb = vdev_ext_data_callback;
+	nss_ctx->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->subsys_dp_register[if_num].features = features;
 
 	nss_top_main.if_rx_msg_callback[if_num] = vdev_event_callback;
 
@@ -274,13 +274,16 @@ uint32_t nss_register_wifi_vdev_if(struct nss_ctx_instance *nss_ctx,
  */
 void nss_unregister_wifi_vdev_if(uint32_t if_num)
 {
+	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *)&nss_top_main.nss[nss_top_main.wifi_handler_id];
+
+	nss_assert(nss_ctx);
 	nss_assert((if_num >= NSS_DYNAMIC_IF_START) && (if_num < (NSS_DYNAMIC_IF_START + NSS_MAX_DYNAMIC_INTERFACES)));
 
-	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
-	nss_top_main.subsys_dp_register[if_num].cb = NULL;
-	nss_top_main.subsys_dp_register[if_num].ext_cb = NULL;
-	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
-	nss_top_main.subsys_dp_register[if_num].features = 0;
+	nss_ctx->subsys_dp_register[if_num].ndev = NULL;
+	nss_ctx->subsys_dp_register[if_num].cb = NULL;
+	nss_ctx->subsys_dp_register[if_num].ext_cb = NULL;
+	nss_ctx->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->subsys_dp_register[if_num].features = 0;
 
 	nss_top_main.if_rx_msg_callback[if_num] = NULL;
 

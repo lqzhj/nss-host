@@ -418,8 +418,8 @@ struct nss_wifi_if_handle *nss_wifi_if_create(struct net_device *netdev)
 	}
 
 	spin_lock_bh(&nss_top_main.lock);
-	if (!nss_top_main.subsys_dp_register[handle->if_num].ndev) {
-		nss_top_main.subsys_dp_register[handle->if_num].ndev = netdev;
+	if (!nss_ctx->subsys_dp_register[handle->if_num].ndev) {
+		nss_ctx->subsys_dp_register[handle->if_num].ndev = netdev;
 	}
 	spin_unlock_bh(&nss_top_main.lock);
 
@@ -458,14 +458,14 @@ nss_tx_status_t nss_wifi_if_destroy(struct nss_wifi_if_handle *handle)
 	}
 
 	spin_lock_bh(&nss_top_main.lock);
-	if (!nss_top_main.subsys_dp_register[if_num].ndev) {
+	if (!nss_ctx->subsys_dp_register[if_num].ndev) {
 		spin_unlock_bh(&nss_top_main.lock);
 		nss_warning("%p: Unregister wifi interface %d: no context\n", nss_ctx, if_num);
 		return NSS_TX_FAILURE_BAD_PARAM;
 	}
 
-	dev = nss_top_main.subsys_dp_register[if_num].ndev;
-	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
+	dev = nss_ctx->subsys_dp_register[if_num].ndev;
+	nss_ctx->subsys_dp_register[if_num].ndev = NULL;
 	spin_unlock_bh(&nss_top_main.lock);
 	dev_put(dev);
 
@@ -483,6 +483,7 @@ void nss_wifi_if_register(struct nss_wifi_if_handle *handle,
 				nss_wifi_if_data_callback_t rx_callback,
 				struct net_device *netdev)
 {
+	struct nss_ctx_instance *nss_ctx;
 	int32_t if_num;
 
 	if (!handle) {
@@ -490,13 +491,14 @@ void nss_wifi_if_register(struct nss_wifi_if_handle *handle,
 		return;
 	}
 
+	nss_ctx = handle->nss_ctx;
 	if_num = handle->if_num;
 	nss_assert(NSS_IS_IF_TYPE(DYNAMIC, if_num));
 
-	nss_top_main.subsys_dp_register[if_num].ndev = netdev;
-	nss_top_main.subsys_dp_register[if_num].cb = rx_callback;
-	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
-	nss_top_main.subsys_dp_register[if_num].features = netdev->features;
+	nss_ctx->subsys_dp_register[if_num].ndev = netdev;
+	nss_ctx->subsys_dp_register[if_num].cb = rx_callback;
+	nss_ctx->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->subsys_dp_register[if_num].features = netdev->features;
 }
 EXPORT_SYMBOL(nss_wifi_if_register);
 
@@ -506,6 +508,7 @@ EXPORT_SYMBOL(nss_wifi_if_register);
  */
 void nss_wifi_if_unregister(struct nss_wifi_if_handle *handle)
 {
+	struct nss_ctx_instance *nss_ctx;
 	int32_t if_num;
 
 	if (!handle) {
@@ -513,12 +516,13 @@ void nss_wifi_if_unregister(struct nss_wifi_if_handle *handle)
 		return;
 	}
 
+	nss_ctx = handle->nss_ctx;
 	if_num = handle->if_num;
 
-	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
-	nss_top_main.subsys_dp_register[if_num].cb = NULL;
-	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
-	nss_top_main.subsys_dp_register[if_num].features = 0;
+	nss_ctx->subsys_dp_register[if_num].ndev = NULL;
+	nss_ctx->subsys_dp_register[if_num].cb = NULL;
+	nss_ctx->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->subsys_dp_register[if_num].features = 0;
 }
 EXPORT_SYMBOL(nss_wifi_if_unregister);
 

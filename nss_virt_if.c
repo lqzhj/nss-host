@@ -118,7 +118,7 @@ static void nss_virt_if_msg_handler(struct nss_ctx_instance *nss_ctx,
 	 */
 	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
 		ncm->cb = (nss_ptr_t)nss_ctx->nss_top->if_rx_msg_callback[ncm->interface];
-		ncm->app_data = (nss_ptr_t)nss_ctx->nss_top->subsys_dp_register[ncm->interface].ndev;
+		ncm->app_data = (nss_ptr_t)nss_ctx->subsys_dp_register[ncm->interface].ndev;
 	}
 
 	/*
@@ -319,6 +319,7 @@ static int nss_virt_if_handle_destroy_sync(struct nss_virt_if_handle *handle)
 static void nss_virt_if_handle_create_cb(void *app_data, struct nss_dynamic_interface_msg *ndim)
 {
 	struct nss_virt_if_handle *handle = (struct nss_virt_if_handle *)app_data;
+	struct nss_ctx_instance *nss_ctx = handle->nss_ctx;
 	nss_virt_if_msg_callback_t cb;
 	struct nss_virt_if_msg nvim;
 	struct nss_virt_if_create_msg *nvcm;
@@ -370,8 +371,8 @@ static void nss_virt_if_handle_create_cb(void *app_data, struct nss_dynamic_inte
 	}
 
 	spin_lock_bh(&nss_top_main.lock);
-	if (!nss_top_main.subsys_dp_register[handle->if_num].ndev) {
-		nss_top_main.subsys_dp_register[handle->if_num].ndev = handle->ndev;
+	if (!nss_ctx->subsys_dp_register[handle->if_num].ndev) {
+		nss_ctx->subsys_dp_register[handle->if_num].ndev = handle->ndev;
 	}
 	spin_unlock_bh(&nss_top_main.lock);
 
@@ -602,8 +603,8 @@ struct nss_virt_if_handle *nss_virt_if_create_sync(struct net_device *netdev)
 	}
 
 	spin_lock_bh(&nss_top_main.lock);
-	if (!nss_top_main.subsys_dp_register[handle->if_num].ndev) {
-		nss_top_main.subsys_dp_register[handle->if_num].ndev = netdev;
+	if (!nss_ctx->subsys_dp_register[handle->if_num].ndev) {
+		nss_ctx->subsys_dp_register[handle->if_num].ndev = netdev;
 	}
 	spin_unlock_bh(&nss_top_main.lock);
 
@@ -654,14 +655,14 @@ nss_tx_status_t nss_virt_if_destroy(struct nss_virt_if_handle *handle, nss_virt_
 	}
 
 	spin_lock_bh(&nss_top_main.lock);
-	if (!nss_top_main.subsys_dp_register[if_num].ndev) {
+	if (!nss_ctx->subsys_dp_register[if_num].ndev) {
 		spin_unlock_bh(&nss_top_main.lock);
 		nss_warning("%p: Unregister virt interface %d: no context\n", nss_ctx, if_num);
 		return NSS_TX_FAILURE_BAD_PARAM;
 	}
 
-	dev = nss_top_main.subsys_dp_register[if_num].ndev;
-	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
+	dev = nss_ctx->subsys_dp_register[if_num].ndev;
+	nss_ctx->subsys_dp_register[if_num].ndev = NULL;
 	spin_unlock_bh(&nss_top_main.lock);
 	dev_put(dev);
 
@@ -707,14 +708,14 @@ nss_tx_status_t nss_virt_if_destroy_sync(struct nss_virt_if_handle *handle)
 	}
 
 	spin_lock_bh(&nss_top_main.lock);
-	if (!nss_top_main.subsys_dp_register[if_num].ndev) {
+	if (!nss_ctx->subsys_dp_register[if_num].ndev) {
 		spin_unlock_bh(&nss_top_main.lock);
 		nss_warning("%p: Unregister virt interface %d: no context\n", nss_ctx, if_num);
 		return NSS_TX_FAILURE_BAD_PARAM;
 	}
 
-	dev = nss_top_main.subsys_dp_register[if_num].ndev;
-	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
+	dev = nss_ctx->subsys_dp_register[if_num].ndev;
+	nss_ctx->subsys_dp_register[if_num].ndev = NULL;
 	spin_unlock_bh(&nss_top_main.lock);
 	dev_put(dev);
 
@@ -869,6 +870,7 @@ void nss_virt_if_register(struct nss_virt_if_handle *handle,
 				nss_virt_if_data_callback_t data_callback,
 				struct net_device *netdev)
 {
+	struct nss_ctx_instance *nss_ctx = handle->nss_ctx;
 	int32_t if_num;
 
 	if (!handle) {
@@ -878,10 +880,10 @@ void nss_virt_if_register(struct nss_virt_if_handle *handle,
 
 	if_num = handle->if_num;
 
-	nss_top_main.subsys_dp_register[if_num].ndev = netdev;
-	nss_top_main.subsys_dp_register[if_num].cb = data_callback;
-	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
-	nss_top_main.subsys_dp_register[if_num].features = (uint32_t)netdev->features;
+	nss_ctx->subsys_dp_register[if_num].ndev = netdev;
+	nss_ctx->subsys_dp_register[if_num].cb = data_callback;
+	nss_ctx->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->subsys_dp_register[if_num].features = (uint32_t)netdev->features;
 
 	nss_top_main.if_rx_msg_callback[if_num] = NULL;
 }
@@ -892,6 +894,7 @@ EXPORT_SYMBOL(nss_virt_if_register);
  */
 void nss_virt_if_unregister(struct nss_virt_if_handle *handle)
 {
+	struct nss_ctx_instance *nss_ctx = handle->nss_ctx;
 	int32_t if_num;
 
 	if (!handle) {
@@ -901,10 +904,10 @@ void nss_virt_if_unregister(struct nss_virt_if_handle *handle)
 
 	if_num = handle->if_num;
 
-	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
-	nss_top_main.subsys_dp_register[if_num].cb = NULL;
-	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
-	nss_top_main.subsys_dp_register[if_num].features = 0;
+	nss_ctx->subsys_dp_register[if_num].ndev = NULL;
+	nss_ctx->subsys_dp_register[if_num].cb = NULL;
+	nss_ctx->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->subsys_dp_register[if_num].features = 0;
 
 	nss_top_main.if_rx_msg_callback[if_num] = NULL;
 }

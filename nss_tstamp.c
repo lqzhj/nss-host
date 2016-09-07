@@ -186,11 +186,10 @@ void nss_tstamp_register_handler(struct net_device *ndev)
 	struct nss_ctx_instance *nss_ctx;
 
 	nss_ctx = &nss_top_main.nss[nss_top_main.tstamp_handler_id];
-	nss_ctx->nss_top->subsys_dp_register[NSS_TSTAMP_INTERFACE].cb = nss_tstamp_buf_receive;
-	nss_ctx->nss_top->subsys_dp_register[NSS_TSTAMP_INTERFACE].app_data = NULL;
-	nss_ctx->nss_top->subsys_dp_register[NSS_TSTAMP_INTERFACE].ndev = ndev;
-	nss_ctx->nss_top->subsys_dp_register[NSS_TSTAMP_INTERFACE].features = features;
-
+	nss_ctx->subsys_dp_register[NSS_TSTAMP_INTERFACE].cb = nss_tstamp_buf_receive;
+	nss_ctx->subsys_dp_register[NSS_TSTAMP_INTERFACE].app_data = NULL;
+	nss_ctx->subsys_dp_register[NSS_TSTAMP_INTERFACE].ndev = ndev;
+	nss_ctx->subsys_dp_register[NSS_TSTAMP_INTERFACE].features = features;
 }
 
 

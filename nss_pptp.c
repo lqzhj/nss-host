@@ -139,7 +139,7 @@ static void nss_pptp_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_ms
 	 */
 	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
 		ncm->cb = (nss_ptr_t)nss_ctx->nss_top->pptp_msg_callback;
-		ncm->app_data =  (nss_ptr_t)nss_ctx->nss_top->subsys_dp_register[ncm->interface].app_data;
+		ncm->app_data =  (nss_ptr_t)nss_ctx->subsys_dp_register[ncm->interface].app_data;
 	}
 
 	/*
@@ -344,13 +344,16 @@ struct nss_ctx_instance *nss_register_pptp_if(uint32_t if_num,
 					      uint32_t features,
 					      void *app_ctx)
 {
+	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *)&nss_top_main.nss[nss_top_main.pptp_handler_id];
 	int i = 0;
+
+	nss_assert(nss_ctx);
 	nss_assert(nss_is_dynamic_interface(if_num));
 
-	nss_top_main.subsys_dp_register[if_num].ndev = netdev;
-	nss_top_main.subsys_dp_register[if_num].cb = pptp_data_callback;
-	nss_top_main.subsys_dp_register[if_num].app_data = app_ctx;
-	nss_top_main.subsys_dp_register[if_num].features = features;
+	nss_ctx->subsys_dp_register[if_num].ndev = netdev;
+	nss_ctx->subsys_dp_register[if_num].cb = pptp_data_callback;
+	nss_ctx->subsys_dp_register[if_num].app_data = app_ctx;
+	nss_ctx->subsys_dp_register[if_num].features = features;
 
 	nss_top_main.pptp_msg_callback = notification_callback;
 
@@ -367,7 +370,7 @@ struct nss_ctx_instance *nss_register_pptp_if(uint32_t if_num,
 	}
 	spin_unlock_bh(&nss_pptp_session_debug_stats_lock);
 
-	return (struct nss_ctx_instance *)&nss_top_main.nss[nss_top_main.pptp_handler_id];
+	return nss_ctx;
 }
 
 /*
@@ -375,8 +378,10 @@ struct nss_ctx_instance *nss_register_pptp_if(uint32_t if_num,
  */
 void nss_unregister_pptp_if(uint32_t if_num)
 {
+	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *)&nss_top_main.nss[nss_top_main.pptp_handler_id];
 	int i;
 
+	nss_assert(nss_ctx);
 	nss_assert(nss_is_dynamic_interface(if_num));
 
 	spin_lock_bh(&nss_pptp_session_debug_stats_lock);
@@ -387,10 +392,10 @@ void nss_unregister_pptp_if(uint32_t if_num)
 	}
 	spin_unlock_bh(&nss_pptp_session_debug_stats_lock);
 
-	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
-	nss_top_main.subsys_dp_register[if_num].cb = NULL;
-	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
-	nss_top_main.subsys_dp_register[if_num].features = 0;
+	nss_ctx->subsys_dp_register[if_num].ndev = NULL;
+	nss_ctx->subsys_dp_register[if_num].cb = NULL;
+	nss_ctx->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->subsys_dp_register[if_num].features = 0;
 
 	nss_top_main.pptp_msg_callback = NULL;
 

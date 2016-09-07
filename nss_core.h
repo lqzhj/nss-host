@@ -864,6 +864,22 @@ struct nss_shaper_bounce_registrant {
 };
 
 /*
+ * NSS core <-> subsystem data plane registration related paramaters.
+ *	This struct is filled with if_register/data_plane register APIs and
+ *	retrieved when handling a data packet/skb destined to that subsystem.
+ */
+struct nss_subsystem_dataplane_register {
+	nss_phys_if_rx_callback_t cb;	/* callback to be invoked */
+	nss_phys_if_rx_ext_data_callback_t ext_cb;
+					/* Extended data plane callback to be invoked.
+					This is needed if driver needs extended handling of data packet
+					before giving to stack */
+	void *app_data;			/* additional info passed during callback(for future use) */
+	struct net_device *ndev;	/* Netdevice associated with the interface */
+	uint32_t features;		/* skb types supported by this subsystem */
+};
+
+/*
  * NSS context instance (one per NSS core)
  */
 struct nss_ctx_instance {
@@ -899,24 +915,10 @@ struct nss_ctx_instance {
 					/* Current MTU value of physical interface */
 	uint64_t stats_n2h[NSS_STATS_N2H_MAX];
 					/* N2H node stats: includes node, n2h, pbuf in this order */
+	struct nss_subsystem_dataplane_register subsys_dp_register[NSS_MAX_NET_INTERFACES];
+					/* Subsystem registration data */
 	uint32_t magic;
 					/* Magic protection */
-};
-
-/*
- * NSS core <-> subsystem data plane registration related paramaters.
- * This struct is filled in if_register/data_plane register APIs & retrieved
- * when handling a data packet/skb destined to that subsystem interface.
- */
-struct nss_subsystem_dataplane_register {
-	nss_phys_if_rx_callback_t cb;	/* callback to be invoked */
-	nss_phys_if_rx_ext_data_callback_t ext_cb;
-					/* Extended data plane callback to be invoked.
-					This is needed if driver needs extended handling of data packet
-					before giving to stack */
-	void *app_data;			/* additional info passed during callback(for future use) */
-	struct net_device *ndev;	/* Netdevice associated with the interface */
-	uint32_t features;		/* skb types supported by this subsystem */
 };
 
 /*
@@ -999,9 +1001,6 @@ struct nss_top_instance {
 	uint8_t bridge_handler_id;
 	uint8_t trustsec_tx_handler_id;
 	uint8_t vlan_handler_id;
-
-	/* subsystem registration data */
-	struct nss_subsystem_dataplane_register subsys_dp_register[NSS_MAX_NET_INTERFACES];
 
 	/*
 	 * Data/Message callbacks for various interfaces

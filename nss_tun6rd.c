@@ -66,7 +66,7 @@ static void nss_tun6rd_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_
 	 * callback
 	 */
 	cb = (nss_tun6rd_msg_callback_t)ncm->cb;
-	ctx =  nss_ctx->nss_top->subsys_dp_register[ncm->interface].ndev;
+	ctx = nss_ctx->subsys_dp_register[ncm->interface].ndev;
 
 	/*
 	 * call 6rd tunnel callback
@@ -152,18 +152,21 @@ nss_tx_status_t nss_tun6rd_tx(struct nss_ctx_instance *nss_ctx, struct nss_tun6r
 struct nss_ctx_instance *nss_register_tun6rd_if(uint32_t if_num, nss_tun6rd_callback_t tun6rd_callback,
 			nss_tun6rd_msg_callback_t event_callback, struct net_device *netdev, uint32_t features)
 {
+	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *)&nss_top_main.nss[nss_top_main.tun6rd_handler_id];
+
+	nss_assert(nss_ctx);
 	nss_assert((if_num >=  NSS_DYNAMIC_IF_START) && (if_num < NSS_SPECIAL_IF_START));
 
-	nss_top_main.subsys_dp_register[if_num].ndev = netdev;
-	nss_top_main.subsys_dp_register[if_num].cb = tun6rd_callback;
-	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
-	nss_top_main.subsys_dp_register[if_num].features = features;
+	nss_ctx->subsys_dp_register[if_num].ndev = netdev;
+	nss_ctx->subsys_dp_register[if_num].cb = tun6rd_callback;
+	nss_ctx->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->subsys_dp_register[if_num].features = features;
 
 	nss_top_main.tun6rd_msg_callback = event_callback;
 
 	nss_core_register_handler(if_num, nss_tun6rd_handler, NULL);
 
-	return (struct nss_ctx_instance *)&nss_top_main.nss[nss_top_main.tun6rd_handler_id];
+	return nss_ctx;
 }
 
 /*
@@ -179,12 +182,15 @@ struct nss_ctx_instance * nss_tun6rd_get_context()
  */
 void nss_unregister_tun6rd_if(uint32_t if_num)
 {
+	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *)&nss_top_main.nss[nss_top_main.tun6rd_handler_id];
+
+	nss_assert(nss_ctx);
 	nss_assert(nss_is_dynamic_interface(if_num));
 
-	nss_top_main.subsys_dp_register[if_num].ndev = NULL;
-	nss_top_main.subsys_dp_register[if_num].cb = NULL;
-	nss_top_main.subsys_dp_register[if_num].app_data = NULL;
-	nss_top_main.subsys_dp_register[if_num].features = 0;
+	nss_ctx->subsys_dp_register[if_num].ndev = NULL;
+	nss_ctx->subsys_dp_register[if_num].cb = NULL;
+	nss_ctx->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->subsys_dp_register[if_num].features = 0;
 
 	nss_top_main.tun6rd_msg_callback = NULL;
 
