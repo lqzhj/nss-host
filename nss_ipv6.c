@@ -265,7 +265,7 @@ nss_tx_status_t nss_ipv6_tx_with_size(struct nss_ctx_instance *nss_ctx, struct n
 	/*
 	 * Copy the message to our skb.
 	 */
-	nim2 = (struct nss_ipv6_msg *)skb_put(nbuf, sizeof(struct nss_ipv6_msg));
+	nim2 = (struct nss_ipv6_msg *)skb_put(nbuf, size);
 	memcpy(nim2, nim, sizeof(struct nss_ipv6_msg));
 
 	/*
