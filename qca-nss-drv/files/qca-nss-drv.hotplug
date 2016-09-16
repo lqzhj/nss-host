@@ -49,22 +49,33 @@ SELECTED_FW=$(uci get nss.${SDEVNAME}.firmware 2>/dev/null)
 	exit
 }
 
+local machine
+local platform
+
+machine=$(cat /proc/device-tree/model)
+
+case "$machine" in
+	*"IPQ807x"*)
+		platform="hk32-"
+		;;
+esac
+
 case $DEVICENAME in
-        qca-nss0* | qca-nss.0*)
-                if [ -e /lib/firmware/qca-nss0-enterprise.bin ] ; then
-                        $select_or_load /lib/firmware/qca-nss0-enterprise.bin
-                else
-                        $select_or_load /lib/firmware/qca-nss0-retail.bin
-                fi
-                exit
-                ;;
-        qca-nss1* | qca-nss.1*)
-                if [ -e /lib/firmware/qca-nss1-enterprise.bin ] ; then
-                        $select_or_load /lib/firmware/qca-nss1-enterprise.bin
-                else
-                        $select_or_load /lib/firmware/qca-nss1-retail.bin
-                fi
-                exit
-                ;;
+	qca-nss0* | qca-nss.0*)
+		if [ -e /lib/firmware/qca-nss0-${platform}enterprise.bin ] ; then
+			$select_or_load /lib/firmware/qca-nss0-${platform}enterprise.bin
+		else
+			$select_or_load /lib/firmware/qca-nss0-${platform}retail.bin
+		fi
+		exit
+		;;
+	qca-nss1* | qca-nss.1*)
+		if [ -e /lib/firmware/qca-nss1-${platform}enterprise.bin ] ; then
+			$select_or_load /lib/firmware/qca-nss1-${platform}enterprise.bin
+		else
+			$select_or_load /lib/firmware/qca-nss1-${platform}retail.bin
+		fi
+		exit
+		;;
 esac
 
