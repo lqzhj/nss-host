@@ -88,14 +88,14 @@ static void nss_gre_tunnel_session_stats_sync(struct nss_ctx_instance *nss_ctx, 
 	s->stats[NSS_STATS_GRE_TUNNEL_SESSION_BUFFER_ALLOC_FAIL] += stats_msg->buffer_alloc_fail;
 	s->stats[NSS_STATS_GRE_TUNNEL_SESSION_BUFFER_COPY_FAIL] += stats_msg->buffer_copy_fail;
 	s->stats[NSS_STATS_GRE_TUNNEL_SESSION_OUTFLOW_QUEUE_FULL] += stats_msg->outflow_queue_full;
-	s->stats[NSS_STATS_GRE_TUNNEL_SESSION_TX_DROPPED_HROOM] += stats_msg->tx_dropped_hroom;
+	s->stats[NSS_STATS_GRE_TUNNEL_SESSION_RX_DROPPED_HROOM] += stats_msg->rx_dropped_hroom;
 	s->stats[NSS_STATS_GRE_TUNNEL_SESSION_RX_CBUFFER_ALLOC_FAIL] += stats_msg->rx_cbuf_alloc_fail;
 	s->stats[NSS_STATS_GRE_TUNNEL_SESSION_RX_CENQUEUE_FAIL] += stats_msg->rx_cenqueue_fail;
 	s->stats[NSS_STATS_GRE_TUNNEL_SESSION_RX_DECRYPT_DONE] += stats_msg->rx_decrypt_done;
 	s->stats[NSS_STATS_GRE_TUNNEL_SESSION_RX_FORWARD_ENQUEUE_FAIL] += stats_msg->rx_forward_enqueue_fail;
 	s->stats[NSS_STATS_GRE_TUNNEL_SESSION_TX_CBUFFER_ALLOC_FAIL] += stats_msg->tx_cbuf_alloc_fail;
 	s->stats[NSS_STATS_GRE_TUNNEL_SESSION_TX_CENQUEUE_FAIL] += stats_msg->tx_cenqueue_fail;
-	s->stats[NSS_STATS_GRE_TUNNEL_SESSION_TX_DROPPED_TROOM] += stats_msg->tx_dropped_troom;
+	s->stats[NSS_STATS_GRE_TUNNEL_SESSION_RX_DROPPED_TROOM] += stats_msg->rx_dropped_troom;
 	s->stats[NSS_STATS_GRE_TUNNEL_SESSION_TX_FORWARD_ENQUEUE_FAIL] += stats_msg->tx_forward_enqueue_fail;
 	s->stats[NSS_STATS_GRE_TUNNEL_SESSION_TX_CIPHER_DONE] += stats_msg->tx_cipher_done;
 	s->stats[NSS_STATS_GRE_TUNNEL_SESSION_CRYPTO_NOSUPP] += stats_msg->crypto_nosupp;
@@ -197,6 +197,25 @@ struct nss_ctx_instance *nss_gre_tunnel_get_ctx(void)
 	return (struct nss_ctx_instance *)&nss_top_main.nss[nss_top_main.gre_tunnel_handler_id];
 }
 EXPORT_SYMBOL(nss_gre_tunnel_get_ctx);
+
+/*
+ * nss_gre_tunnel_ifnum_with_core_id()
+ *	Append core id to GRE tunnel interface num
+ */
+int nss_gre_tunnel_ifnum_with_core_id(int if_num)
+{
+	struct nss_ctx_instance *nss_ctx = nss_gre_tunnel_get_ctx();
+	BUG_ON(!nss_gre_tunnel_verify_if_num(if_num));
+	NSS_VERIFY_CTX_MAGIC(nss_ctx);
+
+	if (nss_is_dynamic_interface(if_num) == false) {
+		nss_info("%p: Invalid if_num: %d, must be a dynamic interface\n", nss_ctx, if_num);
+		return 0;
+	}
+
+	return NSS_INTERFACE_NUM_APPEND_COREID(nss_ctx, if_num);
+}
+EXPORT_SYMBOL(nss_gre_tunnel_ifnum_with_core_id);
 
 /*
  * nss_gre_tunnel_tx_buf()
