@@ -6,10 +6,10 @@ export BUILD_ID = \"Build Id: $(shell date +'%m/%d/%y, %H:%M:%S')\"
 ccflags-y += -DNSS_CLIENT_BUILD_ID="$(BUILD_ID)"
 
 obj-y+= profiler/
-obj-y+= nss_qdisc/
+# obj-y+= nss_qdisc/
 
 # DTLS manager
-obj-y+=dtls/
+#obj-y+=dtls/
 
 # CAPWAP Manager
 ifneq ($(findstring 3.4, $(KERNELVERSION)),)
@@ -57,5 +57,8 @@ endif
 ifneq ($(findstring 3.14, $(KERNELVERSION)),)
 obj-y+=map/map-t/
 endif
+
+# Bridge manager
+obj-y += bridge/
 
 obj ?= .
