@@ -366,6 +366,12 @@ static struct notifier_block nss_bridge_mgr_netdevice_nb __read_mostly = {
  */
 int __init nss_bridge_mgr_init_module(void)
 {
+	/*
+	 * Monitor bridge activity only on supported platform
+	 */
+	if (!of_machine_is_compatible("qcom,ipq807x"))
+		return 0;
+
 	memset(&bridge_pvt, 0, sizeof(bridge_pvt));
 	register_netdevice_notifier(&nss_bridge_mgr_netdevice_nb);
 	nss_bridge_mgr_info("Module (Build %s) loaded\n", NSS_CLIENT_BUILD_ID);
