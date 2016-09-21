@@ -322,7 +322,7 @@ EXPORT_SYMBOL(nss_ipsec_notify_unregister);
  */
 struct nss_ctx_instance *nss_ipsec_data_register(uint32_t if_num, nss_ipsec_buf_callback_t cb, struct net_device *netdev, uint32_t features)
 {
-	struct nss_ctx_instance *nss_ctx;
+	struct nss_ctx_instance *nss_ctx, *nss_ctx0;
 
 	nss_ctx = &nss_top_main.nss[nss_top_main.ipsec_handler_id];
 
@@ -343,6 +343,15 @@ struct nss_ctx_instance *nss_ipsec_data_register(uint32_t if_num, nss_ipsec_buf_
 	nss_ctx->subsys_dp_register[if_num].ndev = netdev;
 	nss_ctx->subsys_dp_register[if_num].features = features;
 
+	if (nss_top_main.ipsec_handler_id == 1) {
+		nss_ctx0 = &nss_top_main.nss[0];
+
+		nss_ctx0->subsys_dp_register[if_num].cb = cb;
+		nss_ctx0->subsys_dp_register[if_num].app_data = NULL;
+		nss_ctx0->subsys_dp_register[if_num].ndev = netdev;
+		nss_ctx0->subsys_dp_register[if_num].features = features;
+	}
+
 	return nss_ctx;
 }
 EXPORT_SYMBOL(nss_ipsec_data_register);
@@ -353,9 +362,20 @@ EXPORT_SYMBOL(nss_ipsec_data_register);
  */
 void nss_ipsec_data_unregister(struct nss_ctx_instance *nss_ctx, uint32_t if_num)
 {
+	struct nss_ctx_instance *nss_ctx0;
+
 	if ((if_num >= NSS_MAX_NET_INTERFACES) && (if_num < NSS_MAX_PHYSICAL_INTERFACES)){
 		nss_ipsec_warning("%p: data unregister received for invalid interface %d", nss_ctx, if_num);
 		return;
+	}
+
+	if (nss_top_main.ipsec_handler_id == 1) {
+		nss_ctx0 = &nss_top_main.nss[0];
+
+		nss_ctx0->subsys_dp_register[if_num].cb = NULL;
+		nss_ctx0->subsys_dp_register[if_num].app_data = NULL;
+		nss_ctx0->subsys_dp_register[if_num].ndev = NULL;
+		nss_ctx0->subsys_dp_register[if_num].features = 0;
 	}
 
 	nss_ctx->subsys_dp_register[if_num].cb = NULL;
