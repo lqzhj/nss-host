@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013, 2015-2017, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -28,11 +28,10 @@ struct nss_crypto_ctrl gbl_crypto_ctrl = {0};
 
 extern struct nss_crypto_drv_ctx gbl_ctx;
 
-static int session_timeout = NSS_CRYPTO_SESSION_FREE_TIMEOUT_SEC;
-module_param(session_timeout, int, 0644);
-MODULE_PARM_DESC(session_timeout, "Max Timeout for Crypto session deallocation");
+static int free_timeout = 10;
+module_param(free_timeout, int, 0644);
+MODULE_PARM_DESC(free_timeout, "Max Timeout for Crypto session deallocation in seconds");
 
-#define NSS_CRYPTO_SESSION_FREE_DELAY_TICKS  (msecs_to_jiffies(session_timeout * 1000))
 #define NSS_CRYPTO_SIZE_KB(x) ((x) >> 10)
 
 /*
@@ -795,6 +794,30 @@ bool nss_crypto_chk_idx_isfree(struct nss_crypto_idx_info *idx)
 }
 
 /*
+ * nss_crypto_wq_function()
+ *	delayed worker to delete session
+ */
+static void nss_crypto_wq_function(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct nss_crypto_work *cw = container_of(dwork, struct nss_crypto_work, work);
+	uint32_t session_idx = cw->session_idx;
+	nss_crypto_status_t status;
+
+	status = nss_crypto_send_session_update(session_idx, NSS_CRYPTO_SESSION_STATE_FREE, NSS_CRYPTO_CIPHER_NULL);
+	if (status != NSS_CRYPTO_STATUS_OK) {
+		nss_crypto_info("failed to delete session in delayed worker, reschedule the work\n");
+		schedule_delayed_work(&cw->work, msecs_to_jiffies(free_timeout * MSEC_PER_SEC));
+		return;
+	}
+
+	/*
+	 * free the work
+	 */
+	kfree(cw);
+}
+
+/*
  * nss_crypto_session_update()
  * 	update allocated crypto session parameters
  */
@@ -894,6 +917,8 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
 	memset(&encr_cfg, 0, sizeof(struct nss_crypto_encr_cfg));
 	memset(&auth_cfg, 0, sizeof(struct nss_crypto_auth_cfg));
 
+	BUG_ON(in_atomic());
+
 	spin_lock_bh(&ctrl->lock); /* index lock*/
 
 	if (ctrl->num_idxs == NSS_CRYPTO_MAX_IDXS) {
@@ -984,6 +1009,7 @@ EXPORT_SYMBOL(nss_crypto_session_alloc);
 nss_crypto_status_t nss_crypto_session_free(nss_crypto_handle_t crypto, uint32_t session_idx)
 {
 	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
+	struct nss_crypto_work *cw;
 	uint32_t idx_mask;
 
 	idx_mask = (0x1 << session_idx);
@@ -999,11 +1025,19 @@ nss_crypto_status_t nss_crypto_session_free(nss_crypto_handle_t crypto, uint32_t
 	spin_unlock_bh(&ctrl->lock); /* index unlock*/
 
 	/*
-	 * The reset session is sent to NSS. The response will trigger the
-	 * timer for delayed freeing of the session. After the timeout
-	 * resources attached to session index will be deallocated
+	 * schedule deferred timer to delete the sessoin
 	 */
-	return nss_crypto_send_session_update(session_idx, NSS_CRYPTO_SESSION_STATE_FREE, NSS_CRYPTO_CIPHER_NULL);
+	cw = kmalloc(sizeof (struct nss_crypto_work), GFP_ATOMIC);
+	if (!cw) {
+		nss_crypto_err("failed to allocate worker for idx-%d", session_idx);
+		return NSS_CRYPTO_STATUS_ENOMEM;
+	}
+	cw->session_idx = session_idx;
+
+	INIT_DELAYED_WORK(&cw->work, nss_crypto_wq_function);
+	schedule_delayed_work(&cw->work, msecs_to_jiffies(free_timeout * MSEC_PER_SEC));
+
+	return NSS_CRYPTO_STATUS_OK;
 }
 EXPORT_SYMBOL(nss_crypto_session_free);
 
@@ -1011,7 +1045,7 @@ EXPORT_SYMBOL(nss_crypto_session_free);
  * nss_crypto_idx_free()
  * 	De-allocate all associated resources with session
  */
-void nss_crypto_idx_free(unsigned long session_idx)
+void nss_crypto_idx_free(uint32_t session_idx)
 {
 	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
 	struct nss_crypto_encr_cfg encr_cfg;
@@ -1149,35 +1183,6 @@ uint32_t nss_crypto_get_auth_keylen(uint32_t session_idx)
 EXPORT_SYMBOL(nss_crypto_get_auth_keylen);
 
 /*
- * nss_crypto_start_idx_free()
- *  	Start the timer for session deallocation request
- */
-bool nss_crypto_start_idx_free(uint32_t session_idx)
-{
-	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
-	struct nss_crypto_idx_info *idx;
-
-	idx = &ctrl->idx_info[session_idx];
-
-	/*
-	 * Scedule the timer if it is not already active
-	 */
-	if (timer_pending(&idx->free_timer)) {
-		nss_crypto_err("timer is already pending\n");
-
-		return false;
-	}
-
-	idx->free_timer.expires = jiffies + NSS_CRYPTO_SESSION_FREE_DELAY_TICKS;
-	idx->free_timer.data = session_idx;
-	idx->free_timer.function = nss_crypto_idx_free;
-
-	mod_timer(&idx->free_timer, idx->free_timer.expires);
-
-	return true;
-}
-
-/*
  * nss_crypto_idx_init()
  * 	initialize the index table
  *
@@ -1234,8 +1239,6 @@ nss_crypto_status_t nss_crypto_idx_init(struct nss_crypto_ctrl_eng *eng, struct 
 void nss_crypto_ctrl_init(void)
 {
 	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
-	struct nss_crypto_idx_info *idx_info;
-	uint32_t idx;
 
 	spin_lock_init(&ctrl->lock);
 
@@ -1248,13 +1251,4 @@ void nss_crypto_ctrl_init(void)
 	ctrl->idx_bitmap = 0;
 	ctrl->num_eng = 0;
 	ctrl->num_idxs = 0;
-
-	/*
-	 * Initialize each session index timers used for
-	 * session deletion requests management
-	 */
-	for (idx = 0; idx < NSS_CRYPTO_MAX_IDXS; idx++) {
-		idx_info = &ctrl->idx_info[idx];
-		init_timer(&idx_info->free_timer);
-	}
 }

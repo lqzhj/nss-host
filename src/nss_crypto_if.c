@@ -625,11 +625,10 @@ nss_crypto_status_t nss_crypto_send_session_update(uint32_t session_idx, enum ns
 	}
 
 	/*
-	 * If NSS state has changed to free, start the delayed free
-	 * timer for de-allocating session resources
+	 * If NSS state has changed to free. Delete session resources
 	 */
 	if (session->state == NSS_CRYPTO_SESSION_STATE_FREE) {
-		nss_crypto_start_idx_free(session->idx);
+		nss_crypto_idx_free(session->idx);
 	}
 
 	return status;

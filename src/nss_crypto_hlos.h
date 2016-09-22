@@ -25,13 +25,11 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
-#include <linux/timer.h>
 #include <linux/random.h>
 #include <linux/skbuff.h>
 #include <linux/moduleparam.h>
 #include <linux/spinlock.h>
 #include <asm/cmpxchg.h>
-#include <linux/hrtimer.h>
 #include <linux/slab.h>
 #include <linux/llist.h>
 #include <linux/vmalloc.h>

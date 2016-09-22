@@ -21,7 +21,6 @@
 /**
  * @brief session free timeout parameters
  */
-#define NSS_CRYPTO_SESSION_FREE_TIMEOUT_SEC 60	/* session free request timeout in sec */
 #define NSS_CRYPTO_RESP_TIMEO_TICKS 100		/* Timeout for NSS reponses to Host messages */
 
 /**
@@ -44,6 +43,11 @@ enum nss_crypto_state {
 	NSS_CRYPTO_STATE_READY,              /**< Crypto state is ready */
 	NSS_CRYPTO_STATE_INITIALIZED,        /**< Crypto engines are initialized */
 	NSS_CRYPTO_STATE_MAX
+};
+
+struct nss_crypto_work {
+	struct delayed_work work;	/* Work Structure */
+	uint32_t session_idx;		/* session for which work is scheduled */
 };
 
 struct nss_crypto_encr_cfg {
@@ -84,8 +88,6 @@ struct nss_crypto_ctrl_eng {
  * @brief Per index information required for getting information
  */
 struct nss_crypto_idx_info {
-	struct timer_list free_timer;		/**< Timer handling session dealloc request */
-
 	struct nss_crypto_key ckey;		/**< cipher key */
 	struct nss_crypto_key akey;		/**< auth key */
 
@@ -246,13 +248,13 @@ nss_crypto_status_t nss_crypto_send_session_update(uint32_t session_idx, enum ns
 void *nss_crypto_mem_realloc(void *src, size_t src_len, size_t dst_len);
 
 /**
- * @brief start the session's timer for deallocation
+ * @brief deallocate crypto session
  *
  * @param session_idx[IN] session index
  *
  * @return result of the call
  */
-bool nss_crypto_start_idx_free(uint32_t session_idx);
+void nss_crypto_idx_free(uint32_t session_idx);
 
 /*
  * @brief checks session's current state
