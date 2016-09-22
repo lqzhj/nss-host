@@ -245,7 +245,20 @@ static nss_crypto_user_ctx_t nss_cryptoapi_register(nss_crypto_handle_t crypto)
 static void nss_cryptoapi_unregister(nss_crypto_user_ctx_t cfi)
 {
 	struct nss_cryptoapi *sc = &gbl_ctx;
+	int rc = 0;
+	int i;
+
 	nss_cfi_info("unregister nss_cryptoapi\n");
+
+	for (i = 0; i < ARRAY_SIZE(cryptoapi_aead_algos); i++) {
+
+		rc = crypto_unregister_alg(&cryptoapi_aead_algos[i]);
+		if (rc) {
+			nss_cfi_err("Aead unregister failed, algo: %s\n", cryptoapi_aead_algos[i].cra_name);
+			continue;
+		}
+		nss_cfi_info("Aead unregister succeed, algo: %s\n", cryptoapi_aead_algos[i].cra_name);
+	}
 
 	/*
 	 * cleanup cryptoapi debugfs.
@@ -259,6 +272,10 @@ static void nss_cryptoapi_unregister(nss_crypto_user_ctx_t cfi)
  */
 int nss_cryptoapi_init(void)
 {
+	struct nss_cryptoapi *sc = &gbl_ctx;
+
+	sc->crypto = NULL;
+
 	nss_crypto_register_user(nss_cryptoapi_register, nss_cryptoapi_unregister, "nss_cryptoapi");
 	nss_cfi_info("initialize nss_cryptoapi\n");
 
@@ -271,6 +288,11 @@ int nss_cryptoapi_init(void)
  */
 void nss_cryptoapi_exit(void)
 {
+	struct nss_cryptoapi *sc = &gbl_ctx;
+
+	if (sc->crypto) {
+		nss_crypto_unregister_user(sc->crypto);
+	}
 	nss_cfi_info("exiting nss_cryptoapi\n");
 }
 
