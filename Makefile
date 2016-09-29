@@ -63,4 +63,7 @@ ifeq ($(SoC), ipq807x)
 obj-y += bridge/
 endif
 
+# Vlan manager
+obj-y += vlan/
+
 obj ?= .
