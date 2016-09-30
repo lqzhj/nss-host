@@ -37,17 +37,6 @@ enum nss_map_t_msg_types {
 };
 
 /**
- * map-t styles
- */
-enum nss_map_t_styles {
-	NSS_MAP_T_STYLES_NONE = 0,	/**< NONE */
-	NSS_MAP_T_STYLES_MAP_T,		/**< MAP-T */
-	NSS_MAP_T_STYLES_MAP_0,		/**< Draft version of MAP-T(No support) */
-	NSS_MAP_T_STYLES_RFC6052,	/**< Rfc 6052 */
-	NSS_MAP_T_STYLES_MAX		/**< Max of map styles */
-};
-
-/**
  * map_t instance create message structure
  */
 struct nss_map_t_instance_rule_config_msg {
