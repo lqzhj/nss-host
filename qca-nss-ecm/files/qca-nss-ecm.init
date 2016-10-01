@@ -22,9 +22,9 @@ START=70
 
 support_bridge() {
 	#NSS support bridge acceleration
-	[ -d /sys/kernel/debug/ecm/ecm_nss_conntrack_notifier ] && return 0
-	#SFE don't support bridge acceleration
-	[ -d /sys/kernel/debug/ecm/ecm_sfe_conntrack_notifier ] && return 1
+	[ -d /sys/kernel/debug/ecm/ecm_nss_ipv4 ] && return 0
+	#SFE doesn't support bridge acceleration
+	[ -d /sys/kernel/debug/ecm/ecm_sfe_ipv4 ] && return 1
 }
 
 load_sfe() {
