@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014 - 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -44,6 +44,8 @@ enum nss_virt_if_msg_types {
 	NSS_VIRT_IF_BSHAPER_UNASSIGN = NSS_IF_BSHAPER_UNASSIGN,
 	NSS_VIRT_IF_ISHAPER_CONFIG = NSS_IF_ISHAPER_CONFIG,
 	NSS_VIRT_IF_BSHAPER_CONFIG = NSS_IF_BSHAPER_CONFIG,
+	NSS_VIRT_IF_VSI_ASSIGN = NSS_IF_VSI_ASSIGN,
+	NSS_VIRT_IF_VSI_UNASSIGN = NSS_IF_VSI_UNASSIGN,
 	NSS_VIRT_IF_TX_CREATE_MSG = NSS_IF_MAX_MSG_TYPES + 1,
 	NSS_VIRT_IF_TX_DESTROY_MSG,
 	NSS_VIRT_IF_STATS_SYNC_MSG,
