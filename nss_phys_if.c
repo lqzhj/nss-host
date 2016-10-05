@@ -534,6 +534,46 @@ nss_tx_status_t nss_phys_if_change_mtu(struct nss_ctx_instance *nss_ctx, uint32_
 }
 
 /*
+ * nss_phys_if_vsi_assign()
+ *	Send a vsi assign to physical interface
+ */
+nss_tx_status_t nss_phys_if_vsi_assign(struct nss_ctx_instance *nss_ctx, uint32_t vsi, uint32_t if_num)
+{
+	struct nss_phys_if_msg nim;
+
+	NSS_VERIFY_CTX_MAGIC(nss_ctx);
+	nss_info("%p: Phys If VSI Assign, id:%d\n", nss_ctx, if_num);
+
+	memset(&nim, 0, sizeof(struct nss_phys_if_msg));
+
+	nss_cmn_msg_init(&nim.cm, if_num, NSS_PHYS_IF_VSI_ASSIGN,
+			sizeof(struct nss_if_vsi_assign), nss_phys_if_callback, NULL);
+
+	nim.msg.if_msg.vsi_assign.vsi = vsi;
+	return nss_phys_if_msg_sync(nss_ctx, &nim);
+}
+
+/*
+ * nss_phys_if_vsi_unassign()
+ *	Send a vsi unassign to physical interface
+ */
+nss_tx_status_t nss_phys_if_vsi_unassign(struct nss_ctx_instance *nss_ctx, uint32_t vsi, uint32_t if_num)
+{
+	struct nss_phys_if_msg nim;
+
+	NSS_VERIFY_CTX_MAGIC(nss_ctx);
+	nss_info("%p: Phys If VSI Unassign, id:%d\n", nss_ctx, if_num);
+
+	memset(&nim, 0, sizeof(struct nss_phys_if_msg));
+
+	nss_cmn_msg_init(&nim.cm, if_num, NSS_PHYS_IF_VSI_UNASSIGN,
+			sizeof(struct nss_if_vsi_unassign), nss_phys_if_callback, NULL);
+
+	nim.msg.if_msg.vsi_unassign.vsi = vsi;
+	return nss_phys_if_msg_sync(nss_ctx, &nim);
+}
+
+/*
  * nss_phys_if_pause_on_off()
  *	Send a pause enabled/disabled message to GMAC
  */
