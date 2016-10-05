@@ -35,6 +35,9 @@ define Build/InstallDev
 	$(CP) $(PKG_BUILD_DIR)/exports/* $(1)/usr/include/qca-nss-dp/
 endef
 
+EXTRA_CFLAGS+= \
+	-I$(STAGING_DIR)/usr/include/qca-ssdk
+
 define Build/Compile
 	$(MAKE) -C "$(LINUX_DIR)" \
 		CROSS_COMPILE="$(TARGET_CROSS)" \
