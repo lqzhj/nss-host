@@ -37,6 +37,8 @@ enum nss_shaper_node_types {
 	NSS_SHAPER_NODE_TYPE_HTB = 11,
 	NSS_SHAPER_NODE_TYPE_HTB_GROUP = 12,
 	NSS_SHAPER_NODE_TYPE_WRED = 13,
+	NSS_SHAPER_NODE_TYPE_PPE_SN = 14,
+	NSS_SHAPER_NODE_TYPE_MAX,
 };
 typedef enum nss_shaper_node_types nss_shaper_node_type_t;
 
@@ -438,6 +440,52 @@ struct nss_shaper_config_htb_group_param {
 	struct nss_shaper_config_rate_param rate_police;/* Config structure for police rate */
 	struct nss_shaper_config_rate_param rate_ceil;	/* Config structure for ceil rate */
 };
+
+/*
+ * struct nss_shaper_config_ppe_sn_attach
+ */
+struct nss_shaper_config_ppe_sn_attach {
+	uint32_t child_qos_tag;		/* Qos tag of shaper node to add as child */
+};
+
+/*
+ * struct nss_shaper_config_ppe_sn_detach
+ */
+struct nss_shaper_config_ppe_sn_detach {
+	uint32_t child_qos_tag;		/* Qos tag of shaper node to add as child */
+};
+
+/*
+ * nss_shaper_config_ppe_sn_type
+ */
+enum nss_shaper_config_ppe_sn_type {
+	/*
+	 * Scheduler types
+	 */
+	NSS_SHAPER_CONFIG_PPE_SN_TYPE_HTB,	/* Type PPE HTB node */
+	NSS_SHAPER_CONFIG_PPE_SN_TYPE_HTB_GROUP,/* Type PPE HTB group node */
+	NSS_SHAPER_CONFIG_PPE_SN_SCH_MAX = 0xFF,/* Max scheduler types */
+
+	/*
+	 * Queue types
+	 */
+	NSS_SHAPER_CONFIG_PPE_SN_TYPE_FIFO,	/* Type PPE fifo node */
+	NSS_SHAPER_CONFIG_PPE_SN_TYPE_RED,	/* Type PPE red node */
+	NSS_SHAPER_CONFIG_PPE_SN_TYPE_MAX,	/* Type Max */
+};
+
+/*
+ * struct nss_shaper_config_ppe_sn_param
+ */
+struct nss_shaper_config_ppe_sn_param {
+	enum nss_shaper_config_ppe_sn_type type;
+				/* Type of ppe shaper node */
+	uint16_t base;		/* Base HW resource ID */
+	uint16_t offset;	/* Offset from base resource ID */
+	uint8_t port;		/* PPE port on which this is configured */
+	uint8_t reserved[3];	/* Reserved */
+};
+
 /*
  * struct nss_shaper_node_config
  *	Configurartion messages for all types of shaper nodes
@@ -472,6 +520,10 @@ struct nss_shaper_node_config {
 		struct nss_shaper_config_htb_group_detach htb_group_detach;
 		struct nss_shaper_config_htb_group_param htb_group_param;
 		struct nss_shaper_config_wred_param wred_param;
+
+		struct nss_shaper_config_ppe_sn_attach ppe_sn_attach;
+		struct nss_shaper_config_ppe_sn_detach ppe_sn_detach;
+		struct nss_shaper_config_ppe_sn_param ppe_sn_param;
 	} snc;
 };
 
