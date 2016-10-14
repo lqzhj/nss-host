@@ -955,6 +955,13 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
 	first_idx = !ctrl->idx_bitmap;
 
 	/*
+	 * scale the fabric up to turbo as this the first index
+	 */
+	if (unlikely(first_idx)) {
+		nss_pm_set_perf_level(gbl_ctx.pm_hdl, NSS_PM_PERF_LEVEL_TURBO);
+	}
+
+	/*
 	 * search a free index and allocate it
 	 */
 	idx = ffz(ctrl->idx_bitmap);
@@ -988,14 +995,7 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
 
 	*session_idx = idx;
 
-	/*
-	 * scale the fabric up to turbo as this the first index
-	 */
-	if (unlikely(first_idx)) {
-		nss_pm_set_perf_level(gbl_ctx.pm_hdl, NSS_PM_PERF_LEVEL_TURBO);
-	}
-
-	nss_crypto_info("new index (used - %d, max - %d)\n", ctrl->num_idxs, NSS_CRYPTO_MAX_IDXS);
+	nss_crypto_info_always("new index (used - %d, max - %d)\n", ctrl->num_idxs, NSS_CRYPTO_MAX_IDXS);
 	nss_crypto_dbg("index bitmap = 0x%x, index assigned = %d\n", ctrl->idx_bitmap, idx);
 
 	return NSS_CRYPTO_STATUS_OK;
