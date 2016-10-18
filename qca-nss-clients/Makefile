@@ -172,6 +172,20 @@ define KernelPackage/qca-nss-drv-qdisc/Description
 Linux qdisc that aids in configuring shapers in the NSS
 endef
 
+define KernelPackage/qca-nss-drv-ppe-qdisc
+  SECTION:=kernel
+  CATEGORY:=Kernel modules
+  SUBMENU:=Network Support
+  TITLE:=Qdisc for configuring shapers in PPE
+  DEPENDS:=kmod-qca-nss-drv +kmod-qca-nss-drv-qdisc +kmod-qca-ssdk-nohnat @!LINUX_3_18
+  FILES:=$(PKG_BUILD_DIR)/nss_ppe_qdisc/qca-nss-ppe-qdisc.ko
+  AUTOLOAD:=$(call AutoLoad,59,qca-nss-ppe-qdisc)
+endef
+
+define KernelPackage/qca-nss-drv-ppe-qdisc/Description
+Linux qdisc that aids in configuring shapers in the PPE
+endef
+
 EXTRA_CFLAGS+= \
 	-I$(STAGING_DIR)/usr/include/qca-nss-drv \
 	-I$(STAGING_DIR)/usr/include/qca-nss-crypto \
@@ -205,5 +219,6 @@ $(eval $(call KernelPackage,qca-nss-drv-map-t))
 $(eval $(call KernelPackage,qca-nss-drv-tunipip6))
 $(eval $(call KernelPackage,qca-nss-drv-qdisc))
 $(eval $(call KernelPackage,qca-nss-drv-ipsecmgr))
+$(eval $(call KernelPackage,qca-nss-drv-ppe-qdisc))
 $(eval $(call KernelPackage,qca-nss-drv-bridge-mgr))
 $(eval $(call KernelPackage,qca-nss-drv-vlan-mgr))
