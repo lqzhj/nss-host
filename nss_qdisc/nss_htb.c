@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014-2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -110,6 +110,25 @@ static int nss_htb_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
 		return -EINVAL;
 	}
 
+	qopt = nla_data(na[TCA_NSSHTB_CLASS_PARMS]);
+
+	if (qopt->rate && !qopt->burst) {
+		nss_qdisc_error("%s: burst needed if rate is non zero - class %x\n", __func__, classid);
+		return -EINVAL;
+	}
+
+	if (!qopt->crate || !qopt->cburst) {
+		nss_qdisc_error("%s: crate and cburst need to be non zero - class %x\n",
+					__func__, classid);
+		return -EINVAL;
+	}
+
+	if (!(qopt->priority < NSS_HTB_MAX_PRIORITY)) {
+		nss_qdisc_error("%s: priority %u of htb class %x greater than max prio %u",
+					__func__, qopt->priority, classid, NSS_HTB_MAX_PRIORITY);
+		return -EINVAL;
+	}
+
 	parent = (parentid == TC_H_ROOT) ? NULL : nss_htb_find_class(parentid, sch);
 
 	/*
@@ -175,7 +194,7 @@ static int nss_htb_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
 		 * that is registered to Linux. Therefore we initialize the NSSHTB_GROUP shaper
 		 * here.
 		 */
-		if (nss_qdisc_init(sch, &cl->nq, NSS_SHAPER_NODE_TYPE_HTB_GROUP, classid) < 0) {
+		if (nss_qdisc_init(sch, &cl->nq, NSS_QDISC_MODE_NSS, NSS_SHAPER_NODE_TYPE_HTB_GROUP, classid) < 0) {
 			nss_qdisc_error("%s: nss_init for htb class %x failed\n", __func__, classid);
 			goto failure;
 		}
@@ -228,25 +247,6 @@ static int nss_htb_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
 		nss_qdisc_start_basic_stats_polling(&cl->nq);
 
 		nss_qdisc_trace("%s: class %x successfully allocated and initialized\n", __func__, classid);
-	}
-
-	qopt = nla_data(na[TCA_NSSHTB_CLASS_PARMS]);
-
-	if (qopt->rate && !qopt->burst) {
-		nss_qdisc_error("%s: burst needed if rate is non zero - class %x\n", __func__, classid);
-		return -EINVAL;
-	}
-
-	if (!qopt->crate || !qopt->cburst) {
-		nss_qdisc_error("%s: crate and cburst need to be non zero - class %x\n",
-					__func__, classid);
-		return -EINVAL;
-	}
-
-	if (!(qopt->priority < NSS_HTB_MAX_PRIORITY)) {
-		nss_qdisc_error("%s: priority %u of htb class %x greater than max prio %u",
-					__func__, qopt->priority, classid, NSS_HTB_MAX_PRIORITY);
-		return -EINVAL;
 	}
 
 	sch_tree_lock(sch);
@@ -482,7 +482,7 @@ static int nss_htb_graft_class(struct Qdisc *sch, unsigned long arg, struct Qdis
 		nim_detach.msg.shaper_configure.config.msg.shaper_node_config.snc.htb_group_detach.child_qos_tag = nq_old->qos_tag;
 		if (nss_qdisc_node_detach(&cl->nq, nq_old, &nim_detach,
 				NSS_SHAPER_CONFIG_TYPE_SHAPER_NODE_DETACH) < 0) {
-			nss_qdisc_error("%s: detach of old qdisc %x failed\n", __func__, (*old)->handle);
+			nss_qdisc_warning("%s: detach of old qdisc %x failed\n", __func__, (*old)->handle);
 			return -EINVAL;
 		}
 	}
@@ -817,7 +817,7 @@ static int nss_htb_init_qdisc(struct Qdisc *sch, struct nlattr *opt)
 	/*
 	 * Initialize the NSSHTB shaper in NSS
 	 */
-	if (nss_qdisc_init(sch, &q->nq, NSS_SHAPER_NODE_TYPE_HTB, 0) < 0) {
+	if (nss_qdisc_init(sch, &q->nq, NSS_QDISC_MODE_NSS, NSS_SHAPER_NODE_TYPE_HTB, 0) < 0) {
 		nss_qdisc_error("%s: failed to initialize htb qdisc %x in nss", __func__, sch->handle);
 		return -EINVAL;
 	}

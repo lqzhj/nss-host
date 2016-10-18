@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -135,7 +135,7 @@ static int nss_fifo_init(struct Qdisc *sch, struct nlattr *opt)
 	nss_qdisc_info("Initializing Fifo - type %d\n", NSS_SHAPER_NODE_TYPE_FIFO);
 	nss_fifo_reset(sch);
 
-	if (nss_qdisc_init(sch, nq, NSS_SHAPER_NODE_TYPE_FIFO, 0) < 0)
+	if (nss_qdisc_init(sch, nq, NSS_QDISC_MODE_NSS, NSS_SHAPER_NODE_TYPE_FIFO, 0) < 0)
 		return -EINVAL;
 
 	nss_qdisc_info("NSS fifo initialized - handle %x parent %x\n", sch->handle, sch->parent);

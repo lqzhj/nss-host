@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014-2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -175,7 +175,7 @@ static int nss_tbl_init(struct Qdisc *sch, struct nlattr *opt)
 
 	q->qdisc = &noop_qdisc;
 
-	if (nss_qdisc_init(sch, &q->nq, NSS_SHAPER_NODE_TYPE_TBL, 0) < 0)
+	if (nss_qdisc_init(sch, &q->nq, NSS_QDISC_MODE_NSS, NSS_SHAPER_NODE_TYPE_TBL, 0) < 0)
 		return -EINVAL;
 
 	if (nss_tbl_change(sch, opt) < 0) {
