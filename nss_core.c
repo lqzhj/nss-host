@@ -733,6 +733,8 @@ static inline bool nss_core_handle_nr_frag_skb(struct nss_ctx_instance *nss_ctx,
 		return false;
 	}
 
+	NSS_PKT_STATS_DECREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NSS_SKB_COUNT]);
+
 	/*
 	 * We've received a middle or a last segment.
 	 * Check that we have received a head first to avoid null deferencing.
@@ -846,6 +848,7 @@ static inline bool nss_core_handle_linear_skb(struct nss_ctx_instance *nss_ctx, 
 		 */
 		if (unlikely(head)) {
 			nss_warning("%p: received the second head before a last", head);
+			NSS_PKT_STATS_DECREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NSS_SKB_COUNT]);
 			dev_kfree_skb_any(head);
 		}
 
@@ -857,6 +860,7 @@ static inline bool nss_core_handle_linear_skb(struct nss_ctx_instance *nss_ctx, 
 			 * We don't support chain in a chain.
 			 */
 			nss_warning("%p: skb already has a fraglist", nbuf);
+			NSS_PKT_STATS_DECREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NSS_SKB_COUNT]);
 			dev_kfree_skb_any(nbuf);
 			return false;
 		}
@@ -872,6 +876,8 @@ static inline bool nss_core_handle_linear_skb(struct nss_ctx_instance *nss_ctx, 
 		 */
 		return false;
 	}
+
+	NSS_PKT_STATS_DECREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NSS_SKB_COUNT]);
 
 	/*
 	 * We've received a middle segment.
