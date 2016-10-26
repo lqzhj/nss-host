@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -38,12 +38,23 @@ static void nss_crypto_debugfs_add_stats(struct dentry *parent, struct nss_crypt
 }
 
 /*
+ * nss_crypto_debugfs_add_ctrl_stats()
+ * 	Creates debugfs entries for Host maintained control statistics
+ */
+static void nss_crypto_debugfs_add_ctrl_stats(struct dentry *parent, struct nss_crypto_ctrl_stats *stats)
+{
+	debugfs_create_atomic_t("session_alloc", S_IRUGO, parent, &stats->session_alloc);
+	debugfs_create_atomic_t("session_free", S_IRUGO, parent, &stats->session_free);
+	debugfs_create_atomic_t("session_alloc_fail", S_IRUGO, parent, &stats->session_alloc_fail);
+}
+
+/*
  * nss_crypto_debugfs_init()
  * 	initiallize the crypto debugfs interface
  */
 void nss_crypto_debugfs_init(struct nss_crypto_ctrl *ctrl)
 {
-	struct dentry *tstats_dentry;
+	struct dentry *tstats_dentry, *cstats_dentry;
 
 	ctrl->root_dentry = debugfs_create_dir("qca-nss-crypto", NULL);
 	if (ctrl->root_dentry == NULL) {
@@ -93,6 +104,20 @@ void nss_crypto_debugfs_init(struct nss_crypto_ctrl *ctrl)
 	 * create total stats files
 	 */
 	nss_crypto_debugfs_add_stats(tstats_dentry, &ctrl->total_stats);
+
+	/*
+	 * Create a debugfs entry corresponding to host stats
+	 */
+	cstats_dentry = debugfs_create_dir("control", ctrl->stats_dentry);
+	if (cstats_dentry == NULL) {
+		nss_crypto_err("Unable to create qca-nss-crypto/stats/control directory in debugfs");
+		return;
+	}
+
+	/*
+	 * create host stats files
+	 */
+	nss_crypto_debugfs_add_ctrl_stats(cstats_dentry, &ctrl->ctrl_stats);
 }
 
 /*

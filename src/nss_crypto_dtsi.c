@@ -407,7 +407,7 @@ void nss_crypto_delayed_init(struct work_struct *work)
 	 * reserve the index if certain pipe pairs are locked out for
 	 * trust zone use
 	 */
-	ctrl->idx_bitmap = 0;
+	memset(ctrl->idx_bitmap, 0, sizeof(ctrl->idx_bitmap));
 
 	status = platform_driver_register(&nss_crypto_drv);
 	if (status) {

@@ -519,8 +519,6 @@ static void crypto_bench_flush(void)
 	}
 	wait_event_interruptible(tx_comp, (atomic_read(&tx_reqs) == 0));
 
-	memcpy(&param, &def_param, sizeof(struct crypto_bench_param));
-
 	while (!list_empty(&op_head)) {
 		op = list_first_entry(&op_head, struct crypto_op, node);
 
@@ -541,6 +539,8 @@ static void crypto_bench_flush(void)
 
 		crypto_sid[i] = -1;
 	}
+
+	memcpy(&param, &def_param, sizeof(struct crypto_bench_param));
 
 	param.num_loops = 0;
 }

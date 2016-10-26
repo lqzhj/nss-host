@@ -24,9 +24,9 @@
 
 #define NSS_CRYPTO_BITS2BYTES(x)	(x / 8)	/**< Bits to Bytes */
 #define NSS_CRYPTO_BYTES2BITS(x)	(x * 8)	/**< Bytes to bits */
-#define NSS_CRYPTO_MAX_QDEPTH		256	/**< H/W queue depth per pipe */
+#define NSS_CRYPTO_MAX_QDEPTH		128	/**< H/W queue depth per pipe */
 #define NSS_CRYPTO_MAX_CACHED_IDXS	4	/**< Max supported sessions */
-#define NSS_CRYPTO_BAM_PP		4 	/**< BAM Pipe Pairs */
+#define NSS_CRYPTO_BAM_PP		2 	/**< BAM Pipe Pairs */
 #define NSS_CRYPTO_MAX_NAME		64	/**< Max supported name size */
 #define NSS_CRYPTO_BUF_TAILROOM		128	/**< Tailroom required for crypto */
 

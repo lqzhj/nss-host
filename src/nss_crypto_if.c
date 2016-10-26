@@ -409,7 +409,6 @@ void nss_crypto_msg_sync_cb(void *app_data, struct nss_crypto_msg *nim)
 nss_crypto_status_t nss_crypto_send_msg_sync(struct nss_crypto_msg *nim, enum nss_crypto_msg_type type)
 {
 	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
-	nss_crypto_status_t status = NSS_CRYPTO_STATUS_OK;
 	int ret;
 
 	/*
@@ -449,7 +448,7 @@ nss_crypto_status_t nss_crypto_send_msg_sync(struct nss_crypto_msg *nim, enum ns
 	}
 
 	up(&ctrl->sem);
-	return status;
+	return NSS_CRYPTO_STATUS_OK;
 
 fail:
 	up(&ctrl->sem);

@@ -23,6 +23,8 @@
  */
 #define NSS_CRYPTO_RESP_TIMEO_TICKS 100		/* Timeout for NSS reponses to Host messages */
 
+#define NSS_CRYPTO_SESSION_BITMAP BITS_TO_LONGS(NSS_CRYPTO_MAX_IDXS)
+
 /**
  * @brief max key lengths supported for various algorithms
  */
@@ -103,6 +105,15 @@ struct nss_crypto_idx_info {
 };
 
 /**
+ * @brief Host maintained control stats
+ */
+struct nss_crypto_ctrl_stats {
+	atomic_t session_alloc;			/**< Sessions allocated */
+	atomic_t session_free;			/**< Sessions freed */
+	atomic_t session_alloc_fail;		/**< Session alloc failures */
+};
+
+/**
  * @brief NSS crypto clock control
  */
 struct nss_crypto_clock {
@@ -118,10 +129,10 @@ struct nss_crypto_clock {
  * @note currently we support 4 indexes, in future it will allocate more
  */
 struct nss_crypto_ctrl {
-	uint32_t idx_bitmap;			/**< session allocation bitmap,
-						 upto NSS_CRYPTO_MAX_IDXS can be used */
-	uint32_t idx_state_bitmap;		/**< session state bitmap,
-						 upto NSS_CRYPTO_MAX_IDXS can be used */
+	unsigned long idx_bitmap[NSS_CRYPTO_SESSION_BITMAP];
+				/**< session allocation bitmap, upto NSS_CRYPTO_MAX_IDXS can be used */
+	unsigned long idx_state_bitmap[NSS_CRYPTO_SESSION_BITMAP];
+				/**< session state bitmap, upto NSS_CRYPTO_MAX_IDXS can be used */
 
 	uint32_t num_idxs;			/**< number of allocated indexes */
 	uint32_t num_eng;			/**< number of available engines */
@@ -140,6 +151,8 @@ struct nss_crypto_ctrl {
 	struct nss_crypto_ctrl_eng *eng;	/**< pointer to engines control data information */
 
 	struct nss_crypto_stats total_stats;	/**< crypto total stats */
+	struct nss_crypto_ctrl_stats ctrl_stats;
+						/**< crypto control stats */
 
 	struct dentry *root_dentry;		/**< debufs entry corresponding to qca-nss-crypto directory */
 	struct dentry *stats_dentry;		/**< debufs entry corresponding to stats directory */
@@ -159,21 +172,6 @@ struct nss_crypto_drv_ctx {
 	struct nss_ctx_instance *drv_hdl;	/**< NSS driver handle */
 	void *pm_hdl;				/**< NSS PM handle */
 };
-
-static inline bool nss_crypto_check_idx_state(uint32_t map, uint32_t idx)
-{
-	return !!(map & (0x1 << idx));
-}
-
-static inline void nss_crypto_set_idx_state(uint32_t *map, uint32_t idx)
-{
-	*map |= (0x1 << idx);
-}
-
-static inline void nss_crypto_clear_idx_state(uint32_t *map, uint32_t idx)
-{
-	*map &= ~(0x1 << idx);
-}
 
 /*
  * @brief set crypto state
