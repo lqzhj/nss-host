@@ -22,9 +22,9 @@
 #ifndef __NSS_CRYPTO_H
 #define __NSS_CRYPTO_H
 
-#define NSS_CRYPTO_MAX_IDXS 16			/**< Max supported sessions */
+#define NSS_CRYPTO_MAX_IDXS 64			/**< Max supported sessions */
 #define NSS_CRYPTO_MAX_ENGINES 4		/**< Max engines available */
-#define NSS_CRYPTO_BAM_PP 4			/**< BAM Pipe Pairs */
+#define NSS_CRYPTO_BAM_PP 2			/**< BAM Pipe Pairs */
 
 /**
  * @brief hash sizes supported by H/W.
@@ -75,9 +75,11 @@ enum nss_crypto_msg_type {
  */
 enum nss_crypto_msg_error {
 	NSS_CRYPTO_MSG_ERROR_NONE = 0,
-	NSS_CRYPTO_MSG_ERROR_INVAL_ENG = 1,	/**< invalid engine id */
-	NSS_CRYPTO_MSG_ERROR_UNSUPP_OP = 2,	/**< unsupported operation type */
-	NSS_CRYPTO_MSG_ERROR_INVAL_OP = 3,	/**< invalid operation type */
+	NSS_CRYPTO_MSG_ERROR_INVAL_ENG = 1,		/**< invalid engine id */
+	NSS_CRYPTO_MSG_ERROR_UNSUPP_OP = 2,		/**< unsupported operation type */
+	NSS_CRYPTO_MSG_ERROR_INVAL_OP = 3,		/**< invalid operation type */
+	NSS_CRYPTO_MSG_ERROR_INVAL_IDX_RANGE = 4,	/**< invalid session id */
+	NSS_CRYPTO_MSG_ERROR_IDX_ALLOC_FAIL = 5,	/**< session alloc fail */
 	NSS_CRYPTO_MSG_ERROR_MAX
 };
 
