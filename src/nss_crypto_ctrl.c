@@ -24,7 +24,7 @@
 #include <nss_crypto_ctrl.h>
 #include <nss_crypto_dbg.h>
 
-struct nss_crypto_ctrl gbl_crypto_ctrl = {0};
+struct nss_crypto_ctrl gbl_crypto_ctrl;
 
 extern struct nss_crypto_drv_ctx gbl_ctx;
 
@@ -1250,6 +1250,8 @@ static inline void nss_crypto_ctrl_stats_init(struct nss_crypto_ctrl_stats *stat
 void nss_crypto_ctrl_init(void)
 {
 	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
+
+	memset(ctrl, 0, sizeof(struct nss_crypto_ctrl));
 
 	spin_lock_init(&ctrl->lock);
 
