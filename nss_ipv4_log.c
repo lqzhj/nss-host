@@ -25,7 +25,7 @@
  * nss_ipv4_log_message_types_str
  *	IPv4 bridge/route rule message strings
  */
-static int8_t *nss_ipv4_log_message_types_str[NSS_IPV4_MAX_MSG_TYPES] = {
+static int8_t *nss_ipv4_log_message_types_str[NSS_IPV4_MAX_MSG_TYPES] __maybe_unused = {
 	"IPv4 create rule message",
 	"IPv4 destroy rule message",
 	"Deprecated: NSS_IPV4_RX_ESTABLISH_RULE_MSG",
@@ -40,7 +40,7 @@ static int8_t *nss_ipv4_log_message_types_str[NSS_IPV4_MAX_MSG_TYPES] = {
  * nss_ipv4_log_error_response_types_str
  *	Strings for error types for ipv4 messages
  */
-static int8_t *nss_ipv4_log_error_response_types_str[NSS_IPV4_LAST] = {
+static int8_t *nss_ipv4_log_error_response_types_str[NSS_IPV4_LAST] __maybe_unused = {
 	"No error",
 	"Unknown error",
 	"Invalid interface number",
@@ -63,7 +63,7 @@ static int8_t *nss_ipv4_log_error_response_types_str[NSS_IPV4_LAST] = {
  */
 static void nss_ipv4_log_rule_create_msg(struct nss_ipv4_msg *nim)
 {
-	struct nss_ipv4_rule_create_msg *nircm = &nim->msg.rule_create;
+	struct nss_ipv4_rule_create_msg *nircm __maybe_unused = &nim->msg.rule_create;
 	nss_trace("%p: IPv4 create rule message \n"
 		"Protocol: %d\n"
 		"from_mtu: %u\n"
@@ -124,7 +124,7 @@ static void nss_ipv4_log_rule_create_msg(struct nss_ipv4_msg *nim)
  */
 static void nss_ipv4_log_destroy_rule_msg(struct nss_ipv4_msg *nim)
 {
-	struct nss_ipv4_rule_destroy_msg *nirdm = &nim->msg.rule_destroy;
+	struct nss_ipv4_rule_destroy_msg *nirdm __maybe_unused = &nim->msg.rule_destroy;
 	nss_trace("%p: IPv4 destroy rule message: \n"
 		"flow_ip: %pI4h:%d\n"
 		"return_ip: %pI4h:%d\n"
@@ -176,7 +176,7 @@ static void nss_ipv4_log_conn_sync(struct nss_ipv4_msg *nim)
  */
 static void nss_ipv4_log_conn_cfg_msg(struct nss_ipv4_msg *nim)
 {
-	struct nss_ipv4_rule_conn_cfg_msg *nirccm = &nim->msg.rule_conn_cfg;
+	struct nss_ipv4_rule_conn_cfg_msg *nirccm __maybe_unused = &nim->msg.rule_conn_cfg;
 	nss_trace("%p: IPv4 number of connections supported rule message: \n"
 		"num_conn: %d\n",
 		nim,

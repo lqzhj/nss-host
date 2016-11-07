@@ -61,7 +61,7 @@ static void nss_virt_if_stats_sync(struct nss_virt_if_handle *handle,
  */
 static void nss_virt_if_msg_handler(struct nss_ctx_instance *nss_ctx,
 					struct nss_cmn_msg *ncm,
-					__attribute__((unused))void *app_data)
+					void *app_data)
 {
 	struct nss_virt_if_msg *nvim = (struct nss_virt_if_msg *)ncm;
 	int32_t if_num;
@@ -295,11 +295,10 @@ static int nss_virt_if_handle_destroy_sync(struct nss_virt_if_handle *handle)
 	nss_tx_status_t status;
 	int32_t if_num = handle->if_num;
 	int32_t index = NSS_VIRT_IF_GET_INDEX(if_num);
-	struct nss_ctx_instance *nss_ctx = handle->nss_ctx;
 
 	status = nss_dynamic_interface_dealloc_node(if_num, NSS_DYNAMIC_INTERFACE_TYPE_802_3_REDIR);
 	if (status != NSS_TX_SUCCESS) {
-		nss_warning("%p: Dynamic interface destroy failed status %d\n", nss_ctx, status);
+		nss_warning("%p: Dynamic interface destroy failed status %d\n", handle->nss_ctx, status);
 		return status;
 	}
 

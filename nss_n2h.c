@@ -123,7 +123,7 @@ static void nss_n2h_stats_sync(struct nss_ctx_instance *nss_ctx, struct nss_n2h_
  */
 static void nss_n2h_interface_handler(struct nss_ctx_instance *nss_ctx,
 					struct nss_cmn_msg *ncm,
-					__attribute__((unused))void *app_data)
+					void *app_data)
 {
 	struct nss_n2h_msg *nnm = (struct nss_n2h_msg *)ncm;
 	nss_n2h_msg_callback_t cb;
@@ -321,7 +321,7 @@ static void nss_n2h_payload_stats_callback(void *app_data,
 static void nss_n2h_set_wifi_payloads_callback(void *app_data,
 					struct nss_n2h_msg *nnm)
 {
-	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *)app_data;
+	struct nss_ctx_instance *nss_ctx __maybe_unused = (struct nss_ctx_instance *)app_data;
 	if (nnm->cm.response != NSS_CMN_RESPONSE_ACK) {
 
 		nss_n2h_wp.response = NSS_FAILURE;

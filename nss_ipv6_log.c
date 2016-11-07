@@ -36,7 +36,7 @@
  * nss_ipv6_log_message_types_str
  *	IPv6 bridge/route rule messages strings
  */
-static int8_t *nss_ipv6_log_message_types_str[NSS_IPV6_MAX_MSG_TYPES] = {
+static int8_t *nss_ipv6_log_message_types_str[NSS_IPV6_MAX_MSG_TYPES] __maybe_unused = {
 	"IPv6 create rule message",
 	"IPv6 destroy rule message",
 	"Deprecated: NSS_IPV4_RX_ESTABLISH_RULE_MSG",
@@ -51,7 +51,7 @@ static int8_t *nss_ipv6_log_message_types_str[NSS_IPV6_MAX_MSG_TYPES] = {
  * nss_ipv6_log_error_response_types_str
  *	Strings for error types for ipv6 messages
  */
-static int8_t *nss_ipv6_log_error_response_types_str[] = {
+static int8_t *nss_ipv6_log_error_response_types_str[] __maybe_unused = {
 	"No error",
 	"Unknown error",
 	"Invalid interface number",
@@ -201,7 +201,7 @@ static void nss_ipv6_log_conn_sync(struct nss_ipv6_msg *nim)
  */
 static void nss_ipv6_log_conn_cfg_msg(struct nss_ipv6_msg *nim)
 {
-	struct nss_ipv6_rule_conn_cfg_msg *nirccm = &nim->msg.rule_conn_cfg;
+	struct nss_ipv6_rule_conn_cfg_msg *nirccm __maybe_unused = &nim->msg.rule_conn_cfg;
 	nss_trace("%p: IPv6 number of connections supported rule message: \n"
 		"num_conn: %d\n",
 		nim,

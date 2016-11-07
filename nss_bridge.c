@@ -36,7 +36,6 @@ static struct nss_bridge_pvt {
 static void nss_bridge_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_msg *ncm, void *app_data)
 {
 	struct nss_bridge_msg *nbm = (struct nss_bridge_msg *)ncm;
-	void *ctx;
 	nss_bridge_msg_callback_t cb;
 
 	BUG_ON(!nss_is_dynamic_interface(ncm->interface));
