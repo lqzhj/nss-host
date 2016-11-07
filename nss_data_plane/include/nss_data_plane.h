@@ -25,19 +25,6 @@
 #include <nss_api_if.h>
 
 /*
- * nss_data_plane_param
- *	Holds the information that is going to pass to data plane host as a cookie
- */
-struct nss_data_plane_param {
-	int if_num;				/* physical interface number */
-	struct net_device *dev;			/* net_device instance of this data plane */
-	struct nss_ctx_instance *nss_ctx;	/* which nss core */
-	int notify_open;			/* This data plane interface has been opened or not */
-	uint32_t features;			/* skb types supported by this interface */
-	uint32_t bypass_nw_process;		/* Do we want to bypass NW processing in NSS for this data plane? */
-};
-
-/*
  * nss_data_plane_schedule_registration()
  *	Called from nss_init to schedule a work to do data_plane register to data plane host driver
  */

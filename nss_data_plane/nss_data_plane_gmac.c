@@ -23,7 +23,18 @@
 #define NSS_DP_GMAC_SUPPORTED_FEATURES (NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_FRAGLIST | (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO))
 #define NSS_DATA_PLANE_GMAC_MAX_INTERFACES 4
 
-struct nss_data_plane_param nss_data_plane_gmac_params[NSS_DATA_PLANE_GMAC_MAX_INTERFACES];
+/*
+ * nss_data_plane_gmac_param
+ *	Holds the information that is going to pass to data plane host as a cookie
+ */
+struct nss_data_plane_gmac_param {
+	int if_num;				/* physical interface number */
+	struct net_device *dev;			/* net_device instance of this data plane */
+	struct nss_ctx_instance *nss_ctx;	/* which nss core */
+	int notify_open;			/* This data plane interface has been opened or not */
+	uint32_t features;			/* skb types supported by this interface */
+	uint32_t bypass_nw_process;		/* Do we want to bypass NW processing in NSS for this data plane? */
+} nss_data_plane_gmac_params[NSS_DATA_PLANE_GMAC_MAX_INTERFACES];
 
 /*
  * __nss_data_plane_open()
@@ -31,7 +42,7 @@ struct nss_data_plane_param nss_data_plane_gmac_params[NSS_DATA_PLANE_GMAC_MAX_I
  */
 static int __nss_data_plane_open(void *arg, uint32_t tx_desc_ring, uint32_t rx_desc_ring, uint32_t mode)
 {
-	struct nss_data_plane_param *dp = (struct nss_data_plane_param *)arg;
+	struct nss_data_plane_gmac_param *dp = (struct nss_data_plane_gmac_param *)arg;
 
 	if (dp->notify_open) {
 		return NSS_GMAC_SUCCESS;
@@ -61,7 +72,7 @@ static int __nss_data_plane_close(void *arg)
  */
 static int __nss_data_plane_link_state(void *arg, uint32_t link_state)
 {
-	struct nss_data_plane_param *dp = (struct nss_data_plane_param *)arg;
+	struct nss_data_plane_gmac_param *dp = (struct nss_data_plane_gmac_param *)arg;
 
 	return nss_phys_if_link_state(dp->nss_ctx, link_state, dp->if_num);
 }
@@ -72,7 +83,7 @@ static int __nss_data_plane_link_state(void *arg, uint32_t link_state)
  */
 static int __nss_data_plane_mac_addr(void *arg, uint8_t *addr)
 {
-	struct nss_data_plane_param *dp = (struct nss_data_plane_param *)arg;
+	struct nss_data_plane_gmac_param *dp = (struct nss_data_plane_gmac_param *)arg;
 
 	return nss_phys_if_mac_addr(dp->nss_ctx, addr, dp->if_num);
 }
@@ -83,7 +94,7 @@ static int __nss_data_plane_mac_addr(void *arg, uint8_t *addr)
  */
 static int __nss_data_plane_change_mtu(void *arg, uint32_t mtu)
 {
-	struct nss_data_plane_param *dp = (struct nss_data_plane_param *)arg;
+	struct nss_data_plane_gmac_param *dp = (struct nss_data_plane_gmac_param *)arg;
 
 	return nss_phys_if_change_mtu(dp->nss_ctx, mtu, dp->if_num);
 }
@@ -94,7 +105,7 @@ static int __nss_data_plane_change_mtu(void *arg, uint32_t mtu)
  */
 static int __nss_data_plane_pause_on_off(void *arg, uint32_t pause_on)
 {
-	struct nss_data_plane_param *dp = (struct nss_data_plane_param *)arg;
+	struct nss_data_plane_gmac_param *dp = (struct nss_data_plane_gmac_param *)arg;
 
 	return nss_phys_if_pause_on_off(dp->nss_ctx, pause_on, dp->if_num);
 }
@@ -105,7 +116,7 @@ static int __nss_data_plane_pause_on_off(void *arg, uint32_t pause_on)
  */
 static int __nss_data_plane_buf(void *arg, struct sk_buff *os_buf)
 {
-	struct nss_data_plane_param *dp = (struct nss_data_plane_param *)arg;
+	struct nss_data_plane_gmac_param *dp = (struct nss_data_plane_gmac_param *)arg;
 
 	return nss_phys_if_buf(dp->nss_ctx, os_buf, dp->if_num);
 }
@@ -141,7 +152,7 @@ static struct nss_gmac_data_plane_ops dp_ops = {
  */
 static bool nss_data_plane_register_to_nss_gmac(struct nss_ctx_instance *nss_ctx, int if_num)
 {
-	struct nss_data_plane_param *ndpp = &nss_data_plane_gmac_params[if_num];
+	struct nss_data_plane_gmac_param *ndpp = &nss_data_plane_gmac_params[if_num];
 	struct nss_top_instance *nss_top = nss_ctx->nss_top;
 	struct net_device *netdev;
 	bool is_open;
