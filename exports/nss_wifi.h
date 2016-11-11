@@ -78,6 +78,7 @@ enum nss_wifi_metadata_types {
 	NSS_WIFI_PEER_STATS_MSG,
 	NSS_WIFI_ME_SYNC_MSG,
 	NSS_WIFI_WDS_VENDOR_MSG,
+	NSS_WIFI_TX_CAPTURE_SET_MSG,
 	NSS_WIFI_MAX_MSG
 };
 
@@ -234,6 +235,13 @@ struct nss_wifi_wds_peer_msg {
 	uint8_t reserved[2];
 	uint8_t peer_mac[ETH_ALEN];		/**< Mac address of base peer */
 	uint8_t reserved1[2];
+};
+
+/**
+ *  wifi tx capture enable/disable message structure
+ */
+struct nss_wifi_tx_capture_msg {
+	uint32_t tx_capture_enable;		/**< Tx Data Capture enable/disable */
 };
 
 /**
@@ -554,6 +562,7 @@ struct nss_wifi_msg {
 		struct nss_wifi_peer_stats_msg peer_stats_msg;
 		struct nss_wifi_tx_me_host_sync_msg wmehsync;
 		struct nss_wifi_wds_extn_peer_cfg_msg wpeercfg;
+		struct nss_wifi_tx_capture_msg tx_capture_msg;
 	} msg;
 };
 
