@@ -27,6 +27,7 @@
 #define NSS_WIFI_RAWDATA_MAX_LEN  64
 #define NSS_WIFI_RX_EXT_INV_PEER_TYPE 0
 #define NSS_WIFI_RX_EXT_PKTLOG_TYPE 1
+#define NSS_WIFI_RX_EXT_CBF_REMOTE 2
 #define NSS_WIFI_TX_NUM_TOS_TIDS 8
 #define NSS_WIFI_PEER_STATS_DATA_LEN 232
 #define NSS_WIFI_IPV6_ADDR_LEN 16
@@ -76,6 +77,7 @@ enum nss_wifi_metadata_types {
 	NSS_WIFI_WNM_PEER_RX_ACTIVITY_MSG,
 	NSS_WIFI_PEER_STATS_MSG,
 	NSS_WIFI_ME_SYNC_MSG,
+	NSS_WIFI_WDS_VENDOR_MSG,
 	NSS_WIFI_MAX_MSG
 };
 
@@ -478,6 +480,18 @@ struct nss_wifi_peer_stats_msg {
 };
 
 /**
+ * wifi_wds_extn_peer_cfg
+ *
+ * wds peer state info when wds extn enabled
+ */
+struct nss_wifi_wds_extn_peer_cfg_msg {
+	uint8_t mac_addr[ETH_ALEN];	/* Mac address of peer */
+	uint8_t wds_flags;	/* wds flags populated from host */
+	uint8_t reserved;	/* Aligment padding */
+	uint16_t peer_id;	/* peer id */
+};
+
+/**
  * ME Group Entry information for host sync
  */
 struct nss_wifi_tx_me_host_sync_grp_entry {
@@ -539,6 +553,7 @@ struct nss_wifi_msg {
 		struct nss_wifi_wnm_peer_rx_activity_msg wprm;
 		struct nss_wifi_peer_stats_msg peer_stats_msg;
 		struct nss_wifi_tx_me_host_sync_msg wmehsync;
+		struct nss_wifi_wds_extn_peer_cfg_msg wpeercfg;
 	} msg;
 };
 

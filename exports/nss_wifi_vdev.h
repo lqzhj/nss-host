@@ -118,6 +118,7 @@ enum nss_wifi_vdev_cmd {
 	NSS_WIFI_VDEV_CFG_DSCP_OVERRIDE_CMD,	/**< command to set dscp override */
 	NSS_WIFI_VDEV_CFG_WNM_CAP_CMD,		/**< command to set wnm capability */
 	NSS_WIFI_VDEV_CFG_WNM_TFS_CMD,		/**< command to set wnm tfs */
+	NSS_WIFI_VDEV_CFG_WDS_EXT_ENABLE_CMD,	/**< command to enable wds vendor extension */
 	NSS_WIFI_VDEV_MAX_CMD
 };
 
