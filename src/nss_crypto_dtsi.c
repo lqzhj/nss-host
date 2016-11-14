@@ -124,7 +124,7 @@ bool nss_crypto_pm_event_cb(void *app_data, bool turbo, bool auto_scale)
 	count = ctrl->max_clocks;
 
 	spin_lock_bh(&ctrl->lock); /* index lock*/
-	session = !!ctrl->idx_bitmap;
+	session = !bitmap_empty(ctrl->idx_bitmap, NSS_CRYPTO_MAX_IDXS);
 	spin_unlock_bh(&ctrl->lock); /* index unlock */
 
 	/*

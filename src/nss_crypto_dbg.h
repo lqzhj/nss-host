@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013, 2016, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -76,6 +76,24 @@ static inline void nss_crypto_dump_buf(uint8_t *buf, uint32_t buf_len, uint8_t *
 
 	nss_crypto_dbg("\n==============\n");
 }
+
+/*
+ * nss_crypto_dump_bitmap()
+ * 	dump bitmap till the size of session bitmap
+ */
+static inline void nss_crypto_dump_bitmap(unsigned long *addr, uint16_t nbits)
+{
+	uint32_t i = 0;
+	uint32_t loops = BITS_TO_LONGS(nbits);
+
+	nss_crypto_dbg("\n==============\n");
+
+	for(i = 0; i < loops; i++) {
+		nss_crypto_dbg("0x%x ", addr[i]);
+	}
+
+	nss_crypto_dbg("\n==============\n");
+}
 #else
 
 #define nss_crypto_dbg(fmt, arg...)
@@ -83,6 +101,7 @@ static inline void nss_crypto_dump_buf(uint8_t *buf, uint32_t buf_len, uint8_t *
 #define nss_crypto_dump_desc(head, num, str)
 #define nss_crypto_dump_cblk(cmd, len, str)
 #define nss_crypto_dump_buf(buf, len, str)
+#define nss_crypto_dump_bitmap(addr, nbits)
 
 #endif /* !CONFIG_NSS_CRYPTO_DBG */
 

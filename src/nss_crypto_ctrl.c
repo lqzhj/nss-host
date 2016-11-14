@@ -950,7 +950,7 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
 	/*
 	 * is this the first session that we are creating
 	 */
-	first_idx = !ctrl->idx_bitmap;
+	first_idx = bitmap_empty(ctrl->idx_bitmap, NSS_CRYPTO_MAX_IDXS);;
 
 	/*
 	 * scale the fabric up to turbo as this the first index
@@ -962,7 +962,7 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
 	/*
 	 * search a free index and allocate it
 	 */
-	idx = find_first_zero_bit(ctrl->idx_bitmap, BITS_PER_LONG_LONG);
+	idx = find_first_zero_bit(ctrl->idx_bitmap, NSS_CRYPTO_MAX_IDXS);
 
 	ctrl->num_idxs++;
 	set_bit(idx, ctrl->idx_bitmap);
@@ -996,8 +996,8 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
 
 	*session_idx = idx;
 
-	nss_crypto_info_always("new index (used - %d, max - %d)\n", ctrl->num_idxs, NSS_CRYPTO_MAX_IDXS);
-	nss_crypto_dbg("index bitmap = 0x%x, index assigned = %d\n", ctrl->idx_bitmap, idx);
+	nss_crypto_info("new index - %d (used - %d, max - %d)\n",idx, ctrl->num_idxs, NSS_CRYPTO_MAX_IDXS);
+	nss_crypto_dump_bitmap(ctrl->idx_bitmap, NSS_CRYPTO_MAX_IDXS);
 
 	return NSS_CRYPTO_STATUS_OK;
 }
@@ -1088,7 +1088,7 @@ void nss_crypto_idx_free(uint32_t session_idx)
 	/*
 	 * check if this the last index that is getting deleted
 	 */
-	last_idx = !ctrl->idx_bitmap;
+	last_idx = bitmap_empty(ctrl->idx_bitmap, NSS_CRYPTO_MAX_IDXS);
 
 	spin_unlock(&ctrl->lock); /* index unlock*/
 	atomic_inc(&cstats->session_free);
@@ -1100,8 +1100,8 @@ void nss_crypto_idx_free(uint32_t session_idx)
 		nss_pm_set_perf_level(gbl_ctx.pm_hdl, NSS_PM_PERF_LEVEL_IDLE);
 	}
 
-	nss_crypto_info("deallocated index (used - %d, max - %d)\n", ctrl->num_idxs, NSS_CRYPTO_MAX_IDXS);
-	nss_crypto_dbg("index freed  = 0x%llx, index = %d\n", ctrl->idx_bitmap, session_idx);
+	nss_crypto_info("deallocated index - %d (used - %d, max - %d)\n",session_idx, ctrl->num_idxs, NSS_CRYPTO_MAX_IDXS);
+	nss_crypto_dump_bitmap(ctrl->idx_bitmap, NSS_CRYPTO_MAX_IDXS);
 }
 
 /*
