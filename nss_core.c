@@ -1753,6 +1753,11 @@ static inline bool nss_skb_can_recycle(struct nss_ctx_instance *nss_ctx,
 	if (unlikely(skb_cloned(nbuf)))
 		return false;
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0))
+	if (unlikely(skb_pfmemalloc(nbuf)))
+		return false;
+#endif
+
 	return true;
 }
 
