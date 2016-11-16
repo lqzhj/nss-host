@@ -49,9 +49,7 @@ obj-y+= ipsecmgr/
 endif
 
 # MAP-T manager
-ifneq ($(findstring 3.14, $(KERNELVERSION)),)
 obj-y+=map/map-t/
-endif
 
 # Bridge manager
 obj-y += bridge/
