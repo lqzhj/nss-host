@@ -31,7 +31,9 @@
 #include <linux/timer.h>
 #include <linux/random.h>
 #include <linux/skbuff.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
 #include <asm/scatterlist.h>
+#endif
 #include <linux/moduleparam.h>
 #include <linux/spinlock.h>
 #include <asm/cmpxchg.h>
