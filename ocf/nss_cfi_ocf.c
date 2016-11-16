@@ -707,3 +707,6 @@ EXPORT_SYMBOL(nss_cfi_ocf_unregister_ipsec);
 
 module_init(nss_cfi_ocf_init);
 module_exit(nss_cfi_ocf_exit);
+
+MODULE_LICENSE("Dual BSD/GPL");
+MODULE_DESCRIPTION("Interface module between OCF and NSS crypto");
