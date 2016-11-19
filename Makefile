@@ -37,6 +37,7 @@ qca-nss-drv-objs := \
 			nss_n2h.o \
 			nss_oam.o \
 			nss_phys_if.o \
+			nss_pm.o \
 			nss_profiler.o \
 			nss_portid.o \
 			nss_ppe.o \
@@ -80,7 +81,6 @@ ccflags-y += -DNSS_PM_DEBUG_LEVEL=0 -DNSS_SKB_RECYCLE_SUPPORT=1
 
 ifneq ($(findstring 3.4, $(KERNELVERSION)),)
 NSS_CCFLAGS = -DNSS_DT_SUPPORT=0 -DNSS_FW_DBG_SUPPORT=1 -DNSS_PM_SUPPORT=1 -DNSS_EMPTY_BUFFER_SIZE=1984
-qca-nss-drv-objs += nss_pm.o
 else
 NSS_CCFLAGS = -DNSS_DT_SUPPORT=1 -DNSS_FW_DBG_SUPPORT=0 -DNSS_PM_SUPPORT=0 -DNSS_EMPTY_BUFFER_SIZE=1984
 
