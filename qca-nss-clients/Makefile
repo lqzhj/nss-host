@@ -14,6 +14,9 @@ PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE_VERSION:=$(PKG_VERSION)
 
+PKG_BUILD_DEPENDS := \
+        PACKAGE_kmod-qca-nss-crypto:kmod-qca-nss-crypto
+
 include $(INCLUDE_DIR)/package.mk
 
 define KernelPackage/qca-nss-drv-tun6rd
@@ -100,6 +103,20 @@ define KernelPackage/qca-nss-drv-profile/Description
 This package contains a NSS driver profiler for QCA chipset
 endef
 
+define KernelPackage/qca-nss-drv-ipsecmgr
+  SECTION:=kernel
+  CATEGORY:=Kernel modules
+  SUBMENU:=Network Devices
+  TITLE:=Kernel driver for NSS (ipsec manager) - ipsecmgr
+  DEPENDS:=kmod-qca-nss-drv @!LINUX_3_18
+  FILES:=$(PKG_BUILD_DIR)/ipsecmgr/qca-nss-ipsecmgr.ko
+  AUTOLOAD:=$(call AutoLoad,58,qca-nss-ipsecmgr)
+endef
+
+define KernelPackage/qca-nss-drv-ipsecmgr/Description
+Kernel module for NSS IPsec offload manager
+endef
+
 define KernelPackage/qca-nss-drv-capwapmgr
   SECTION:=kernel
   CATEGORY:=Kernel modules
@@ -166,4 +183,5 @@ $(eval $(call KernelPackage,qca-nss-drv-pptp))
 $(eval $(call KernelPackage,qca-nss-drv-map-t))
 $(eval $(call KernelPackage,qca-nss-drv-tunipip6))
 $(eval $(call KernelPackage,qca-nss-drv-qdisc))
+$(eval $(call KernelPackage,qca-nss-drv-ipsecmgr))
 $(eval $(call KernelPackage,qca-nss-drv-bridge-mgr))
