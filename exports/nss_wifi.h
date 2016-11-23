@@ -31,6 +31,8 @@
 #define NSS_WIFI_TX_NUM_TOS_TIDS 8
 #define NSS_WIFI_PEER_STATS_DATA_LEN 232
 #define NSS_WIFI_IPV6_ADDR_LEN 16
+#define NSS_WIFI_MAX_RSSI_CHAINS 4
+#define NSS_WIFI_WME_NUM_AC 4
 
 /**
  * max no of wifi peers per radio is the sum of max no of station peers (513),
@@ -433,17 +435,22 @@ struct nss_wifi_igmp_mld_override_tos_msg {
  * nss_wifi_peer_ol_stats
  */
 struct nss_wifi_peer_ol_stats {
-	uint32_t peer_id;            /**< peer id */
-	uint32_t seq_num;            /**< sequence number of ppdu */
-	uint32_t tx_unaggr;          /**< count of unaggregated pkts txed */
-	uint32_t tx_aggr;            /**< count of aggregated pkts txed */
-	uint32_t tx_mcast;           /**< no of mcast pkts sent */
-	uint32_t tx_ucast;           /**< no of ucat pkts sent */
-	uint32_t tx_data;            /**< no of data pkts sent */
-	uint32_t tx_bytes;           /**< no of bytes sent */
-	uint32_t tx_fail;            /**< no of failed tx pkts */
-	uint32_t thrup_bytes;        /**< trhuput bytes */
-	uint32_t tx_bcast_pkts;      /**< no of bcast pkts sent */
+	uint32_t peer_id;	/**< peer id */
+	uint32_t seq_num;	/**< sequence number of ppdu */
+	uint32_t tx_unaggr;	/**< count of unaggregated pkts txed */
+	uint32_t tx_aggr;	/**< count of aggregated pkts txed */
+	uint32_t tx_mcast;	/**< no of mcast pkts sent */
+	uint32_t tx_ucast;	/**< no of ucat pkts sent */
+	uint32_t tx_data;	/**< no of data pkts sent */
+	uint32_t tx_bytes;	/**< no of bytes sent */
+	uint32_t tx_fail;	/**< no of failed tx pkts */
+	uint32_t thrup_bytes;	/**< trhuput bytes */
+	uint32_t tx_bcast_pkts;	/**< no of bcast pkts sent */
+	uint32_t tx_mgmt;	/**< no of tx mgmt frames */
+	uint32_t tx_wme[NSS_WIFI_WME_NUM_AC];	/**< data frames transmitted per AC */
+	uint32_t rx_wme[NSS_WIFI_WME_NUM_AC];	/**< data frames received per AC */
+	uint32_t ppdu_retries;	/**< retries */
+	uint32_t rssi_chains[NSS_WIFI_MAX_RSSI_CHAINS];	/**< Ack RSSI per chain */
 };
 
 /**
