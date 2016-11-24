@@ -49,7 +49,9 @@ obj-y+= ipsecmgr/
 endif
 
 # MAP-T manager
+ifeq ($(findstring 3.4, $(KERNELVERSION)),)
 obj-y+=map/map-t/
+endif
 
 # Bridge manager
 obj-y += bridge/
