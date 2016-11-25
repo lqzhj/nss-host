@@ -152,11 +152,14 @@ struct nss_ipsec_rule_data {
 	uint8_t esp_seq_skip;		/**< Skip ESP sequence number */
 	uint8_t esp_tail_skip;		/**< Skip ESP trailer */
 	uint8_t use_pattern;		/**< Use random pattern in hash calculation */
-	uint8_t dscp;                   /**< Default dscp value of the SA */
+	uint8_t enable_esn;		/**< Enable Extended Sequence Number */
 
+	uint8_t dscp;                   /**< Default dscp value of the SA */
 	uint8_t sa_dscp_mask;		/**< Mask for the SA DSCP */
 	uint8_t flow_dscp_mask;         /**< Mask for flow DSCP */
-	uint8_t res[2];
+	uint8_t res1;
+
+	uint32_t res2[4];
 };
 
 /**
@@ -186,7 +189,6 @@ struct nss_ipsec_pkt_sa_stats {
 	uint32_t fail_replay;		/**< replay chaeck failed */
 };
 
-
 /**
  * @brief NSS IPsec per SA statistics
  */
@@ -194,8 +196,14 @@ struct nss_ipsec_sa_stats {
 	struct nss_ipsec_rule_sel sel;		/**< selector for SA stats */
 	struct nss_ipsec_pkt_sa_stats pkts;	/**< packet statistics */
 
-	uint32_t seq_num;
-};
+	uint64_t seq_num;			/**< curr seq number */
+
+	uint64_t window_max;			/**< window top */
+	uint32_t window_size;			/**< window size */
+
+	uint8_t esn_enabled;			/**< is ESN enabled */
+	uint8_t res[3];
+} __attribute__((packed));
 
 /**
  * @brief NSS IPsec per flow statsistics
