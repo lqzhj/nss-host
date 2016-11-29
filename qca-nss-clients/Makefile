@@ -135,7 +135,7 @@ define KernelPackage/qca-nss-drv-bridge-mgr
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
   TITLE:=Kernel driver for NSS bridge manager
-  DEPENDS:=@TARGET_ipq806x +kmod-qca-nss-drv @!LINUX_3_18
+  DEPENDS:=@TARGET_ipq806x +kmod-qca-nss-drv +kmod-bonding @!LINUX_3_18
   FILES:=$(PKG_BUILD_DIR)/bridge/qca-nss-bridge-mgr.ko
   AUTOLOAD:=$(call AutoLoad,51,qca-nss-bridge-mgr)
 endef
@@ -186,6 +186,20 @@ define KernelPackage/qca-nss-drv-ppe-qdisc/Description
 Linux qdisc that aids in configuring shapers in the PPE
 endef
 
+define KernelPackage/qca-nss-drv-lag-mgr
+  SECTION:=kernel
+  CATEGORY:=Kernel modules
+  SUBMENU:=Network Devices
+  TITLE:=Kernel driver for NSS LAG manager
+  DEPENDS:=@TARGET_ipq806x +kmod-qca-nss-drv @!LINUX_3_18 +kmod-bonding +kmod-qca-ssdk
+  FILES:=$(PKG_BUILD_DIR)/lag/qca-nss-lag-mgr.ko
+  AUTOLOAD:=$(call AutoLoad,51,qca-nss-lag-mgr)
+endef
+
+define KernelPackage/qca-nss-drv-lag-mgr/Description
+Kernel modules for NSS LAG manager
+endef
+
 EXTRA_CFLAGS+= \
 	-I$(STAGING_DIR)/usr/include/qca-nss-drv \
 	-I$(STAGING_DIR)/usr/include/qca-nss-crypto \
@@ -222,3 +236,4 @@ $(eval $(call KernelPackage,qca-nss-drv-ipsecmgr))
 $(eval $(call KernelPackage,qca-nss-drv-ppe-qdisc))
 $(eval $(call KernelPackage,qca-nss-drv-bridge-mgr))
 $(eval $(call KernelPackage,qca-nss-drv-vlan-mgr))
+$(eval $(call KernelPackage,qca-nss-drv-lag-mgr))
