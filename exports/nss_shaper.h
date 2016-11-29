@@ -81,6 +81,8 @@ enum nss_shaper_config_types {
 	NSS_SHAPER_CONFIG_TYPE_SHAPER_NODE_ATTACH,	/* Command to attach a shaper node as child */
 	NSS_SHAPER_CONFIG_TYPE_SHAPER_NODE_DETACH,	/* Command to detach a child shaper node */
 	NSS_SHAPER_CONFIG_TYPE_SHAPER_NODE_CHANGE_PARAM,/* Command to configure the parameters of a shaper node */
+	NSS_SHAPER_CONFIG_TYPE_HYBRID_MODE_ENABLE,	/* Command to configure the shaper to operate in hybrid mode */
+	NSS_SHAPER_CONFIG_TYPE_HYBRID_MODE_DISABLE,	/* Command to configure the shaper to stop operating in hybrid mode */
 };
 typedef enum nss_shaper_config_types nss_shaper_config_type_t;
 
@@ -200,6 +202,15 @@ struct nss_shaper_config_set_root_node {
  */
 struct nss_shaper_config_set_default_node {
 	uint32_t qos_tag;		/* The qos tag of the node that becomes default */
+};
+
+/*
+ * nss_shaper_config_set_hybrid_mode
+ *	The shaper will be set to operate in hybrid mode
+ */
+struct nss_shaper_config_set_hybrid_mode {
+	uint32_t offset;		/* queue offset to which packets need */
+					/* to get enqueued to in HW */
 };
 
 /*
@@ -579,6 +590,7 @@ struct nss_shaper_configure {
 		struct nss_shaper_config_free_shaper_node free_shaper_node;
 		struct nss_shaper_config_set_default_node set_default_node;
 		struct nss_shaper_config_set_root_node set_root_node;
+		struct nss_shaper_config_set_hybrid_mode set_hybrid_mode;
 		struct nss_shaper_node_config shaper_node_config;
 		struct nss_shaper_shaper_node_basic_stats_get shaper_node_basic_stats_get;
 	} msg;
