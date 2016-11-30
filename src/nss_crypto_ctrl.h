@@ -21,7 +21,8 @@
 /**
  * @brief session free timeout parameters
  */
-#define NSS_CRYPTO_RESP_TIMEO_TICKS 100		/* Timeout for NSS reponses to Host messages */
+#define NSS_CRYPTO_RESP_TIMEO_TICKS msecs_to_jiffies(3000)	/* Timeout for NSS reponses to Host messages */
+#define NSS_CRYPTO_PERF_LEVEL_TIMEO_TICKS msecs_to_jiffies(10000)	/* Timeout for NSS reponses to Host messages */
 
 #define NSS_CRYPTO_SESSION_BITMAP BITS_TO_LONGS(NSS_CRYPTO_MAX_IDXS)
 
@@ -138,12 +139,15 @@ struct nss_crypto_ctrl {
 	uint32_t num_eng;			/**< number of available engines */
 
 	atomic_t crypto_state;			/**< crypto devices initialized or not */
+	atomic_t perf_level;			/**< crypto PM perf level */
 
 	spinlock_t lock;			/**< lock */
 	struct mutex mutex;			/**< mutex lock */
 	struct semaphore sem;			/**< semaphore lock */
 
 	struct completion complete;		/**< completion for NSS message */
+	struct completion perf_complete;	/**< completion for NSS message */
+
 	atomic_t complete_timeo;		/**< indicates whether completion has timeout */
 
 	struct delayed_work crypto_work;	/**< crypto_work structure */

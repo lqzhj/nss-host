@@ -155,6 +155,9 @@ bool nss_crypto_pm_event_cb(void *app_data, bool turbo, bool auto_scale)
 	 */
 	nss_crypto_pm_notify_unregister();
 
+	atomic_set(&ctrl->perf_level, NSS_PM_PERF_LEVEL_TURBO);
+	complete(&ctrl->perf_complete);
+
 	return true;
 }
 
@@ -172,6 +175,7 @@ static void nss_crypto_clock_init(struct platform_device *pdev, struct device_no
 
 	count = of_property_count_strings(np, "clock-names");
 	if (count < 0) {
+		atomic_set(&ctrl->perf_level, NSS_PM_PERF_LEVEL_IDLE);
 		nss_crypto_info("crypto clock instance not found\n");
 		return;
 	}
@@ -211,6 +215,7 @@ static void nss_crypto_clock_init(struct platform_device *pdev, struct device_no
 		}
 	}
 
+	atomic_set(&ctrl->perf_level, NSS_PM_PERF_LEVEL_NOMINAL);
 	nss_crypto_pm_notify_register(nss_crypto_pm_event_cb, ctrl);
 }
 

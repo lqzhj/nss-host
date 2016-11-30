@@ -908,7 +908,6 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
 	struct nss_crypto_auth_cfg auth_cfg;
 	enum nss_crypto_cipher cipher_algo;
 	nss_crypto_status_t status;
-	bool first_idx;
 	uint32_t idx;
 	int i;
 
@@ -917,23 +916,11 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
 
 	BUG_ON(in_atomic());
 
-	spin_lock_bh(&ctrl->lock); /* index lock*/
-
-	if (ctrl->num_idxs == NSS_CRYPTO_MAX_IDXS) {
-		spin_unlock_bh(&ctrl->lock); /* index unlock*/
-		nss_crypto_err("index table full\n");
-		return NSS_CRYPTO_STATUS_ENOMEM;
-	}
-
-	nss_crypto_assert(ctrl->num_idxs <= NSS_CRYPTO_MAX_IDXS);
-
 	/*
 	 * validate cipher
 	 */
 	status = nss_crypto_validate_cipher(cipher, &encr_cfg);
 	if (status != NSS_CRYPTO_STATUS_OK) {
-		spin_unlock_bh(&ctrl->lock); /* index unlock*/
-		nss_crypto_err("invalid cipher configuration\n");
 		return status;
 	}
 
@@ -942,21 +929,14 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
 	 */
 	status = nss_crypto_validate_auth(auth, &auth_cfg);
 	if (status != NSS_CRYPTO_STATUS_OK) {
-		spin_unlock_bh(&ctrl->lock); /* index unlock*/
-		nss_crypto_err("invalid auth configuration\n");
 		return status;
 	}
 
-	/*
-	 * is this the first session that we are creating
-	 */
-	first_idx = bitmap_empty(ctrl->idx_bitmap, NSS_CRYPTO_MAX_IDXS);;
+	spin_lock_bh(&ctrl->lock); /* index lock*/
 
-	/*
-	 * scale the fabric up to turbo as this the first index
-	 */
-	if (unlikely(first_idx)) {
-		nss_pm_set_perf_level(gbl_ctx.pm_hdl, NSS_PM_PERF_LEVEL_TURBO);
+	if (ctrl->num_idxs == NSS_CRYPTO_MAX_IDXS) {
+		spin_unlock_bh(&ctrl->lock); /* index lock*/
+		return NSS_CRYPTO_STATUS_ENOMEM;
 	}
 
 	/*
@@ -981,17 +961,26 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
 
 	cipher_algo = cipher ? cipher->algo : NSS_CRYPTO_CIPHER_NULL;
 	spin_unlock_bh(&ctrl->lock); /* index unlock*/
+
 	atomic_inc(&cstats->session_alloc);
+
+	/*
+	 * check if the perf level is nominal; only set it to
+	 * turbo when nominal
+	 */
+	if (atomic_read(&ctrl->perf_level) == NSS_PM_PERF_LEVEL_NOMINAL) {
+		nss_pm_set_perf_level(gbl_ctx.pm_hdl, NSS_PM_PERF_LEVEL_TURBO);
+		if (!wait_for_completion_timeout(&ctrl->perf_complete, NSS_CRYPTO_PERF_LEVEL_TIMEO_TICKS)) {
+			goto fail;
+		}
+	}
 
 	/*
 	 * If the message sending fails, return error
 	 */
 	status = nss_crypto_send_session_update(idx, NSS_CRYPTO_SESSION_STATE_ACTIVE, cipher_algo);
 	if (unlikely(status != NSS_CRYPTO_STATUS_OK)) {
-		nss_crypto_dbg("session id[%u] alloc fail\n", idx);
-		atomic_inc(&cstats->session_alloc_fail);
-		nss_crypto_idx_free(idx);
-		return NSS_CRYPTO_STATUS_FAIL;
+		goto fail;
 	}
 
 	*session_idx = idx;
@@ -1000,6 +989,13 @@ nss_crypto_status_t nss_crypto_session_alloc(nss_crypto_handle_t crypto, struct 
 	nss_crypto_dump_bitmap(ctrl->idx_bitmap, NSS_CRYPTO_MAX_IDXS);
 
 	return NSS_CRYPTO_STATUS_OK;
+
+fail:
+	nss_crypto_dbg("session id[%u] alloc fail\n", idx);
+	atomic_inc(&cstats->session_alloc_fail);
+	nss_crypto_idx_free(idx);
+
+	return NSS_CRYPTO_STATUS_FAIL;
 }
 EXPORT_SYMBOL(nss_crypto_session_alloc);
 
@@ -1052,7 +1048,6 @@ void nss_crypto_idx_free(uint32_t session_idx)
 	struct nss_crypto_ctrl_stats *cstats = &ctrl->ctrl_stats;
 	struct nss_crypto_encr_cfg encr_cfg;
 	struct nss_crypto_auth_cfg auth_cfg;
-	bool last_idx;
 	int i;
 
 	memset(&encr_cfg, 0, sizeof(struct nss_crypto_encr_cfg));
@@ -1085,20 +1080,9 @@ void nss_crypto_idx_free(uint32_t session_idx)
 	clear_bit(session_idx, ctrl->idx_bitmap);
 	ctrl->num_idxs--;
 
-	/*
-	 * check if this the last index that is getting deleted
-	 */
-	last_idx = bitmap_empty(ctrl->idx_bitmap, NSS_CRYPTO_MAX_IDXS);
-
 	spin_unlock(&ctrl->lock); /* index unlock*/
-	atomic_inc(&cstats->session_free);
 
-	/*
-	 * scale the fabric down to IDLE as this the last index
-	 */
-	if (unlikely(last_idx)) {
-		nss_pm_set_perf_level(gbl_ctx.pm_hdl, NSS_PM_PERF_LEVEL_IDLE);
-	}
+	atomic_inc(&cstats->session_free);
 
 	nss_crypto_info("deallocated index - %d (used - %d, max - %d)\n",session_idx, ctrl->num_idxs, NSS_CRYPTO_MAX_IDXS);
 	nss_crypto_dump_bitmap(ctrl->idx_bitmap, NSS_CRYPTO_MAX_IDXS);
@@ -1260,6 +1244,9 @@ void nss_crypto_ctrl_init(void)
 	sema_init(&ctrl->sem, 1);
 
 	init_completion(&ctrl->complete);
+	init_completion(&ctrl->perf_complete);
+
+	atomic_set(&ctrl->perf_level, NSS_PM_PERF_LEVEL_IDLE);
 
 	nss_crypto_ctrl_stats_init(&ctrl->ctrl_stats);
 
