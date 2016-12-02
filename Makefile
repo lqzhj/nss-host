@@ -50,6 +50,7 @@ qca-nss-drv-objs := \
 			nss_trustsec_tx.o \
 			nss_tunipip6.o \
 			nss_virt_if.o \
+			nss_vlan.o \
 			nss_wifi.o \
 			nss_wifi_if.o \
 			nss_wifi_vdev.o

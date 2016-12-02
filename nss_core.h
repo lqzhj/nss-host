@@ -998,6 +998,7 @@ struct nss_top_instance {
 	uint8_t edma_handler_id;
 	uint8_t bridge_handler_id;
 	uint8_t trustsec_tx_handler_id;
+	uint8_t vlan_handler_id;
 
 	/* subsystem registration data */
 	struct nss_subsystem_dataplane_register subsys_dp_register[NSS_MAX_NET_INTERFACES];
@@ -1052,6 +1053,8 @@ struct nss_top_instance {
 					/* EDMA callback */
 	nss_bridge_msg_callback_t bridge_callback;
 					/* Bridge callback */
+	nss_vlan_msg_callback_t vlan_callback;
+					/* Vlan callback */
 	uint32_t dynamic_interface_table[NSS_DYNAMIC_INTERFACE_TYPE_MAX];
 
 	/*
@@ -1069,6 +1072,7 @@ struct nss_top_instance {
 	void *oam_ctx;			/* oam context */
 	void *edma_ctx;			/* edma context */
 	void *bridge_ctx;		/* Bridge context */
+	void *vlan_ctx;			/* Vlan context */
 
 	/*
 	 * Statistics for various interfaces
@@ -1292,6 +1296,8 @@ struct nss_platform_data {
 				/* Does this core handle WIFI OFFLOAD? */
 	enum nss_feature_enabled bridge_enabled;
 				/* Does this core handle bridge configuration */
+	enum nss_feature_enabled vlan_enabled;
+				/* Does this core handle vlan configuration */
 };
 #endif
 
