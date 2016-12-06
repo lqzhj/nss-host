@@ -1,4 +1,4 @@
-/* Copyright (c) 2014,2015-2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014,2015-2017 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -51,11 +51,13 @@ static struct nss_cfi_ocf g_cfi_ocf = {{{0}}};
 static struct nss_cfi_crypto_info gbl_crypto_info[NSS_CRYPTO_MAX_IDXS];
 
 /*
- * cfi supported cipehr and auth algorithms and max key, iv and hash lengths
+ * cfi supported cipher and auth algorithms and max key, iv and hash lengths.
+ * Note: Algorithm definitions start from 1 and hence, we need one additional
+ * slot in the array to accommodate all algos. Slot 0 will be empty and unused.
  */
-static struct nss_cfi_ocf_algo cfi_algo[CRYPTO_ALGORITHM_MAX] = {
+static struct nss_cfi_ocf_algo cfi_algo[CRYPTO_ALGORITHM_MAX + 1] = {
 	[CRYPTO_AES_CBC] = 	{
-					NSS_CRYPTO_CIPHER_AES,
+					NSS_CRYPTO_CIPHER_AES_CBC,
 					NSS_CRYPTO_MAX_KEYLEN_AES,
 					NSS_CRYPTO_MAX_IVLEN_AES,
 					NSS_CRYPTO_MAX_BLKLEN_AES,
@@ -611,7 +613,7 @@ static nss_crypto_user_ctx_t nss_cfi_ocf_register(nss_crypto_handle_t crypto)
 	sc->crypto = crypto;
 
 	/* register algorithms with the framework */
-	for (i = 1; i < CRYPTO_ALGORITHM_MAX; i++) {
+	for (i = 1; i <= CRYPTO_ALGORITHM_MAX; i++) {
 		if (cfi_algo[i].core_algo) {
 			nss_cfi_info("registering ALGO %d with OCF\n",i);
 			crypto_register(sc->cid, i, 0, 0);

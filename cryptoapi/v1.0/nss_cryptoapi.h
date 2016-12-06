@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -61,7 +61,7 @@ struct nss_cryptoapi_ctx {
 	struct dentry *session_dentry;
 	atomic_t refcnt;
 	uint16_t magic;
-	uint8_t ctx_iv[AES_BLOCK_SIZE];
+	uint32_t ctx_iv[AES_BLOCK_SIZE/sizeof(uint32_t)];
 	uint16_t rsvd;
 	struct crypto_tfm *sw_tfm;
 	bool fallback_req;
@@ -156,21 +156,21 @@ void nss_cryptoapi_debugfs_exit(struct nss_cryptoapi *gbl_ctx);
 /* AEAD */
 int nss_cryptoapi_aead_init(struct crypto_tfm *tfm);
 void nss_cryptoapi_aead_exit(struct crypto_tfm *tfm);
-int nss_cryptoapi_sha1_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsigned int keylen);
-int nss_cryptoapi_sha256_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsigned int keylen);
+int nss_cryptoapi_aead_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsigned int keylen);
 int nss_cryptoapi_sha1_3des_setkey(struct crypto_aead *tfm, const u8 *key, unsigned int keylen);
 int nss_cryptoapi_sha256_3des_setkey(struct crypto_aead *tfm, const u8 *key, unsigned int keylen);
+
 int nss_cryptoapi_aead_setauthsize(struct crypto_aead *authenc, unsigned int authsize);
-int nss_cryptoapi_sha1_aes_encrypt(struct aead_request *req);
-int nss_cryptoapi_sha256_aes_encrypt(struct aead_request *req);
+int nss_cryptoapi_aead_aes_encrypt(struct aead_request *req);
+int nss_cryptoapi_aead_aes_decrypt(struct aead_request *req);
+
 int nss_cryptoapi_sha1_3des_encrypt(struct aead_request *req);
-int nss_cryptoapi_sha256_3des_encrypt(struct aead_request *req);
-int nss_cryptoapi_sha1_aes_decrypt(struct aead_request *req);
-int nss_cryptoapi_sha256_aes_decrypt(struct aead_request *req);
 int nss_cryptoapi_sha1_3des_decrypt(struct aead_request *req);
+
+int nss_cryptoapi_sha256_3des_encrypt(struct aead_request *req);
 int nss_cryptoapi_sha256_3des_decrypt(struct aead_request *req);
-int nss_cryptoapi_sha1_aes_geniv_encrypt(struct aead_givcrypt_request *req);
-int nss_cryptoapi_sha256_aes_geniv_encrypt(struct aead_givcrypt_request *req);
+
+int nss_cryptoapi_aead_aes_geniv_encrypt(struct aead_givcrypt_request *req);
 int nss_cryptoapi_sha1_3des_geniv_encrypt(struct aead_givcrypt_request *req);
 int nss_cryptoapi_sha256_3des_geniv_encrypt(struct aead_givcrypt_request *req);
 

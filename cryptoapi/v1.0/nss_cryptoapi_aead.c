@@ -52,7 +52,7 @@
 
 extern struct nss_cryptoapi gbl_ctx;
 
-struct cryptoapi_aead_info {
+struct nss_cryptoapi_aead_info {
 	void *iv;
 	struct nss_crypto_params *params;
 	nss_crypto_comp_t cb_fn;
@@ -179,18 +179,21 @@ int nss_cryptoapi_aead_extract_key(const u8 *key, unsigned int keylen, struct ns
 }
 
 /*
- * nss_cryptoapi_sha1_aes_setkey()
- * 	Cryptoapi setkey routine for sha1/aes.
+ * nss_cryptoapi_aead_aes_setkey()
+ * 	Cryptoapi setkey routine for aead (aes/sha) algorithms.
  */
-int nss_cryptoapi_sha1_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsigned int keylen)
+int nss_cryptoapi_aead_aes_setkey(struct crypto_aead *aead, const u8 *key, unsigned int keylen)
 {
-	struct nss_cryptoapi_ctx *ctx = crypto_aead_ctx(tfm);
+	struct crypto_tfm *tfm = crypto_aead_tfm(aead);
+	struct nss_cryptoapi_ctx *ctx = crypto_tfm_ctx(tfm);
 	struct nss_cryptoapi *sc = &gbl_ctx;
-	struct nss_crypto_key cip = { .algo = NSS_CRYPTO_CIPHER_AES };
-	struct nss_crypto_key auth = { .algo = NSS_CRYPTO_AUTH_SHA1_HMAC };
+	struct nss_crypto_key cip;
+	struct nss_crypto_key auth;
 	uint32_t flag = CRYPTO_TFM_RES_BAD_KEY_LEN;
-	int ret;
 	nss_crypto_status_t status;
+	bool ctr_mode = false;
+	bool cbc_mode = false;
+	int ret;
 
 	/*
 	 * validate magic number - init should be called before setkey
@@ -203,17 +206,65 @@ int nss_cryptoapi_sha1_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsign
 	}
 
 	/*
-	 * Extract and cipher and auth key
+	 * Extract cipher and auth key
 	 */
 	if (nss_cryptoapi_aead_extract_key(key, keylen, &cip, &auth)) {
 		nss_cfi_err("Invalid cryptoapi context\n");
+		return -EINVAL;
+	}
+
+	/*
+	 * check for the algorithm
+	 */
+	if (!strncmp("nss-hmac-sha256-rfc3686-ctr-aes", crypto_tfm_alg_driver_name(tfm), CRYPTO_MAX_ALG_NAME)) {
+		cip.algo = NSS_CRYPTO_CIPHER_AES_CTR;
+		auth.algo = NSS_CRYPTO_AUTH_SHA256_HMAC;
+		ctr_mode = true;
+	} else if (!strncmp("nss-hmac-sha1-rfc3686-ctr-aes", crypto_tfm_alg_driver_name(tfm), CRYPTO_MAX_ALG_NAME)) {
+		cip.algo = NSS_CRYPTO_CIPHER_AES_CTR;
+		auth.algo = NSS_CRYPTO_AUTH_SHA1_HMAC;
+		ctr_mode = true;
+	} else if (!strncmp("nss-hmac-sha256-cbc-aes", crypto_tfm_alg_driver_name(tfm), CRYPTO_MAX_ALG_NAME)) {
+		cip.algo = NSS_CRYPTO_CIPHER_AES_CBC;
+		auth.algo = NSS_CRYPTO_AUTH_SHA256_HMAC;
+		cbc_mode = true;
+	} else if (!strncmp("nss-hmac-sha1-cbc-aes", crypto_tfm_alg_driver_name(tfm), CRYPTO_MAX_ALG_NAME)) {
+		cip.algo = NSS_CRYPTO_CIPHER_AES_CBC;
+		auth.algo = NSS_CRYPTO_AUTH_SHA1_HMAC;
+		cbc_mode = true;
+	} else {
 		goto fail;
 	}
 
 	/*
-	 * Initialize IV for this session
+	 * For RFC3686 CTR mode we construct the IV such that
+	 * - First word is key nonce
+	 * - Second & third word set to a random number
+	 * - Last word set to counter '1'
 	 */
-	get_random_bytes(ctx->ctx_iv, AES_BLOCK_SIZE);
+	if (ctr_mode) {
+		cip.key_len = cip.key_len - CTR_RFC3686_NONCE_SIZE;
+
+		ctx->ctx_iv[0] = *(uint32_t *)(cip.key + cip.key_len);
+		get_random_bytes((uint8_t *)&ctx->ctx_iv[1], crypto_aead_ivsize(aead));
+		ctx->ctx_iv[3] = ntohl(0x1);
+	} else if (cbc_mode) {
+		get_random_bytes((uint8_t *)&ctx->ctx_iv[0], crypto_aead_ivsize(aead));
+	} else {
+		/*
+		 * This should never reach this check
+		 */
+		BUG_ON(!ctr_mode && !cbc_mode);
+	}
+
+	/*
+	 * Validate auth key length
+	 */
+	if (auth.key_len != crypto_aead_alg(aead)->maxauthsize) {
+		nss_cfi_err("Bad Auth key_len(%d)\n", auth.key_len);
+		goto fail;
+	}
+
 
 	/*
 	 * When the specified length request can't be handled by hardware,
@@ -227,14 +278,16 @@ int nss_cryptoapi_sha1_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsign
 		break;
 	case NSS_CRYPTOAPI_KEYLEN_AES192:
 		/* We don't support AES192, fallback to software crypto*/
-		nss_cfi_assert(ctx->sw_tfm);
+		if (!ctx->sw_tfm) {
+			goto fail;
+		}
 
 		ctx->fallback_req = true;
 		ctx->sid = NSS_CRYPTO_MAX_IDXS;
 
 		/* set flag to fallback tfm */
 		crypto_tfm_clear_flags(ctx->sw_tfm, CRYPTO_TFM_REQ_MASK);
-		crypto_tfm_set_flags(ctx->sw_tfm, crypto_aead_get_flags(tfm) & CRYPTO_TFM_REQ_MASK);
+		crypto_tfm_set_flags(ctx->sw_tfm, crypto_aead_get_flags(aead) & CRYPTO_TFM_REQ_MASK);
 
 		/* set key to the fallback tfm */
 		ret = crypto_aead_setkey(__crypto_aead_cast(ctx->sw_tfm), key, keylen);
@@ -246,23 +299,11 @@ int nss_cryptoapi_sha1_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsign
 			 * Set back the fallback tfm flag to the original flag one after
 			 * doing setkey
 			 */
-			crypto_aead_set_flags(tfm, crypto_tfm_get_flags(ctx->sw_tfm));
+			crypto_aead_set_flags(aead, crypto_tfm_get_flags(ctx->sw_tfm));
 		}
 		return ret;
 	default:
 		nss_cfi_err("Bad Cipher key_len(%d)\n", cip.key_len);
-		goto fail;
-	}
-
-	/*
-	 * Validate cipher key length
-	 */
-	switch (auth.key_len) {
-	case NSS_CRYPTO_MAX_KEYLEN_SHA1:
-		/* success */
-		break;
-	default:
-		nss_cfi_err("Bad Auth key_len(%d)\n", auth.key_len);
 		goto fail;
 	}
 
@@ -278,123 +319,16 @@ int nss_cryptoapi_sha1_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsign
 
 	nss_cfi_info("session id created: %d\n", ctx->sid);
 
-	ctx->cip_alg = NSS_CRYPTO_CIPHER_AES;
-	ctx->auth_alg = NSS_CRYPTO_AUTH_SHA1_HMAC;
+	/*
+	 * save the algorithm(s) for future use
+	 */
+	ctx->cip_alg = cip.algo;
+	ctx->auth_alg = auth.algo;
 
 	return 0;
 
 fail:
-	crypto_aead_set_flags(tfm, flag);
-	return -EINVAL;
-}
-
-/*
- * nss_cryptoapi_sha256_aes_setkey()
- * 	Cryptoapi setkey routine for sha256/aes.
- */
-int nss_cryptoapi_sha256_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsigned int keylen)
-{
-	struct nss_cryptoapi_ctx *ctx = crypto_aead_ctx(tfm);
-	struct nss_cryptoapi *sc = &gbl_ctx;
-	struct nss_crypto_key cip = { .algo = NSS_CRYPTO_CIPHER_AES };
-	struct nss_crypto_key auth = { .algo = NSS_CRYPTO_AUTH_SHA256_HMAC };
-	uint32_t flag = CRYPTO_TFM_RES_BAD_KEY_LEN;
-	int ret;
-	nss_crypto_status_t status;
-
-	/*
-	 * validate magic number - init should be called before setkey
-	 */
-	nss_cryptoapi_verify_magic(ctx);
-
-	if (atomic_cmpxchg(&ctx->refcnt, 0, 1)) {
-		nss_cfi_err("reusing context, setkey is already called\n");
-		return -EINVAL;
-	}
-
-	/*
-	 * Extract and cipher and auth key
-	 */
-	if (nss_cryptoapi_aead_extract_key(key, keylen, &cip, &auth)) {
-		nss_cfi_err("Bad Key\n");
-		goto fail;
-	}
-
-	/*
-	 * Initialize IV for this session
-	 */
-	get_random_bytes(ctx->ctx_iv, AES_BLOCK_SIZE);
-
-	/*
-	 * When the specified length request can't be handled by hardware,
-	 * fallback to other crypto
-	 */
-	switch (cip.key_len) {
-	case NSS_CRYPTOAPI_KEYLEN_AES128:
-	case NSS_CRYPTOAPI_KEYLEN_AES256:
-		/* success */
-		ctx->fallback_req = false;
-		break;
-	case NSS_CRYPTOAPI_KEYLEN_AES192:
-		nss_cfi_assert(ctx->sw_tfm);
-
-		ctx->fallback_req = true;
-		ctx->sid = NSS_CRYPTO_MAX_IDXS;
-
-		/* set flag to fallback tfm */
-		crypto_tfm_clear_flags(ctx->sw_tfm, CRYPTO_TFM_REQ_MASK);
-		crypto_tfm_set_flags(ctx->sw_tfm, crypto_aead_get_flags(tfm) & CRYPTO_TFM_REQ_MASK);
-
-		/* set key to the fallback tfm */
-		ret = crypto_aead_setkey(__crypto_aead_cast(ctx->sw_tfm), key, keylen);
-		if (ret) {
-			nss_cfi_err("Setting key to software cryto failed\n");
-
-			/*
-			 * Set back the fallback tfm flag to the original flag one after
-			 * doing setkey
-			 */
-			crypto_aead_set_flags(tfm, crypto_tfm_get_flags(ctx->sw_tfm));
-		}
-		return ret;
-	default:
-		nss_cfi_err("Bad Cipher key_len(%d)\n", cip.key_len);
-		goto fail;
-
-	}
-
-	/*
-	 * Validate auth key length
-	 */
-	switch (auth.key_len) {
-	case NSS_CRYPTO_MAX_KEYLEN_SHA256:
-		/* success */
-		break;
-	default:
-		nss_cfi_err("Bad Auth key_len(%d)\n", auth.key_len);
-		goto fail;
-	}
-
-	status = nss_crypto_session_alloc(sc->crypto, &cip, &auth, &ctx->sid);
-	if (status != NSS_CRYPTO_STATUS_OK) {
-		nss_cfi_err("nss_crypto_session_alloc failed - status: %d\n", status);
-		ctx->sid = NSS_CRYPTO_MAX_IDXS;
-		flag = CRYPTO_TFM_RES_BAD_FLAGS;
-		goto fail;
-	}
-
-	nss_cryptoapi_debugfs_add_session(sc, ctx);
-
-
-	nss_cfi_info("session id created: %d\n", ctx->sid);
-
-	ctx->cip_alg = NSS_CRYPTO_CIPHER_AES;
-	ctx->auth_alg = NSS_CRYPTO_AUTH_SHA256_HMAC;
-
-	return 0;
-
-fail:
-	crypto_aead_set_flags(tfm, flag);
+	crypto_aead_set_flags(aead, flag);
 	return -EINVAL;
 }
 
@@ -402,9 +336,10 @@ fail:
  * nss_cryptoapi_sha1_3des_setkey()
  * 	Cryptoapi setkey routine for sha1/3des.
  */
-int nss_cryptoapi_sha1_3des_setkey(struct crypto_aead *tfm, const u8 *key, unsigned int keylen)
+int nss_cryptoapi_sha1_3des_setkey(struct crypto_aead *aead, const u8 *key, unsigned int keylen)
 {
-	struct nss_cryptoapi_ctx *ctx = crypto_aead_ctx(tfm);
+	struct crypto_tfm *tfm = crypto_aead_tfm(aead);
+	struct nss_cryptoapi_ctx *ctx = crypto_tfm_ctx(tfm);
 	struct nss_cryptoapi *sc = &gbl_ctx;
 	struct nss_crypto_key cip = { .algo = NSS_CRYPTO_CIPHER_DES };
 	struct nss_crypto_key auth = { .algo = NSS_CRYPTO_AUTH_SHA1_HMAC };
@@ -466,7 +401,7 @@ int nss_cryptoapi_sha1_3des_setkey(struct crypto_aead *tfm, const u8 *key, unsig
 	/*
 	 * Initialize IV for this session
 	 */
-	get_random_bytes(ctx->ctx_iv, DES3_EDE_BLOCK_SIZE);
+	get_random_bytes((uint8_t *)ctx->ctx_iv, DES3_EDE_BLOCK_SIZE);
 
 	nss_cfi_info("session id created: %d\n", ctx->sid);
 
@@ -476,7 +411,7 @@ int nss_cryptoapi_sha1_3des_setkey(struct crypto_aead *tfm, const u8 *key, unsig
 	return 0;
 
 fail:
-	crypto_aead_set_flags(tfm, flag);
+	crypto_aead_set_flags(aead, flag);
 	return -EINVAL;
 }
 
@@ -484,9 +419,10 @@ fail:
  * nss_cryptoapi_sha256_3des_setkey()
  * 	Cryptoapi setkey routine for sha256/3des.
  */
-int nss_cryptoapi_sha256_3des_setkey(struct crypto_aead *tfm, const u8 *key, unsigned int keylen)
+int nss_cryptoapi_sha256_3des_setkey(struct crypto_aead *aead, const u8 *key, unsigned int keylen)
 {
-	struct nss_cryptoapi_ctx *ctx = crypto_aead_ctx(tfm);
+	struct crypto_tfm *tfm = crypto_aead_tfm(aead);
+	struct nss_cryptoapi_ctx *ctx = crypto_tfm_ctx(tfm);
 	struct nss_cryptoapi *sc = &gbl_ctx;
 	struct nss_crypto_key cip = { .algo = NSS_CRYPTO_CIPHER_DES };
 	struct nss_crypto_key auth = { .algo = NSS_CRYPTO_AUTH_SHA256_HMAC };
@@ -548,7 +484,7 @@ int nss_cryptoapi_sha256_3des_setkey(struct crypto_aead *tfm, const u8 *key, uns
 	/*
 	 * Initialize IV for this session
 	 */
-	get_random_bytes(ctx->ctx_iv, DES3_EDE_BLOCK_SIZE);
+	get_random_bytes((uint8_t *)ctx->ctx_iv, DES3_EDE_BLOCK_SIZE);
 
 	nss_cfi_info("session id created: %d\n", ctx->sid);
 
@@ -558,7 +494,7 @@ int nss_cryptoapi_sha256_3des_setkey(struct crypto_aead *tfm, const u8 *key, uns
 	return 0;
 
 fail:
-	crypto_aead_set_flags(tfm, flag);
+	crypto_aead_set_flags(aead, flag);
 	return -EINVAL;
 }
 
@@ -589,26 +525,29 @@ void nss_cryptoapi_aead_decrypt_done(struct nss_crypto_buf *buf)
 {
 	struct nss_cryptoapi_ctx *ctx;
 	struct aead_request *req;
+	struct crypto_aead *aead;
 	uint8_t *data_hmac;
 	uint8_t *hw_hmac;
 	uint32_t hmac_sz;
+	uint16_t tot_len;
 	int err = 0;
 	uint8_t *data;
-	uint16_t tot_len;
 
 	nss_cfi_assert(buf);
-
-	req = (struct aead_request *)buf->cb_ctx;
-	data = nss_cryptoapi_get_buf_addr(sg_virt(req->assoc), sg_virt(req->src));
-	tot_len = req->assoclen + nss_cryptoapi_get_iv_sz(req) + req->cryptlen;
 
 	/*
 	 * check cryptoapi context magic number.
 	 */
-	ctx = crypto_tfm_ctx(req->base.tfm);
+	req = (struct aead_request *)nss_crypto_get_cb_ctx(buf);
+	aead = crypto_aead_reqtfm(req);
+
+	ctx = crypto_aead_ctx(aead);
 	nss_cryptoapi_verify_magic(ctx);
 
-	hmac_sz = nss_cryptoapi_get_hmac_sz(req);
+	data = nss_cryptoapi_get_buf_addr(sg_virt(req->assoc), sg_virt(req->src));
+	tot_len = req->assoclen + crypto_aead_ivsize(aead) + req->cryptlen;
+
+	hmac_sz = crypto_aead_authsize(aead);
 	hw_hmac = nss_crypto_get_hash_addr(buf);
 	data_hmac = data + tot_len - hmac_sz;
 
@@ -633,31 +572,31 @@ void nss_cryptoapi_aead_encrypt_done(struct nss_crypto_buf *buf)
 {
 	struct nss_cryptoapi_ctx *ctx;
 	struct aead_request *req;
+	struct crypto_aead *aead;
 	uint8_t *hw_hmac;
-	uint32_t hmac_sz;
-	int err = 0;
-	uint8_t *data;
 	uint16_t tot_len;
+	uint8_t *data;
+	int err = 0;
 
 	nss_cfi_assert(buf);
-
-	req = (struct aead_request *)buf->cb_ctx;
-	data = nss_cryptoapi_get_buf_addr(sg_virt(req->assoc), sg_virt(req->src));
-	/* data = sg_virt(req->dst); */
-	tot_len = req->assoclen + nss_cryptoapi_get_iv_sz(req) + req->cryptlen;
 
 	/*
 	 * check cryptoapi context magic number.
 	 */
-	ctx = crypto_tfm_ctx(req->base.tfm);
+	req = (struct aead_request *)nss_crypto_get_cb_ctx(buf);
+	aead = crypto_aead_reqtfm(req);
+
+	ctx = crypto_aead_ctx(aead);
 	nss_cryptoapi_verify_magic(ctx);
 
-	hmac_sz = nss_cryptoapi_get_hmac_sz(req);
-	hw_hmac = nss_crypto_get_hash_addr(buf);
+	data = nss_cryptoapi_get_buf_addr(sg_virt(req->assoc), sg_virt(req->src));
+	tot_len = req->assoclen + crypto_aead_ivsize(aead) + req->cryptlen;
 
-	memcpy(data + tot_len, hw_hmac, hmac_sz);
+	hw_hmac = nss_crypto_get_hash_addr(buf);
+	memcpy(data + tot_len, hw_hmac, crypto_aead_authsize(aead));
 
 	nss_crypto_buf_free(gbl_ctx.crypto, buf);
+
 	/*
 	 * Passing always pass in case of encrypt.
 	 * Perhaps whenever core crypto invloke callback routine, it is always pass.
@@ -687,7 +626,7 @@ int nss_cryptoapi_validate_addr(struct nss_cryptoapi_addr *sg_addr)
 	 * Assoc should include IV, should be before cipher.
 	 */
 	if (sg_addr->src < sg_addr->start) {
-		nss_cfi_err("Invalid cipher pointer src: 0x%p, iv: 0x%p, assoc: 0x%p\n", sg_addr->src, sg_addr->iv, sg_addr->assoc);
+		nss_cfi_err("Invalid src: 0x%p, iv: 0x%p, assoc: 0x%p\n", sg_addr->src, sg_addr->iv, sg_addr->assoc);
 		return -EINVAL;
 	}
 
@@ -701,7 +640,9 @@ int nss_cryptoapi_validate_addr(struct nss_cryptoapi_addr *sg_addr)
  */
 int nss_cryptoapi_checknget_addr(struct aead_request *req, struct nss_cryptoapi_addr *sg_addr)
 {
+	struct crypto_aead *aead = crypto_aead_reqtfm(req);
 	uint32_t data_len;
+
 	/*
 	 * Currently only single sg is supported
 	 * 	return error, if caller send multiple sg for any of src, assoc and dst.
@@ -724,8 +665,8 @@ int nss_cryptoapi_checknget_addr(struct aead_request *req, struct nss_cryptoapi_
 	/*
 	 * If the size of data is more than 65K reject transformation
 	 */
-	data_len = req->cryptlen + nss_cryptoapi_get_iv_sz(req);
-	data_len += req->assoclen + nss_cryptoapi_get_hmac_sz(req);
+	data_len = req->cryptlen + crypto_aead_ivsize(aead);
+	data_len += req->assoclen + crypto_aead_authsize(aead);
 	if (data_len > NSS_CRYPTOAPI_MAX_DATA_LEN) {
 		nss_cfi_err("Buffer length exceeded limit\n");
 		return -EINVAL;
@@ -743,7 +684,6 @@ int nss_cryptoapi_checknget_addr(struct aead_request *req, struct nss_cryptoapi_
 	nss_cfi_assert(sg_addr->src);
 	nss_cfi_assert(sg_addr->dst);
 	nss_cfi_assert(sg_addr->assoc);
-	nss_cfi_assert(sg_addr->iv);
 	nss_cfi_assert(sg_addr->start);
 
 	if (nss_cryptoapi_validate_addr(sg_addr)) {
@@ -758,33 +698,43 @@ int nss_cryptoapi_checknget_addr(struct aead_request *req, struct nss_cryptoapi_
  * nss_cryptoapi_aead_transform()
  * 	Crytoapi common routine for encryption and decryption operations.
  */
-struct nss_crypto_buf *nss_cryptoapi_aead_transform(struct aead_request *req, struct cryptoapi_aead_info *info)
+struct nss_crypto_buf *nss_cryptoapi_aead_transform(struct aead_request *req, struct nss_cryptoapi_aead_info *info)
 {
-	struct nss_cryptoapi_ctx *ctx = crypto_tfm_ctx(req->base.tfm);
-	struct nss_crypto_buf *buf;
+	struct crypto_aead *aead = crypto_aead_reqtfm(req);
+	struct nss_cryptoapi_ctx *ctx = crypto_aead_ctx(aead);
+	uint16_t cipher_len = 0, auth_len = 0;
 	struct nss_cryptoapi_addr sg_addr = {0};
 	struct nss_cryptoapi *sc = &gbl_ctx;
+	struct nss_crypto_buf *buf;
 	nss_crypto_status_t status;
 	int tot_buf_len;
-	uint16_t sha;
-	uint16_t ivsize;
-	uint16_t cipher_len = 0, auth_len = 0;
 	uint8_t *iv_addr;
+	uint16_t iv_size;
+	uint16_t sha;
 
 	nss_cfi_assert(ctx);
+
+	/*
+	 * According to RFC3686, AES-CTR algo need not be padded if the
+	 * plaintext or ciphertext is unaligned to block size boundary.
+	 */
+	if ((info->cip_len & (crypto_aead_blocksize(aead) - 1)) && (ctx->cip_alg != NSS_CRYPTO_CIPHER_AES_CTR)) {
+		nss_cfi_dbg("Invalid cipher len - Not aligned to algo blocksize\n");
+		crypto_aead_set_flags(aead, CRYPTO_TFM_RES_BAD_BLOCK_LEN);
+		return NULL;
+	}
 
 	/*
 	 * Map sg to corresponding virtual addesses.
 	 * validate if addresses are valid as expected and sg has single fragment.
 	 */
-	sg_addr.iv = info->iv;
 	if (nss_cryptoapi_checknget_addr(req, &sg_addr)) {
 		nss_cfi_err("Invalid address!!\n");
 		return NULL;
 	}
 
 	nss_cfi_dbg("src_vaddr: 0x%p, dst_vaddr: 0x%p, assoc_vaddr: 0x%p, iv: 0x%p\n",
-			sg_addr.src, sg_addr.dst, sg_addr.assoc, sg_addr.iv);
+			sg_addr.src, sg_addr.dst, sg_addr.assoc, req->iv);
 
 	info->params->cipher_skip = nss_cryptoapi_get_skip(sg_addr.src, sg_addr.start);
 	info->params->auth_skip = nss_cryptoapi_get_skip(sg_addr.assoc, sg_addr.start);
@@ -813,34 +763,47 @@ struct nss_crypto_buf *nss_cryptoapi_aead_transform(struct aead_request *req, st
 	nss_crypto_set_cb(buf, info->cb_fn, req);
 	nss_crypto_set_session_idx(buf, ctx->sid);
 
-	sha = nss_cryptoapi_get_hmac_sz(req);
-	ivsize = nss_cryptoapi_get_iv_sz(req);
+	sha = crypto_aead_authsize(aead);
 
 	/*
-	 * Get IV location and memcpy the IV
+	 * Get IV location and memcpy the IV.
+	 * For all AES algos, copy IV of size AES_BLOCK_SIZE.
 	 */
 	iv_addr = nss_crypto_get_ivaddr(buf);
-	memcpy(iv_addr, info->iv, ivsize);
+	iv_size = crypto_aead_ivsize(aead);
+
+	switch (ctx->cip_alg) {
+	case NSS_CRYPTO_CIPHER_AES_CBC:
+	case NSS_CRYPTO_CIPHER_DES:
+		memcpy(iv_addr, req->iv, iv_size);
+		break;
+
+	case NSS_CRYPTO_CIPHER_AES_CTR:
+		((uint32_t *)iv_addr)[0] = ctx->ctx_iv[0];
+		((uint32_t *)iv_addr)[1] = ((uint32_t *)req->iv)[0];
+		((uint32_t *)iv_addr)[2] = ((uint32_t *)req->iv)[1];
+		((uint32_t *)iv_addr)[3] = ctx->ctx_iv[3];
+		break;
+
+	default:
+		/*
+		 * Should never happen
+		 */
+		nss_cfi_err("Invalid cipher algo: %d\n", ctx->cip_alg);
+		nss_cfi_assert(false);
+	}
 
 	/*
 	 * Ideally this is true only for ESP/XFRM case.
 	 * Need to introduce a check here to if it's an esp packet atleast for the first packet on session.
 	 */
-	tot_buf_len = req->assoclen + ivsize + req->cryptlen;
+	tot_buf_len = req->assoclen + iv_size + req->cryptlen;
 
 	/*
 	 * Fill Cipher and Auth len
 	 */
 	cipher_len = info->cip_len;
 	auth_len = info->auth_len;
-
-
-	if (cipher_len & (nss_cryptoapi_get_blocksize(req) - 1)) {
-		nss_cfi_err("Invalid cipher len - Not aligned to algo blocksize\n");
-		nss_crypto_buf_free(sc->crypto, buf);
-		crypto_aead_set_flags(crypto_aead_reqtfm(req), CRYPTO_TFM_RES_BAD_BLOCK_LEN);
-		return NULL;
-	}
 
 	/*
 	 * The physical buffer data length provided to crypto will include
@@ -851,7 +814,7 @@ struct nss_crypto_buf *nss_cryptoapi_aead_transform(struct aead_request *req, st
 
 	nss_cfi_dbg("cipher_len: %d, iv_len: %d, auth_len: %d"
 			"tot_buf_len: %d, sha: %d, cipher_skip: %d, auth_skip: %d\n",
-			buf->cipher_len, ivsize, buf->auth_len,
+			buf->cipher_len, iv_size, buf->auth_len,
 			tot_buf_len, sha, info->params->cipher_skip, info->params->auth_skip);
 	nss_cfi_dbg("before transformation\n");
 	nss_cfi_dbg_data(sg_addr.start, tot_buf_len, ' ');
@@ -903,18 +866,21 @@ int nss_cryptoapi_aead_fallback(struct nss_cryptoapi_ctx *ctx, struct aead_reque
 
 	return err;
 }
+
 /*
- * nss_cryptoapi_sha1_aes_encrypt()
- * 	Crytoapi encrypt for sha1/aes algorithm.
+ * nss_cryptoapi_aead_aes_encrypt()
+ * 	Crytoapi common encrypt for aead aes (sha1/sha256 with aes-cbc/rfc3686-aes-ctr) algorithms.
  */
-int nss_cryptoapi_sha1_aes_encrypt(struct aead_request *req)
+int nss_cryptoapi_aead_aes_encrypt(struct aead_request *req)
 {
-	struct nss_cryptoapi *sc = &gbl_ctx;
-	struct nss_cryptoapi_ctx *ctx = crypto_tfm_ctx(req->base.tfm);
 	struct nss_crypto_params params = { .req_type = NSS_CRYPTO_REQ_TYPE_AUTH |
 							NSS_CRYPTO_REQ_TYPE_ENCRYPT };
+	struct nss_cryptoapi_aead_info info = {.cb_fn = nss_cryptoapi_aead_encrypt_done,
+						.params = &params};
+	struct crypto_aead *aead = crypto_aead_reqtfm(req);
+	struct nss_cryptoapi_ctx *ctx = crypto_aead_ctx(aead);
+	struct nss_cryptoapi *sc = &gbl_ctx;
 	struct nss_crypto_buf *buf;
-	struct cryptoapi_aead_info info;
 
 	/*
 	 * check cryptoapi context magic number.
@@ -932,21 +898,18 @@ int nss_cryptoapi_sha1_aes_encrypt(struct aead_request *req)
 		return -EINVAL;
 	}
 
-	if (nss_crypto_get_cipher(ctx->sid) != NSS_CRYPTO_CIPHER_AES) {
+	if (nss_crypto_get_cipher(ctx->sid) != ctx->cip_alg) {
 		nss_cfi_err("Invalid Cipher Algo for session id: %d\n", ctx->sid);
 		return -EINVAL;
 	}
 
-	if (nss_crypto_get_auth(ctx->sid) != NSS_CRYPTO_AUTH_SHA1_HMAC) {
+	if (nss_crypto_get_auth(ctx->sid) != ctx->auth_alg) {
 		nss_cfi_err("Invalid Auth Algo for session id: %d\n", ctx->sid);
 		return -EINVAL;
 	}
 
-	info.iv = req->iv;
-	info.params = &params;
-	info.cb_fn = nss_cryptoapi_aead_encrypt_done;
 	info.cip_len = req->cryptlen;
-	info.auth_len = req->assoclen + nss_cryptoapi_get_iv_sz(req) + req->cryptlen;
+	info.auth_len = req->assoclen + crypto_aead_ivsize(aead) + req->cryptlen;
 
 	buf = nss_cryptoapi_aead_transform(req, &info);
 	if (!buf) {
@@ -971,17 +934,19 @@ int nss_cryptoapi_sha1_aes_encrypt(struct aead_request *req)
 }
 
 /*
- * nss_cryptoapi_sha256_aes_encrypt()
- * 	Crytoapi encrypt for sha256/aes algorithm.
+ * nss_cryptoapi_aead_aes_decrypt()
+ * 	Crytoapi common decrypt for aead aes (sha1/sha256 with aes-cbc/rfc3686-aes-ctr) algorithms.
  */
-int nss_cryptoapi_sha256_aes_encrypt(struct aead_request *req)
+int nss_cryptoapi_aead_aes_decrypt(struct aead_request *req)
 {
-	struct nss_cryptoapi *sc = &gbl_ctx;
-	struct nss_cryptoapi_ctx *ctx = crypto_tfm_ctx(req->base.tfm);
 	struct nss_crypto_params params = { .req_type = NSS_CRYPTO_REQ_TYPE_AUTH |
-							NSS_CRYPTO_REQ_TYPE_ENCRYPT };
+							NSS_CRYPTO_REQ_TYPE_DECRYPT };
+	struct nss_cryptoapi_aead_info info = {.cb_fn = nss_cryptoapi_aead_decrypt_done,
+						.params = &params};
+	struct crypto_aead *aead = crypto_aead_reqtfm(req);
+	struct nss_cryptoapi_ctx *ctx = crypto_aead_ctx(aead);
+	struct nss_cryptoapi *sc = &gbl_ctx;
 	struct nss_crypto_buf *buf;
-	struct cryptoapi_aead_info info;
 
 	/*
 	 * check cryptoapi context magic number.
@@ -989,7 +954,7 @@ int nss_cryptoapi_sha256_aes_encrypt(struct aead_request *req)
 	nss_cryptoapi_verify_magic(ctx);
 
 	if (ctx->fallback_req)
-		return nss_cryptoapi_aead_fallback(ctx, req, NSS_CRYPTOAPI_ENCRYPT);
+		return nss_cryptoapi_aead_fallback(ctx, req, NSS_CRYPTOAPI_DECRYPT);
 
 	/*
 	 * Check if previous call to setkey couldn't allocate session with core crypto.
@@ -999,21 +964,23 @@ int nss_cryptoapi_sha256_aes_encrypt(struct aead_request *req)
 		return -EINVAL;
 	}
 
-	if (nss_crypto_get_cipher(ctx->sid) != NSS_CRYPTO_CIPHER_AES) {
+	if (nss_crypto_get_cipher(ctx->sid) != ctx->cip_alg) {
 		nss_cfi_err("Invalid Cipher Algo for session id: %d\n", ctx->sid);
 		return -EINVAL;
 	}
 
-	if (nss_crypto_get_auth(ctx->sid) != NSS_CRYPTO_AUTH_SHA256_HMAC) {
+	if (nss_crypto_get_auth(ctx->sid) != ctx->auth_alg) {
 		nss_cfi_err("Invalid Auth Algo for session id: %d\n", ctx->sid);
 		return -EINVAL;
 	}
 
-	info.iv = req->iv;
-	info.params = &params;
-	info.cb_fn = nss_cryptoapi_aead_encrypt_done;
-	info.cip_len = req->cryptlen;
-	info.auth_len = req->assoclen + nss_cryptoapi_get_iv_sz(req) + req->cryptlen;
+	/*
+	 * In case of decrypt operation, ipsec include hmac size in req->cryptlen
+	 * skip encryption and authentication on hmac trasmitted with data.
+	 * TODO: fix this in future, pass relevant details from caller.
+	 */
+	info.cip_len = req->cryptlen - crypto_aead_authsize(aead);
+	info.auth_len = req->assoclen + crypto_aead_ivsize(aead) + req->cryptlen - crypto_aead_authsize(aead);
 
 	buf = nss_cryptoapi_aead_transform(req, &info);
 	if (!buf) {
@@ -1036,7 +1003,6 @@ int nss_cryptoapi_sha256_aes_encrypt(struct aead_request *req)
 
 	return -EINPROGRESS;
 }
-
 
 /*
  * nss_cryptoapi_sha1_3des_encrypt()
@@ -1049,7 +1015,7 @@ int nss_cryptoapi_sha1_3des_encrypt(struct aead_request *req)
 	struct nss_crypto_params params = { .req_type = NSS_CRYPTO_REQ_TYPE_AUTH |
 							NSS_CRYPTO_REQ_TYPE_ENCRYPT };
 	struct nss_crypto_buf *buf;
-	struct cryptoapi_aead_info info;
+	struct nss_cryptoapi_aead_info info;
 
 	/*
 	 * check cryptoapi context magic number.
@@ -1078,7 +1044,7 @@ int nss_cryptoapi_sha1_3des_encrypt(struct aead_request *req)
 	info.params = &params;
 	info.cb_fn = nss_cryptoapi_aead_encrypt_done;
 	info.cip_len = req->cryptlen;
-	info.auth_len = req->assoclen + nss_cryptoapi_get_iv_sz(req) + req->cryptlen;
+	info.auth_len = req->assoclen + DES3_EDE_BLOCK_SIZE + req->cryptlen;
 
 	buf = nss_cryptoapi_aead_transform(req, &info);
 	if (!buf) {
@@ -1113,7 +1079,7 @@ int nss_cryptoapi_sha256_3des_encrypt(struct aead_request *req)
 	struct nss_crypto_params params = { .req_type = NSS_CRYPTO_REQ_TYPE_AUTH |
 							NSS_CRYPTO_REQ_TYPE_ENCRYPT };
 	struct nss_crypto_buf *buf;
-	struct cryptoapi_aead_info info;
+	struct nss_cryptoapi_aead_info info;
 
 	/*
 	 * check cryptoapi context magic number.
@@ -1142,151 +1108,7 @@ int nss_cryptoapi_sha256_3des_encrypt(struct aead_request *req)
 	info.params = &params;
 	info.cb_fn = nss_cryptoapi_aead_encrypt_done;
 	info.cip_len = req->cryptlen;
-	info.auth_len = req->assoclen + nss_cryptoapi_get_iv_sz(req) + req->cryptlen;
-
-	buf = nss_cryptoapi_aead_transform(req, &info);
-	if (!buf) {
-		nss_cfi_err("Invalid parameters\n");
-		return -EINVAL;
-	}
-
-	/*
-	 *  Send the buffer to CORE layer for processing
-	 */
-	if (nss_crypto_transform_payload(sc->crypto, buf) !=  NSS_CRYPTO_STATUS_OK) {
-		nss_cfi_info("Not enough resources with driver\n");
-		nss_crypto_buf_free(sc->crypto, buf);
-		ctx->queue_failed++;
-		return -EINVAL;
-	}
-
-	ctx->queued++;
-	atomic_inc(&ctx->refcnt);
-
-	return -EINPROGRESS;
-}
-
-/*
- * nss_cryptoapi_sha1_aes_decrypt()
- * 	Crytoapi decrypt for sha1/aes algorithm.
- */
-int nss_cryptoapi_sha1_aes_decrypt(struct aead_request *req)
-{
-	struct nss_cryptoapi *sc = &gbl_ctx;
-	struct nss_cryptoapi_ctx *ctx = crypto_tfm_ctx(req->base.tfm);
-	struct nss_crypto_params params = { .req_type = NSS_CRYPTO_REQ_TYPE_AUTH |
-							NSS_CRYPTO_REQ_TYPE_DECRYPT };
-	struct nss_crypto_buf *buf;
-	struct cryptoapi_aead_info info;
-
-	/*
-	 * check cryptoapi context magic number.
-	 */
-	nss_cryptoapi_verify_magic(ctx);
-
-	if (ctx->fallback_req)
-		return nss_cryptoapi_aead_fallback(ctx, req, NSS_CRYPTOAPI_DECRYPT);
-
-	/*
-	 * Check if previous call to setkey couldn't allocate session with core crypto.
-	 */
-	if (ctx->sid >= NSS_CRYPTO_MAX_IDXS) {
-		nss_cfi_err("Invalid session\n");
-		return -EINVAL;
-	}
-
-	if (nss_crypto_get_cipher(ctx->sid) != NSS_CRYPTO_CIPHER_AES) {
-		nss_cfi_err("Invalid Cipher Algo for session id: %d\n", ctx->sid);
-		return -EINVAL;
-	}
-
-	if (nss_crypto_get_auth(ctx->sid) != NSS_CRYPTO_AUTH_SHA1_HMAC) {
-		nss_cfi_err("Invalid Auth Algo for session id: %d\n", ctx->sid);
-		return -EINVAL;
-	}
-
-	/*
-	 * In case of decrypt operation, ipsec include hmac size in req->cryptlen
-	 * skip encryption and authentication on hmac trasmitted with data.
-	 * TODO: fix this in future, pass relevant details from caller.
-	 */
-	info.iv = req->iv;
-	info.params = &params;
-	info.cb_fn = nss_cryptoapi_aead_decrypt_done;
-	info.cip_len = req->cryptlen - nss_cryptoapi_get_hmac_sz(req);
-	info.auth_len = req->assoclen + nss_cryptoapi_get_iv_sz(req) + req->cryptlen - nss_cryptoapi_get_hmac_sz(req);
-
-	buf = nss_cryptoapi_aead_transform(req, &info);
-	if (!buf) {
-		nss_cfi_err("Invalid parameters\n");
-		return -EINVAL;
-	}
-
-	/*
-	 *  Send the buffer to CORE layer for processing
-	 */
-	if (nss_crypto_transform_payload(sc->crypto, buf) !=  NSS_CRYPTO_STATUS_OK) {
-		nss_cfi_info("Not enough resources with driver\n");
-		nss_crypto_buf_free(sc->crypto, buf);
-		ctx->queue_failed++;
-		return -EINVAL;
-	}
-
-	ctx->queued++;
-	atomic_inc(&ctx->refcnt);
-
-	return -EINPROGRESS;
-}
-
-/*
- * nss_cryptoapi_sha256_aes_decrypt()
- * 	Crytoapi decrypt for sha256/aes algorithm.
- */
-int nss_cryptoapi_sha256_aes_decrypt(struct aead_request *req)
-{
-	struct nss_cryptoapi *sc = &gbl_ctx;
-	struct nss_cryptoapi_ctx *ctx = crypto_tfm_ctx(req->base.tfm);
-	struct nss_crypto_params params = { .req_type = NSS_CRYPTO_REQ_TYPE_AUTH |
-							NSS_CRYPTO_REQ_TYPE_DECRYPT };
-	struct nss_crypto_buf *buf;
-	struct cryptoapi_aead_info info;
-
-	/*
-	 * check cryptoapi context magic number.
-	 */
-	nss_cryptoapi_verify_magic(ctx);
-
-	if (ctx->fallback_req)
-		return nss_cryptoapi_aead_fallback(ctx, req, NSS_CRYPTOAPI_DECRYPT);
-
-	/*
-	 * Check if previous call to setkey couldn't allocate session with core crypto.
-	 */
-	if (ctx->sid >= NSS_CRYPTO_MAX_IDXS) {
-		nss_cfi_err("Invalid session\n");
-		return -EINVAL;
-	}
-
-	if (nss_crypto_get_cipher(ctx->sid) != NSS_CRYPTO_CIPHER_AES) {
-		nss_cfi_err("Invalid Cipher Algo for session id: %d\n", ctx->sid);
-		return -EINVAL;
-	}
-
-	if (nss_crypto_get_auth(ctx->sid) != NSS_CRYPTO_AUTH_SHA256_HMAC) {
-		nss_cfi_err("Invalid Auth Algo for session id: %d\n", ctx->sid);
-		return -EINVAL;
-	}
-
-	/*
-	 * In case of decrypt operation, ipsec include hmac size in req->cryptlen
-	 * skip encryption and authentication on hmac trasmitted with data.
-	 * TODO: fix this in future, pass relevant details from caller.
-	 */
-	info.iv = req->iv;
-	info.params = &params;
-	info.cb_fn = nss_cryptoapi_aead_decrypt_done;
-	info.cip_len = req->cryptlen - nss_cryptoapi_get_hmac_sz(req);
-	info.auth_len = req->assoclen + nss_cryptoapi_get_iv_sz(req) + req->cryptlen - nss_cryptoapi_get_hmac_sz(req);
+	info.auth_len = req->assoclen + DES3_EDE_BLOCK_SIZE + req->cryptlen;
 
 	buf = nss_cryptoapi_aead_transform(req, &info);
 	if (!buf) {
@@ -1317,11 +1139,12 @@ int nss_cryptoapi_sha256_aes_decrypt(struct aead_request *req)
 int nss_cryptoapi_sha1_3des_decrypt(struct aead_request *req)
 {
 	struct nss_cryptoapi *sc = &gbl_ctx;
+	struct crypto_aead *aead = crypto_aead_reqtfm(req);
 	struct nss_cryptoapi_ctx *ctx = crypto_tfm_ctx(req->base.tfm);
 	struct nss_crypto_params params = { .req_type = NSS_CRYPTO_REQ_TYPE_AUTH |
 							NSS_CRYPTO_REQ_TYPE_DECRYPT };
 	struct nss_crypto_buf *buf;
-	struct cryptoapi_aead_info info;
+	struct nss_cryptoapi_aead_info info;
 
 	/*
 	 * check cryptoapi context magic number.
@@ -1354,8 +1177,8 @@ int nss_cryptoapi_sha1_3des_decrypt(struct aead_request *req)
 	info.iv = req->iv;
 	info.params = &params;
 	info.cb_fn = nss_cryptoapi_aead_decrypt_done;
-	info.cip_len = req->cryptlen - nss_cryptoapi_get_hmac_sz(req);
-	info.auth_len = req->assoclen + nss_cryptoapi_get_iv_sz(req) + req->cryptlen - nss_cryptoapi_get_hmac_sz(req);
+	info.cip_len = req->cryptlen - crypto_aead_authsize(aead);
+	info.auth_len = req->assoclen + DES3_EDE_BLOCK_SIZE + req->cryptlen - crypto_aead_authsize(aead);
 
 	buf = nss_cryptoapi_aead_transform(req, &info);
 	if (!buf) {
@@ -1387,10 +1210,11 @@ int nss_cryptoapi_sha256_3des_decrypt(struct aead_request *req)
 {
 	struct nss_cryptoapi *sc = &gbl_ctx;
 	struct nss_cryptoapi_ctx *ctx = crypto_tfm_ctx(req->base.tfm);
+	struct crypto_aead *aead = crypto_aead_reqtfm(req);
 	struct nss_crypto_params params = { .req_type = NSS_CRYPTO_REQ_TYPE_AUTH |
 							NSS_CRYPTO_REQ_TYPE_DECRYPT };
 	struct nss_crypto_buf *buf;
-	struct cryptoapi_aead_info info;
+	struct nss_cryptoapi_aead_info info;
 
 	/*
 	 * check cryptoapi context magic number.
@@ -1423,8 +1247,8 @@ int nss_cryptoapi_sha256_3des_decrypt(struct aead_request *req)
 	info.iv = req->iv;
 	info.params = &params;
 	info.cb_fn = nss_cryptoapi_aead_decrypt_done;
-	info.cip_len = req->cryptlen - nss_cryptoapi_get_hmac_sz(req);
-	info.auth_len = req->assoclen + nss_cryptoapi_get_iv_sz(req) + req->cryptlen - nss_cryptoapi_get_hmac_sz(req);
+	info.cip_len = req->cryptlen - crypto_aead_authsize(aead);
+	info.auth_len = req->assoclen + DES3_EDE_BLOCK_SIZE + req->cryptlen - crypto_aead_authsize(aead);
 
 	buf = nss_cryptoapi_aead_transform(req, &info);
 	if (!buf) {
@@ -1449,31 +1273,25 @@ int nss_cryptoapi_sha256_3des_decrypt(struct aead_request *req)
 }
 
 /*
- * nss_cryptoapi_sha1_aes_geniv_encrypt()
- * 	Crytoapi generate IV encrypt for sha1/aes algorithm.
+ * nss_cryptoapi_aead_aes_geniv_encrypt()
+ * 	Crytoapi generate IV encrypt for aead aes (sha1/sha256 with aes-cbc/rfc3686-aes-ctr) algorithms.
  */
-int nss_cryptoapi_sha1_aes_geniv_encrypt(struct aead_givcrypt_request *req)
+int nss_cryptoapi_aead_aes_geniv_encrypt(struct aead_givcrypt_request *req)
 {
-	struct nss_cryptoapi *sc = &gbl_ctx;
-	struct nss_cryptoapi_ctx *ctx = crypto_tfm_ctx(req->areq.base.tfm);
 	struct nss_crypto_params params = { .req_type = NSS_CRYPTO_REQ_TYPE_AUTH |
 							NSS_CRYPTO_REQ_TYPE_ENCRYPT };
+	struct nss_cryptoapi_aead_info info = {.cb_fn = nss_cryptoapi_aead_encrypt_done,
+						.params = &params};
+	struct aead_request *areq = &req->areq;
+	struct crypto_aead *aead = crypto_aead_reqtfm(areq);
+	struct nss_cryptoapi_ctx *ctx = crypto_aead_ctx(aead);
+	struct nss_cryptoapi *sc = &gbl_ctx;
+	uint32_t *iv_addr = ctx->ctx_iv;
 	struct nss_crypto_buf *buf;
-	struct cryptoapi_aead_info info;
 
-
-	/*
-	 * check cryptoapi context magic number.
-	 */
-	nss_cryptoapi_verify_magic(ctx);
+	areq->iv = req->giv;
 
 	if (ctx->fallback_req) {
-		/*
-		 * fill in iv.
-		 */
-		memcpy(req->giv, ctx->ctx_iv, AES_BLOCK_SIZE);
-		*(__be64 *)req->giv ^= cpu_to_be64(req->seq);
-
 		return nss_cryptoapi_aead_fallback(ctx, &req->areq, NSS_CRYPTOAPI_GIVENCRYPT);
 	}
 
@@ -1485,108 +1303,28 @@ int nss_cryptoapi_sha1_aes_geniv_encrypt(struct aead_givcrypt_request *req)
 		return -EINVAL;
 	}
 
-	if (nss_crypto_get_cipher(ctx->sid) != NSS_CRYPTO_CIPHER_AES) {
+	if (nss_crypto_get_cipher(ctx->sid) != ctx->cip_alg) {
 		nss_cfi_err("Invalid Cipher Algo for session id: %d\n", ctx->sid);
 		return -EINVAL;
 	}
 
-	if (nss_crypto_get_auth(ctx->sid) != NSS_CRYPTO_AUTH_SHA1_HMAC) {
+	if (nss_crypto_get_auth(ctx->sid) != ctx->auth_alg) {
 		nss_cfi_err("Invalid Auth Algo for session id: %d\n", ctx->sid);
 		return -EINVAL;
 	}
 
-	/*
-	 * fill in iv.
-	 */
-	memcpy(req->giv, ctx->ctx_iv, AES_BLOCK_SIZE);
-	*(__be64 *)req->giv ^= cpu_to_be64(req->seq);
-
-	info.iv = req->giv;
-	info.params = &params;
-	info.cb_fn = nss_cryptoapi_aead_encrypt_done;
 	info.cip_len = req->areq.cryptlen;
-	info.auth_len = req->areq.assoclen + nss_cryptoapi_get_iv_sz(&req->areq) + req->areq.cryptlen;
-
-	buf = nss_cryptoapi_aead_transform(&req->areq, &info);
-	if (!buf) {
-		nss_cfi_err("Invalid parameters\n");
-		return -EINVAL;
-	}
+	info.auth_len = req->areq.assoclen + crypto_aead_ivsize(aead) + req->areq.cryptlen;
 
 	/*
-	 *  Send the buffer to CORE layer for processing
+	 * CTR algorithm has the random bits stored from word[2:1]
 	 */
-	if (nss_crypto_transform_payload(sc->crypto, buf) !=  NSS_CRYPTO_STATUS_OK) {
-		nss_cfi_info("Not enough resources with driver\n");
-		nss_crypto_buf_free(sc->crypto, buf);
-		ctx->queue_failed++;
-		return -EINVAL;
+	if (ctx->cip_alg == NSS_CRYPTO_CIPHER_AES_CTR) {
+		iv_addr = &ctx->ctx_iv[1];
 	}
 
-	ctx->queued++;
-	atomic_inc(&ctx->refcnt);
-
-	return -EINPROGRESS;
-}
-
-/*
- * nss_cryptoapi_sha256_aes_geniv_encrypt()
- * 	Crytoapi generate IV encrypt for sha256/aes algorithm.
- */
-int nss_cryptoapi_sha256_aes_geniv_encrypt(struct aead_givcrypt_request *req)
-{
-	struct nss_cryptoapi *sc = &gbl_ctx;
-	struct nss_cryptoapi_ctx *ctx = crypto_tfm_ctx(req->areq.base.tfm);
-	struct nss_crypto_params params = { .req_type = NSS_CRYPTO_REQ_TYPE_AUTH |
-							NSS_CRYPTO_REQ_TYPE_ENCRYPT };
-	struct nss_crypto_buf *buf;
-	struct cryptoapi_aead_info info;
-
-	/*
-	 * check cryptoapi context magic number.
-	 */
-	nss_cryptoapi_verify_magic(ctx);
-
-
-	if (ctx->fallback_req) {
-		/*
-		 * fill in iv.
-		 */
-		memcpy(req->giv, ctx->ctx_iv, AES_BLOCK_SIZE);
-		*(__be64 *)req->giv ^= cpu_to_be64(req->seq);
-
-		return nss_cryptoapi_aead_fallback(ctx, &req->areq, NSS_CRYPTOAPI_GIVENCRYPT);
-	}
-
-	/*
-	 * Check if previous call to setkey couldn't allocate session with core crypto.
-	 */
-	if (ctx->sid >= NSS_CRYPTO_MAX_IDXS) {
-		nss_cfi_err("Invalid session\n");
-		return -EINVAL;
-	}
-
-	if (nss_crypto_get_cipher(ctx->sid) != NSS_CRYPTO_CIPHER_AES) {
-		nss_cfi_err("Invalid Cipher Algo for session id: %d\n", ctx->sid);
-		return -EINVAL;
-	}
-
-	if (nss_crypto_get_auth(ctx->sid) != NSS_CRYPTO_AUTH_SHA256_HMAC) {
-		nss_cfi_err("Invalid Auth Algo for session id: %d\n", ctx->sid);
-		return -EINVAL;
-	}
-
-	/*
-	 * fill in iv.
-	 */
-	memcpy(req->giv, ctx->ctx_iv, AES_BLOCK_SIZE);
-	*(__be64 *)req->giv ^= cpu_to_be64(req->seq);
-
-	info.iv = req->giv;
-	info.params = &params;
-	info.cb_fn = nss_cryptoapi_aead_encrypt_done;
-	info.cip_len = req->areq.cryptlen;
-	info.auth_len = req->areq.assoclen + nss_cryptoapi_get_iv_sz(&req->areq) + req->areq.cryptlen;
+	memcpy(areq->iv, (uint8_t *)iv_addr, crypto_aead_ivsize(aead));
+	((uint64_t *)areq->iv)[0] ^= req->seq;
 
 	buf = nss_cryptoapi_aead_transform(&req->areq, &info);
 	if (!buf) {
@@ -1621,7 +1359,7 @@ int nss_cryptoapi_sha1_3des_geniv_encrypt(struct aead_givcrypt_request *req)
 	struct nss_crypto_params params = { .req_type = NSS_CRYPTO_REQ_TYPE_AUTH |
 							NSS_CRYPTO_REQ_TYPE_ENCRYPT };
 	struct nss_crypto_buf *buf;
-	struct cryptoapi_aead_info info;
+	struct nss_cryptoapi_aead_info info;
 
 	/*
 	 * check cryptoapi context magic number.
@@ -1649,14 +1387,14 @@ int nss_cryptoapi_sha1_3des_geniv_encrypt(struct aead_givcrypt_request *req)
 	/*
 	 * fill in iv.
 	 */
-	memcpy(req->giv, ctx->ctx_iv, DES3_EDE_BLOCK_SIZE);
+	memcpy(req->giv, (uint8_t *)ctx->ctx_iv, DES3_EDE_BLOCK_SIZE);
 	*(__be64 *)req->giv ^= cpu_to_be64(req->seq);
 
 	info.iv = req->giv;
 	info.params = &params;
 	info.cb_fn = nss_cryptoapi_aead_encrypt_done;
 	info.cip_len = req->areq.cryptlen;
-	info.auth_len = req->areq.assoclen + nss_cryptoapi_get_iv_sz(&req->areq) + req->areq.cryptlen;
+	info.auth_len = req->areq.assoclen + DES3_EDE_BLOCK_SIZE + req->areq.cryptlen;
 
 	buf = nss_cryptoapi_aead_transform(&req->areq, &info);
 	if (!buf) {
@@ -1691,7 +1429,7 @@ int nss_cryptoapi_sha256_3des_geniv_encrypt(struct aead_givcrypt_request *req)
 	struct nss_crypto_params params = { .req_type = NSS_CRYPTO_REQ_TYPE_AUTH |
 							NSS_CRYPTO_REQ_TYPE_ENCRYPT };
 	struct nss_crypto_buf *buf;
-	struct cryptoapi_aead_info info;
+	struct nss_cryptoapi_aead_info info;
 
 	/*
 	 * check cryptoapi context magic number.
@@ -1719,14 +1457,14 @@ int nss_cryptoapi_sha256_3des_geniv_encrypt(struct aead_givcrypt_request *req)
 	/*
 	 * fill in iv.
 	 */
-	memcpy(req->giv, ctx->ctx_iv, DES3_EDE_BLOCK_SIZE);
+	memcpy(req->giv, (uint8_t *)ctx->ctx_iv, DES3_EDE_BLOCK_SIZE);
 	*(__be64 *)req->giv ^= cpu_to_be64(req->seq);
 
 	info.iv = req->giv;
 	info.params = &params;
 	info.cb_fn = nss_cryptoapi_aead_encrypt_done;
 	info.cip_len = req->areq.cryptlen;
-	info.auth_len = req->areq.assoclen + nss_cryptoapi_get_iv_sz(&req->areq) + req->areq.cryptlen;
+	info.auth_len = req->areq.assoclen + DES3_EDE_BLOCK_SIZE + req->areq.cryptlen;
 
 	buf = nss_cryptoapi_aead_transform(&req->areq, &info);
 	if (!buf) {
@@ -1749,4 +1487,3 @@ int nss_cryptoapi_sha256_3des_geniv_encrypt(struct aead_givcrypt_request *req)
 
 	return -EINPROGRESS;
 }
-

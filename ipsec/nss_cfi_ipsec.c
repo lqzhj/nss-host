@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -119,21 +119,22 @@ static int32_t nss_cfi_ipsec_get_iv_len(uint32_t algo)
 	uint32_t result = -1;
 
 	switch (algo) {
-		case NSS_CRYPTO_CIPHER_AES:
-			result = NSS_CRYPTO_MAX_IVLEN_AES;
-			break;
+	case NSS_CRYPTO_CIPHER_AES_CBC:
+	case NSS_CRYPTO_CIPHER_AES_CTR:
+		result = NSS_CRYPTO_MAX_IVLEN_AES;
+		break;
 
-		case NSS_CRYPTO_CIPHER_DES:
-			result = NSS_CRYPTO_MAX_IVLEN_DES;
-			break;
+	case NSS_CRYPTO_CIPHER_DES:
+		result = NSS_CRYPTO_MAX_IVLEN_DES;
+		break;
 
-		case NSS_CRYPTO_CIPHER_NULL:
-			result = NSS_CRYPTO_MAX_IVLEN_NULL;
-			break;
+	case NSS_CRYPTO_CIPHER_NULL:
+		result = NSS_CRYPTO_MAX_IVLEN_NULL;
+		break;
 
-		default:
-			nss_cfi_err("Invalid algorithm\n");
-			break;
+	default:
+		nss_cfi_err("Invalid algorithm\n");
+		break;
 	}
 	return result;
 }

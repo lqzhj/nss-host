@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -56,11 +56,10 @@ struct nss_cryptoapi gbl_ctx;
  * crypto_alg structure initialization
  *	AEAD (Cipher and Authentication) and ABLK are supported by core crypto driver.
  */
-
 static struct crypto_alg cryptoapi_algs[] = {
-	{	/* sha1, aes */
+	{	/* sha1, aes-cbc */
 		.cra_name       = "authenc(hmac(sha1),cbc(aes))",
-		.cra_driver_name = "cryptoapi-aead-hmac-sha1-cbc-aes",
+		.cra_driver_name = "nss-hmac-sha1-cbc-aes",
 		.cra_priority   = 10000,
 		.cra_flags      = CRYPTO_ALG_TYPE_AEAD | CRYPTO_ALG_ASYNC | CRYPTO_ALG_NOSUPP_SG | CRYPTO_ALG_NEED_FALLBACK,
 		.cra_blocksize  = AES_BLOCK_SIZE,
@@ -74,18 +73,43 @@ static struct crypto_alg cryptoapi_algs[] = {
 			.aead = {
 				.ivsize         = AES_BLOCK_SIZE,
 				.maxauthsize    = SHA1_DIGEST_SIZE,
-				.setkey = nss_cryptoapi_sha1_aes_setkey,
+				.setkey = nss_cryptoapi_aead_aes_setkey,
 				.setauthsize = nss_cryptoapi_aead_setauthsize,
-				.encrypt = nss_cryptoapi_sha1_aes_encrypt,
-				.decrypt = nss_cryptoapi_sha1_aes_decrypt,
-				.givencrypt = nss_cryptoapi_sha1_aes_geniv_encrypt,
+				.encrypt = nss_cryptoapi_aead_aes_encrypt,
+				.decrypt = nss_cryptoapi_aead_aes_decrypt,
+				.givencrypt = nss_cryptoapi_aead_aes_geniv_encrypt,
+				.geniv = "<built-in>",
+			}
+		}
+	},
+	{	/* sha1, rfc3686-aes-ctr */
+		.cra_name       = "authenc(hmac(sha1),rfc3686(ctr(aes)))",
+		.cra_driver_name = "nss-hmac-sha1-rfc3686-ctr-aes",
+		.cra_priority   = 10000,
+		.cra_flags      = CRYPTO_ALG_TYPE_AEAD | CRYPTO_ALG_ASYNC | CRYPTO_ALG_NOSUPP_SG | CRYPTO_ALG_NEED_FALLBACK,
+		.cra_blocksize  = AES_BLOCK_SIZE,
+		.cra_ctxsize    = sizeof(struct nss_cryptoapi_ctx),
+		.cra_alignmask  = 0,
+		.cra_type       = &crypto_aead_type,
+		.cra_module     = THIS_MODULE,
+		.cra_init       = nss_cryptoapi_aead_init,
+		.cra_exit       = nss_cryptoapi_aead_exit,
+		.cra_u          = {
+			.aead = {
+				.ivsize         = CTR_RFC3686_IV_SIZE,
+				.maxauthsize    = SHA1_DIGEST_SIZE,
+				.setkey = nss_cryptoapi_aead_aes_setkey,
+				.setauthsize = nss_cryptoapi_aead_setauthsize,
+				.encrypt = nss_cryptoapi_aead_aes_encrypt,
+				.decrypt = nss_cryptoapi_aead_aes_decrypt,
+				.givencrypt = nss_cryptoapi_aead_aes_geniv_encrypt,
 				.geniv = "<built-in>",
 			}
 		}
 	},
 	{	/* sha1, 3des */
 		.cra_name       = "authenc(hmac(sha1),cbc(des3_ede))",
-		.cra_driver_name = "cryptoapi-aead-hmac-sha1-cbc-3des",
+		.cra_driver_name = "nss-hmac-sha1-cbc-3des",
 		.cra_priority   = 300,
 		.cra_flags      = CRYPTO_ALG_TYPE_AEAD | CRYPTO_ALG_ASYNC | CRYPTO_ALG_NOSUPP_SG,
 		.cra_blocksize  = DES3_EDE_BLOCK_SIZE,
@@ -108,9 +132,9 @@ static struct crypto_alg cryptoapi_algs[] = {
 			}
 		}
 	},
-	{	/* sha256, aes */
+	{	/* sha256, aes-cbc */
 		.cra_name       = "authenc(hmac(sha256),cbc(aes))",
-		.cra_driver_name = "cryptoapi-aead-hmac-sha256-cbc-aes",
+		.cra_driver_name = "nss-hmac-sha256-cbc-aes",
 		.cra_priority   = 10000,
 		.cra_flags      = CRYPTO_ALG_TYPE_AEAD | CRYPTO_ALG_ASYNC | CRYPTO_ALG_NOSUPP_SG | CRYPTO_ALG_NEED_FALLBACK,
 		.cra_blocksize  = AES_BLOCK_SIZE,
@@ -124,18 +148,43 @@ static struct crypto_alg cryptoapi_algs[] = {
 			.aead = {
 				.ivsize         = AES_BLOCK_SIZE,
 				.maxauthsize    = SHA256_DIGEST_SIZE,
-				.setkey = nss_cryptoapi_sha256_aes_setkey,
+				.setkey = nss_cryptoapi_aead_aes_setkey,
 				.setauthsize = nss_cryptoapi_aead_setauthsize,
-				.encrypt = nss_cryptoapi_sha256_aes_encrypt,
-				.decrypt = nss_cryptoapi_sha256_aes_decrypt,
-				.givencrypt = nss_cryptoapi_sha256_aes_geniv_encrypt,
+				.encrypt = nss_cryptoapi_aead_aes_encrypt,
+				.decrypt = nss_cryptoapi_aead_aes_decrypt,
+				.givencrypt = nss_cryptoapi_aead_aes_geniv_encrypt,
+				.geniv = "<built-in>",
+			}
+		}
+	},
+	{	/* sha256, rfc3686-aes-ctr */
+		.cra_name       = "authenc(hmac(sha256),rfc3686(ctr(aes)))",
+		.cra_driver_name = "nss-hmac-sha256-rfc3686-ctr-aes",
+		.cra_priority   = 10000,
+		.cra_flags      = CRYPTO_ALG_TYPE_AEAD | CRYPTO_ALG_ASYNC | CRYPTO_ALG_NOSUPP_SG | CRYPTO_ALG_NEED_FALLBACK,
+		.cra_blocksize  = AES_BLOCK_SIZE,
+		.cra_ctxsize    = sizeof(struct nss_cryptoapi_ctx),
+		.cra_alignmask  = 0,
+		.cra_type       = &crypto_aead_type,
+		.cra_module     = THIS_MODULE,
+		.cra_init       = nss_cryptoapi_aead_init,
+		.cra_exit       = nss_cryptoapi_aead_exit,
+		.cra_u          = {
+			.aead = {
+				.ivsize         = CTR_RFC3686_IV_SIZE,
+				.maxauthsize    = SHA256_DIGEST_SIZE,
+				.setkey = nss_cryptoapi_aead_aes_setkey,
+				.setauthsize = nss_cryptoapi_aead_setauthsize,
+				.encrypt = nss_cryptoapi_aead_aes_encrypt,
+				.decrypt = nss_cryptoapi_aead_aes_decrypt,
+				.givencrypt = nss_cryptoapi_aead_aes_geniv_encrypt,
 				.geniv = "<built-in>",
 			}
 		}
 	},
 	{	/* sha256, 3des */
 		.cra_name       = "authenc(hmac(sha256),cbc(des3_ede))",
-		.cra_driver_name = "cryptoapi-aead-hmac-sha256-cbc-3des",
+		.cra_driver_name = "nss-hmac-sha256-cbc-3des",
 		.cra_priority   = 300,
 		.cra_flags      = CRYPTO_ALG_TYPE_AEAD | CRYPTO_ALG_ASYNC | CRYPTO_ALG_NOSUPP_SG,
 		.cra_blocksize  = DES3_EDE_BLOCK_SIZE,

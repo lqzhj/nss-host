@@ -194,7 +194,7 @@ int nss_cryptoapi_sha1_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsign
 {
 	struct nss_cryptoapi_ctx *ctx = crypto_aead_ctx(tfm);
 	struct nss_cryptoapi *sc = &gbl_ctx;
-	struct nss_crypto_key cip = { .algo = NSS_CRYPTO_CIPHER_AES };
+	struct nss_crypto_key cip = { .algo = NSS_CRYPTO_CIPHER_AES_CBC };
 	struct nss_crypto_key auth = { .algo = NSS_CRYPTO_AUTH_SHA1_HMAC };
 	uint32_t flag = CRYPTO_TFM_RES_BAD_KEY_LEN;
 	int ret;
@@ -281,7 +281,7 @@ int nss_cryptoapi_sha1_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsign
 
 	nss_cfi_info("session id created: %d\n", ctx->sid);
 
-	ctx->cip_alg = NSS_CRYPTO_CIPHER_AES;
+	ctx->cip_alg = NSS_CRYPTO_CIPHER_AES_CBC;
 	ctx->auth_alg = NSS_CRYPTO_AUTH_SHA1_HMAC;
 
 	return 0;
@@ -299,7 +299,7 @@ int nss_cryptoapi_sha256_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsi
 {
 	struct nss_cryptoapi_ctx *ctx = crypto_aead_ctx(tfm);
 	struct nss_cryptoapi *sc = &gbl_ctx;
-	struct nss_crypto_key cip = { .algo = NSS_CRYPTO_CIPHER_AES };
+	struct nss_crypto_key cip = { .algo = NSS_CRYPTO_CIPHER_AES_CBC };
 	struct nss_crypto_key auth = { .algo = NSS_CRYPTO_AUTH_SHA256_HMAC };
 	uint32_t flag = CRYPTO_TFM_RES_BAD_KEY_LEN;
 	int ret;
@@ -386,7 +386,7 @@ int nss_cryptoapi_sha256_aes_setkey(struct crypto_aead *tfm, const u8 *key, unsi
 
 	nss_cfi_info("session id created: %d\n", ctx->sid);
 
-	ctx->cip_alg = NSS_CRYPTO_CIPHER_AES;
+	ctx->cip_alg = NSS_CRYPTO_CIPHER_AES_CBC;
 	ctx->auth_alg = NSS_CRYPTO_AUTH_SHA256_HMAC;
 
 	return 0;
@@ -906,7 +906,7 @@ int nss_cryptoapi_sha1_aes_encrypt(struct aead_request *req)
 		return -EINVAL;
 	}
 
-	if (nss_crypto_get_cipher(ctx->sid) != NSS_CRYPTO_CIPHER_AES) {
+	if (nss_crypto_get_cipher(ctx->sid) != NSS_CRYPTO_CIPHER_AES_CBC) {
 		nss_cfi_err("Invalid Cipher Algo for session id: %d\n", ctx->sid);
 		return -EINVAL;
 	}
@@ -976,7 +976,7 @@ int nss_cryptoapi_sha256_aes_encrypt(struct aead_request *req)
 		return -EINVAL;
 	}
 
-	if (nss_crypto_get_cipher(ctx->sid) != NSS_CRYPTO_CIPHER_AES) {
+	if (nss_crypto_get_cipher(ctx->sid) != NSS_CRYPTO_CIPHER_AES_CBC) {
 		nss_cfi_err("Invalid Cipher Algo for session id: %d\n", ctx->sid);
 		return -EINVAL;
 	}
@@ -1173,7 +1173,7 @@ int nss_cryptoapi_sha1_aes_decrypt(struct aead_request *req)
 		return -EINVAL;
 	}
 
-	if (nss_crypto_get_cipher(ctx->sid) != NSS_CRYPTO_CIPHER_AES) {
+	if (nss_crypto_get_cipher(ctx->sid) != NSS_CRYPTO_CIPHER_AES_CBC) {
 		nss_cfi_err("Invalid Cipher Algo for session id: %d\n", ctx->sid);
 		return -EINVAL;
 	}
@@ -1247,7 +1247,7 @@ int nss_cryptoapi_sha256_aes_decrypt(struct aead_request *req)
 		return -EINVAL;
 	}
 
-	if (nss_crypto_get_cipher(ctx->sid) != NSS_CRYPTO_CIPHER_AES) {
+	if (nss_crypto_get_cipher(ctx->sid) != NSS_CRYPTO_CIPHER_AES_CBC) {
 		nss_cfi_err("Invalid Cipher Algo for session id: %d\n", ctx->sid);
 		return -EINVAL;
 	}

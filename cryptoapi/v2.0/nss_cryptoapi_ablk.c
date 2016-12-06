@@ -153,7 +153,7 @@ int nss_cryptoapi_aes_cbc_setkey(struct crypto_ablkcipher *cipher, const u8 *key
 	struct crypto_tfm *tfm = crypto_ablkcipher_tfm(cipher);
 	struct nss_cryptoapi_ctx *ctx = crypto_tfm_ctx(tfm);
 	struct nss_cryptoapi *sc = &gbl_ctx;
-	struct nss_crypto_key cip = { .algo = NSS_CRYPTO_CIPHER_AES };
+	struct nss_crypto_key cip = { .algo = NSS_CRYPTO_CIPHER_AES_CBC };
 	struct nss_crypto_key *cip_ptr = &cip;
 	uint32_t flag = CRYPTO_TFM_RES_BAD_KEY_LEN;
 	int ret;
@@ -227,7 +227,7 @@ int nss_cryptoapi_aes_cbc_setkey(struct crypto_ablkcipher *cipher, const u8 *key
 
 	nss_cfi_info("session id created: %d\n", ctx->sid);
 
-	ctx->cip_alg = NSS_CRYPTO_CIPHER_AES;
+	ctx->cip_alg = NSS_CRYPTO_CIPHER_AES_CBC;
 
 	return 0;
 
@@ -451,7 +451,7 @@ int nss_cryptoapi_aes_cbc_encrypt(struct ablkcipher_request *req)
 		return -EINVAL;
 	}
 
-	if (nss_crypto_get_cipher(ctx->sid) != NSS_CRYPTO_CIPHER_AES) {
+	if (nss_crypto_get_cipher(ctx->sid) != NSS_CRYPTO_CIPHER_AES_CBC) {
 		nss_cfi_err("Invalid Algo for session id: %d\n", ctx->sid);
 		return -EINVAL;
 	}
@@ -516,7 +516,7 @@ int nss_cryptoapi_aes_cbc_decrypt(struct ablkcipher_request *req)
 		return -EINVAL;
 	}
 
-	if (nss_crypto_get_cipher(ctx->sid) != NSS_CRYPTO_CIPHER_AES) {
+	if (nss_crypto_get_cipher(ctx->sid) != NSS_CRYPTO_CIPHER_AES_CBC) {
 		nss_cfi_err("Invalid Algo for session id: %d\n", ctx->sid);
 		return -EINVAL;
 	}
