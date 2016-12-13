@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -188,7 +188,7 @@ static void nss_ipv6_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 		 * Update driver statistics on connection sync many.
 		 */
 		nss_ipv6_driver_conn_sync_many_update(nss_ctx, &nim->msg.conn_stats_many);
-		ncm->cb = (uint32_t)nss_ipv6_conn_sync_many_msg_cb;
+		ncm->cb = (nss_ptr_t)nss_ipv6_conn_sync_many_msg_cb;
 		break;
 	}
 
@@ -197,8 +197,8 @@ static void nss_ipv6_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 	 * to the same callback/app_data.
 	 */
 	if (nim->cm.response == NSS_CMM_RESPONSE_NOTIFY) {
-		ncm->cb = (uint32_t)nss_ctx->nss_top->ipv6_callback;
-		ncm->app_data = (uint32_t)nss_ctx->nss_top->ipv6_ctx;
+		ncm->cb = (nss_ptr_t)nss_ctx->nss_top->ipv6_callback;
+		ncm->app_data = (nss_ptr_t)nss_ctx->nss_top->ipv6_ctx;
 	}
 
 	/*

@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -185,8 +185,8 @@ static void nss_dtls_handler(struct nss_ctx_instance *nss_ctx,
 	 * Update the callback and app_data for NOTIFY messages
 	 */
 	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
-		ncm->cb = (uint32_t)nss_ctx->nss_top->dtls_msg_callback;
-		ncm->app_data = (uint32_t)nss_ctx->nss_top->subsys_dp_register[ncm->interface].app_data;
+		ncm->cb = (nss_ptr_t)nss_ctx->nss_top->dtls_msg_callback;
+		ncm->app_data = (nss_ptr_t)nss_ctx->nss_top->subsys_dp_register[ncm->interface].app_data;
 	}
 
 	/*
@@ -364,8 +364,8 @@ nss_tx_status_t nss_dtls_tx_msg_sync(struct nss_ctx_instance *nss_ctx, struct ns
 	dtls_pvt.cb = (void *)msg->cm.cb;
 	dtls_pvt.app_data = (void *)msg->cm.app_data;
 
-	msg->cm.cb = (uint32_t)nss_dtls_callback;
-	msg->cm.app_data = (uint32_t)NULL;
+	msg->cm.cb = (nss_ptr_t)nss_dtls_callback;
+	msg->cm.app_data = (nss_ptr_t)NULL;
 
 	status = nss_dtls_tx_msg(nss_ctx, msg);
 	if (status != NSS_TX_SUCCESS) {
@@ -452,8 +452,6 @@ void nss_dtls_unregister_if(uint32_t if_num)
 {
 	int32_t i;
 
-	struct nss_ctx_instance *nss_ctx = nss_dtls_get_context();
-
 	BUG_ON(!nss_dtls_verify_if_num(if_num));
 
 	spin_lock_bh(&nss_dtls_session_debug_stats_lock);
@@ -468,13 +466,13 @@ void nss_dtls_unregister_if(uint32_t if_num)
 
 	if (i == NSS_MAX_DTLS_SESSIONS) {
 		nss_warning("%p: Cannot find debug stats for "
-			    "DTLS session %d\n", nss_ctx, if_num);
+			    "DTLS session %d\n", nss_dtls_get_context(), if_num);
 		return;
 	}
 
 	if (!nss_top_main.subsys_dp_register[if_num].ndev) {
 		nss_warning("%p: Cannot find registered netdev for "
-			    "DTLS NSS I/F:%u\n", nss_ctx, if_num);
+			    "DTLS NSS I/F:%u\n", nss_dtls_get_context(), if_num);
 
 		return;
 	}

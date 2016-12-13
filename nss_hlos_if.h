@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -330,30 +330,20 @@ struct nss_lso_rx_msg {
  * HLOS to NSS descriptor structure.
  */
 struct h2n_descriptor {
-	uint32_t opaque;
-				/* 32-bit value provided by the HLOS to associate with the buffer. The cookie has no meaning to the NSS */
-	uint32_t buffer;
-				/* Physical buffer address. This is the address of the start of the usable buffer being provided by the HLOS */
-	uint16_t buffer_len;
-				/* Length of the buffer (in bytes) */
-	uint16_t metadata_off;
-				/* Reserved for future use */
-	uint16_t payload_len;
-				/* Length of the active payload of the buffer (in bytes) */
-	uint16_t mss;	/* MSS to be used with TSO/UFO */
-	uint16_t payload_offs;
-				/* Offset from the start of the buffer to the start of the payload (in bytes) */
-	uint16_t interface_num;
-				/* Interface number to which the buffer is to be sent (where appropriate) */
-	uint8_t buffer_type;
-				/* Type of buffer */
-	uint8_t reserved3;
-				/* Reserved for future use */
-	uint16_t bit_flags;
-				/* Bit flags associated with the buffer */
-	uint32_t qos_tag;
-				/* QoS tag information of the buffer (where appropriate) */
-	uint32_t reserved4;	/* Reserved for future use */
+	uint32_t interface_num;	/* Interface number to which the buffer is to be sent (where appropriate) */
+	uint32_t buffer;	/* Physical buffer address. This is the address of the start of the usable buffer being provided by the HLOS */
+	uint32_t qos_tag;	/* QoS tag information of the buffer (where appropriate) */
+	uint16_t buffer_len;	/* Length of the buffer (in bytes) */
+	uint16_t payload_len;	/* Length of the active payload of the buffer (in bytes) */
+	uint16_t mss;		/* MSS to be used with TSO/UFO */
+	uint16_t payload_offs;	/* Offset from the start of the buffer to the start of the payload (in bytes) */
+	uint16_t bit_flags;	/* Bit flags associated with the buffer */
+	uint8_t buffer_type;	/* Type of buffer */
+	uint8_t reserved;	/* Reserved for future use */
+	nss_ptr_t opaque;	/* 32 or 64-bit value provided by the HLOS to associate with the buffer. The cookie has no meaning to the NSS */
+#ifndef __LP64__
+	uint32_t padding;	/* Pad to fit 64bits, do not reuse */
+#endif
 };
 
 /*
@@ -393,32 +383,19 @@ struct h2n_descriptor {
  * NSS to HLOS descriptor structure
  */
 struct n2h_descriptor {
-	uint32_t opaque;
-				/* 32-bit value provided by the HLOS to associate with the buffer. The cookie has no meaning to the NSS */
-	uint32_t buffer;
-				/* Physical buffer address. This is the address of the start of the usable buffer being provided by the HLOS */
-	uint16_t buffer_len;
-				/* Length of the buffer (in bytes) */
-	uint16_t reserved1;
-				/* Reserved for future use */
-	uint16_t payload_len;
-				/* Length of the active payload of the buffer (in bytes) */
-	uint16_t reserved2;
-				/* Reserved for future use */
-	uint16_t payload_offs;
-				/* Offset from the start of the buffer to the start of the payload (in bytes) */
-	uint16_t interface_num;
-				/* Interface number to which the buffer is to be sent (where appropriate) */
-	uint8_t buffer_type;
-				/* Type of buffer */
-	uint8_t response_type;
-				/* Response type if the buffer is a command response */
-	uint16_t bit_flags;
-				/* Bit flags associated with the buffer */
-	uint32_t timestamp_lo;
-				/* Low 32 bits of any timestamp associated with the buffer */
-	uint32_t timestamp_hi;
-				/* High 32 bits of any timestamp associated with the buffer */
+	uint32_t interface_num;	/* Interface number to which the buffer is to be sent (where appropriate) */
+	uint32_t buffer;	/* Physical buffer address. This is the address of the start of the usable buffer being provided by the HLOS */
+	uint16_t buffer_len;	/* Length of the buffer (in bytes) */
+	uint16_t payload_len;	/* Length of the active payload of the buffer (in bytes) */
+	uint16_t payload_offs;	/* Offset from the start of the buffer to the start of the payload (in bytes) */
+	uint16_t bit_flags;	/* Bit flags associated with the buffer */
+	uint8_t buffer_type;	/* Type of buffer */
+	uint8_t response_type;	/* Response type if the buffer is a command response */
+	uint16_t reserved[3];	/* Reserved for future use */
+	nss_ptr_t opaque;	/* 32 or 64-bit value provided by the HLOS to associate with the buffer. The cookie has no meaning to the NSS */
+#ifndef __LP64__
+	uint32_t padding;	/* Pad to fit 64 bits, do not reuse */
+#endif
 };
 
 /*
@@ -429,12 +406,29 @@ struct n2h_descriptor {
 #define DEV_DESCRIPTORS		256 /* Do we need it here? */
 
 /**
+ * H2N descriptor METADATA
+ */
+struct h2n_desc_if_meta {
+	uint32_t desc_addr;
+	uint16_t size;
+	uint16_t padding;
+};
+
+/**
  * H2N descriptor ring
  */
 struct h2n_desc_if_instance {
 	struct h2n_descriptor *desc;
 	uint16_t size;			/* Size in entries of the H2N0 descriptor ring */
-	uint16_t int_bit;		/* H2N0 descriptor ring interrupt */
+};
+
+/**
+ * N2H descriptor METADATA
+ */
+struct n2h_desc_if_meta {
+	uint32_t desc_addr;
+	uint16_t size;
+	uint16_t padding;
 };
 
 /**
@@ -443,15 +437,14 @@ struct h2n_desc_if_instance {
 struct n2h_desc_if_instance {
 	struct n2h_descriptor *desc;
 	uint16_t size;			/* Size in entries of the H2N0 descriptor ring */
-	uint16_t int_bit;		/* H2N0 descriptor ring interrupt */
 };
 
 /**
  * NSS virtual interface map
  */
 struct nss_if_mem_map {
-	struct h2n_desc_if_instance h2n_desc_if[16];	/* Base address of H2N0 descriptor ring */
-	struct n2h_desc_if_instance n2h_desc_if[15];	/* Base address of N2H0 descriptor ring */
+	struct h2n_desc_if_meta h2n_desc_if[16];/* Base address of H2N0 descriptor ring */
+	struct n2h_desc_if_meta n2h_desc_if[15];/* Base address of N2H0 descriptor ring */
 	uint32_t magic;				/* Magic value used to identify NSS implementations (must be 0x4e52522e) */
 	uint16_t if_version;			/* Interface version number (must be 1 for this version) */
 	uint8_t h2n_rings;			/* Number of descriptor rings in the H2N direction */

@@ -105,7 +105,7 @@ static int nss_log_open(struct inode *inode, struct file *filp)
 	/*
 	 * i_private is passed to us by debug_fs_create()
 	 */
-	nss_id = (int)inode->i_private;
+	nss_id = (int)(nss_ptr_t)inode->i_private;
 	if (nss_id < 0 || nss_id >= NSS_MAX_CORES) {
 		nss_warning("nss_id is not valid :%d\n", nss_id);
 		return -ENODEV;
@@ -355,8 +355,8 @@ static void nss_debug_interface_handler(struct nss_ctx_instance *nss_ctx, struct
 	 * Update the callback and app_data for NOTIFY messages.
 	 */
 	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
-		ncm->cb = (uint32_t)nss_debug_interface_cb;
-		ncm->app_data = (uint32_t)nss_debug_interface_app_data;
+		ncm->cb = (nss_ptr_t)nss_debug_interface_cb;
+		ncm->app_data = (nss_ptr_t)nss_debug_interface_app_data;
 	}
 
 	/*
@@ -667,7 +667,7 @@ void nss_log_init(void)
 
 		snprintf(file, sizeof(file), "core%d", i);
 		nss_top_main.core_log_dentry = debugfs_create_file(file, 0400,
-						nss_top_main.logs_dentry, (void *)i, &nss_logs_core_ops);
+						nss_top_main.logs_dentry, (void *)(nss_ptr_t)i, &nss_logs_core_ops);
 		if (unlikely(!nss_top_main.core_log_dentry)) {
 			nss_warning("Failed to create qca-nss-drv/logs/%s file in debugfs", file);
 			return;

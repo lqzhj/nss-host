@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -29,7 +29,7 @@
 /*
  * Global definitions
  */
-#define NSS_HLOS_MESSAGE_VERSION 0
+#define NSS_HLOS_MESSAGE_VERSION 1	/* Update when the common message structure changed */
 
 #if (NSS_DEBUG_LEVEL > 0)
 #define NSS_VERIFY_CTX_MAGIC(x) nss_verify_ctx_magic(x)

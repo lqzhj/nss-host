@@ -119,8 +119,8 @@ static void nss_tx_rx_virt_if_msg_handler(struct nss_ctx_instance *nss_ctx,
 	 * to the same callback/app_data.
 	 */
 	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
-		ncm->cb = (uint32_t)nss_ctx->nss_top->if_rx_msg_callback[ncm->interface];
-		ncm->app_data = (uint32_t)nss_ctx->nss_top->subsys_dp_register[ncm->interface].ndev;
+		ncm->cb = (nss_ptr_t)nss_ctx->nss_top->if_rx_msg_callback[ncm->interface];
+		ncm->app_data = (nss_ptr_t)nss_ctx->nss_top->subsys_dp_register[ncm->interface].ndev;
 	}
 
 	/*
@@ -450,7 +450,7 @@ nss_tx_status_t nss_tx_rx_virt_if_tx_msg(struct nss_ctx_instance *nss_ctx, struc
 
 	if (nss_cmn_get_msg_len(ncm) > sizeof(struct nss_tx_rx_virt_if_msg)) {
 		nss_warning("%p: invalid length: %d. Length of redir msg is %d",
-				nss_ctx, nss_cmn_get_msg_len(ncm), sizeof(struct nss_tx_rx_virt_if_msg));
+				nss_ctx, nss_cmn_get_msg_len(ncm), (int)sizeof(struct nss_tx_rx_virt_if_msg));
 		return NSS_TX_FAILURE;
 	}
 

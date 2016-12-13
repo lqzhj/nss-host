@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -134,8 +134,8 @@ static void nss_ipsec_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss_c
 	 * locally stored state
 	 */
 	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
-		ncm->cb = (uint32_t)nss_ipsec_get_msg_callback(nss_ctx, if_num, &ipsec_ctx);
-		ncm->app_data = (uint32_t)ipsec_ctx;
+		ncm->cb = (nss_ptr_t)nss_ipsec_get_msg_callback(nss_ctx, if_num, &ipsec_ctx);
+		ncm->app_data = (nss_ptr_t)ipsec_ctx;
 	}
 
 
@@ -180,7 +180,7 @@ nss_tx_status_t nss_ipsec_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_ip
 
 	if (NSS_NBUF_PAYLOAD_SIZE < sizeof(struct nss_ipsec_msg)) {
 		nss_ipsec_warning("%p: tx message request is too large: %d (desired), %d (requested)", nss_ctx,
-				NSS_NBUF_PAYLOAD_SIZE, sizeof(struct nss_ipsec_msg));
+				NSS_NBUF_PAYLOAD_SIZE, (int)sizeof(struct nss_ipsec_msg));
 		return NSS_TX_FAILURE_TOO_LARGE;
 	}
 
@@ -206,8 +206,8 @@ nss_tx_status_t nss_ipsec_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_ip
 		return NSS_TX_FAILURE;
 	}
 
-	nss_ipsec_info("msg params version:%d, interface:%d, type:%d, cb:%d, app_data:%d, len:%d\n",
-			ncm->version, ncm->interface, ncm->type, ncm->cb, ncm->app_data, ncm->len);
+	nss_ipsec_info("msg params version:%d, interface:%d, type:%d, cb:%p, app_data:%p, len:%d\n",
+			ncm->version, ncm->interface, ncm->type, (void *)ncm->cb, (void *)ncm->app_data, ncm->len);
 
 	nim = (struct nss_ipsec_msg *)skb_put(nbuf, sizeof(struct nss_ipsec_msg));
 	memcpy(nim, msg, sizeof(struct nss_ipsec_msg));

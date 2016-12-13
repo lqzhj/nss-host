@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -57,7 +57,7 @@ static void nss_profiler_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct
 	 * status per request callback
 	 */
 	if (ncm->response != NSS_CMM_RESPONSE_NOTIFY && ncm->cb) {
-		nss_info("%p: reply CB %x for %d %d\n", nss_ctx, ncm->cb, ncm->type, ncm->response);
+		nss_info("%p: reply CB %p for %d %d\n", nss_ctx, (void *)ncm->cb, ncm->type, ncm->response);
 		cb = (nss_profiler_callback_t)ncm->cb;
 	}
 

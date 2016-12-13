@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -166,8 +166,8 @@ static void nss_gre_tunnel_handler(struct nss_ctx_instance *nss_ctx, struct nss_
 	 * Update the callback and app_data for NOTIFY messages
 	 */
 	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
-		ncm->cb = (uint32_t)nss_ctx->nss_top->gre_tunnel_msg_callback;
-		ncm->app_data = (uint32_t)nss_ctx->nss_top->subsys_dp_register[ncm->interface].app_data;
+		ncm->cb = (nss_ptr_t)nss_ctx->nss_top->gre_tunnel_msg_callback;
+		ncm->app_data = (nss_ptr_t)nss_ctx->nss_top->subsys_dp_register[ncm->interface].app_data;
 	}
 
 	nss_core_log_msg_failures(nss_ctx, ncm);
@@ -225,7 +225,6 @@ nss_tx_status_t nss_gre_tunnel_tx_buf(struct sk_buff *skb, uint32_t if_num,
 				struct nss_ctx_instance *nss_ctx)
 {
 	int32_t status;
-	uint16_t int_bit = 0;
 
 	BUG_ON(!nss_gre_tunnel_verify_if_num(if_num));
 	NSS_VERIFY_CTX_MAGIC(nss_ctx);
@@ -235,7 +234,6 @@ nss_tx_status_t nss_gre_tunnel_tx_buf(struct sk_buff *skb, uint32_t if_num,
 		return NSS_TX_FAILURE_NOT_READY;
 	}
 
-	int_bit = nss_ctx->h2n_desc_rings[NSS_IF_DATA_QUEUE_0].desc_ring.int_bit;
 	nss_info("%p: Sending to %d\n", nss_ctx, if_num);
 
 	status = nss_core_send_buffer(nss_ctx, if_num, skb,
@@ -353,8 +351,8 @@ nss_tx_status_t nss_gre_tunnel_tx_msg_sync(struct nss_ctx_instance *nss_ctx, str
 	gre_tunnel_pvt.cb = (void *)ngtm->cm.cb;
 	gre_tunnel_pvt.app_data = (void *)ngtm->cm.app_data;
 
-	ngtm->cm.cb = (uint32_t)nss_gre_tunnel_callback;
-	ngtm->cm.app_data = (uint32_t)NULL;
+	ngtm->cm.cb = (nss_ptr_t)nss_gre_tunnel_callback;
+	ngtm->cm.app_data = (nss_ptr_t)NULL;
 
 	status = nss_gre_tunnel_tx_msg(nss_ctx, ngtm);
 	if (status != NSS_TX_SUCCESS) {
@@ -447,8 +445,6 @@ void nss_gre_tunnel_unregister_if(uint32_t if_num)
 {
 	int32_t i;
 
-	struct nss_ctx_instance *nss_ctx = nss_gre_tunnel_get_ctx();
-
 	BUG_ON(!nss_gre_tunnel_verify_if_num(if_num));
 
 	spin_lock_bh(&nss_gre_tunnel_session_debug_stats_lock);
@@ -462,12 +458,12 @@ void nss_gre_tunnel_unregister_if(uint32_t if_num)
 	spin_unlock_bh(&nss_gre_tunnel_session_debug_stats_lock);
 
 	if (i == NSS_MAX_GRE_TUNNEL_SESSIONS) {
-		nss_warning("%p: Cannot find debug stats for GRE Tunnel session: %d\n", nss_ctx, if_num);
+		nss_warning("%p: Cannot find debug stats for GRE Tunnel session: %d\n", nss_gre_tunnel_get_ctx(), if_num);
 		return;
 	}
 
 	if (!nss_top_main.subsys_dp_register[if_num].ndev) {
-		nss_warning("%p: Cannot find registered netdev for GRE Tunnel NSS I/F: %d\n", nss_ctx, if_num);
+		nss_warning("%p: Cannot find registered netdev for GRE Tunnel NSS I/F: %d\n", nss_gre_tunnel_get_ctx(), if_num);
 
 		return;
 	}

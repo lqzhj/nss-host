@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -141,7 +141,7 @@ void nss_lag_handler(struct nss_ctx_instance *nss_ctx,
 	 * LAG sends all notify messages to the same callback.
 	 */
 	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
-		ncm->cb = (uint32_t)nss_ctx->nss_top->lag_event_callback;
+		ncm->cb = (nss_ptr_t)nss_ctx->nss_top->lag_event_callback;
 	}
 
 	/**

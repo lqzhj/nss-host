@@ -72,7 +72,7 @@ int nss_hal_firmware_load(struct nss_ctx_instance *nss_ctx, struct platform_devi
 	}
 
 	if (nss_fw->size < MIN_IMG_SIZE) {
-		nss_info_always("%p: nss firmware is truncated, size:%d", nss_ctx, nss_fw->size);
+		nss_info_always("%p: nss firmware is truncated, size:%d", nss_ctx, (int)nss_fw->size);
 		return rc;
 	}
 
@@ -83,7 +83,7 @@ int nss_hal_firmware_load(struct nss_ctx_instance *nss_ctx, struct platform_devi
 		return rc;
 	}
 
-	nss_info_always("nss_driver - fw of size %u  bytes copied to load addr: %x, nss_id : %d\n", nss_fw->size, npd->load_addr, nss_dev->id);
+	nss_info_always("nss_driver - fw of size %d  bytes copied to load addr: %x, nss_id : %d\n", (int)nss_fw->size, npd->load_addr, nss_dev->id);
 	memcpy_toio(load_mem, nss_fw->data, nss_fw->size);
 	release_firmware(nss_fw);
 	iounmap(load_mem);
@@ -308,8 +308,8 @@ int nss_hal_probe(struct platform_device *nss_dev)
 	 */
 	nss_ctx->vphys = npd->vphys;
 	nss_assert(nss_ctx->vphys);
-	nss_info("%d:ctx=%p, vphys=%x, vmap=%x, nphys=%x, nmap=%x",
-			nss_ctx->id, nss_ctx, nss_ctx->vphys, nss_ctx->vmap, nss_ctx->nphys, nss_ctx->nmap);
+	nss_info("%d:ctx=%p, vphys=%x, vmap=%p, nphys=%x, nmap=%p", nss_ctx->id,
+			nss_ctx, nss_ctx->vphys, nss_ctx->vmap, nss_ctx->nphys, nss_ctx->nmap);
 
 	/*
 	 * Register netdevice for queue 0
@@ -566,11 +566,11 @@ err_register_netdev_0:
 err_init:
 	if (nss_dev->dev.of_node) {
 		if (npd->nmap) {
-			iounmap((void *)npd->nmap);
+			iounmap(npd->nmap);
 		}
 
 		if (npd->vmap) {
-			iounmap((void *)npd->vmap);
+			iounmap(npd->vmap);
 		}
 	}
 
@@ -621,12 +621,12 @@ int nss_hal_remove(struct platform_device *nss_dev)
 
 	if (nss_dev->dev.of_node) {
 		if (nss_ctx->nmap) {
-			iounmap((void *)nss_ctx->nmap);
+			iounmap(nss_ctx->nmap);
 			nss_ctx->nmap = 0;
 		}
 
 		if (nss_ctx->vmap) {
-			iounmap((void *)nss_ctx->vmap);
+			iounmap(nss_ctx->vmap);
 			nss_ctx->vmap = 0;
 		}
 	}

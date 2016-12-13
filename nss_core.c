@@ -347,7 +347,7 @@ static inline uint16_t nss_core_cause_to_queue(uint16_t cause)
 static inline void nss_dump_desc(struct nss_ctx_instance *nss_ctx, struct n2h_descriptor *desc)
 {
 	printk("bad descriptor dump for nss core = %d\n", nss_ctx->id);
-	printk("\topaque = %x\n", desc->opaque);
+	printk("\topaque = %p\n", (void *)desc->opaque);
 	printk("\tinterface = %d\n", desc->interface_num);
 	printk("\tbuffer_type = %d\n", desc->buffer_type);
 	printk("\tbit_flags = %x\n", desc->bit_flags);
@@ -833,7 +833,7 @@ static inline bool nss_core_handle_linear_skb(struct nss_ctx_instance *nss_ctx, 
 	 */
 	nbuf->data = nbuf->head + desc->payload_offs;
 	nbuf->len = desc->payload_len;
-	nbuf->tail = nbuf->data + nbuf->len;
+	skb_set_tail_pointer(nbuf, nbuf->len);
 	dma_unmap_single(nss_ctx->dev, (desc->buffer + desc->payload_offs), desc->payload_len, DMA_FROM_DEVICE);
 	prefetch((void *)(nbuf->data));
 
@@ -987,7 +987,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 	nss_assert(qid < if_map->n2h_rings);
 
 	n2h_desc_ring = &nss_ctx->n2h_desc_ring[qid];
-	desc_if = &n2h_desc_ring->desc_if;
+	desc_if = &n2h_desc_ring->desc_ring;
 	desc_ring = desc_if->desc;
 	nss_index = if_map->n2h_nss_index[qid];
 	hlos_index = n2h_desc_ring->hlos_index;
@@ -1012,7 +1012,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 	count_temp = count;
 	while (count_temp) {
 		unsigned int buffer_type;
-		uint32_t opaque;
+		nss_ptr_t opaque;
 		uint16_t bit_flags;
 
 		desc = &desc_ring[hlos_index];
@@ -1157,19 +1157,15 @@ static void nss_core_init_nss(struct nss_ctx_instance *nss_ctx, struct nss_if_me
 	 */
 	for (i = 0; i < if_map->n2h_rings; i++) {
 		struct hlos_n2h_desc_ring *n2h_desc_ring = &nss_ctx->n2h_desc_ring[i];
-		n2h_desc_ring->desc_if.desc =
-			(struct n2h_descriptor *)((uint32_t)if_map->n2h_desc_if[i].desc - (uint32_t)nss_ctx->vphys + (uint32_t)nss_ctx->vmap);
-		n2h_desc_ring->desc_if.size = if_map->n2h_desc_if[i].size;
-		n2h_desc_ring->desc_if.int_bit = if_map->n2h_desc_if[i].int_bit;
+		n2h_desc_ring->desc_ring.desc = (struct n2h_descriptor *)(nss_ctx->vmap + if_map->n2h_desc_if[i].desc_addr - nss_ctx->vphys);
+		n2h_desc_ring->desc_ring.size = if_map->n2h_desc_if[i].size;
 		n2h_desc_ring->hlos_index = if_map->n2h_hlos_index[i];
 	}
 
 	for (i = 0; i < if_map->h2n_rings; i++) {
 		struct hlos_h2n_desc_rings *h2n_desc_ring = &nss_ctx->h2n_desc_rings[i];
-		h2n_desc_ring->desc_ring.desc =
-			(struct h2n_descriptor *)((uint32_t)if_map->h2n_desc_if[i].desc - (uint32_t)nss_ctx->vphys + (uint32_t)nss_ctx->vmap);
+		h2n_desc_ring->desc_ring.desc = (struct h2n_descriptor *)(nss_ctx->vmap + if_map->h2n_desc_if[i].desc_addr - nss_ctx->vphys);
 		h2n_desc_ring->desc_ring.size = if_map->h2n_desc_if[i].size;
-		h2n_desc_ring->desc_ring.int_bit = if_map->h2n_desc_if[i].int_bit;
 		h2n_desc_ring->hlos_index = if_map->h2n_hlos_index[i];
 		spin_lock_init(&h2n_desc_ring->lock);
 	}
@@ -1255,12 +1251,12 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 		if (unlikely(nss_ctx->state == NSS_CORE_STATE_UNINITIALIZED)) {
 			nss_core_init_nss(nss_ctx, if_map);
 
+#if (NSS_MAX_CORES > 1)
 			/*
 			 * Pass C2C addresses of already brought up cores to the recently brought
 			 * up core. No NSS core knows the state of other other cores in system so
 			 * NSS driver needs to mediate and kick start C2C between them
 			 */
-#if (NSS_MAX_CORES > 1)
 			for (i = 0; i < NSS_MAX_CORES; i++) {
 				/*
 				 * Loop through all NSS cores and send exchange C2C addresses
@@ -1302,7 +1298,7 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 		mask = size - 1;
 		count = ((nss_index - hlos_index - 1) + size) & (mask);
 
-		nss_trace("%p: Adding %d buffers to empty queue", nss_ctx, count);
+		nss_trace("%p: Adding %d buffers to empty queue\n", nss_ctx, count);
 
 		/*
 		 * Fill empty buffer queue with buffers leaving one empty descriptor
@@ -1404,7 +1400,7 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 			kmemleak_not_leak(nbuf);
 			NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NSS_SKB_COUNT]);
 
-			desc->opaque = (uint32_t)nbuf;
+			desc->opaque = (nss_ptr_t)nbuf;
 			desc->buffer = buffer;
 			desc->buffer_type = H2N_BUFFER_EMPTY;
 			hlos_index = (hlos_index + 1) & (mask);
@@ -1594,7 +1590,7 @@ int nss_core_handle_napi(struct napi_struct *napi, int budget)
  */
 static inline void nss_core_write_one_descriptor(struct h2n_descriptor *desc,
 	uint16_t buffer_type, uint32_t buffer, uint32_t if_num,
-	uint32_t opaque, uint16_t payload_off, uint16_t payload_len, uint16_t buffer_len,
+	nss_ptr_t opaque, uint16_t payload_off, uint16_t payload_len, uint16_t buffer_len,
 	uint32_t qos_tag, uint16_t mss, uint16_t bit_flags)
 {
 	desc->buffer_type = buffer_type;
@@ -1630,6 +1626,26 @@ static inline void nss_core_send_unwind_dma(struct device *dev, struct h2n_desc_
 		}
 		hlos_index = (hlos_index + 1) & mask;
 	}
+}
+
+/*
+ * nss_core_skb_tail_offset()
+ */
+static inline uint32_t nss_core_skb_tail_offset(struct sk_buff *skb)
+{
+#ifdef NET_SKBUFF_DATA_USES_OFFSET
+	return skb->tail;
+#else
+	return skb->tail - skb->head;
+#endif
+}
+
+/*
+ * nss_core_dma_map_single()
+ */
+static inline uint32_t nss_core_dma_map_single(struct device *dev, struct sk_buff *skb)
+{
+	return (uint32_t)dma_map_single(dev, skb->head, nss_core_skb_tail_offset(skb), DMA_TO_DEVICE);
 }
 
 #if (NSS_SKB_RECYCLE_SUPPORT == 1)
@@ -1786,7 +1802,7 @@ static inline int32_t nss_core_send_buffer_simple_skb(struct nss_ctx_instance *n
 	 * We are going to do both Tx and then Rx on this buffer, unmap the Tx
 	 * and then map Rx over the entire buffer.
 	 */
-	sz = max((uint16_t)(nbuf->tail - nbuf->head), (uint16_t)(nss_ctx->max_buf_size + NET_SKB_PAD));
+	sz = max((uint16_t)nss_core_skb_tail_offset(nbuf), (uint16_t)(nss_ctx->max_buf_size + NET_SKB_PAD));
 	frag0phyaddr = (uint32_t)dma_map_single(nss_ctx->dev, nbuf->head, sz, DMA_TO_DEVICE);
 	if (unlikely(dma_mapping_error(nss_ctx->dev, frag0phyaddr))) {
 		goto no_reuse;
@@ -1797,7 +1813,7 @@ static inline int32_t nss_core_send_buffer_simple_skb(struct nss_ctx_instance *n
 	 */
 	bit_flags |= H2N_BIT_FLAG_BUFFER_REUSE;
 	nss_core_write_one_descriptor(desc, buffer_type, frag0phyaddr, if_num,
-		(uint32_t)nbuf, (uint16_t)(nbuf->data - nbuf->head), nbuf->len,
+		(nss_ptr_t)nbuf, (uint16_t)(nbuf->data - nbuf->head), nbuf->len,
 		sz, (uint32_t)nbuf->priority, mss, bit_flags);
 
 	/*
@@ -1811,16 +1827,15 @@ static inline int32_t nss_core_send_buffer_simple_skb(struct nss_ctx_instance *n
 no_reuse:
 #endif
 
-	frag0phyaddr = 0;
-	frag0phyaddr = (uint32_t)dma_map_single(nss_ctx->dev, nbuf->head, (nbuf->tail - nbuf->head), DMA_TO_DEVICE);
+	frag0phyaddr = nss_core_dma_map_single(nss_ctx->dev, nbuf);
 	if (unlikely(dma_mapping_error(nss_ctx->dev, frag0phyaddr))) {
-		nss_warning("%p: DMA mapping failed for virtual address = %x", nss_ctx, (uint32_t)nbuf->head);
+		nss_warning("%p: DMA mapping failed for virtual address = %p", nss_ctx, nbuf->head);
 		return 0;
 	}
 
 	nss_core_write_one_descriptor(desc, buffer_type, frag0phyaddr, if_num,
-		(uint32_t)nbuf, (uint16_t)(nbuf->data - nbuf->head), nbuf->len,
-		(uint16_t)(nbuf->end - nbuf->head), (uint32_t)nbuf->priority, mss, bit_flags);
+		(nss_ptr_t)nbuf, (uint16_t)(nbuf->data - nbuf->head), nbuf->len,
+		(uint16_t)skb_end_offset(nbuf), (uint32_t)nbuf->priority, mss, bit_flags);
 
 	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_SIMPLE]);
 	return 1;
@@ -1846,10 +1861,9 @@ static inline int32_t nss_core_send_buffer_nr_frags(struct nss_ctx_instance *nss
 	int16_t i;
 	uint16_t mask;
 
-	uint32_t frag0phyaddr = 0;
-	frag0phyaddr = (uint32_t)dma_map_single(nss_ctx->dev, nbuf->head, (nbuf->tail - nbuf->head), DMA_TO_DEVICE);
+	uint32_t frag0phyaddr = nss_core_dma_map_single(nss_ctx->dev, nbuf);
 	if (unlikely(dma_mapping_error(nss_ctx->dev, frag0phyaddr))) {
-		nss_warning("%p: DMA mapping failed for virtual address = %x", nss_ctx, (uint32_t)nbuf->head);
+		nss_warning("%p: DMA mapping failed for virtual address = %p", nss_ctx, nbuf->head);
 		return 0;
 	}
 
@@ -1868,8 +1882,8 @@ static inline int32_t nss_core_send_buffer_nr_frags(struct nss_ctx_instance *nss
 	 * First fragment/descriptor is special
 	 */
 	nss_core_write_one_descriptor(desc, buffer_type, frag0phyaddr, if_num,
-		(uint32_t)NULL, nbuf->data - nbuf->head, nbuf->len - nbuf->data_len,
-		nbuf->end - nbuf->head, (uint32_t)nbuf->priority, mss, bit_flags | H2N_BIT_FLAG_FIRST_SEGMENT);
+		(nss_ptr_t)NULL, nbuf->data - nbuf->head, nbuf->len - nbuf->data_len,
+		skb_end_offset(nbuf), (uint32_t)nbuf->priority, mss, bit_flags | H2N_BIT_FLAG_FIRST_SEGMENT);
 
 	/*
 	 * Now handle rest of the fragments.
@@ -1890,7 +1904,7 @@ static inline int32_t nss_core_send_buffer_nr_frags(struct nss_ctx_instance *nss
 		desc = &(desc_if->desc[hlos_index]);
 
 		nss_core_write_one_descriptor(desc, buffer_type, buffer, if_num,
-			(uint32_t)NULL, 0, skb_frag_size(frag), skb_frag_size(frag),
+			(nss_ptr_t)NULL, 0, skb_frag_size(frag), skb_frag_size(frag),
 			nbuf->priority, mss, bit_flags);
 	}
 
@@ -1905,7 +1919,7 @@ static inline int32_t nss_core_send_buffer_nr_frags(struct nss_ctx_instance *nss
 	 */
 	desc->bit_flags |= H2N_BIT_FLAG_LAST_SEGMENT;
 	desc->bit_flags &= ~(H2N_BIT_FLAG_DISCARD);
-	desc->opaque = (uint32_t)nbuf;
+	desc->opaque = (nss_ptr_t)nbuf;
 	NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_NR_FRAGS]);
 	return i+1;
 }
@@ -1929,10 +1943,9 @@ static inline int32_t nss_core_send_buffer_fraglist(struct nss_ctx_instance *nss
 	uint16_t bit_flags;
 	int16_t i;
 
-	uint32_t frag0phyaddr = 0;
-	frag0phyaddr = (uint32_t)dma_map_single(nss_ctx->dev, nbuf->head, (nbuf->tail - nbuf->head), DMA_TO_DEVICE);
+	uint32_t frag0phyaddr = nss_core_dma_map_single(nss_ctx->dev, nbuf);
 	if (unlikely(dma_mapping_error(nss_ctx->dev, frag0phyaddr))) {
-		nss_warning("%p: DMA mapping failed for virtual address = %x", nss_ctx, (uint32_t)nbuf->head);
+		nss_warning("%p: DMA mapping failed for virtual address = %p", nss_ctx, nbuf->head);
 		return 0;
 	}
 
@@ -1951,8 +1964,8 @@ static inline int32_t nss_core_send_buffer_fraglist(struct nss_ctx_instance *nss
 	 * First fragment/descriptor is special. Will hold the Opaque
 	 */
 	nss_core_write_one_descriptor(desc, buffer_type, frag0phyaddr, if_num,
-		(uint32_t)nbuf, nbuf->data - nbuf->head, nbuf->len - nbuf->data_len,
-		nbuf->end - nbuf->head, (uint32_t)nbuf->priority, mss, bit_flags | H2N_BIT_FLAG_FIRST_SEGMENT);
+		(nss_ptr_t)nbuf, nbuf->data - nbuf->head, nbuf->len - nbuf->data_len,
+		skb_end_offset(nbuf), (uint32_t)nbuf->priority, mss, bit_flags | H2N_BIT_FLAG_FIRST_SEGMENT);
 
 	/*
 	 * Set everyone but first fragment/descriptor as discard
@@ -1966,9 +1979,9 @@ static inline int32_t nss_core_send_buffer_fraglist(struct nss_ctx_instance *nss
 	skb_walk_frags(nbuf, iter) {
 		uint32_t nr_frags;
 
-		buffer = (uint32_t)dma_map_single(nss_ctx->dev, iter->head, (iter->tail - iter->head), DMA_TO_DEVICE);
+		buffer = nss_core_dma_map_single(nss_ctx->dev, iter);
 		if (unlikely(dma_mapping_error(nss_ctx->dev, buffer))) {
-			nss_warning("%p: DMA mapping failed for virtual address = %x", nss_ctx, (uint32_t)iter->head);
+			nss_warning("%p: DMA mapping failed for virtual address = %p", nss_ctx, iter->head);
 			nss_core_send_unwind_dma(nss_ctx->dev, desc_if, hlos_index, i + 1, is_fraglist);
 			return -(i+1);
 		}
@@ -1991,8 +2004,8 @@ static inline int32_t nss_core_send_buffer_fraglist(struct nss_ctx_instance *nss
 		desc = &(desc_if->desc[hlos_index]);
 
 		nss_core_write_one_descriptor(desc, buffer_type, buffer, if_num,
-			(uint32_t)NULL, iter->data - iter->head, iter->len - iter->data_len,
-			iter->end - iter->head, iter->priority, mss, bit_flags);
+			(nss_ptr_t)NULL, iter->data - iter->head, iter->len - iter->data_len,
+			skb_end_offset(iter), iter->priority, mss, bit_flags);
 
 		i++;
 	}
@@ -2026,8 +2039,6 @@ int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 	desc_ring = desc_if->desc;
 	size = desc_if->size;
 	mask = size - 1;
-
-
 
 	/*
 	 * If nbuf does not have fraglist, then update nr_frags

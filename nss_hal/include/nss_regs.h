@@ -90,18 +90,18 @@ enum nss_regs_clk_src_select {
  * nss_read_32()
  *	Read NSS register
  */
-static inline uint32_t nss_read_32(uint32_t addr, uint32_t offs)
+static inline uint32_t nss_read_32(void __iomem *addr, uint32_t offs)
 {
-	return readl((void *)(addr + offs));
+	return readl(addr + offs);
 }
 
 /*
  * nss_write_32()
  *	Write NSS register
  */
-static inline void nss_write_32(uint32_t addr, uint32_t offs, uint32_t val)
+static inline void nss_write_32(void __iomem *addr, uint32_t offs, uint32_t val)
 {
-	writel(val, (void *)(addr + offs));
+	writel(val, addr + offs);
 }
 
 #endif /* __NSS_REGS_H */

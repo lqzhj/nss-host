@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -63,8 +63,8 @@ static void nss_bridge_handler(struct nss_ctx_instance *nss_ctx, struct nss_cmn_
 	 * to the same callback/app_data.
 	 */
 	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
-		ncm->cb = (uint32_t)nss_ctx->nss_top->bridge_callback;
-		ncm->app_data = (uint32_t)nss_ctx->nss_top->bridge_ctx;
+		ncm->cb = (nss_ptr_t)nss_ctx->nss_top->bridge_callback;
+		ncm->app_data = (nss_ptr_t)nss_ctx->nss_top->bridge_ctx;
 	}
 
 	/*
@@ -197,8 +197,8 @@ nss_tx_status_t nss_bridge_tx_msg_sync(struct nss_ctx_instance *nss_ctx, struct 
 	bridge_pvt.cb = (void *)nbm->cm.cb;
 	bridge_pvt.app_data = (void *)nbm->cm.app_data;
 
-	nbm->cm.cb = (uint32_t)nss_bridge_callback;
-	nbm->cm.app_data = (uint32_t)NULL;
+	nbm->cm.cb = (nss_ptr_t)nss_bridge_callback;
+	nbm->cm.app_data = (nss_ptr_t)NULL;
 
 	status = nss_bridge_tx_msg(nss_ctx, nbm);
 	if (status != NSS_TX_SUCCESS) {

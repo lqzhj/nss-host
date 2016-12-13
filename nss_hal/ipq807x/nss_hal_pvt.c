@@ -183,19 +183,19 @@ static struct nss_platform_data *__nss_hal_of_get_pdata(struct platform_device *
 	npd->vphys = res_vphys.start;
 	npd->qgic_phys = res_qgic_phys.start;
 
-	npd->nmap = (uint32_t)ioremap_nocache(npd->nphys, resource_size(&res_nphys));
+	npd->nmap = ioremap_nocache(npd->nphys, resource_size(&res_nphys));
 	if (!npd->nmap) {
 		nss_info_always("%p: nss%d: ioremap() fail for nphys\n", nss_ctx, nss_ctx->id);
 		goto out;
 	}
 
-	npd->vmap = (uint32_t)ioremap_nocache(npd->vphys, resource_size(&res_vphys));
+	npd->vmap = ioremap_nocache(npd->vphys, resource_size(&res_vphys));
 	if (!npd->vmap) {
 		nss_info_always("%p: nss%d: ioremap() fail for vphys\n", nss_ctx, nss_ctx->id);
 		goto out;
 	}
 
-	npd->qgic_map = (uint32_t)ioremap_nocache(npd->qgic_phys, resource_size(&res_qgic_phys));
+	npd->qgic_map = ioremap_nocache(npd->qgic_phys, resource_size(&res_qgic_phys));
 	if (!npd->qgic_map) {
 		nss_info_always("%p: nss%d: ioremap() fail for qgic map\n", nss_ctx, nss_ctx->id);
 		goto out;
@@ -205,7 +205,7 @@ static struct nss_platform_data *__nss_hal_of_get_pdata(struct platform_device *
 	 * Clear TCM memory used by this core
 	 */
 	for (i = 0; i < resource_size(&res_vphys) ; i += 4) {
-		nss_write_32((uint32_t)npd->vmap, i, 0);
+		nss_write_32(npd->vmap, i, 0);
 	}
 
 	/*
@@ -226,11 +226,11 @@ static struct nss_platform_data *__nss_hal_of_get_pdata(struct platform_device *
 
 out:
 	if (npd->nmap) {
-		iounmap((void *)npd->nmap);
+		iounmap(npd->nmap);
 	}
 
 	if (npd->vmap) {
-		iounmap((void *)npd->vmap);
+		iounmap(npd->vmap);
 	}
 
 	devm_kfree(&pdev->dev, npd);
@@ -241,7 +241,7 @@ out:
 /*
  * __nss_hal_core_reset()
  */
-static int __nss_hal_core_reset(struct platform_device *nss_dev, uint32_t map, uint32_t addr, uint32_t clk_src)
+static int __nss_hal_core_reset(struct platform_device *nss_dev, void __iomem *map, uint32_t addr, uint32_t clk_src)
 {
 	/*
 	 * Todo: AHB/AXI/ubi32 core reset is done in the T32 scripts for RUMI.

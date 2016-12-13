@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -32,7 +32,7 @@
  */
 struct nss_hal_ops {
 	int (*common_reset)(struct platform_device *pdev);
-	int (*core_reset)(struct platform_device *nss_dev, uint32_t map, uint32_t addr, uint32_t clk_src);
+	int (*core_reset)(struct platform_device *nss_dev, void __iomem *map, uint32_t addr, uint32_t clk_src);
 	int (*clock_configure)(struct nss_ctx_instance *nss_ctx, struct platform_device *nss_dev, struct nss_platform_data *npd);
 	void (*debug_enable)(void);
 	struct nss_platform_data * (*of_get_pdata)(struct platform_device *pdev);

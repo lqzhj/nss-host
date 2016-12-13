@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013, 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2015-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -332,13 +332,13 @@ static struct nss_platform_data *__nss_hal_of_get_pdata(struct platform_device *
 	npd->nphys = res_nphys.start;
 	npd->vphys = res_vphys.start;
 
-	npd->nmap = (uint32_t)ioremap_nocache(npd->nphys, resource_size(&res_nphys));
+	npd->nmap = ioremap_nocache(npd->nphys, resource_size(&res_nphys));
 	if (!npd->nmap) {
 		nss_info_always("%p: nss%d: ioremap() fail for nphys\n", nss_ctx, nss_ctx->id);
 		goto out;
 	}
 
-	npd->vmap = (uint32_t)ioremap_nocache(npd->vphys, resource_size(&res_vphys));
+	npd->vmap = ioremap_nocache(npd->vphys, resource_size(&res_vphys));
 	if (!npd->vmap) {
 		nss_info_always("%p: nss%d: ioremap() fail for vphys\n", nss_ctx, nss_ctx->id);
 		goto out;
@@ -348,7 +348,7 @@ static struct nss_platform_data *__nss_hal_of_get_pdata(struct platform_device *
 	 * Clear TCM memory used by this core
 	 */
 	for (i = 0; i < resource_size(&res_vphys) ; i += 4) {
-		nss_write_32((uint32_t)npd->vmap, i, 0);
+		nss_write_32(npd->vmap, i, 0);
 	}
 
 	/*
@@ -369,11 +369,11 @@ static struct nss_platform_data *__nss_hal_of_get_pdata(struct platform_device *
 
 out:
 	if (npd->nmap) {
-		iounmap((void *)npd->nmap);
+		iounmap(npd->nmap);
 	}
 
 	if (npd->vmap) {
-		iounmap((void *)npd->vmap);
+		iounmap(npd->vmap);
 	}
 
 	devm_kfree(&pdev->dev, npd);
@@ -385,7 +385,7 @@ out:
 /*
  * __nss_hal_core_reset()
  */
-static int __nss_hal_core_reset(struct platform_device *nss_dev, uint32_t map, uint32_t addr, uint32_t clk_src)
+static int __nss_hal_core_reset(struct platform_device *nss_dev, void __iomem *map, uint32_t addr, uint32_t clk_src)
 {
 #if (NSS_DT_SUPPORT == 1)
 	struct reset_control *rstctl = NULL;
@@ -591,7 +591,7 @@ static int __nss_hal_common_reset(struct platform_device *nss_dev)
 	/*
 	 * Attach debug interface to TLMM
 	 */
-	nss_write_32((uint32_t)fpb_base, NSS_REGS_FPB_CSR_CFG_OFFSET, 0x360);
+	nss_write_32(fpb_base, NSS_REGS_FPB_CSR_CFG_OFFSET, 0x360);
 
 	/*
 	 * NSS TCM CLOCK

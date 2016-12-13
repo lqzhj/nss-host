@@ -830,7 +830,7 @@ struct int_ctx_instance {
  * N2H descriptor ring information
  */
 struct hlos_n2h_desc_ring {
-	struct n2h_desc_if_instance desc_if;
+	struct n2h_desc_if_instance desc_ring;
 					/* Descriptor ring */
 	uint32_t hlos_index;		/* Current HLOS index for this ring */
 	struct sk_buff *head;		/* First segment of an skb fraglist */
@@ -871,9 +871,9 @@ struct nss_ctx_instance {
 					/* Back pointer to NSS Top */
 	struct device *dev;		/* Pointer to the original device from probe */
 	uint32_t id;			/* Core ID for this instance */
-	uint32_t nmap;			/* Pointer to NSS CSM registers */
-	uint32_t vmap;			/* Virt mem pointer to virtual register map */
-	uint32_t qgic_map;		/* Virt mem pointer to QGIC register */
+	void __iomem *nmap;		/* Pointer to NSS CSM registers */
+	void __iomem *vmap;		/* Virt mem pointer to virtual register map */
+	void __iomem *qgic_map;	/* Virt mem pointer to QGIC register */
 	uint32_t nphys;			/* Phys mem pointer to CSM register map */
 	uint32_t vphys;			/* Phys mem pointer to virtual register map */
 	uint32_t qgic_phys;		/* Phys mem pointer to QGIC register map */
@@ -1227,16 +1227,16 @@ enum nss_feature_enabled {
 
 /*
  * nss_platform_data
- *	Platform data per core
+ *      Platform data per core
  */
 struct nss_platform_data {
 	uint32_t id;					/* NSS core ID */
 	uint32_t num_queue;				/* No. of queues supported per core */
 	uint32_t num_irq;				/* No. of irq binded per queue */
 	uint32_t irq[5];				/* IRQ numbers per queue */
-	uint32_t nmap;					/* Virtual addr of NSS CSM space */
-	uint32_t vmap;					/* Virtual addr of NSS virtual register map */
-	uint32_t qgic_map;				/* Virtual addr of QGIC interrupt register */
+	void __iomem *nmap;				/* Virtual addr of NSS CSM space */
+	void __iomem *vmap;				/* Virtual addr of NSS virtual register map */
+	void __iomem *qgic_map;			/* Virtual addr of QGIC interrupt register */
 	uint32_t nphys;					/* Physical addr of NSS CSM space */
 	uint32_t vphys;					/* Physical addr of NSS virtual register map */
 	uint32_t qgic_phys;				/* Physical addr of QGIC virtual register map */

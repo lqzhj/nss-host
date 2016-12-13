@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -147,8 +147,8 @@ static void nss_edma_interface_handler(struct nss_ctx_instance *nss_ctx, struct 
 	 * to the same callback/app_data.
 	 */
 	if (nem->cm.response == NSS_CMM_RESPONSE_NOTIFY) {
-		ncm->cb = (uint32_t)nss_ctx->nss_top->edma_callback;
-		ncm->app_data = (uint32_t)nss_ctx->nss_top->edma_ctx;
+		ncm->cb = (nss_ptr_t)nss_ctx->nss_top->edma_callback;
+		ncm->app_data = (nss_ptr_t)nss_ctx->nss_top->edma_ctx;
 	}
 
 	/*

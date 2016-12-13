@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2015, 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -78,7 +78,7 @@ static int nss_panic_handler(struct notifier_block *nb,
 			continue;
 		nss_ctx->state |= NSS_CORE_STATE_PANIC;
 		nss_hal_send_interrupt(nss_ctx, NSS_H2N_INTR_TRIGGER_COREDUMP);
-		nss_warning("panic call NSS FW %x to dump %x\n",
+		nss_warning("panic call NSS FW %p to dump %x\n",
 			nss_ctx->nmap, nss_ctx->state);
 	}
 
@@ -132,7 +132,7 @@ void nss_fw_coredump_notify(struct nss_ctx_instance *nss_own,
 				int intr __attribute__ ((unused)))
 {
 	int i;
-	nss_warning("\n%p: COREDUMP %x Baddr %x stat %x\n",
+	nss_warning("\n%p: COREDUMP %x Baddr %p stat %x\n",
 			nss_own, intr, nss_own->nmap, nss_own->state);
 	nss_own->state |= NSS_CORE_STATE_FW_DEAD;
 	queue_delayed_work(coredump_workqueue, &coredump_queuewait,
@@ -157,7 +157,7 @@ void nss_fw_coredump_notify(struct nss_ctx_instance *nss_own,
 				 */
 				panic("NSS FW coredump: bringing system down\n");
 			}
-			nss_warning("notify NSS FW %X for coredump\n",
+			nss_warning("notify NSS FW %p for coredump\n",
 				nss_ctx->nmap);
 			nss_hal_send_interrupt(nss_ctx, NSS_H2N_INTR_TRIGGER_COREDUMP);
 		}

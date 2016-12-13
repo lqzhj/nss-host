@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014, 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -110,13 +110,20 @@ extern int8_t *nss_cmn_response_str[NSS_CMN_RESPONSE_LAST];
  */
 struct nss_cmn_msg {
 	uint16_t version;		/**< Version id for main message format */
-	uint16_t interface;		/**< Primary Key for all messages */
+	uint16_t len;			/**< What is the length of the message excluding this header */
+	uint32_t interface;		/**< Primary Key for all messages */
 	enum nss_cmn_response response;	/**< Primary response */
 	uint32_t type;			/**< Decetralized request #, to be used to match response # */
 	uint32_t error;			/**< Decentralized specific error message, response == EMSG */
-	uint32_t cb;			/**< Place for callback pointer */
-	uint32_t app_data;		/**< Place for app data */
-	uint32_t len;			/**< What is the length of the message excluding this header */
+	uint32_t reserved;		/**< Pad to make below cb starting from 64 bits boundary, this can be reused */
+	nss_ptr_t cb;			/**< Place for callback pointer */
+#ifndef __LP64__
+	uint32_t padding1;		/**< Pad to fit 64 bits, do not reuse */
+#endif
+	nss_ptr_t app_data;		/**< Place for app data */
+#ifndef __LP64__
+	uint32_t padding2;		/**< Pad to fit 64 bits, do not reuse */
+#endif
 };
 
 /**

@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -54,8 +54,8 @@ static void nss_oam_rx_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss_
 	nss_core_log_msg_failures(nss_ctx, ncm);
 
 	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
-		ncm->cb = (int)nss_top_main.oam_callback;
-		ncm->app_data = (int)nss_top_main.oam_ctx;
+		ncm->cb = (nss_ptr_t)nss_top_main.oam_callback;
+		ncm->app_data = (nss_ptr_t)nss_top_main.oam_ctx;
 	}
 
 	cb = (nss_oam_msg_callback_t)ncm->cb;

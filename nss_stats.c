@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -1890,7 +1890,7 @@ static ssize_t nss_stats_gmac_read(struct file *fp, char __user *ubuf, size_t sz
 
 /*
  * nss_stats_wifi_read()
- *	Read wifi statistics
+ * 	Read wifi statistics
  */
 static ssize_t nss_stats_wifi_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
 {
@@ -3237,7 +3237,7 @@ static int nss_stats_open(struct inode *inode, struct file *filp)
 	memset(data, 0, sizeof (struct nss_stats_data));
 	data->if_num = NSS_DYNAMIC_IF_START;
 	data->index = 0;
-	data->edma_id = (uint32_t)inode->i_private;
+	data->edma_id = (nss_ptr_t)inode->i_private;
 	filp->private_data = data;
 
 	return 0;
@@ -3556,19 +3556,19 @@ void nss_stats_init(void)
 			return;
 		}
 
-		edma_port_stats_d = debugfs_create_file("stats", 0400, edma_port_d, (void *)i, &nss_stats_edma_port_stats_ops);
+		edma_port_stats_d = debugfs_create_file("stats", 0400, edma_port_d, (void *)(nss_ptr_t)i, &nss_stats_edma_port_stats_ops);
 		if (unlikely(edma_port_stats_d == NULL)) {
 			nss_warning("Failed to create qca-nss-drv/stats/edma/ports/%d/stats file in debugfs", i);
 			return;
 		}
 
-		edma_port_type_d = debugfs_create_file("type", 0400, edma_port_d, (void *)i, &nss_stats_edma_port_type_ops);
+		edma_port_type_d = debugfs_create_file("type", 0400, edma_port_d, (void *)(nss_ptr_t)i, &nss_stats_edma_port_type_ops);
 		if (unlikely(edma_port_type_d == NULL)) {
 			nss_warning("Failed to create qca-nss-drv/stats/edma/ports/%d/type file in debugfs", i);
 			return;
 		}
 
-		edma_port_ring_map_d = debugfs_create_file("ring_map", 0400, edma_port_d, (void *)i, &nss_stats_edma_port_ring_map_ops);
+		edma_port_ring_map_d = debugfs_create_file("ring_map", 0400, edma_port_d, (void *)(nss_ptr_t)i, &nss_stats_edma_port_ring_map_ops);
 		if (unlikely(edma_port_ring_map_d == NULL)) {
 			nss_warning("Failed to create qca-nss-drv/stats/edma/ports/%d/ring_map file in debugfs", i);
 			return;
@@ -3597,7 +3597,7 @@ void nss_stats_init(void)
 		memset(file_name, 0, sizeof(file_name));
 		scnprintf(file_name, sizeof(file_name), "%d", i);
 		edma_tx_d = NULL;
-		edma_tx_d = debugfs_create_file(file_name, 0400, edma_tx_dir_d, (void *)i, &nss_stats_edma_txring_ops);
+		edma_tx_d = debugfs_create_file(file_name, 0400, edma_tx_dir_d, (void *)(nss_ptr_t)i, &nss_stats_edma_txring_ops);
 		if (unlikely(edma_tx_d == NULL)) {
 			nss_warning("Failed to create qca-nss-drv/stats/edma/rings/tx/%d file in debugfs", i);
 			return;
@@ -3617,7 +3617,7 @@ void nss_stats_init(void)
 		memset(file_name, 0, sizeof(file_name));
 		scnprintf(file_name, sizeof(file_name), "%d", i);
 		edma_rx_d = NULL;
-		edma_rx_d = debugfs_create_file(file_name, 0400, edma_rx_dir_d, (void *)i, &nss_stats_edma_rxring_ops);
+		edma_rx_d = debugfs_create_file(file_name, 0400, edma_rx_dir_d, (void *)(nss_ptr_t)i, &nss_stats_edma_rxring_ops);
 		if (unlikely(edma_rx_d == NULL)) {
 			nss_warning("Failed to create qca-nss-drv/stats/edma/rings/rx/%d file in debugfs", i);
 			return;
@@ -3637,7 +3637,7 @@ void nss_stats_init(void)
 		memset(file_name, 0, sizeof(file_name));
 		scnprintf(file_name, sizeof(file_name), "%d", i);
 		edma_txcmpl_d = NULL;
-		edma_txcmpl_d = debugfs_create_file(file_name, 0400, edma_txcmpl_dir_d, (void *)i, &nss_stats_edma_txcmplring_ops);
+		edma_txcmpl_d = debugfs_create_file(file_name, 0400, edma_txcmpl_dir_d, (void *)(nss_ptr_t)i, &nss_stats_edma_txcmplring_ops);
 		if (unlikely(edma_txcmpl_d == NULL)) {
 			nss_warning("Failed to create qca-nss-drv/stats/edma/rings/txcmpl/%d file in debugfs", i);
 			return;
@@ -3657,7 +3657,7 @@ void nss_stats_init(void)
 		memset(file_name, 0, sizeof(file_name));
 		scnprintf(file_name, sizeof(file_name), "%d", i);
 		edma_rxfill_d = NULL;
-		edma_rxfill_d = debugfs_create_file(file_name, 0400, edma_rxfill_dir_d, (void *)i, &nss_stats_edma_rxfillring_ops);
+		edma_rxfill_d = debugfs_create_file(file_name, 0400, edma_rxfill_dir_d, (void *)(nss_ptr_t)i, &nss_stats_edma_rxfillring_ops);
 		if (unlikely(edma_rxfill_d == NULL)) {
 			nss_warning("Failed to create qca-nss-drv/stats/edma/rings/rxfill/%d file in debugfs", i);
 			return;

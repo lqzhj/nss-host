@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -35,5 +35,11 @@
  * Number of egress interfaces suppored in a multicast connection entry
  */
 #define NSS_MC_IF_MAX 16
+
+#ifdef __LP64__
+typedef uint64_t nss_ptr_t;
+#else
+typedef uint32_t nss_ptr_t;
+#endif
 
 #endif /** __NSS_DEF_H */
