@@ -217,6 +217,8 @@ struct nss_ipsecmgr_encap_flow {
 	} data;
 };
 
+#ifdef __KERNEL__ /* only kernel will use */
+
 typedef void (*nss_ipsecmgr_data_cb_t) (void *ctx, struct sk_buff *skb);
 typedef void (*nss_ipsecmgr_event_cb_t) (void *ctx, struct nss_ipsecmgr_event *ev);
 
@@ -229,7 +231,6 @@ struct nss_ipsecmgr_callback {
 	nss_ipsecmgr_event_cb_t event_fn;	/**< event callback function */
 };
 
-#ifdef __KERNEL__ /* only kernel will use */
 /**
  * @brief Add a new IPsec tunnel
  *
