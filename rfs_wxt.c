@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 - 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014 - 2015, 2017 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -36,6 +36,7 @@
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/pci.h>
+#include <linux/if_vlan.h>
 #include "rfs.h"
 #include "rfs_rule.h"
 #include "rfs_ess.h"
@@ -69,6 +70,12 @@ static int rfs_wxt_get_parent(int ifindex)
 
 	if (!dev)
 		return -1;
+
+	if (is_vlan_dev(dev)) {
+		RFS_DEBUG("Virtual device[%s] will be replaced", dev->name);
+		dev = vlan_dev_real_dev(dev);
+		RFS_DEBUG("real dev[%s] instead of \n",	dev->name);
+	}
 
 	if (!dev->wireless_handlers ||
 		!dev->wireless_handlers->private)
@@ -187,7 +194,13 @@ static int rfs_wxt_get_irq_ath10k(int ifindex)
 	if (!ndev)
 		return -1;
 
+	if (is_vlan_dev(ndev)) {
+		RFS_DEBUG("Virtual device[%s] will be replaced\n", ndev->name);
+		ndev = vlan_dev_real_dev(ndev);
+		RFS_DEBUG("real dev[%s] instead of\n", ndev->name);
+	}
 	dev = &ndev->dev;
+
 	parent = dev->parent;
 
 	if (!parent) {
