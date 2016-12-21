@@ -81,6 +81,7 @@ enum nss_wifi_metadata_types {
 	NSS_WIFI_ME_SYNC_MSG,
 	NSS_WIFI_WDS_VENDOR_MSG,
 	NSS_WIFI_TX_CAPTURE_SET_MSG,
+	NSS_WIFI_ALWAYS_PRIMARY_SET_MSG,
 	NSS_WIFI_MAX_MSG
 };
 
@@ -296,6 +297,19 @@ struct nss_wifi_dbdc_process_enable_msg {
  */
 struct nss_wifi_primary_radio_set_msg {
 	uint32_t flag;				/**< flag to set pdev as primary radio */
+};
+
+/**
+ * Primary radio is set by the user in config using msg wifi_primary_radio_set_msg.
+ * When always primary flag(nss_wifi_always_primary_set_msg) is set by user:
+ * TX: Don't drop ucast pkts on secondary sta vap, instead give that pkt to
+ *     primary sta vap for tx.
+ * RX: Don't drop received ucast pkt on secondary sta vap, instead give that
+ *     pkt to bridge by changing skb dev as primary sta vap.
+ * Primary usage of this feature is to avoid loopback.
+ */
+struct nss_wifi_always_primary_set_msg {
+	uint32_t flag;				/**< always use primary radio for tx/rx in dbdc repeater*/
 };
 
 /**
@@ -570,6 +584,7 @@ struct nss_wifi_msg {
 		struct nss_wifi_tx_me_host_sync_msg wmehsync;
 		struct nss_wifi_wds_extn_peer_cfg_msg wpeercfg;
 		struct nss_wifi_tx_capture_msg tx_capture_msg;
+		struct nss_wifi_always_primary_set_msg waps_msg;
 	} msg;
 };
 
