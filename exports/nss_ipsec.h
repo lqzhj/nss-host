@@ -85,6 +85,16 @@ enum nss_ipsec_ip_ver {
 };
 
 /**
+ * @brief IPsec operation Type
+ */
+enum nss_ipsec_type {
+	NSS_IPSEC_TYPE_NONE = 0,
+	NSS_IPSEC_TYPE_ENCAP = 1,	/**< Encap */
+	NSS_IPSEC_TYPE_DECAP = 2,	/**< Decap */
+	NSS_IPSEC_TYPE_MAX
+};
+
+/**
  * @brief IPsec rule selector tuple for encap & decap
  *
  * @note This is a common selector which is used for preparing
@@ -203,10 +213,10 @@ struct nss_ipsec_flow_stats {
  */
 struct nss_ipsec_node_stats {
 	uint32_t enqueued;			/**< packets enqueued to the node */
-	uint32_t exceptioned;			/**< packets exception from NSS */
 	uint32_t completed;			/**< packets processed by the node */
-	uint32_t fail_enqueue;			/**< packets failed to enqueue */
 	uint32_t linearized;			/**< linearized the packet */
+	uint32_t exceptioned;			/**< packets exception from NSS */
+	uint32_t fail_enqueue;			/**< packets failed to enqueue */
 };
 
 /**
@@ -216,6 +226,8 @@ struct nss_ipsec_msg {
 	struct nss_cmn_msg cm;				/**< Message Header */
 
 	uint32_t tunnel_id;				/**< tunnel index associated with the message */
+	enum nss_ipsec_type type;			/**< Encap / Decap operation */
+
 	union {
 		struct nss_ipsec_rule push;		/**< Message: IPsec rule */
 		struct nss_ipsec_sa_stats sa_stats;	/**< Message: Retreive stats for tunnel */
