@@ -74,6 +74,23 @@ struct nss_phys_if_estats {
 	uint32_t gmac_worst_case_ticks;	/**< Worst case iteration of the GMAC in ticks */
 	uint32_t gmac_iterations;	/**< Number of iterations around the GMAC */
 	uint32_t tx_pause_frames;	/**< Number of pause frames sent by the GMAC */
+	uint32_t rx_octets_g;		/* Number of good octets received */
+	uint32_t rx_ucast_frames;	/* Number of Unicast frames received */
+	uint32_t rx_bcast_frames;	/* Number of Bcast frames received */
+	uint32_t rx_mcast_frames;	/* Number of Mcast frames received */
+	uint32_t rx_undersize;		/* Number of RX undersize frames */
+	uint32_t rx_oversize;		/* Number of RX oversize frames */
+	uint32_t rx_jabber;		/* Number of jabber frames */
+	uint32_t rx_octets_gb;		/* Number of good/bad octets */
+	uint32_t rx_frag_frames_g;	/* Number of good ipv4 frag frames */
+	uint32_t tx_octets_g;		/* Number of good octets sent */
+	uint32_t tx_ucast_frames;	/* Number of Unicast frames sent*/
+	uint32_t tx_bcast_frames;	/* Number of Broadcast frames sent */
+	uint32_t tx_mcast_frames;	/* Number of Multicast frames sent */
+	uint32_t tx_deferred;		/* Number of Deferred frames sent */
+	uint32_t tx_single_col;		/* Number of single collisions */
+	uint32_t tx_multiple_col;	/* Number of multiple collisions */
+	uint32_t tx_octets_gb;		/* Number of good/bad octets sent*/
 };
 
 /**

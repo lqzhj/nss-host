@@ -98,6 +98,23 @@ void nss_phys_if_gmac_stats_sync(struct nss_ctx_instance *nss_ctx,
 	gmac_stats.gmac_worst_case_ticks = stats->estats.gmac_worst_case_ticks;
 	gmac_stats.gmac_iterations = stats->estats.gmac_iterations;
 	gmac_stats.tx_pause_frames = stats->estats.tx_pause_frames;
+	gmac_stats.rx_octets_g = stats->estats.rx_octets_g;
+	gmac_stats.rx_ucast_frames = stats->estats.rx_ucast_frames;
+	gmac_stats.rx_bcast_frames = stats->estats.rx_bcast_frames;
+	gmac_stats.rx_mcast_frames = stats->estats.rx_mcast_frames;
+	gmac_stats.rx_undersize = stats->estats.rx_undersize;
+	gmac_stats.rx_oversize = stats->estats.rx_oversize;
+	gmac_stats.rx_jabber = stats->estats.rx_jabber;
+	gmac_stats.rx_octets_gb = stats->estats.rx_octets_gb;
+	gmac_stats.rx_frag_frames_g = stats->estats.rx_frag_frames_g;
+	gmac_stats.tx_octets_g = stats->estats.tx_octets_g;
+	gmac_stats.tx_ucast_frames = stats->estats.tx_ucast_frames;
+	gmac_stats.tx_bcast_frames = stats->estats.tx_bcast_frames;
+	gmac_stats.tx_mcast_frames = stats->estats.tx_mcast_frames;
+	gmac_stats.tx_deferred = stats->estats.tx_deferred;
+	gmac_stats.tx_single_col = stats->estats.tx_single_col;
+	gmac_stats.tx_multiple_col = stats->estats.tx_multiple_col;
+	gmac_stats.tx_octets_gb = stats->estats.tx_octets_gb;
 
 	/*
 	 * Get the netdev ctx
