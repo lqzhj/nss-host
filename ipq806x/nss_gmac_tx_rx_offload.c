@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -591,6 +591,28 @@ static void nss_gmac_copy_stats(struct nss_gmac_dev *gmacdev,
 	gmacdev->nss_stats.gmac_worst_case_ticks += gstat->gmac_worst_case_ticks;
 	gmacdev->nss_stats.gmac_iterations += gstat->gmac_iterations;
 	gmacdev->nss_stats.tx_pause_frames += gstat->tx_pause_frames;
+
+	/*
+	 * We are reading these stats directly from GMAC MMC registers, hence we
+	 * are not adding them like we are doing for other stats
+	 */
+	gmacdev->nss_stats.rx_octets_g = gstat->rx_octets_g;
+	gmacdev->nss_stats.rx_ucast_frames = gstat->rx_ucast_frames;
+	gmacdev->nss_stats.rx_bcast_frames = gstat->rx_bcast_frames;
+	gmacdev->nss_stats.rx_mcast_frames = gstat->rx_mcast_frames;
+	gmacdev->nss_stats.rx_undersize = gstat->rx_undersize;
+	gmacdev->nss_stats.rx_oversize = gstat->rx_oversize;
+	gmacdev->nss_stats.rx_jabber = gstat->rx_jabber;
+	gmacdev->nss_stats.rx_octets_gb = gstat->rx_octets_gb;
+	gmacdev->nss_stats.rx_frag_frames_g = gstat->rx_frag_frames_g;
+	gmacdev->nss_stats.tx_octets_g = gstat->tx_octets_g;
+	gmacdev->nss_stats.tx_ucast_frames = gstat->tx_ucast_frames;
+	gmacdev->nss_stats.tx_bcast_frames = gstat->tx_bcast_frames;
+	gmacdev->nss_stats.tx_mcast_frames = gstat->tx_mcast_frames;
+	gmacdev->nss_stats.tx_deferred = gstat->tx_deferred;
+	gmacdev->nss_stats.tx_single_col = gstat->tx_single_col;
+	gmacdev->nss_stats.tx_multiple_col = gstat->tx_multiple_col;
+	gmacdev->nss_stats.tx_octets_gb = gstat->tx_octets_gb;
 }
 
 

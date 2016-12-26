@@ -98,6 +98,23 @@ static const struct nss_gmac_ethtool_stats gmac_gstrings_stats[] = {
 	{"gmac_worst_case_ticks", NSS_GMAC_STAT(gmac_worst_case_ticks)},
 	{"gmac_iterations", NSS_GMAC_STAT(gmac_iterations)},
 	{"tx_pause_frames", NSS_GMAC_STAT(tx_pause_frames)},
+	{"rx_octets_g", NSS_GMAC_STAT(rx_octets_g)},
+	{"rx_ucast_frames", NSS_GMAC_STAT(rx_ucast_frames)},
+	{"rx_bcast_frames", NSS_GMAC_STAT(rx_bcast_frames)},
+	{"rx_mcast_frames", NSS_GMAC_STAT(rx_mcast_frames)},
+	{"rx_undersize", NSS_GMAC_STAT(rx_undersize)},
+	{"rx_oversize", NSS_GMAC_STAT(rx_oversize)},
+	{"rx_jabber", NSS_GMAC_STAT(rx_jabber)},
+	{"rx_octets_gb", NSS_GMAC_STAT(rx_octets_gb)},
+	{"rx_frag_frames_g", NSS_GMAC_STAT(rx_frag_frames_g)},
+	{"tx_octets_g", NSS_GMAC_STAT(tx_octets_g)},
+	{"tx_ucast_frames", NSS_GMAC_STAT(tx_ucast_frames)},
+	{"tx_bcast_frames", NSS_GMAC_STAT(tx_bcast_frames)},
+	{"tx_mcast_frames", NSS_GMAC_STAT(tx_mcast_frames)},
+	{"tx_deferred", NSS_GMAC_STAT(tx_deferred)},
+	{"tx_single_col", NSS_GMAC_STAT(tx_single_col)},
+	{"tx_multiple_col", NSS_GMAC_STAT(tx_multiple_col)},
+	{"tx_octets_gb", NSS_GMAC_STAT(tx_octets_gb)},
 };
 
 /**
