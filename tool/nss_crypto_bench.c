@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -567,7 +567,7 @@ static int32_t crypto_bench_prep_op(void)
 
 	prep = 1;
 
-	c_key.algo	= NSS_CRYPTO_CIPHER_AES;
+	c_key.algo	= NSS_CRYPTO_CIPHER_AES_CBC;
 	c_key.key 	= &cipher_key[0];
 	c_key.key_len   = param.key_len;
 
@@ -599,7 +599,7 @@ static int32_t crypto_bench_prep_op(void)
 
 	switch (param.ciph_algo) {
 	case 1:
-		c_key.algo = NSS_CRYPTO_CIPHER_AES;
+		c_key.algo = NSS_CRYPTO_CIPHER_AES_CBC;
 		c_key.key = &cipher_key[0];
 
 		chk_n_set((param.key_len <= 16), param.key_len, 16);

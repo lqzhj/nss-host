@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013, 2017, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -91,12 +91,14 @@
 #define CRYPTO_ENCR_SEG_CFG		(CRYPTO_BASE + 0x200)
 #define CRYPTO_ENCR_SEG_SIZE		(CRYPTO_BASE + 0x204)
 #define CRYPTO_ENCR_SEG_START		(CRYPTO_BASE + 0x208)
-#define CRYPTO_ENCR_IVn(n)		(CRYPTO_BASE + 0x20C + (0x4 * n))
+#define CRYPTO_ENCR_CNTRn_IVn(n)	(CRYPTO_BASE + 0x20C + (0x4 * n))
 #define CRYPTO_ENCR_CNTR_MASK		(CRYPTO_BASE + 0x21c)
+#define CRYPTO_ENCR_CCM_INIT_CNTRn(n)	(CRYPTO_BASE + 0x220 + (0x4 * n))
 #define CRYPTO_AUTH_SEG_CFG		(CRYPTO_BASE + 0x300)
 #define CRYPTO_AUTH_SEG_SIZE 		(CRYPTO_BASE + 0x304)
 #define CRYPTO_AUTH_SEG_START		(CRYPTO_BASE + 0X308)
 #define CRYPTO_AUTH_IVn(n)		(CRYPTO_BASE + 0x310 + (0x4 * n))
+#define CRYPTO_AUTH_INFO_NONCEn(n)	(CRYPTO_BASE + 0x350 + (0x4 * n))
 #define CRYPTO_CONFIG			(CRYPTO_BASE + 0x400)
 #define CRYPTO_ENCR_KEYn(n)		(CRYPTO_BASE + 0x3000 + (0x4 * n))
 #define CRYPTO_AUTH_KEYn(n)		(CRYPTO_BASE + 0x3040 + (0x4 * n))

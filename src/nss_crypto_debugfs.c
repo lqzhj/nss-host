@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -207,19 +207,24 @@ void nss_crypto_debugfs_add_session(struct nss_crypto_ctrl *ctrl, uint32_t idx)
 	 * corresponding to algorithm in bytes
 	 */
 	switch (cipher_algo) {
-	case NSS_CRYPTO_CIPHER_AES:
-		debugfs_create_u32("AES", S_IRUGO, temp_dentry, &idx_info->ckey.key_len);
+	case NSS_CRYPTO_CIPHER_NONE:
+		debugfs_create_u32("NONE", S_IRUGO, temp_dentry, &idx_info->ckey.key_len);
+		break;
 
+	case NSS_CRYPTO_CIPHER_AES_CBC:
+		debugfs_create_u32("AES-CBC", S_IRUGO, temp_dentry, &idx_info->ckey.key_len);
+		break;
+
+	case NSS_CRYPTO_CIPHER_AES_CTR:
+		debugfs_create_u32("AES-CTR", S_IRUGO, temp_dentry, &idx_info->ckey.key_len);
 		break;
 
 	case NSS_CRYPTO_CIPHER_DES:
 		debugfs_create_u32("DES", S_IRUGO, temp_dentry, &idx_info->ckey.key_len);
-
 		break;
 
 	case NSS_CRYPTO_CIPHER_NULL:
 		debugfs_create_u32("NULL", S_IRUGO, temp_dentry, &idx_info->ckey.key_len);
-
 		break;
 
 	default:
@@ -242,19 +247,20 @@ void nss_crypto_debugfs_add_session(struct nss_crypto_ctrl *ctrl, uint32_t idx)
 	 * corresponding to algorithm in bytes
 	 */
 	switch (auth_algo) {
+	case NSS_CRYPTO_AUTH_NONE:
+		debugfs_create_u32("NONE", S_IRUGO, temp_dentry, &idx_info->akey.key_len);
+		break;
+
 	case NSS_CRYPTO_AUTH_SHA1_HMAC:
 		debugfs_create_u32("SHA1", S_IRUGO, temp_dentry, &idx_info->akey.key_len);
-
 		break;
 
 	case NSS_CRYPTO_AUTH_SHA256_HMAC:
 		debugfs_create_u32("SHA256", S_IRUGO, temp_dentry, &idx_info->akey.key_len);
-
 		break;
 
 	case NSS_CRYPTO_AUTH_NULL:
 		debugfs_create_u32("NULL", S_IRUGO, temp_dentry, &idx_info->akey.key_len);
-
 		break;
 
 	default:

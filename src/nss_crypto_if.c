@@ -677,7 +677,8 @@ nss_crypto_status_t nss_crypto_send_session_update(uint32_t session_idx, enum ns
 	}
 
 	switch (algo) {
-	case NSS_CRYPTO_CIPHER_AES:
+	case NSS_CRYPTO_CIPHER_AES_CBC:
+	case NSS_CRYPTO_CIPHER_AES_CTR:
 		iv_len = NSS_CRYPTO_MAX_IVLEN_AES;
 		break;
 

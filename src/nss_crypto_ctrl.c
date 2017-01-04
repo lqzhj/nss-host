@@ -219,10 +219,10 @@ static void nss_crypto_setup_cmd_request(struct nss_crypto_cmd_request *req, uin
 	nss_crypto_write_cblk(&req->auth_seg_size, CRYPTO_AUTH_SEG_SIZE + base_addr, 0);
 
 	/*
-	 * cipher IV reset
+	 * cipher IV and counter reset
 	 */
 	for (i = 0; i < NSS_CRYPTO_CIPHER_IV_REGS; i++) {
-		nss_crypto_write_cblk(&req->encr_iv[i], CRYPTO_ENCR_IVn(i) + base_addr, 0);
+		nss_crypto_write_cblk(&req->encr_iv[i], CRYPTO_ENCR_CNTRn_IVn(i) + base_addr, 0);
 	}
 
 	/*
@@ -500,9 +500,35 @@ static nss_crypto_status_t nss_crypto_validate_cipher(struct nss_crypto_key *cip
 	nss_crypto_info("validating cipher (algo = %d, key_len = %d)\n", cipher->algo, cipher->key_len);
 
 	/*
-	 * AES-128
+	 * AES-128 CTR
 	 */
-	if ((cipher->algo == NSS_CRYPTO_CIPHER_AES) && (cipher->key_len == NSS_CRYPTO_KEYLEN_AES128)) {
+	if ((cipher->algo == NSS_CRYPTO_CIPHER_AES_CTR) && (cipher->key_len == NSS_CRYPTO_KEYLEN_AES128)) {
+		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_KEY_AES128;
+		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_ALG_AES;
+		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_MODE_CTR;
+
+		memcpy(encr_cfg->key, cipher->key, NSS_CRYPTO_KEYLEN_AES128);
+
+		return NSS_CRYPTO_STATUS_OK;
+	}
+
+	/*
+	 * AES-256 CTR
+	 */
+	if ((cipher->algo == NSS_CRYPTO_CIPHER_AES_CTR) && (cipher->key_len == NSS_CRYPTO_KEYLEN_AES256)) {
+		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_KEY_AES256;
+		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_ALG_AES;
+		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_MODE_CTR;
+
+		memcpy(encr_cfg->key, cipher->key, NSS_CRYPTO_KEYLEN_AES256);
+
+		return NSS_CRYPTO_STATUS_OK;
+	}
+
+	/*
+	 * AES-128 CBC
+	 */
+	if ((cipher->algo == NSS_CRYPTO_CIPHER_AES_CBC) && (cipher->key_len == NSS_CRYPTO_KEYLEN_AES128)) {
 		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_KEY_AES128;
 		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_ALG_AES;
 		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_MODE_CBC;
@@ -513,9 +539,9 @@ static nss_crypto_status_t nss_crypto_validate_cipher(struct nss_crypto_key *cip
 	}
 
 	/*
-	 * AES-256
+	 * AES-256 CBC
 	 */
-	if ((cipher->algo == NSS_CRYPTO_CIPHER_AES) && (cipher->key_len == NSS_CRYPTO_KEYLEN_AES256)) {
+	if ((cipher->algo == NSS_CRYPTO_CIPHER_AES_CBC) && (cipher->key_len == NSS_CRYPTO_KEYLEN_AES256)) {
 		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_KEY_AES256;
 		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_ALG_AES;
 		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_MODE_CBC;
