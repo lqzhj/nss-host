@@ -41,9 +41,10 @@ enum nss_crypto_hash {
  */
 enum nss_crypto_cipher {
 	NSS_CRYPTO_CIPHER_NONE = 0,		/**< Cipher not required*/
-	NSS_CRYPTO_CIPHER_AES,			/**< AES, CBC for 128-bit & 256-bit key sizes*/
+	NSS_CRYPTO_CIPHER_AES_CBC,		/**< AES, CBC for 128-bit & 256-bit key sizes*/
 	NSS_CRYPTO_CIPHER_DES,			/**< DES, CBC for 64-bit key size */
 	NSS_CRYPTO_CIPHER_NULL,			/**< NULL, CBC */
+	NSS_CRYPTO_CIPHER_AES_CTR,		/**< AES, CTR for 128-bit & 256-bit key sizes*/
 	NSS_CRYPTO_CIPHER_MAX
 };
 
