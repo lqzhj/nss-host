@@ -118,21 +118,6 @@ static inline uint8_t nss_cryptoapi_get_skip(uint8_t *addr, uint8_t *start)
 	return addr - start;
 }
 
-static inline uint32_t nss_cryptoapi_get_hmac_sz(struct aead_request *req)
-{
-	return crypto_aead_authsize(crypto_aead_reqtfm(req));
-}
-
-static inline uint32_t nss_cryptoapi_get_blocksize(struct aead_request *req)
-{
-	return crypto_aead_blocksize(crypto_aead_reqtfm(req));
-}
-
-static inline uint32_t nss_cryptoapi_get_iv_sz(struct aead_request *req)
-{
-	return crypto_aead_ivsize(crypto_aead_reqtfm(req));
-}
-
 /*
  * nss_cryptoapi_check_unalign()
  * 	Cryptoapi verify if length is aligned to boundary.
@@ -177,10 +162,12 @@ int nss_cryptoapi_sha256_3des_geniv_encrypt(struct aead_givcrypt_request *req);
 /* ablkcipher */
 int nss_cryptoapi_ablkcipher_init(struct crypto_tfm *tfm);
 void nss_cryptoapi_ablkcipher_exit(struct crypto_tfm *tfm);
-int nss_cryptoapi_aes_cbc_setkey(struct crypto_ablkcipher *cipher, const u8 *key, unsigned int len);
+int nss_cryptoapi_ablk_aes_setkey(struct crypto_ablkcipher *cipher, const u8 *key, unsigned int len);
 int nss_cryptoapi_3des_cbc_setkey(struct crypto_ablkcipher *cipher, const u8 *key, unsigned int len);
-int nss_cryptoapi_aes_cbc_encrypt(struct ablkcipher_request *req);
-int nss_cryptoapi_aes_cbc_decrypt(struct ablkcipher_request *req);
+
+int nss_cryptoapi_ablk_aes_encrypt(struct ablkcipher_request *req);
+int nss_cryptoapi_ablk_aes_decrypt(struct ablkcipher_request *req);
+
 int nss_cryptoapi_3des_cbc_encrypt(struct ablkcipher_request *req);
 int nss_cryptoapi_3des_cbc_decrypt(struct ablkcipher_request *req);
 
