@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, 2015-2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013, 2015-2017 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -175,7 +175,6 @@ static void nss_crypto_clock_init(struct platform_device *pdev, struct device_no
 
 	count = of_property_count_strings(np, "clock-names");
 	if (count < 0) {
-		atomic_set(&ctrl->perf_level, NSS_PM_PERF_LEVEL_IDLE);
 		nss_crypto_info("crypto clock instance not found\n");
 		return;
 	}
