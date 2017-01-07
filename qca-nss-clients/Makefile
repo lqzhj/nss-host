@@ -144,6 +144,20 @@ define KernelPackage/qca-nss-drv-bridge-mgr/Description
 Kernel modules for NSS bridge manager
 endef
 
+define KernelPackage/qca-nss-drv-vlan-mgr
+  SECTION:=kernel
+  CATEGORY:=Kernel modules
+  SUBMENU:=Network Devices
+  TITLE:=Kernel driver for NSS vlan manager
+  DEPENDS:=@TARGET_ipq806x +kmod-qca-nss-drv @!LINUX_3_18
+  FILES:=$(PKG_BUILD_DIR)/vlan/qca-nss-vlan.ko
+  AUTOLOAD:=$(call AutoLoad,51,qca-nss-vlan)
+endef
+
+define KernelPackage/qca-nss-drv-vlan-mgr/Description
+Kernel modules for NSS vlan manager
+endef
+
 define KernelPackage/qca-nss-drv-qdisc
   SECTION:=kernel
   CATEGORY:=Kernel modules
@@ -185,3 +199,4 @@ $(eval $(call KernelPackage,qca-nss-drv-tunipip6))
 $(eval $(call KernelPackage,qca-nss-drv-qdisc))
 $(eval $(call KernelPackage,qca-nss-drv-ipsecmgr))
 $(eval $(call KernelPackage,qca-nss-drv-bridge-mgr))
+$(eval $(call KernelPackage,qca-nss-drv-vlan-mgr))
