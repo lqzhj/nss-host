@@ -1333,7 +1333,6 @@ extern int nss_core_handle_napi(struct napi_struct *napi, int budget);
 extern int32_t nss_core_send_buffer(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
 					struct sk_buff *nbuf, uint16_t qid,
 					uint8_t buffer_type, uint16_t flags);
-extern int32_t nss_core_send_crypto(struct nss_ctx_instance *nss_ctx, void *buf, uint32_t buf_paddr, uint16_t len);
 extern void nss_wq_function( struct work_struct *work);
 extern uint32_t nss_core_register_handler(uint32_t interface, nss_core_rx_callback_t cb, void *app_data);
 extern uint32_t nss_core_unregister_handler(uint32_t interface);

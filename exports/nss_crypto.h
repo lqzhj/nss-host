@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014 - 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014 - 2017 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -182,7 +182,7 @@ typedef void (*nss_crypto_msg_callback_t)(void *app_data, struct nss_crypto_msg 
  *
  * @return
  */
-typedef void (*nss_crypto_buf_callback_t)(void *app_data, void *buf, uint32_t paddr, uint16_t len);
+typedef void (*nss_crypto_buf_callback_t)(struct net_device *netdev, struct sk_buff *skb, struct napi_struct *napi);
 
 /**
  * @brief PM event callback
@@ -214,7 +214,7 @@ extern nss_tx_status_t nss_crypto_tx_msg(struct nss_ctx_instance *nss_ctx, struc
  *
  * @return
  */
-extern nss_tx_status_t nss_crypto_tx_buf(struct nss_ctx_instance *nss_ctx, void *buf, uint32_t buf_paddr, uint16_t len);
+extern nss_tx_status_t nss_crypto_tx_buf(struct nss_ctx_instance *nss_ctx, uint32_t if_num, struct sk_buff *skb);
 
 /**
  * @brief register a event callback handler with HLOS driver
@@ -234,7 +234,8 @@ extern struct nss_ctx_instance *nss_crypto_notify_register(nss_crypto_msg_callba
  *
  * @return
  */
-extern struct nss_ctx_instance *nss_crypto_data_register(nss_crypto_buf_callback_t cb, void *app_data);
+extern struct nss_ctx_instance *nss_crypto_data_register(uint32_t if_num, nss_crypto_buf_callback_t cb,
+		struct net_device *netdev, uint32_t features);
 
 /**
  * @brief register PM event callback function
@@ -260,7 +261,7 @@ extern void nss_crypto_notify_unregister(struct nss_ctx_instance *ctx);
  *
  * @return
  */
-extern void nss_crypto_data_unregister(struct nss_ctx_instance *ctx);
+extern void nss_crypto_data_unregister(struct nss_ctx_instance *ctx, uint32_t if_num);
 
 /**
  * @brief unregister PM event callback function

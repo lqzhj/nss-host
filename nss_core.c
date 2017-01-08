@@ -248,6 +248,28 @@ void nss_core_handle_nss_status_pkt(struct nss_ctx_instance *nss_ctx, struct sk_
 }
 
 /*
+ * nss_core_handle_nss_crypto_pkt()
+ *	Handles crypto packet.
+ */
+static void nss_core_handle_crypto_pkt(struct nss_ctx_instance *nss_ctx, unsigned int interface_num,
+			struct sk_buff *nbuf, struct napi_struct *napi)
+{
+	struct nss_subsystem_dataplane_register *subsys_dp_reg = &nss_ctx->nss_top->subsys_dp_register[interface_num];
+	nss_phys_if_rx_callback_t cb;
+	struct net_device *ndev;
+
+	ndev = subsys_dp_reg->ndev;
+	cb = subsys_dp_reg->cb;
+	if (likely(cb)) {
+		cb(ndev, nbuf, napi);
+		return;
+	}
+
+	dev_kfree_skb_any(nbuf);
+	return;
+}
+
+/*
  * nss_send_c2c_map()
  *	Send C2C map to NSS
  */
@@ -642,6 +664,11 @@ static inline void nss_core_rx_pbuf(struct nss_ctx_instance *nss_ctx, struct n2h
 		dev_kfree_skb_any(nbuf);
 		break;
 
+	case N2H_BUFFER_CRYPTO_RESP:
+		NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_RX_CRYPTO_RESP]);
+		nss_core_handle_crypto_pkt(nss_ctx, interface_num, nbuf, napi);
+		break;
+
 	default:
 		nss_warning("%p: Invalid buffer type %d received from NSS", nss_ctx, buffer_type);
 	}
@@ -992,18 +1019,6 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 		buffer_type = desc->buffer_type;
 		opaque = desc->opaque;
 		bit_flags = desc->bit_flags;
-		if (unlikely((buffer_type == N2H_BUFFER_CRYPTO_RESP))) {
-			NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_RX_CRYPTO_RESP]);
-			/*
-			 * This is a crypto buffer hence send it to crypto driver
-			 *
-			 * NOTE: Crypto buffers require special handling as they do not
-			 *	use OS network buffers (e.g. skb). Hence, OS buffer operations
-			 *	are not applicable to crypto buffers
-			 */
-			nss_crypto_buf_handler(nss_ctx, (void *)opaque, desc->buffer, desc->payload_len);
-			goto next;
-		}
 
 		/*
 		 * Obtain nbuf
@@ -1048,6 +1063,15 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 		 */
 		if ((unlikely(buffer_type == N2H_BUFFER_SHAPER_BOUNCED_INTERFACE)) || (unlikely(buffer_type == N2H_BUFFER_SHAPER_BOUNCED_BRIDGE))) {
 			dma_unmap_page(nss_ctx->dev, (desc->buffer + desc->payload_offs), desc->payload_len, DMA_TO_DEVICE);
+			goto consume;
+		}
+
+		/*
+		 * crypto buffer
+		 *
+		 */
+		if (unlikely((buffer_type == N2H_BUFFER_CRYPTO_RESP))) {
+			dma_unmap_single(NULL, (desc->buffer + desc->payload_offs), desc->payload_len, DMA_FROM_DEVICE);
 			goto consume;
 		}
 
@@ -1562,78 +1586,6 @@ int nss_core_handle_napi(struct napi_struct *napi, int budget)
 	}
 
 	return count;
-}
-
-/*
- * nss_core_send_crypto()
- *	Send crypto buffer to NSS
- */
-int32_t nss_core_send_crypto(struct nss_ctx_instance *nss_ctx, void *buf, uint32_t buf_paddr, uint16_t len)
-{
-	int16_t count, hlos_index, nss_index, size;
-	struct h2n_descriptor *desc;
-	struct hlos_h2n_desc_rings *h2n_desc_ring = &nss_ctx->h2n_desc_rings[NSS_IF_DATA_QUEUE_0];
-	struct h2n_desc_if_instance *desc_if = &h2n_desc_ring->desc_ring;
-	struct nss_if_mem_map *if_map = (struct nss_if_mem_map *) nss_ctx->vmap;
-
-	/*
-	 * Take a lock for queue
-	 */
-	spin_lock_bh(&h2n_desc_ring->lock);
-
-	/*
-	 * We need to work out if there's sufficent space in our transmit descriptor
-	 * ring to place the crypto packet.
-	 */
-	nss_index = if_map->h2n_nss_index[NSS_IF_DATA_QUEUE_0];
-	hlos_index = h2n_desc_ring->hlos_index;
-
-	size = desc_if->size;
-	count = ((nss_index - hlos_index - 1) + size) & (size - 1);
-
-	if (unlikely(count < 1)) {
-		/* TODO: What is the use case of TX_STOPPED_FLAGS */
-		h2n_desc_ring->tx_q_full_cnt++;
-		h2n_desc_ring->flags |= NSS_H2N_DESC_RING_FLAGS_TX_STOPPED;
-		spin_unlock_bh(&h2n_desc_ring->lock);
-		nss_warning("%p: Data/Command Queue full reached", nss_ctx);
-
-#if (NSS_PKT_STATS_ENABLED == 1)
-		if (nss_ctx->id == NSS_CORE_0) {
-			NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_QUEUE_FULL_0]);
-		} else if (nss_ctx->id == NSS_CORE_1) {
-			NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_TX_QUEUE_FULL_1]);
-		} else {
-			nss_warning("%p: Invalid nss core: %d\n", nss_ctx, nss_ctx->id);
-		}
-#endif
-
-		/*
-		 * Enable de-congestion interrupt from NSS
-		 */
-		nss_hal_enable_interrupt(nss_ctx, nss_ctx->int_ctx[0].shift_factor, NSS_N2H_INTR_TX_UNBLOCKED);
-
-		return NSS_CORE_STATUS_FAILURE_QUEUE;
-	}
-
-	desc = &(desc_if->desc[hlos_index]);
-	desc->opaque = (uint32_t) buf;
-	desc->buffer_type = H2N_BUFFER_CRYPTO_REQ;
-	desc->buffer = buf_paddr;
-	desc->buffer_len = len;
-	desc->payload_len = len;
-	desc->payload_offs = 0;
-	desc->bit_flags = H2N_BIT_FLAG_FIRST_SEGMENT | H2N_BIT_FLAG_LAST_SEGMENT;
-
-	/*
-	 * Update our host index so the NSS sees we've written a new descriptor.
-	 */
-	hlos_index = (hlos_index + 1) & (size - 1);
-	h2n_desc_ring->hlos_index = hlos_index;
-	if_map->h2n_hlos_index[NSS_IF_DATA_QUEUE_0] = hlos_index;
-	spin_unlock_bh(&h2n_desc_ring->lock);
-
-	return NSS_CORE_STATUS_SUCCESS;
 }
 
 /*
