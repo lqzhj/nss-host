@@ -180,12 +180,14 @@ void nss_wq_function (struct work_struct *work)
 	bool auto_scale;
 	bool turbo;
 
+	mutex_lock(&nss_top_main.wq_lock);
 	/*
 	 * If crypto clock is in Turbo, disable scaling for other
 	 * NSS subsystem components and retain them at turbo
 	 */
 	if (nss_crypto_is_scaled) {
 		nss_cmd_buf.current_freq = nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].frequency;
+		mutex_unlock(&nss_top_main.wq_lock);
 		return;
 	}
 #endif
@@ -248,6 +250,7 @@ out:
 	}
 #endif
 #endif
+	mutex_unlock(&nss_top_main.wq_lock);
 	kfree((void *)work);
 }
 
@@ -690,6 +693,7 @@ static int __init nss_init(void)
 	 */
 	spin_lock_init(&(nss_top_main.lock));
 	spin_lock_init(&(nss_top_main.stats_lock));
+	mutex_init(&(nss_top_main.wq_lock));
 
 	/*
 	 * Enable NSS statistics
