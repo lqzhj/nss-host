@@ -188,9 +188,9 @@ typedef void (*nss_crypto_buf_callback_t)(void *app_data, void *buf, uint32_t pa
  * @param app_data[IN] context of the callback user
  * @param turbo[IN] turbo mode event
  *
- * @return
+ * @return true if crypto scaled to turbo
  */
-typedef void (*nss_crypto_pm_event_callback_t)(void *app_data, bool turbo);
+typedef bool (*nss_crypto_pm_event_callback_t)(void *app_data, bool turbo, bool auto_scale);
 
 /**
  * @brief send an Crypto message
@@ -259,6 +259,11 @@ extern void nss_crypto_notify_unregister(struct nss_ctx_instance *ctx);
  * @return
  */
 extern void nss_crypto_data_unregister(struct nss_ctx_instance *ctx);
+
+/**
+ * @brief unregister PM event callback function
+ */
+extern void nss_crypto_pm_notify_unregister(void);
 
 /**
  * @brief crypto specific message init

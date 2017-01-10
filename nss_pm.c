@@ -24,6 +24,7 @@
 #include <linux/netdevice.h>
 #include <nss_api_if.h>
 #include <nss_clocks.h>
+#include <nss_core.h>
 
 #if (NSS_PM_SUPPORT == 1)
 #include "nss_pm.h"
@@ -318,7 +319,26 @@ error:
  */
 nss_pm_interface_status_t nss_pm_set_perf_level(void *handle, nss_pm_perf_level_t lvl)
 {
-#if (NSS_PM_SUPPORT == 1)
+#if (NSS_DT_SUPPORT == 1)
+	nss_freq_scales_t index;
+
+	switch (lvl) {
+	case NSS_PM_PERF_LEVEL_TURBO:
+		index = NSS_FREQ_HIGH_SCALE;
+		break;
+
+	case NSS_PM_PERF_LEVEL_NOMINAL:
+		index = NSS_FREQ_MID_SCALE;
+		break;
+
+	default:
+		index = NSS_PM_PERF_LEVEL_IDLE;
+	}
+
+	nss_freq_sched_change(index, false);
+
+#elif (NSS_PM_SUPPORT == 1)
+
 	int ret = 0;
 	nss_pm_client_data_t *pm_client;
 
@@ -386,6 +406,7 @@ nss_pm_interface_status_t nss_pm_set_perf_level(void *handle, nss_pm_perf_level_
 	nss_pm_info("perf level request, current: %d new: %d \n", pm_client->current_perf_lvl, lvl);
 	pm_client->current_perf_lvl = lvl;
 #endif
+
 	return NSS_PM_API_SUCCESS;
 }
 EXPORT_SYMBOL(nss_pm_set_perf_level);
