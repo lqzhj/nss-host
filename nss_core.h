@@ -697,6 +697,19 @@ enum nss_stats_map_t_instance {
 };
 
 /*
+ * Trustsec TX statistics
+ */
+enum nss_stats_trustsec_tx {
+	NSS_STATS_TRUSTSEC_TX_INVALID_SRC,
+					/* Number of packets with invalid src if */
+	NSS_STATS_TRUSTSEC_TX_UNCONFIGURED_SRC,
+					/* Number of packets with unconfigured src if */
+	NSS_STATS_IRUSTSEC_TX_HEADROOM_NOT_ENOUGH,
+					/* Number of packets with not enough headroom */
+	NSS_STATS_TRUSTSEC_TX_MAX
+};
+
+/*
  * NSS core stats -- for H2N/N2H map_t debug stats
  */
 struct nss_stats_map_t_instance_debug {
@@ -942,6 +955,7 @@ struct nss_top_instance {
 	struct dentry *ppe_code_dentry;	/* PPE code stats dentry */
 	struct dentry *gre_redir_dentry;	/* gre_redir ethnode stats dentry */
 	struct dentry *sjack_dentry;		/* sjack stats dentry */
+	struct dentry *trustsec_tx_dentry;	/* trustsec tx stats dentry */
 	struct dentry *portid_dentry;		/* portid stats dentry */
 	struct dentry *wifi_dentry;		/* wifi stats dentry */
 	struct dentry *logs_dentry;		/* NSS FW logs directory */
@@ -982,6 +996,7 @@ struct nss_top_instance {
 	uint8_t oam_handler_id;
 	uint8_t edma_handler_id;
 	uint8_t bridge_handler_id;
+	uint8_t trustsec_tx_handler_id;
 
 	/* subsystem registration data */
 	struct nss_subsystem_dataplane_register subsys_dp_register[NSS_MAX_NET_INTERFACES];
@@ -1091,6 +1106,9 @@ struct nss_top_instance {
 					/* PortID statistics */
 	struct nss_edma_stats stats_edma;
 					/* EDMA node stats */
+	uint64_t stats_trustsec_tx[NSS_STATS_TRUSTSEC_TX_MAX];
+					/* Trustsec TX stats */
+
 	bool nss_hal_common_init_done;
 
 	uint16_t prev_mtu_sz;		/* mtu sz needed as of now */

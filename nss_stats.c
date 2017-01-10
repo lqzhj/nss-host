@@ -291,7 +291,8 @@ static int8_t *nss_stats_str_eth_rx[NSS_STATS_ETH_RX_MAX] = {
 static int8_t *nss_stats_str_if_exception_eth_rx[NSS_EXCEPTION_EVENT_ETH_RX_MAX] = {
 	"UNKNOWN_L3_PROTOCOL",
 	"ETH_HDR_MISSING",
-	"VLAN_MISSING"
+	"VLAN_MISSING",
+	"TRUSTSEC_HDR_MISSING"
 };
 
 /*
@@ -701,6 +702,16 @@ static int8_t *nss_stats_str_pptp_session_debug_stats[NSS_STATS_PPTP_SESSION_MAX
 	"DECAP_PPP_LCP",
 	"DECAP_UNSUPPORTED_PPP_PROTO",
 	"DECAP_PNODE_ENQUEUE_FAIL",
+};
+
+/*
+ * nss_stats_str_trustsec_tx
+ *	Trustsec TX stats strings
+ */
+static int8_t *nss_stats_str_trustsec_tx[NSS_STATS_TRUSTSEC_TX_MAX] = {
+	"INVALID_SRC",
+	"UNCONFIGURED_SRC",
+	"HEADROOM_NOT_ENOUGH",
 };
 
 /*
@@ -3140,6 +3151,79 @@ end:
 }
 
 /*
+ * nss_stats_trustsec_tx_read()
+ *	Read trustsec_tx stats
+ */
+static ssize_t nss_stats_trustsec_tx_read(struct file *fp, char __user *ubuf, size_t sz, loff_t *ppos)
+{
+	int32_t i;
+
+	/*
+	 * max output lines = #stats + start tag line + end tag line + three blank lines
+	 */
+	uint32_t max_output_lines = (NSS_STATS_NODE_MAX + 2) + (NSS_STATS_TRUSTSEC_TX_MAX + 3) + 5;
+	size_t size_al = NSS_STATS_MAX_STR_LENGTH * max_output_lines;
+	size_t size_wr = 0;
+	ssize_t bytes_read = 0;
+	uint64_t *stats_shadow;
+
+	char *lbuf = kzalloc(size_al, GFP_KERNEL);
+	if (unlikely(lbuf == NULL)) {
+		nss_warning("Could not allocate memory for local statistics buffer");
+		return 0;
+	}
+
+	stats_shadow = kzalloc(NSS_STATS_NODE_MAX * 8, GFP_KERNEL);
+	if (unlikely(stats_shadow == NULL)) {
+		nss_warning("Could not allocate memory for local shadow buffer");
+		kfree(lbuf);
+		return 0;
+	}
+
+	size_wr = scnprintf(lbuf, size_al, "trustsec_tx stats start:\n\n");
+
+	/*
+	 * Common node stats
+	 */
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "common node stats:\n\n");
+	spin_lock_bh(&nss_top_main.stats_lock);
+	for (i = 0; (i < NSS_STATS_NODE_MAX); i++) {
+		stats_shadow[i] = nss_top_main.stats_node[NSS_TRUSTSEC_TX_INTERFACE][i];
+	}
+
+	spin_unlock_bh(&nss_top_main.stats_lock);
+
+	for (i = 0; (i < NSS_STATS_NODE_MAX); i++) {
+		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+					"%s = %llu\n", nss_stats_str_node[i], stats_shadow[i]);
+	}
+
+	/*
+	 * TrustSec TX node stats
+	 */
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\ntrustsec tx node stats:\n\n");
+
+	spin_lock_bh(&nss_top_main.stats_lock);
+	for (i = 0; (i < NSS_STATS_TRUSTSEC_TX_MAX); i++) {
+		stats_shadow[i] = nss_top_main.stats_trustsec_tx[i];
+	}
+
+	spin_unlock_bh(&nss_top_main.stats_lock);
+
+	for (i = 0; (i < NSS_STATS_TRUSTSEC_TX_MAX); i++) {
+		size_wr += scnprintf(lbuf + size_wr, size_al - size_wr,
+					"%s = %llu\n", nss_stats_str_trustsec_tx[i], stats_shadow[i]);
+	}
+
+	size_wr += scnprintf(lbuf + size_wr, size_al - size_wr, "\ntrustsec tx stats end\n\n");
+	bytes_read = simple_read_from_buffer(ubuf, sz, ppos, lbuf, strlen(lbuf));
+	kfree(lbuf);
+	kfree(stats_shadow);
+
+	return bytes_read;
+}
+
+/*
  * nss_stats_open()
  */
 static int nss_stats_open(struct inode *inode, struct file *filp)
@@ -3329,6 +3413,11 @@ NSS_STATS_DECLARE_FILE_OPERATIONS(dtls)
  * gre_tunnel_stats_ops
  */
 NSS_STATS_DECLARE_FILE_OPERATIONS(gre_tunnel)
+
+/*
+ * trustsec_tx_stats_ops
+ */
+NSS_STATS_DECLARE_FILE_OPERATIONS(trustsec_tx)
 
 /*
  * nss_stats_init()
@@ -3783,6 +3872,18 @@ void nss_stats_init(void)
 							&nss_stats_gre_tunnel_ops);
 	if (unlikely(nss_top_main.gre_tunnel_dentry == NULL)) {
 		nss_warning("Failed to create qca-nss-drv/stats/gre_tunnel file in debugfs");
+		return;
+	}
+
+	/*
+	 * TrustSec TX Stats
+	 */
+	nss_top_main.trustsec_tx_dentry = debugfs_create_file("trustsec_tx", 0400,
+							nss_top_main.stats_dentry,
+							&nss_top_main,
+							&nss_stats_trustsec_tx_ops);
+	if (unlikely(nss_top_main.trustsec_tx_dentry == NULL)) {
+		nss_warning("Failed to create qca-nss-drv/stats/trustsec_tx file in debugfs");
 		return;
 	}
 

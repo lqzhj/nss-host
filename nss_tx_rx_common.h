@@ -199,6 +199,7 @@ extern void nss_portid_register_handler(void);
 extern void nss_oam_register_handler(void);
 extern void nss_dtls_register_handler(void);
 extern void nss_gre_tunnel_register_handler(void);
+extern void nss_trustsec_tx_register_handler(void);
 
 /*
  * nss_if_msg_handler()

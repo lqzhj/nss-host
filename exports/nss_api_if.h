@@ -67,6 +67,7 @@
 #include "nss_edma.h"
 #include "nss_bridge.h"
 #include "nss_ppe.h"
+#include "nss_trustsec_tx.h"
 
 /*
  * Interface numbers are reserved in the
@@ -94,7 +95,7 @@
 #define NSS_MAX_PHYSICAL_INTERFACES 8
 #define NSS_MAX_VIRTUAL_INTERFACES 16
 #define NSS_MAX_TUNNEL_INTERFACES 4
-#define NSS_MAX_SPECIAL_INTERFACES 42
+#define NSS_MAX_SPECIAL_INTERFACES 44
 #define NSS_MAX_WIFI_RADIO_INTERFACES 3
 
 /**
@@ -152,6 +153,7 @@
 #define NSS_PPE_INTERFACE (NSS_SPECIAL_IF_START + 40)	/* Special PPE interface */
 #define NSS_EDMA_INTERFACE (NSS_SPECIAL_IF_START + 41)	/* Special EDMA interface */
 #define NSS_GRE_TUNNEL_INTERFACE (NSS_SPECIAL_IF_START + 42)  /* Special NSS GRE TUNNEL interface */
+#define NSS_TRUSTSEC_TX_INTERFACE (NSS_SPECIAL_IF_START + 43)  /* Special TrustSec TX interface */
 
 /**
  * This macro converts format for IPv6 address (from Linux to NSS)

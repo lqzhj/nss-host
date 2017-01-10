@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -66,6 +66,7 @@ enum exception_events_eth_rx {
 	NSS_EXCEPTION_EVENT_ETH_RX_UNKNOWN_L3_PROTOCOL,
 	NSS_EXCEPTION_EVENT_ETH_RX_ETH_HDR_MISSING,
 	NSS_EXCEPTION_EVENT_ETH_RX_VLAN_MISSING,
+	NSS_EXCEPTION_EVENT_ETH_RX_TRUSTSEC_HDR_MISSING,
 	NSS_EXCEPTION_EVENT_ETH_RX_MAX,
 };
 

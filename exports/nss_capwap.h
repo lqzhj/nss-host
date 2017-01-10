@@ -142,7 +142,9 @@ struct nss_capwap_rule_msg {
 	uint32_t dtls_enabled;			/**< Tunnel encrypted with DTLS? */
 	uint32_t dtls_if_num;			/**< Interface number of the associated dtls node */
 	uint32_t mtu_adjust;			/**< mtu reserved for DTLS process */
-	uint32_t reserved;			/**< Padding */
+	uint32_t trustsec_enabled;		/**< Tunnel enables trustsec hdr processing? */
+	uint16_t sgt_value;			/**< Security Group Tag value configured for this tunnel */
+	uint16_t gmac_ifnum;			/**< Outgoing physical interface */
 };
 
 /**

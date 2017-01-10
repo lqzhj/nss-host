@@ -367,6 +367,8 @@ int nss_hal_probe(struct platform_device *nss_dev)
 		nss_n2h_register_handler();
 		nss_lag_register_handler();
 		nss_dynamic_interface_register_handler();
+		nss_top->trustsec_tx_handler_id = nss_dev->id;
+		nss_trustsec_tx_register_handler();
 
 		for (i = 0; i < NSS_MAX_VIRTUAL_INTERFACES; i++) {
 			nss_top->virt_if_handler_id[i] = nss_dev->id;

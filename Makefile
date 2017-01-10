@@ -48,6 +48,7 @@ qca-nss-drv-objs := \
 			nss_stats.o \
 			nss_tstamp.o \
 			nss_tun6rd.o \
+			nss_trustsec_tx.o \
 			nss_tunipip6.o \
 			nss_virt_if.o \
 			nss_wifi.o \
