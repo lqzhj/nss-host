@@ -319,7 +319,7 @@ error:
  */
 nss_pm_interface_status_t nss_pm_set_perf_level(void *handle, nss_pm_perf_level_t lvl)
 {
-#if (NSS_DT_SUPPORT == 1)
+#if ((NSS_DT_SUPPORT == 1) && (NSS_FREQ_SCALE_SUPPORT == 1))
 	nss_freq_scales_t index;
 
 	switch (lvl) {
