@@ -510,8 +510,12 @@ static void nss_cfi_ipsec_data_cb(void *cb_ctx, struct sk_buff *skb)
 		sa_v4->ttl = ip->ttl;
 		sa_v4->spi_index = ntohl(esp->spi);
 
+		/*
+		 * drop the packet as this is an ESP packet which should
+		 * only be used for flushing the rule
+		 */
 		nss_ipsecmgr_sa_flush(nss_dev, &sa);
-		break;
+		goto drop;
 
 	case 6:
 		/*
@@ -561,8 +565,13 @@ static void nss_cfi_ipsec_data_cb(void *cb_ctx, struct sk_buff *skb)
 
 		sa_v6->hop_limit = ip6->hop_limit;
 
+		/*
+		 * drop the packet as this is an ESP
+		 * packet which should only be used for
+		 * flushing the rule
+		 */
 		nss_ipsecmgr_sa_flush(nss_dev, &sa);
-		break;
+		goto drop;
 
 	default:
 		nss_cfi_dbg("malformed IP header\n");
