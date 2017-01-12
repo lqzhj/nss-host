@@ -126,6 +126,7 @@ struct nss_ipsecmgr_sa_data {
 		bool trailer_skip;	/**< Skip ESP trailer for ENCAP */
 	} esp;
 
+	bool enable_esn;		/**< Enable Extended Sequence Number */
 	bool use_pattern;		/**< Use random pattern in hash calculation */
 };
 
@@ -184,14 +185,18 @@ struct nss_ipsecmgr_sa {
  */
 struct nss_ipsecmgr_sa_stats {
 	struct nss_ipsecmgr_sa sa;	/**< SA information */
-
-	uint32_t seq_num;		/**< current ESP sequence */
 	uint32_t crypto_index;		/**< crypto session index */
 
 	struct {
 		uint32_t bytes;		/**< bytes processed */
 		uint32_t count;		/**< packets processed */
 	} pkts;
+
+	uint64_t seq_num;		/**< Curr seq number */
+	uint64_t window_max;		/**< window top */
+	uint32_t window_size;		/**< window size */
+
+	bool esn_enabled;		/**< Is ESN enabled */
 };
 
 /**
