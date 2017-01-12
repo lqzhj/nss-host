@@ -20,7 +20,8 @@ define KernelPackage/qca-nss-drv
   SECTION:=kernel
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
-  DEPENDS:=+TARGET_ipq806x_QSDK_Deluxe:kmod-qca-nss-dp +TARGET_ipq806x_QSDK_Premium:kmod-qca-nss-gmac +kmod-ppp +kmod-pppoe @!LINUX_3_18
+  DEPENDS:=+(TARGET_ipq806x_QSDK_Deluxe||TARGET_ipq_ipq807x||TARGET_ipq_ipq807x_64):kmod-qca-nss-dp +(TARGET_ipq806x_QSDK_Premium||TARGET_ipq_ipq806x||TARGET_ipq_ipq40xx):kmod-qca-nss-gmac \
+	+kmod-ppp +kmod-pppoe @!LINUX_3_18
   TITLE:=Kernel driver for NSS (core driver)
   FILES:=$(PKG_BUILD_DIR)/qca-nss-drv.ko
   AUTOLOAD:=$(call AutoLoad,32,qca-nss-drv)
@@ -57,6 +58,10 @@ ifeq ($(CONFIG_TARGET_ipq806x_QSDK_Deluxe),y)
 subtarget:=ipq807x
 else
 subtarget:=ipq806x
+endif
+
+ifeq ($(CONFIG_TARGET_ipq),y)
+subtarget:=$(SUBTARGET)
 endif
 
 define Build/Compile

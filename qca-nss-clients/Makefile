@@ -121,7 +121,7 @@ define KernelPackage/qca-nss-drv-capwapmgr
   SECTION:=kernel
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
-  DEPENDS:=@TARGET_ipq806x +kmod-qca-nss-drv @!LINUX_3_18
+  DEPENDS:=@TARGET_ipq806x||TARGET_ipq +kmod-qca-nss-drv @!LINUX_3_18
   TITLE:=NSS CAPWAP Manager for QCA NSS driver (IPQ806x)
   FILES:=$(PKG_BUILD_DIR)/capwapmgr/qca-nss-capwapmgr.ko
 endef
@@ -135,7 +135,7 @@ define KernelPackage/qca-nss-drv-bridge-mgr
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
   TITLE:=Kernel driver for NSS bridge manager
-  DEPENDS:=@TARGET_ipq806x +kmod-qca-nss-drv +kmod-bonding @!LINUX_3_18
+  DEPENDS:=@TARGET_ipq806x||TARGET_ipq +kmod-qca-nss-drv +kmod-bonding @!LINUX_3_18
   FILES:=$(PKG_BUILD_DIR)/bridge/qca-nss-bridge-mgr.ko
   AUTOLOAD:=$(call AutoLoad,51,qca-nss-bridge-mgr)
 endef
@@ -149,7 +149,7 @@ define KernelPackage/qca-nss-drv-vlan-mgr
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
   TITLE:=Kernel driver for NSS vlan manager
-  DEPENDS:=@TARGET_ipq806x +kmod-qca-nss-drv @!LINUX_3_18
+  DEPENDS:=@TARGET_ipq806x||TARGET_ipq +kmod-qca-nss-drv @!LINUX_3_18
   FILES:=$(PKG_BUILD_DIR)/vlan/qca-nss-vlan.ko
   AUTOLOAD:=$(call AutoLoad,51,qca-nss-vlan)
 endef
@@ -191,7 +191,7 @@ define KernelPackage/qca-nss-drv-lag-mgr
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
   TITLE:=Kernel driver for NSS LAG manager
-  DEPENDS:=@TARGET_ipq806x +kmod-qca-nss-drv @!LINUX_3_18 +kmod-bonding +kmod-qca-ssdk
+  DEPENDS:=@TARGET_ipq806x||TARGET_ipq +kmod-qca-nss-drv @!LINUX_3_18 +kmod-bonding +kmod-qca-ssdk
   FILES:=$(PKG_BUILD_DIR)/lag/qca-nss-lag-mgr.ko
   AUTOLOAD:=$(call AutoLoad,51,qca-nss-lag-mgr)
 endef
@@ -212,6 +212,10 @@ ifeq ($(CONFIG_TARGET_ipq806x_QSDK_Deluxe),y)
 subtarget:=ipq807x
 else
 subtarget:=ipq806x
+endif
+
+ifeq ($(CONFIG_TARGET_ipq),y)
+subtarget:=$(SUBTARGET)
 endif
 
 define Build/Compile
