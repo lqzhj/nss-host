@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -31,18 +31,25 @@
 #include "nss_core.h"
 
 #define NSS_QGIC_IPC_REG_OFFSET 0x8
-#define NSS_H2N_INTR_EMPTY_BUFFER_QUEUE_BIT	13
-#define NSS_H2N_INTR_DATA_COMMAND_QUEUE_BIT	14
-#define NSS_H2N_INTR_TX_UNBLOCKED_BIT		15
-#define NSS_H2N_INTR_TRIGGER_COREDUMP_BIT	16
+
+#define NSS0_H2N_INTR_BASE 13
+#define NSS1_H2N_INTR_BASE (NSS0_H2N_INTR_BASE + NSS_H2N_INTR_TYPE_MAX)
 
 /*
  * Interrupt type to cause vector.
  */
-static uint32_t intr_cause[] = {(1 << NSS_H2N_INTR_EMPTY_BUFFER_QUEUE_BIT),
-				(1 << NSS_H2N_INTR_DATA_COMMAND_QUEUE_BIT),
-				(1 << NSS_H2N_INTR_TX_UNBLOCKED_BIT),
-				(1 << NSS_H2N_INTR_TRIGGER_COREDUMP_BIT)};
+static uint32_t intr_cause[NSS_MAX_CORES][NSS_H2N_INTR_TYPE_MAX] = {
+				/* core0 */
+				{(1 << (NSS0_H2N_INTR_BASE + NSS_H2N_INTR_EMPTY_BUFFER_QUEUE)),
+				(1 << (NSS0_H2N_INTR_BASE + NSS_H2N_INTR_DATA_COMMAND_QUEUE)),
+				(1 << (NSS0_H2N_INTR_BASE + NSS_H2N_INTR_TX_UNBLOCKED)),
+				(1 << (NSS0_H2N_INTR_BASE + NSS_H2N_INTR_TRIGGER_COREDUMP))},
+				/* core 1 */
+				{(1 << (NSS1_H2N_INTR_BASE + NSS_H2N_INTR_EMPTY_BUFFER_QUEUE)),
+				(1 << (NSS1_H2N_INTR_BASE + NSS_H2N_INTR_DATA_COMMAND_QUEUE)),
+				(1 << (NSS1_H2N_INTR_BASE + NSS_H2N_INTR_TX_UNBLOCKED)),
+				(1 << (NSS1_H2N_INTR_BASE + NSS_H2N_INTR_TRIGGER_COREDUMP))}
+};
 
 /*
  * nss_hal_handle_data_cmd_irq()
@@ -404,7 +411,13 @@ static void __nss_hal_enable_interrupt(struct nss_ctx_instance *nss_ctx, uint32_
  */
 static void __nss_hal_send_interrupt(struct nss_ctx_instance *nss_ctx, uint32_t type)
 {
-	nss_write_32(nss_ctx->qgic_map, NSS_QGIC_IPC_REG_OFFSET, intr_cause[type]);
+	/*
+	 * Check if core and type is Valid
+	 */
+	nss_assert(nss_ctx->id < NSS_MAX_CORES);
+	nss_assert(type < NSS_H2N_INTR_TYPE_MAX);
+
+	nss_write_32(nss_ctx->qgic_map, NSS_QGIC_IPC_REG_OFFSET, intr_cause[nss_ctx->id][type]);
 }
 
 /*

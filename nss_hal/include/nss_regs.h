@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013, 2015, 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2015-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -70,10 +70,13 @@
 /*
  * Types of H2N interrupts
  */
-#define NSS_H2N_INTR_EMPTY_BUFFER_QUEUE	0
-#define NSS_H2N_INTR_DATA_COMMAND_QUEUE	1
-#define NSS_H2N_INTR_TX_UNBLOCKED	2
-#define NSS_H2N_INTR_TRIGGER_COREDUMP	3
+enum nss_h2n_intr_type {
+	NSS_H2N_INTR_EMPTY_BUFFER_QUEUE = 0,
+	NSS_H2N_INTR_DATA_COMMAND_QUEUE = 1,
+	NSS_H2N_INTR_TX_UNBLOCKED = 2,
+	NSS_H2N_INTR_TRIGGER_COREDUMP = 3,
+	NSS_H2N_INTR_TYPE_MAX = 4,
+};
 
 /*
  * clock source for NSS cores
