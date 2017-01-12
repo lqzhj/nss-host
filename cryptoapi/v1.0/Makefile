@@ -10,7 +10,7 @@ $(NSS_CRYPTOAPI_MOD_NAME)-objs += nss_cryptoapi_ablk.o
 
 obj ?= .
 
-ccflags-y += -I$(obj)/../include
+ccflags-y += -I$(obj)/../../include
 ccflags-y += -I$(obj)/
 ccflags-y += -DNSS_CFI_DEBUG_LEVEL=3
 ccflags-y += -Werror
