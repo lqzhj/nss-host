@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013 - 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -754,7 +754,7 @@ static int __init nss_init(void)
 	/*
 	 * Initialize mtu size needed as start
 	 */
-	nss_top_main.prev_mtu_sz = NSS_GMAC_NORMAL_FRAME_MTU;
+	nss_top_main.prev_mtu_sz = ETH_DATA_LEN;
 
 	/*
 	 * register panic handler and timeout control

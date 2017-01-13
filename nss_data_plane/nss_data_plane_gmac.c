@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014 - 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -23,6 +23,8 @@
 #define NSS_DP_GMAC_SUPPORTED_FEATURES (NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_FRAGLIST | (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO))
 #define NSS_DATA_PLANE_GMAC_MAX_INTERFACES 4
 
+static DEFINE_SPINLOCK(nss_data_plane_gmac_stats_lock);
+
 /*
  * nss_data_plane_gmac_param
  *	Holds the information that is going to pass to data plane host as a cookie
@@ -31,6 +33,7 @@ struct nss_data_plane_gmac_param {
 	int if_num;				/* physical interface number */
 	struct net_device *dev;			/* net_device instance of this data plane */
 	struct nss_ctx_instance *nss_ctx;	/* which nss core */
+	struct nss_gmac_stats gmac_stats;	/* gmac stats */
 	int notify_open;			/* This data plane interface has been opened or not */
 	uint32_t features;			/* skb types supported by this interface */
 	uint32_t bypass_nw_process;		/* Do we want to bypass NW processing in NSS for this data plane? */
@@ -96,6 +99,9 @@ static int __nss_data_plane_change_mtu(void *arg, uint32_t mtu)
 {
 	struct nss_data_plane_gmac_param *dp = (struct nss_data_plane_gmac_param *)arg;
 
+	/*
+	 * MTU size check is already done in nss-gmac driver, just pass to phys_if
+	 */
 	return nss_phys_if_change_mtu(dp->nss_ctx, mtu, dp->if_num);
 }
 
@@ -124,13 +130,25 @@ static int __nss_data_plane_buf(void *arg, struct sk_buff *os_buf)
 /*
  * __nss_data_plane_set_features()
  *	Called by gmac to allow data plane to modify the set of features it supports
-*/
+ */
 static void __nss_data_plane_set_features(struct net_device *netdev)
 {
 	netdev->features |= NSS_DP_GMAC_SUPPORTED_FEATURES;
 	netdev->hw_features |= NSS_DP_GMAC_SUPPORTED_FEATURES;
 	netdev->vlan_features |= NSS_DP_GMAC_SUPPORTED_FEATURES;
 	netdev->wanted_features |= NSS_DP_GMAC_SUPPORTED_FEATURES;
+}
+
+/*
+ * __nss_data_plane_get_stats()
+ */
+static void __nss_data_plane_get_stats(void *arg, struct nss_gmac_stats *stats)
+{
+	struct nss_data_plane_gmac_param *dp = (struct nss_data_plane_gmac_param *)arg;
+
+	spin_lock_bh(&nss_data_plane_gmac_stats_lock);
+	memcpy(stats, &dp->gmac_stats, sizeof(*stats));
+	spin_unlock_bh(&nss_data_plane_gmac_stats_lock);
 }
 
 /*
@@ -145,6 +163,7 @@ static struct nss_gmac_data_plane_ops dp_ops = {
 	.xmit		= __nss_data_plane_buf,
 	.set_features	= __nss_data_plane_set_features,
 	.pause_on_off	= __nss_data_plane_pause_on_off,
+	.get_stats	= __nss_data_plane_get_stats,
 };
 
 /*
@@ -251,10 +270,123 @@ static void __nss_data_plane_unregister(void)
 }
 
 /*
+ * __nss_data_plane_stats_sync()
+ *	Handle the syncing of gmac data plane stats.
+ */
+static void __nss_data_plane_stats_sync(struct nss_phys_if_stats *stats, uint16_t interface)
+{
+	struct nss_gmac_stats *gmac_stats = &nss_data_plane_gmac_params[interface].gmac_stats;
+
+	spin_lock_bh(&nss_data_plane_gmac_stats_lock);
+	gmac_stats->rx_bytes += stats->if_stats.rx_bytes;
+	gmac_stats->rx_packets += stats->if_stats.rx_packets;
+	gmac_stats->rx_errors += stats->estats.rx_errors;
+	gmac_stats->rx_receive_errors += stats->estats.rx_receive_errors;
+	gmac_stats->rx_overflow_errors += stats->estats.rx_overflow_errors;
+	gmac_stats->rx_descriptor_errors += stats->estats.rx_descriptor_errors;
+	gmac_stats->rx_watchdog_timeout_errors += stats->estats.rx_watchdog_timeout_errors;
+	gmac_stats->rx_crc_errors += stats->estats.rx_crc_errors;
+	gmac_stats->rx_late_collision_errors += stats->estats.rx_late_collision_errors;
+	gmac_stats->rx_dribble_bit_errors += stats->estats.rx_dribble_bit_errors;
+	gmac_stats->rx_length_errors += stats->estats.rx_length_errors;
+	gmac_stats->rx_ip_header_errors += stats->estats.rx_ip_header_errors;
+	gmac_stats->rx_ip_payload_errors += stats->estats.rx_ip_payload_errors;
+	gmac_stats->rx_no_buffer_errors += stats->estats.rx_no_buffer_errors;
+	gmac_stats->rx_transport_csum_bypassed += stats->estats.rx_transport_csum_bypassed;
+
+	gmac_stats->tx_bytes += stats->if_stats.tx_bytes;
+	gmac_stats->tx_packets += stats->if_stats.tx_packets;
+	gmac_stats->tx_collisions += stats->estats.tx_collisions;
+	gmac_stats->tx_errors += stats->estats.tx_errors;
+	gmac_stats->tx_jabber_timeout_errors += stats->estats.tx_jabber_timeout_errors;
+	gmac_stats->tx_frame_flushed_errors += stats->estats.tx_frame_flushed_errors;
+	gmac_stats->tx_loss_of_carrier_errors += stats->estats.tx_loss_of_carrier_errors;
+	gmac_stats->tx_no_carrier_errors += stats->estats.tx_no_carrier_errors;
+	gmac_stats->tx_late_collision_errors += stats->estats.tx_late_collision_errors;
+	gmac_stats->tx_excessive_collision_errors += stats->estats.tx_excessive_collision_errors;
+	gmac_stats->tx_excessive_deferral_errors += stats->estats.tx_excessive_deferral_errors;
+	gmac_stats->tx_underflow_errors += stats->estats.tx_underflow_errors;
+	gmac_stats->tx_ip_header_errors += stats->estats.tx_ip_header_errors;
+	gmac_stats->tx_ip_payload_errors += stats->estats.tx_ip_payload_errors;
+	gmac_stats->tx_dropped += stats->estats.tx_dropped;
+
+	gmac_stats->hw_errs[0] += stats->estats.hw_errs[0];
+	gmac_stats->hw_errs[1] += stats->estats.hw_errs[1];
+	gmac_stats->hw_errs[2] += stats->estats.hw_errs[2];
+	gmac_stats->hw_errs[3] += stats->estats.hw_errs[3];
+	gmac_stats->hw_errs[4] += stats->estats.hw_errs[4];
+	gmac_stats->hw_errs[5] += stats->estats.hw_errs[5];
+	gmac_stats->hw_errs[6] += stats->estats.hw_errs[6];
+	gmac_stats->hw_errs[7] += stats->estats.hw_errs[7];
+	gmac_stats->hw_errs[8] += stats->estats.hw_errs[8];
+	gmac_stats->hw_errs[9] += stats->estats.hw_errs[9];
+	gmac_stats->rx_missed += stats->estats.rx_missed;
+
+	gmac_stats->fifo_overflows += stats->estats.fifo_overflows;
+	gmac_stats->rx_scatter_errors += stats->estats.rx_scatter_errors;
+	gmac_stats->tx_ts_create_errors += stats->estats.tx_ts_create_errors;
+	gmac_stats->gmac_total_ticks += stats->estats.gmac_total_ticks;
+	gmac_stats->gmac_worst_case_ticks += stats->estats.gmac_worst_case_ticks;
+	gmac_stats->gmac_iterations += stats->estats.gmac_iterations;
+	gmac_stats->tx_pause_frames += stats->estats.tx_pause_frames;
+
+	gmac_stats->rx_octets_g = stats->estats.rx_octets_g;
+	gmac_stats->rx_ucast_frames = stats->estats.rx_ucast_frames;
+	gmac_stats->rx_bcast_frames = stats->estats.rx_bcast_frames;
+	gmac_stats->rx_mcast_frames = stats->estats.rx_mcast_frames;
+	gmac_stats->rx_undersize = stats->estats.rx_undersize;
+	gmac_stats->rx_oversize = stats->estats.rx_oversize;
+	gmac_stats->rx_jabber = stats->estats.rx_jabber;
+	gmac_stats->rx_octets_gb = stats->estats.rx_octets_gb;
+	gmac_stats->rx_frag_frames_g = stats->estats.rx_frag_frames_g;
+	gmac_stats->tx_octets_g = stats->estats.tx_octets_g;
+	gmac_stats->tx_ucast_frames = stats->estats.tx_ucast_frames;
+	gmac_stats->tx_bcast_frames = stats->estats.tx_bcast_frames;
+	gmac_stats->tx_mcast_frames = stats->estats.tx_mcast_frames;
+	gmac_stats->tx_deferred = stats->estats.tx_deferred;
+	gmac_stats->tx_single_col = stats->estats.tx_single_col;
+	gmac_stats->tx_multiple_col = stats->estats.tx_multiple_col;
+	gmac_stats->tx_octets_gb = stats->estats.tx_octets_gb;
+
+	spin_unlock_bh(&nss_data_plane_gmac_stats_lock);
+}
+
+/*
+ * __nss_data_plane_get_mtu_sz()
+ */
+static uint16_t __nss_data_plane_get_mtu_sz(uint16_t max_mtu)
+{
+	/*
+	 * GMACs support 3 Modes
+	 * Normal Mode Payloads upto 1522 Bytes ( 1500 + 14 + 4(Vlan) + 4(CRC))
+	 * Mini Jumbo Mode Payloads upto 2000 Bytes (1978 + 14 + 4(Vlan) + 4 (CRC))
+	 * Full Jumbo Mode payloads upto 9622 Bytes (9600 + 14 + 4(Vlan) + 4 (CRC))
+	 */
+
+	/*
+	 * The configured MTU value on a gmac interface should be one of these
+	 * cases. Finding the Needed MTU size that is required for GMAC to
+	 * successfully receive the frame.
+	 */
+	if (max_mtu <= NSS_GMAC_NORMAL_FRAME_MTU) {
+		return NSS_GMAC_NORMAL_FRAME_MTU;
+	}
+	if (max_mtu <= NSS_GMAC_MINI_JUMBO_FRAME_MTU) {
+		return NSS_GMAC_MINI_JUMBO_FRAME_MTU;
+	}
+	if (max_mtu <= NSS_GMAC_FULL_JUMBO_FRAME_MTU) {
+		return NSS_GMAC_FULL_JUMBO_FRAME_MTU;
+	}
+	return 0;
+}
+
+/*
  * nss_data_plane_gmac_ops
  */
 struct nss_data_plane_ops nss_data_plane_gmac_ops = {
 	.data_plane_register = &__nss_data_plane_register,
 	.data_plane_unregister = &__nss_data_plane_unregister,
+	.data_plane_stats_sync = &__nss_data_plane_stats_sync,
+	.data_plane_get_mtu_sz = &__nss_data_plane_get_mtu_sz,
 };
 

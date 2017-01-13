@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -24,6 +24,13 @@
 #define NSS_PHYS_IF_TX_TIMEOUT 3000 /* 3 Seconds */
 
 /*
+ * NSS phys_if modes
+ */
+#define NSS_PHYS_IF_MODE0	0	/* phys_if mode 0 */
+#define NSS_PHYS_IF_MODE1	1	/* phys_if mode 1 */
+#define NSS_PHYS_IF_MODE2	2	/* phys_if mode 2 */
+
+/*
  * Private data structure for phys_if interface
  */
 static struct nss_phys_if_pvt {
@@ -33,104 +40,6 @@ static struct nss_phys_if_pvt {
 } phif;
 
 static int nss_phys_if_sem_init_done;
-
-/*
- * nss_phys_if_gmac_stats_sync()
- *	Handle the syncing of GMAC stats.
- */
-void nss_phys_if_gmac_stats_sync(struct nss_ctx_instance *nss_ctx,
-		struct nss_phys_if_stats *stats, uint16_t interface)
-{
-	void *ctx;
-	struct nss_gmac_stats gmac_stats;
-	uint32_t id = interface;
-
-	/*
-	 * Since the new extended statistics are not the same as the older stats
-	 * parameter, we must do a field by field copy.
-	 */
-	gmac_stats.interface = interface;
-	gmac_stats.rx_bytes = stats->if_stats.rx_bytes;
-	gmac_stats.rx_packets = stats->if_stats.rx_packets;
-	gmac_stats.rx_errors = stats->estats.rx_errors;
-	gmac_stats.rx_receive_errors = stats->estats.rx_receive_errors;
-	gmac_stats.rx_overflow_errors = stats->estats.rx_overflow_errors;
-	gmac_stats.rx_descriptor_errors = stats->estats.rx_descriptor_errors;
-	gmac_stats.rx_watchdog_timeout_errors = stats->estats.rx_watchdog_timeout_errors;
-	gmac_stats.rx_crc_errors = stats->estats.rx_crc_errors;
-	gmac_stats.rx_late_collision_errors = stats->estats.rx_late_collision_errors;
-	gmac_stats.rx_dribble_bit_errors = stats->estats.rx_dribble_bit_errors;
-	gmac_stats.rx_length_errors = stats->estats.rx_length_errors;
-	gmac_stats.rx_ip_header_errors = stats->estats.rx_ip_header_errors;
-	gmac_stats.rx_ip_payload_errors = stats->estats.rx_ip_payload_errors;
-	gmac_stats.rx_no_buffer_errors = stats->estats.rx_no_buffer_errors;
-	gmac_stats.rx_transport_csum_bypassed = stats->estats.rx_transport_csum_bypassed;
-	gmac_stats.tx_bytes = stats->if_stats.tx_bytes;
-	gmac_stats.tx_packets = stats->if_stats.tx_packets;
-	gmac_stats.tx_collisions = stats->estats.tx_collisions;
-	gmac_stats.tx_errors = stats->estats.tx_errors;
-	gmac_stats.tx_jabber_timeout_errors = stats->estats.tx_jabber_timeout_errors;
-	gmac_stats.tx_frame_flushed_errors = stats->estats.tx_frame_flushed_errors;
-	gmac_stats.tx_loss_of_carrier_errors = stats->estats.tx_loss_of_carrier_errors;
-	gmac_stats.tx_no_carrier_errors = stats->estats.tx_no_carrier_errors;
-	gmac_stats.tx_late_collision_errors = stats->estats.tx_late_collision_errors;
-	gmac_stats.tx_excessive_collision_errors = stats->estats.tx_excessive_collision_errors;
-	gmac_stats.tx_excessive_deferral_errors = stats->estats.tx_excessive_deferral_errors;
-	gmac_stats.tx_underflow_errors = stats->estats.tx_underflow_errors;
-	gmac_stats.tx_ip_header_errors = stats->estats.tx_ip_header_errors;
-	gmac_stats.tx_ip_payload_errors = stats->estats.tx_ip_payload_errors;
-	gmac_stats.tx_dropped = stats->estats.tx_dropped;
-	gmac_stats.hw_errs[0] = stats->estats.hw_errs[0];
-	gmac_stats.hw_errs[1] = stats->estats.hw_errs[1];
-	gmac_stats.hw_errs[2] = stats->estats.hw_errs[2];
-	gmac_stats.hw_errs[3] = stats->estats.hw_errs[3];
-	gmac_stats.hw_errs[4] = stats->estats.hw_errs[4];
-	gmac_stats.hw_errs[5] = stats->estats.hw_errs[5];
-	gmac_stats.hw_errs[6] = stats->estats.hw_errs[6];
-	gmac_stats.hw_errs[7] = stats->estats.hw_errs[7];
-	gmac_stats.hw_errs[8] = stats->estats.hw_errs[8];
-	gmac_stats.hw_errs[9] = stats->estats.hw_errs[9];
-	gmac_stats.rx_missed = stats->estats.rx_missed;
-	gmac_stats.fifo_overflows = stats->estats.fifo_overflows;
-	gmac_stats.rx_scatter_errors = stats->estats.rx_scatter_errors;
-	gmac_stats.tx_ts_create_errors = stats->estats.tx_ts_create_errors;
-	gmac_stats.gmac_total_ticks = stats->estats.gmac_total_ticks;
-	gmac_stats.gmac_worst_case_ticks = stats->estats.gmac_worst_case_ticks;
-	gmac_stats.gmac_iterations = stats->estats.gmac_iterations;
-	gmac_stats.tx_pause_frames = stats->estats.tx_pause_frames;
-	gmac_stats.rx_octets_g = stats->estats.rx_octets_g;
-	gmac_stats.rx_ucast_frames = stats->estats.rx_ucast_frames;
-	gmac_stats.rx_bcast_frames = stats->estats.rx_bcast_frames;
-	gmac_stats.rx_mcast_frames = stats->estats.rx_mcast_frames;
-	gmac_stats.rx_undersize = stats->estats.rx_undersize;
-	gmac_stats.rx_oversize = stats->estats.rx_oversize;
-	gmac_stats.rx_jabber = stats->estats.rx_jabber;
-	gmac_stats.rx_octets_gb = stats->estats.rx_octets_gb;
-	gmac_stats.rx_frag_frames_g = stats->estats.rx_frag_frames_g;
-	gmac_stats.tx_octets_g = stats->estats.tx_octets_g;
-	gmac_stats.tx_ucast_frames = stats->estats.tx_ucast_frames;
-	gmac_stats.tx_bcast_frames = stats->estats.tx_bcast_frames;
-	gmac_stats.tx_mcast_frames = stats->estats.tx_mcast_frames;
-	gmac_stats.tx_deferred = stats->estats.tx_deferred;
-	gmac_stats.tx_single_col = stats->estats.tx_single_col;
-	gmac_stats.tx_multiple_col = stats->estats.tx_multiple_col;
-	gmac_stats.tx_octets_gb = stats->estats.tx_octets_gb;
-
-	/*
-	 * Get the netdev ctx
-	 */
-	ctx = nss_ctx->nss_top->subsys_dp_register[id].ndev;
-
-	/*
-	 * Pass through gmac exported api
-	 */
-	if (!ctx) {
-		nss_warning("%p: Event received for GMAC interface %d before registration", nss_ctx, interface);
-		return;
-	}
-
-	nss_gmac_event_receive(ctx, NSS_GMAC_EVENT_STATS, (void *)&gmac_stats, sizeof(struct nss_gmac_stats));
-}
 
 /*
  * nss_phys_if_update_driver_stats()
@@ -199,7 +108,7 @@ static void nss_phys_if_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss
 		 * To create the old API gmac statistics, we use the new extended GMAC stats.
 		 */
 		nss_phys_if_update_driver_stats(nss_ctx, ncm->interface, &nim->msg.stats);
-		nss_phys_if_gmac_stats_sync(nss_ctx, &nim->msg.stats, ncm->interface);
+		nss_top_main.data_plane_ops->data_plane_stats_sync(&nim->msg.stats, ncm->interface);
 		break;
 	}
 
@@ -241,49 +150,6 @@ static void nss_phys_if_callback(void *app_data, struct nss_phys_if_msg *nim)
 
 	phif.response = NSS_TX_SUCCESS;
 	complete(&phif.complete);
-}
-
-/*
- * nss_phys_if_get_mtu_sz
- *	Get the mtu size needed based on current max mtu value
- */
-static uint16_t nss_phys_if_get_mtu_sz(struct nss_ctx_instance *nss_ctx)
-{
-	int32_t i;
-	uint16_t mtu_sz = NSS_GMAC_NORMAL_FRAME_MTU;
-	uint16_t max_mtu;
-
-	/*
-	 * Loop through MTU values of all Physical
-	 * interfaces and get the maximum one of all
-	 */
-	max_mtu = nss_ctx->phys_if_mtu[0];
-	for (i = 1; i < NSS_MAX_PHYSICAL_INTERFACES; i++) {
-		if (max_mtu < nss_ctx->phys_if_mtu[i]) {
-			max_mtu = nss_ctx->phys_if_mtu[i];
-		}
-	}
-
-	/*
-	 * GMACs support 3 Modes
-	 * Normal Mode Payloads upto 1522 Bytes ( 1500 + 14 + 4(Vlan) + 4(CRC))
-	 * Mini Jumbo Mode Payloads upto 2000 Bytes (1978 + 14 + 4(Vlan) + 4 (CRC))
-	 * Full Jumbo Mode payloads upto 9622 Bytes (9600 + 14 + 4(Vlan) + 4 (CRC))
-	 */
-
-	/*
-	 * The configured MTU value on a physical interface shall fall
-	 * into one of these cases. Finding the Needed MTU size that is required
-	 * for GMAC to successfully receive the frame.
-	 */
-	if (max_mtu <= NSS_GMAC_NORMAL_FRAME_MTU) {
-		mtu_sz = NSS_GMAC_NORMAL_FRAME_MTU;
-	} else if (max_mtu <= NSS_GMAC_MINI_JUMBO_FRAME_MTU) {
-		mtu_sz = NSS_GMAC_MINI_JUMBO_FRAME_MTU;
-	} else if (max_mtu <= NSS_GMAC_FULL_JUMBO_FRAME_MTU) {
-		mtu_sz = NSS_GMAC_FULL_JUMBO_FRAME_MTU;
-	}
-	return mtu_sz;
 }
 
 /*
@@ -451,7 +317,7 @@ struct nss_ctx_instance *nss_phys_if_register(uint32_t if_num,
 
 	nss_top_main.phys_if_msg_callback[if_num] = msg_callback;
 
-	nss_ctx->phys_if_mtu[if_num] = NSS_GMAC_NORMAL_FRAME_MTU;
+	nss_ctx->phys_if_mtu[if_num] = ETH_DATA_LEN;
 	return nss_ctx;
 }
 
@@ -513,18 +379,18 @@ nss_tx_status_t nss_phys_if_open(struct nss_ctx_instance *nss_ctx, uint32_t tx_d
 	nio->tx_desc_ring = tx_desc_ring;
 	nio->rx_desc_ring = rx_desc_ring;
 
-	if (mode == NSS_GMAC_MODE0) {
+	if (mode == NSS_PHYS_IF_MODE0) {
 		nio->rx_forward_if = NSS_ETH_RX_INTERFACE;
 		nio->alignment_mode = NSS_IF_DATA_ALIGN_2BYTE;
-	} else if(mode == NSS_GMAC_MODE1) {
+	} else if (mode == NSS_PHYS_IF_MODE1) {
 		nio->rx_forward_if = NSS_SJACK_INTERFACE;
 		nio->alignment_mode = NSS_IF_DATA_ALIGN_4BYTE;
-	} else if(mode == NSS_GMAC_MODE2) {
+	} else if (mode == NSS_PHYS_IF_MODE2) {
 		nio->rx_forward_if = NSS_PORTID_INTERFACE;
 		nio->alignment_mode = NSS_IF_DATA_ALIGN_2BYTE;
 	} else {
 		nss_info("%p: Phys If Open, unknown mode %d\n", nss_ctx, mode);
-		return NSS_GMAC_FAILURE;
+		return NSS_TX_FAILURE;
 	}
 
 	/*
@@ -605,22 +471,18 @@ nss_tx_status_t nss_phys_if_change_mtu(struct nss_ctx_instance *nss_ctx, uint32_
 {
 	struct nss_phys_if_msg nim;
 	struct nss_if_mtu_change *nimc;
-	uint16_t mtu_sz;
+	uint16_t mtu_sz, max_mtu;
+	int i;
 	nss_tx_status_t status;
 
 	NSS_VERIFY_CTX_MAGIC(nss_ctx);
 	nss_info("%p: Phys If Change MTU, id:%d, mtu=%d\n", nss_ctx, if_num, mtu);
 
-	if (mtu > NSS_GMAC_FULL_JUMBO_FRAME_MTU) {
-		nss_info("%p: MTU larger than FULL_JUMBO_FRAME(%d)", nss_ctx, NSS_GMAC_FULL_JUMBO_FRAME_MTU);
-		return NSS_TX_FAILURE;
-	}
-
 	nss_cmn_msg_init(&nim.cm, if_num, NSS_PHYS_IF_MTU_CHANGE,
 			sizeof(struct nss_if_mtu_change), nss_phys_if_callback, NULL);
 
 	nimc = &nim.msg.if_msg.mtu_change;
-	nimc->min_buf_size = (uint16_t)mtu + NSS_NBUF_ETH_EXTRA;
+	nimc->min_buf_size = mtu;
 
 	status = nss_phys_if_msg_sync(nss_ctx, &nim);
 	if (status != NSS_TX_SUCCESS) {
@@ -632,9 +494,19 @@ nss_tx_status_t nss_phys_if_change_mtu(struct nss_ctx_instance *nss_ctx, uint32_
 	 */
 	nss_ctx->phys_if_mtu[if_num] = (uint16_t)mtu;
 
-	mtu_sz = nss_phys_if_get_mtu_sz(nss_ctx);
+	/*
+	 * Loop through MTU values of all Physical
+	 * interfaces and get the maximum one of all
+	 */
+	max_mtu = nss_ctx->phys_if_mtu[0];
+	for (i = 1; i < NSS_MAX_PHYSICAL_INTERFACES; i++) {
+		if (max_mtu < nss_ctx->phys_if_mtu[i]) {
+			max_mtu = nss_ctx->phys_if_mtu[i];
+		}
+	}
 
-	nss_ctx->max_buf_size = ((mtu_sz + ETH_HLEN + SMP_CACHE_BYTES - 1) & ~(SMP_CACHE_BYTES - 1)) + NSS_NBUF_PAD_EXTRA;
+	mtu_sz = nss_top_main.data_plane_ops->data_plane_get_mtu_sz(max_mtu);
+	nss_ctx->max_buf_size = ((mtu_sz + ETH_HLEN + SMP_CACHE_BYTES - 1) & ~(SMP_CACHE_BYTES - 1)) + NSS_NBUF_ETH_EXTRA + NSS_NBUF_PAD_EXTRA;
 
 	/*
 	 * max_buf_size should not be lesser than NSS_NBUF_PAYLOAD_SIZE

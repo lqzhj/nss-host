@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014 - 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -23,6 +23,7 @@
 #define __NSS_DATA_PLANE_H
 
 #include <nss_api_if.h>
+#include "nss_phys_if.h"
 
 /*
  * nss_data_plane_schedule_registration()
@@ -48,6 +49,8 @@ void nss_data_plane_destroy_delay_work(void);
 struct nss_data_plane_ops {
 	void (*data_plane_register)(struct nss_ctx_instance *nss_ctx);
 	void (*data_plane_unregister)(void);
+	void (*data_plane_stats_sync)(struct nss_phys_if_stats *stats, uint16_t interface);
+	uint16_t (*data_plane_get_mtu_sz)(uint16_t max_mtu);
 };
 
 extern struct nss_data_plane_ops nss_data_plane_gmac_ops;

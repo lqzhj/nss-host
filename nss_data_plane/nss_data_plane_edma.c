@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -15,13 +15,14 @@
  */
 
 #include "nss_data_plane.h"
-#include "nss_phys_if.h"
 #include "nss_core.h"
 #include "nss_tx_rx_common.h"
 #include <nss_dp_api_if.h>
 
 #define NSS_DP_EDMA_SUPPORTED_FEATURES (NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_FRAGLIST | (NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_UFO))
 #define NSS_DATA_PLANE_EDMA_MAX_INTERFACES 6
+#define NSS_DATA_PLANE_EDMA_MAX_MTU_SIZE 9000
+#define NSS_DATA_PLANE_EDMA_PREHEADER_SIZE 32
 
 /*
  * nss_data_plane_edma_param
@@ -101,6 +102,11 @@ static int __nss_data_plane_mac_addr(struct nss_dp_data_plane_ctx *dpc, uint8_t 
 static int __nss_data_plane_change_mtu(struct nss_dp_data_plane_ctx *dpc, uint32_t mtu)
 {
 	struct nss_data_plane_edma_param *dp = (struct nss_data_plane_edma_param *)dpc;
+
+	if (mtu > NSS_DATA_PLANE_EDMA_MAX_MTU_SIZE) {
+		nss_warning("%p: MTU exceeds MAX size %d\n", dp, mtu);
+		return NSS_DP_FAILURE;
+	}
 
 	return nss_phys_if_change_mtu(dp->nss_ctx, mtu, dp->if_num);
 }
@@ -269,10 +275,33 @@ static void __nss_data_plane_unregister(void)
 }
 
 /*
+ * __nss_data_plane_stats_sync()
+ */
+static void __nss_data_plane_stats_sync(struct nss_phys_if_stats *stats, uint16_t interface)
+{
+	/*
+	 * EDMA does not pass sync interface stats through phys_if_stats
+	 */
+}
+
+/*
+ * __nss_data_plane_get_mtu_sz()
+ */
+static uint16_t __nss_data_plane_get_mtu_sz(uint16_t mtu)
+{
+	/*
+	 * Reserve space for preheader
+	 */
+	return mtu + NSS_DATA_PLANE_EDMA_PREHEADER_SIZE;
+}
+
+/*
  * nss_data_plane_edma_ops
  */
 struct nss_data_plane_ops nss_data_plane_edma_ops = {
 	.data_plane_register = &__nss_data_plane_register,
 	.data_plane_unregister = &__nss_data_plane_unregister,
+	.data_plane_stats_sync = &__nss_data_plane_stats_sync,
+	.data_plane_get_mtu_sz = &__nss_data_plane_get_mtu_sz,
 };
 

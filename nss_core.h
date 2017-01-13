@@ -34,7 +34,6 @@
 #include <linux/workqueue.h>
 
 #include <nss_api_if.h>
-#include <nss_gmac_api_if.h>
 #include "nss_phys_if.h"
 #include "nss_hlos_if.h"
 #include "nss_oam.h"
