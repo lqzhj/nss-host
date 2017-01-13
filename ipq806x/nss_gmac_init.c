@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -1048,9 +1048,7 @@ static void nss_gmac_ifg_reset(uint32_t gmac_id)
  */
 static void nss_gmac_link_status_set(uint32_t gmac_id, uint32_t link_state)
 {
-	struct nss_gmac_dev *gmac_dev = NULL;
-
-	gmac_dev = ctx.nss_gmac[gmac_id];
+	struct nss_gmac_dev *gmac_dev = ctx.nss_gmac[gmac_id];
 	if (gmac_dev == NULL)
 		return;
 

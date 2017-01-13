@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -299,13 +299,32 @@ void nss_gmac_tx_rx_desc_init(struct nss_gmac_dev *gmacdev)
 struct rtnl_link_stats64 *nss_gmac_get_stats64(struct net_device *netdev,
 						struct rtnl_link_stats64 *stats)
 {
-	struct nss_gmac_dev *gmacdev = NULL;
-
-	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 
+	if (!gmacdev->data_plane_ops)
+		return stats;
+
 	spin_lock_bh(&gmacdev->stats_lock);
-	memcpy(stats, &gmacdev->stats, sizeof(*stats));
+	gmacdev->data_plane_ops->get_stats(gmacdev->data_plane_ctx, &gmacdev->nss_stats);
+	stats->rx_packets = gmacdev->nss_stats.rx_packets;
+	stats->rx_bytes = gmacdev->nss_stats.rx_bytes;
+	stats->rx_errors = gmacdev->nss_stats.rx_errors;
+	stats->rx_dropped = gmacdev->nss_stats.rx_errors;
+	stats->rx_length_errors = gmacdev->nss_stats.rx_length_errors;
+	stats->rx_over_errors = gmacdev->nss_stats.rx_overflow_errors;
+	stats->rx_crc_errors = gmacdev->nss_stats.rx_crc_errors;
+	stats->rx_frame_errors = gmacdev->nss_stats.rx_dribble_bit_errors;
+	stats->rx_fifo_errors = gmacdev->nss_stats.fifo_overflows;
+	stats->rx_missed_errors = gmacdev->nss_stats.rx_missed;
+	stats->collisions = gmacdev->nss_stats.tx_collisions + gmacdev->nss_stats.rx_late_collision_errors;
+	stats->tx_packets = gmacdev->nss_stats.tx_packets;
+	stats->tx_bytes = gmacdev->nss_stats.tx_bytes;
+	stats->tx_errors = gmacdev->nss_stats.tx_errors;
+	stats->tx_dropped = gmacdev->nss_stats.tx_dropped;
+	stats->tx_carrier_errors = gmacdev->nss_stats.tx_loss_of_carrier_errors + gmacdev->nss_stats.tx_no_carrier_errors;
+	stats->tx_fifo_errors = gmacdev->nss_stats.tx_underflow_errors;
+	stats->tx_window_errors = gmacdev->nss_stats.tx_late_collision_errors;
 	spin_unlock_bh(&gmacdev->stats_lock);
 
 	return stats;
@@ -321,10 +340,9 @@ struct rtnl_link_stats64 *nss_gmac_get_stats64(struct net_device *netdev,
 static int32_t nss_gmac_set_mac_address(struct net_device *netdev,
 					      void *macaddr)
 {
-	struct nss_gmac_dev *gmacdev = NULL;
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	struct sockaddr *addr = (struct sockaddr *)macaddr;
 
-	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 	BUG_ON(gmacdev->netdev != netdev);
 
@@ -632,11 +650,9 @@ static void nss_gmac_tstamp_sysfs_remove(struct net_device *dev)
  */
 static int nss_gmac_mdio_mii_ioctl_read(struct net_device *netdev, int phy_addr, int mmd, uint16_t addr)
 {
-	struct nss_gmac_dev *gmacdev = NULL;
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	uint16_t val_out = 0;
 	uint32_t reg = 0;
-
-	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 
 	if (!gmacdev)
 		return -EIO;
@@ -672,11 +688,9 @@ static int nss_gmac_mdio_mii_ioctl_read(struct net_device *netdev, int phy_addr,
 static int nss_gmac_mdio_mii_ioctl_write(struct net_device *netdev, int phy_addr, int mmd,
 				uint16_t addr, uint16_t value)
 {
-	struct nss_gmac_dev *gmacdev = NULL;
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	int err = 0;
 	uint32_t reg = 0;
-
-	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 
 	if (!gmacdev)
 		return -EIO;
@@ -710,9 +724,7 @@ static int nss_gmac_mdio_mii_ioctl_write(struct net_device *netdev, int phy_addr
 static uint32_t nss_gmac_tstamp_ioctl(struct net_device *netdev, struct ifreq *ifr)
 {
 	struct hwtstamp_config  *cfg  = (struct hwtstamp_config *) ifr->ifr_data;
-	struct nss_gmac_dev *gmacdev = NULL;
-
-	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 
 	/* Return if NSS FW is not up */
 	if (gmacdev->data_plane_ctx == netdev) {
@@ -759,7 +771,7 @@ static int32_t nss_gmac_do_ioctl(struct net_device *netdev,
 				       struct ifreq *ifr, int32_t cmd)
 {
 	int ret = -EINVAL;
-	struct nss_gmac_dev *gmacdev = NULL;
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 #ifdef CONFIG_MDIO
 	struct mii_ioctl_data *mii_data = NULL;
 #endif
@@ -769,7 +781,6 @@ static int32_t nss_gmac_do_ioctl(struct net_device *netdev,
 	if (ifr == NULL)
 		return -EINVAL;
 
-	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 	BUG_ON(gmacdev->netdev != netdev);
 
@@ -805,9 +816,7 @@ static int32_t nss_gmac_do_ioctl(struct net_device *netdev,
  */
 static void nss_gmac_set_rx_mode(struct net_device *netdev)
 {
-	struct nss_gmac_dev *gmacdev = NULL;
-
-	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 
 	netdev_dbg(netdev, "%s: flags - 0x%x\n", __func__, netdev->flags);
@@ -835,10 +844,9 @@ static void nss_gmac_set_rx_mode(struct net_device *netdev)
 static int32_t nss_gmac_set_features(struct net_device *netdev,
 					       netdev_features_t features)
 {
-	struct nss_gmac_dev *gmacdev = NULL;
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	netdev_features_t changed;
 
-	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 
 	changed = features ^ netdev->features;
@@ -930,10 +938,8 @@ static int32_t nss_gmac_of_get_pdata(struct device_node *np,
 				     struct msm_nss_gmac_platform_data *gmaccfg)
 {
 	uint8_t *maddr = NULL;
-	struct nss_gmac_dev *gmacdev = NULL;
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	struct resource memres_devtree = {0};
-
-	gmacdev = netdev_priv(netdev);
 
 	if (of_property_read_u32(np, "qcom,id", &gmacdev->macid)
 		|| of_property_read_u32(np, "qcom,phy-mdio-addr",

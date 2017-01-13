@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -197,7 +197,11 @@ static void nss_gmac_get_ethtool_stats(struct net_device *netdev,
 	int32_t i;
 	uint8_t *p = NULL;
 
+	if (!gmacdev->data_plane_ops)
+		return;
+
 	spin_lock_bh(&gmacdev->stats_lock);
+	gmacdev->data_plane_ops->get_stats(gmacdev->data_plane_ctx, &gmacdev->nss_stats);
 	for (i = 0; i < NSS_GMAC_STATS_LEN; i++) {
 		p = (uint8_t *)&(gmacdev->nss_stats) +
 					gmac_gstrings_stats[i].stat_offset;
@@ -231,9 +235,7 @@ static void nss_gmac_get_drvinfo(struct net_device *dev,
 static void nss_gmac_get_pauseparam(struct net_device *netdev,
 			     struct ethtool_pauseparam *pause)
 {
-	struct nss_gmac_dev *gmacdev = NULL;
-
-	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 	BUG_ON(gmacdev->netdev != netdev);
 
@@ -251,10 +253,9 @@ static void nss_gmac_get_pauseparam(struct net_device *netdev,
 static int nss_gmac_set_pauseparam(struct net_device *netdev,
 			    struct ethtool_pauseparam *pause)
 {
-	struct nss_gmac_dev *gmacdev = NULL;
-	struct phy_device *phydev = NULL;
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
+	struct phy_device *phydev;
 
-	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 	BUG_ON(gmacdev->netdev != netdev);
 
@@ -296,9 +297,7 @@ static int nss_gmac_set_pauseparam(struct net_device *netdev,
  */
 static int nss_gmac_nway_reset(struct net_device *netdev)
 {
-	struct nss_gmac_dev *gmacdev = NULL;
-
-	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 
 	if (!netif_running(netdev))
@@ -350,11 +349,10 @@ static uint32_t nss_gmac_get_msglevel(struct net_device *netdev)
 static int32_t nss_gmac_get_settings(struct net_device *netdev,
 			      struct ethtool_cmd *ecmd)
 {
-	struct nss_gmac_dev *gmacdev = NULL;
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	struct phy_device *phydev = NULL;
 	uint16_t phyreg;
 
-	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 
 	/*
@@ -451,10 +449,9 @@ static int32_t nss_gmac_get_settings(struct net_device *netdev,
 static int32_t nss_gmac_set_settings(struct net_device *netdev,
 			      struct ethtool_cmd *ecmd)
 {
-	struct nss_gmac_dev *gmacdev = NULL;
+	struct nss_gmac_dev *gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	struct phy_device *phydev = NULL;
 
-	gmacdev = (struct nss_gmac_dev *)netdev_priv(netdev);
 	BUG_ON(gmacdev == NULL);
 
 	/*

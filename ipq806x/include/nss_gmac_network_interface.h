@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -46,8 +46,6 @@ void nss_gmac_tx_timeout(struct net_device *netdev);
 /* NSS driver interface APIs */
 void nss_gmac_receive(struct net_device *netdev, struct sk_buff *skb,
 						struct napi_struct *napi);
-void nss_gmac_event_receive(void *if_ctx, int ev_type,
-			    void *os_buf, uint32_t len);
 void nss_gmac_open_work(struct work_struct *work);
 void nss_gmac_ethtool_register(struct net_device *netdev);
 void __exit nss_gmac_deregister_driver(void);

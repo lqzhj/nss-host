@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -28,12 +28,6 @@
 #define NSS_GMAC_FULL_JUMBO_FRAME_MTU 9600
 
 /*
- * NSS GMAC event type
- */
-#define NSS_GMAC_EVENT_STATS	0
-#define NSS_GMAC_EVENT_OTHER	1
-
-/*
  * NSS GMAC status
  */
 #define NSS_GMAC_SUCCESS	0
@@ -47,27 +41,10 @@
 #define NSS_GMAC_MODE2	2	/* gmac mode 2 */
 
 /*
- * NSS GMAC data plane ops, default would be slowpath and can be overridden by
- * nss-drv
- */
-struct nss_gmac_data_plane_ops {
-	int (*open)(void *ctx, uint32_t tx_desc_ring, uint32_t rx_desc_ring,
-							uint32_t mode);
-	int (*close)(void *ctx);
-	int (*link_state)(void *ctx, uint32_t link_state);
-	int (*mac_addr)(void *ctx, uint8_t *addr);
-	int (*change_mtu)(void *ctx, uint32_t mtu);
-	int (*xmit)(void *ctx, struct sk_buff *os_buf);
-	void (*set_features)(struct net_device *netdev);
-	int (*pause_on_off)(void *ctx, uint32_t pause_on);
-};
-
-/*
  * struct nss_gmac_stats
  * The NA per-GMAC statistics statistics structure.
  */
 struct nss_gmac_stats {
-	int32_t interface;		/**< Interface number */
 	uint32_t rx_bytes;		/**< Number of RX bytes */
 	uint32_t rx_packets;		/**< Number of RX packets */
 	uint32_t rx_errors;		/**< Number of RX errors */
@@ -135,10 +112,25 @@ struct nss_gmac_stats {
 	uint32_t tx_octets_gb;		/* Number of good/bad octets sent*/
 };
 
+/*
+ * NSS GMAC data plane ops, default would be slowpath and can be overridden by
+ * nss-drv
+ */
+struct nss_gmac_data_plane_ops {
+	int (*open)(void *ctx, uint32_t tx_desc_ring, uint32_t rx_desc_ring,
+							uint32_t mode);
+	int (*close)(void *ctx);
+	int (*link_state)(void *ctx, uint32_t link_state);
+	int (*mac_addr)(void *ctx, uint8_t *addr);
+	int (*change_mtu)(void *ctx, uint32_t mtu);
+	int (*xmit)(void *ctx, struct sk_buff *os_buf);
+	void (*set_features)(struct net_device *netdev);
+	int (*pause_on_off)(void *ctx, uint32_t pause_on);
+	void (*get_stats)(void *ctx, struct nss_gmac_stats *stats);
+};
+
 extern void nss_gmac_receive(struct net_device *netdev, struct sk_buff *skb,
 						struct napi_struct *napi);
-extern void nss_gmac_event_receive(void *if_ctx, int ev_type,
-						void *os_buf, uint32_t len);
 void nss_gmac_start_data_plane(struct net_device *netdev, void *ctx);
 extern int nss_gmac_override_data_plane(struct net_device *netdev,
 			struct nss_gmac_data_plane_ops *dp_ops, void *ctx);
