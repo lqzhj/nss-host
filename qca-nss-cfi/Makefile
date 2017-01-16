@@ -18,8 +18,18 @@ include $(INCLUDE_DIR)/package.mk
 
 PKG_BUILD_DEPENDS:=ocf-crypto-headers
 
+#
+# There was a drastic change in the Crypto API of Linux kenrel in May 2015.
+# In order to support the CFI drivers for kernel versions before May, 2015
+# i.e. 4.0 we have created a 'v1.0' directory with the driver files that will
+# work for kernels before 4.0.
+# For kernels 4.0 and newer, we have created a 'v2.0' directory that contains
+# the driver files which support the new changes in Crypto API.
+#
 ifeq ($(findstring 4.4, $(LINUX_VERSION)),)
- CRYPTO_API_MODULE:=$(PKG_BUILD_DIR)/cryptoapi/qca-nss-cfi-cryptoapi.ko
+ CFI_CRYPTOAPI_DIR:=cryptoapi/v1.0
+else
+ CFI_CRYPTOAPI_DIR:=cryptoapi/v2.0
 endif
 
 define KernelPackage/qca-nss-cfi
@@ -30,7 +40,7 @@ define KernelPackage/qca-nss-cfi
   TITLE:=Kernel driver for NSS cfi
   FILES:=$(PKG_BUILD_DIR)/ocf/qca-nss-cfi-ocf.ko \
 	 $(PKG_BUILD_DIR)/ipsec/qca-nss-ipsec.ko \
-	 $(CRYPTO_API_MODULE)
+	 $(PKG_BUILD_DIR)/$(CFI_CRYPTOAPI_DIR)/qca-nss-cfi-cryptoapi.ko
   AUTOLOAD:=$(call AutoLoad,59,qca-nss-cfi-ocf qca-nss-cfi-cryptoapi qca-nss-ipsec)
 endef
 
@@ -51,6 +61,7 @@ define Build/Compile
 		SUBDIRS="$(PKG_BUILD_DIR)" \
 		EXTRA_CFLAGS="$(EXTRA_CFLAGS)" \
 		CC="$(TARGET_CC)" \
+		CFI_CRYPTOAPI_DIR=$(CFI_CRYPTOAPI_DIR) \
 		modules
 endef
 
