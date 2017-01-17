@@ -1,6 +1,6 @@
 /*
  * ********************************************************************************
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
@@ -346,7 +346,7 @@ struct nss_ipsecmgr_drv {
 	struct nss_ipsecmgr_flow_db flow_db;	/* flow database */
 	struct completion complete;		/* completion for flow stats nss msg */
 
-	uint32_t nss_ifnum;			/* NSS interface for sending data */
+	int nss_ifnum;				/* NSS interface for sending data */
 
 	struct nss_ctx_instance *nss_ctx;	/* NSS context */
 
