@@ -88,7 +88,7 @@ int nss_cryptoapi_aead_init(struct crypto_aead *aead)
 	}
 
 	/* Alloc fallback transform for future use */
-	sw_tfm = crypto_alloc_aead(alg->base.cra_name, 0, CRYPTO_ALG_NEED_FALLBACK);
+	sw_tfm = crypto_alloc_aead(alg->base.cra_name, 0, CRYPTO_ALG_ASYNC | CRYPTO_ALG_NEED_FALLBACK);
 	if (IS_ERR(sw_tfm)) {
 		nss_cfi_err("Unable to allocate fallback for aead:%s\n", crypto_tfm_alg_name(tfm));
 		return 0;
@@ -897,6 +897,7 @@ int nss_cryptoapi_sha1_aes_encrypt(struct aead_request *req)
 
 	if (ctx->fallback_req)
 		return nss_cryptoapi_aead_fallback(ctx, req, NSS_CRYPTOAPI_ENCRYPT);
+
 	/*
 	 * Check if previous call to setkey couldn't allocate session with core crypto.
 	 */
