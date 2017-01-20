@@ -37,7 +37,6 @@ qca-nss-drv-objs := \
 			nss_n2h.o \
 			nss_oam.o \
 			nss_phys_if.o \
-			nss_pm.o \
 			nss_profiler.o \
 			nss_portid.o \
 			nss_ppe.o \
@@ -64,13 +63,14 @@ qca-nss-drv-objs += nss_tx_rx_virt_if.o
 qca-nss-drv-objs += nss_data_plane/nss_data_plane.o
 qca-nss-drv-objs += nss_hal/nss_hal.o
 
-# All active qsdk branches (banana/coconut/trunk) supports ipq806x
+ifeq ($(SoC), ipq806x)
 qca-nss-drv-objs += nss_data_plane/nss_data_plane_gmac.o \
-		    nss_hal/ipq806x/nss_hal_pvt.o
+		    nss_hal/ipq806x/nss_hal_pvt.o \
+		    nss_pm.o
 ccflags-y += -I$(obj)/nss_hal/ipq806x -DNSS_HAL_IPQ806X_SUPPORT
+endif
 
-# Only 4.4 Kernel (qsdk trunk) supports ipq807x
-ifneq ($(findstring 4.4., $(KERNELVERSION)),)
+ifeq ($(SoC), ipq807x)
 qca-nss-drv-objs += nss_data_plane/nss_data_plane_edma.o \
 		    nss_hal/ipq807x/nss_hal_pvt.o
 ccflags-y += -I$(obj)/nss_hal/ipq807x -DNSS_HAL_IPQ807x_SUPPORT
