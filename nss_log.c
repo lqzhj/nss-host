@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -471,8 +471,8 @@ bool nss_debug_log_buffer_alloc(uint8_t nss_id, uint32_t nentry)
 	}
 
 	memset(addr, 0, size);
-	dma_addr = (uint32_t)dma_map_single(NULL, addr, size, DMA_FROM_DEVICE);
-	if (unlikely(dma_mapping_error(NULL, dma_addr))) {
+	dma_addr = (uint32_t)dma_map_single(nss_ctx->dev, addr, size, DMA_FROM_DEVICE);
+	if (unlikely(dma_mapping_error(nss_ctx->dev, dma_addr))) {
 		nss_warning("%p: Failed to map address in DMA", nss_ctx);
 		goto fail2;
 	}
@@ -557,7 +557,7 @@ bool nss_debug_log_buffer_alloc(uint8_t nss_id, uint32_t nentry)
 
 			old_size = sizeof (struct nss_log_descriptor) +
 				(sizeof (struct nss_log_entry) * old_rbe.nentries);
-			dma_unmap_single(NULL, old_rbe.dma_addr, old_size, DMA_FROM_DEVICE);
+			dma_unmap_single(nss_ctx->dev, old_rbe.dma_addr, old_size, DMA_FROM_DEVICE);
 			kfree(old_rbe.addr);
 		} else {
 			/*

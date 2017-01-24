@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -662,7 +662,7 @@ static inline bool nss_core_handle_nr_frag_skb(struct nss_ctx_instance *nss_ctx,
 
 	nss_assert(desc->payload_offs + desc->payload_len <= PAGE_SIZE);
 
-	dma_unmap_page(NULL, (desc->buffer + desc->payload_offs), desc->payload_len, DMA_FROM_DEVICE);
+	dma_unmap_page(nss_ctx->dev, (desc->buffer + desc->payload_offs), desc->payload_len, DMA_FROM_DEVICE);
 
 	/*
 	 * The first and last bits are both set. Hence the received frame can't have
@@ -807,7 +807,7 @@ static inline bool nss_core_handle_linear_skb(struct nss_ctx_instance *nss_ctx, 
 	nbuf->data = nbuf->head + desc->payload_offs;
 	nbuf->len = desc->payload_len;
 	nbuf->tail = nbuf->data + nbuf->len;
-	dma_unmap_single(NULL, (desc->buffer + desc->payload_offs), desc->payload_len, DMA_FROM_DEVICE);
+	dma_unmap_single(nss_ctx->dev, (desc->buffer + desc->payload_offs), desc->payload_len, DMA_FROM_DEVICE);
 	prefetch((void *)(nbuf->data));
 
 	if (likely(bit_flags & N2H_BIT_FLAG_FIRST_SEGMENT) && likely(bit_flags & N2H_BIT_FLAG_LAST_SEGMENT)) {
@@ -1038,7 +1038,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 			 * No need to invalidate for Tx Completions, so set dma direction = DMA_TO_DEVICE;
 			 * Similarly prefetch is not needed for an empty buffer.
 			 */
-			dma_unmap_single(NULL, (desc->buffer + desc->payload_offs), desc->payload_len, DMA_TO_DEVICE);
+			dma_unmap_single(nss_ctx->dev, (desc->buffer + desc->payload_offs), desc->payload_len, DMA_TO_DEVICE);
 			goto consume;
 		}
 
@@ -1047,7 +1047,7 @@ static int32_t nss_core_handle_cause_queue(struct int_ctx_instance *int_ctx, uin
 		 * one of them is actually looked at.
 		 */
 		if ((unlikely(buffer_type == N2H_BUFFER_SHAPER_BOUNCED_INTERFACE)) || (unlikely(buffer_type == N2H_BUFFER_SHAPER_BOUNCED_BRIDGE))) {
-			dma_unmap_page(NULL, (desc->buffer + desc->payload_offs), desc->payload_len, DMA_TO_DEVICE);
+			dma_unmap_page(nss_ctx->dev, (desc->buffer + desc->payload_offs), desc->payload_len, DMA_TO_DEVICE);
 			goto consume;
 		}
 
@@ -1323,7 +1323,7 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 				nbuf->truesize += PAGE_SIZE;
 
 				/* Map the page for jumbo */
-				buffer = dma_map_page(NULL, npage, 0, PAGE_SIZE, DMA_FROM_DEVICE);
+				buffer = dma_map_page(nss_ctx->dev, npage, 0, PAGE_SIZE, DMA_FROM_DEVICE);
 				desc->buffer_len = PAGE_SIZE;
 				desc->payload_offs = 0;
 
@@ -1341,7 +1341,7 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 				/*
 				 * Map the skb
 				 */
-				buffer = dma_map_single(NULL, nbuf->head, jumbo_mru, DMA_FROM_DEVICE);
+				buffer = dma_map_single(nss_ctx->dev, nbuf->head, jumbo_mru, DMA_FROM_DEVICE);
 				desc->buffer_len = jumbo_mru;
 				desc->payload_offs = (uint16_t) (nbuf->data - nbuf->head);
 
@@ -1360,12 +1360,12 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 				 * Map the skb
 				 */
 				payload_len = max_buf_size + NET_SKB_PAD;
-				buffer = dma_map_single(NULL, nbuf->head, payload_len, DMA_FROM_DEVICE);
+				buffer = dma_map_single(nss_ctx->dev, nbuf->head, payload_len, DMA_FROM_DEVICE);
 				desc->buffer_len = payload_len;
 				desc->payload_offs = (uint16_t) (nbuf->data - nbuf->head);
 			}
 
-			if (unlikely(dma_mapping_error(NULL, buffer))) {
+			if (unlikely(dma_mapping_error(nss_ctx->dev, buffer))) {
 				/*
 				 * ERR:
 				 */
@@ -1661,7 +1661,7 @@ static inline void nss_core_write_one_descriptor(struct h2n_descriptor *desc,
 * nss_core_send_unwind_dma()
 *	It unwinds (or unmap) DMA from descriptors
 */
-static inline void nss_core_send_unwind_dma(struct h2n_desc_if_instance *desc_if,
+static inline void nss_core_send_unwind_dma(struct device *dev, struct h2n_desc_if_instance *desc_if,
 	uint16_t hlos_index, int16_t count, bool is_fraglist)
 {
 	struct h2n_descriptor *desc_ring = desc_if->desc;
@@ -1672,9 +1672,9 @@ static inline void nss_core_send_unwind_dma(struct h2n_desc_if_instance *desc_if
 	for (i = 0; i < count; i++) {
 		desc = &desc_ring[hlos_index];
 		if (is_fraglist) {
-			dma_unmap_single(NULL, desc->buffer, desc->buffer_len, DMA_TO_DEVICE);
+			dma_unmap_single(dev, desc->buffer, desc->buffer_len, DMA_TO_DEVICE);
 		} else {
-			dma_unmap_page(NULL, desc->buffer, desc->buffer_len, DMA_TO_DEVICE);
+			dma_unmap_page(dev, desc->buffer, desc->buffer_len, DMA_TO_DEVICE);
 		}
 		hlos_index = (hlos_index + 1) & mask;
 	}
@@ -1835,8 +1835,8 @@ static inline int32_t nss_core_send_buffer_simple_skb(struct nss_ctx_instance *n
 	 * and then map Rx over the entire buffer.
 	 */
 	sz = max((uint16_t)(nbuf->tail - nbuf->head), (uint16_t)(nss_ctx->max_buf_size + NET_SKB_PAD));
-	frag0phyaddr = (uint32_t)dma_map_single(NULL, nbuf->head, sz, DMA_TO_DEVICE);
-	if (unlikely(dma_mapping_error(NULL, frag0phyaddr))) {
+	frag0phyaddr = (uint32_t)dma_map_single(nss_ctx->dev, nbuf->head, sz, DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(nss_ctx->dev, frag0phyaddr))) {
 		goto no_reuse;
 	}
 
@@ -1860,8 +1860,8 @@ no_reuse:
 #endif
 
 	frag0phyaddr = 0;
-	frag0phyaddr = (uint32_t)dma_map_single(NULL, nbuf->head, (nbuf->tail - nbuf->head), DMA_TO_DEVICE);
-	if (unlikely(dma_mapping_error(NULL, frag0phyaddr))) {
+	frag0phyaddr = (uint32_t)dma_map_single(nss_ctx->dev, nbuf->head, (nbuf->tail - nbuf->head), DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(nss_ctx->dev, frag0phyaddr))) {
 		nss_warning("%p: DMA mapping failed for virtual address = %x", nss_ctx, (uint32_t)nbuf->head);
 		return 0;
 	}
@@ -1895,8 +1895,8 @@ static inline int32_t nss_core_send_buffer_nr_frags(struct nss_ctx_instance *nss
 	uint16_t mask;
 
 	uint32_t frag0phyaddr = 0;
-	frag0phyaddr = (uint32_t)dma_map_single(NULL, nbuf->head, (nbuf->tail - nbuf->head), DMA_TO_DEVICE);
-	if (unlikely(dma_mapping_error(NULL, frag0phyaddr))) {
+	frag0phyaddr = (uint32_t)dma_map_single(nss_ctx->dev, nbuf->head, (nbuf->tail - nbuf->head), DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(nss_ctx->dev, frag0phyaddr))) {
 		nss_warning("%p: DMA mapping failed for virtual address = %x", nss_ctx, (uint32_t)nbuf->head);
 		return 0;
 	}
@@ -1927,10 +1927,10 @@ static inline int32_t nss_core_send_buffer_nr_frags(struct nss_ctx_instance *nss
 	for (i = 0; i < nr_frags; i++) {
 		frag = &skb_shinfo(nbuf)->frags[i];
 
-		buffer = skb_frag_dma_map(NULL, frag, 0, skb_frag_size(frag), DMA_TO_DEVICE);
-		if (unlikely(dma_mapping_error(NULL, buffer))) {
+		buffer = skb_frag_dma_map(nss_ctx->dev, frag, 0, skb_frag_size(frag), DMA_TO_DEVICE);
+		if (unlikely(dma_mapping_error(nss_ctx->dev, buffer))) {
 			nss_warning("%p: DMA mapping failed for fragment", nss_ctx);
-			nss_core_send_unwind_dma(desc_if, hlos_index, i + 1, is_fraglist);
+			nss_core_send_unwind_dma(nss_ctx->dev, desc_if, hlos_index, i + 1, is_fraglist);
 			return -(i + 1);
 		}
 
@@ -1978,8 +1978,8 @@ static inline int32_t nss_core_send_buffer_fraglist(struct nss_ctx_instance *nss
 	int16_t i;
 
 	uint32_t frag0phyaddr = 0;
-	frag0phyaddr = (uint32_t)dma_map_single(NULL, nbuf->head, (nbuf->tail - nbuf->head), DMA_TO_DEVICE);
-	if (unlikely(dma_mapping_error(NULL, frag0phyaddr))) {
+	frag0phyaddr = (uint32_t)dma_map_single(nss_ctx->dev, nbuf->head, (nbuf->tail - nbuf->head), DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(nss_ctx->dev, frag0phyaddr))) {
 		nss_warning("%p: DMA mapping failed for virtual address = %x", nss_ctx, (uint32_t)nbuf->head);
 		return 0;
 	}
@@ -2014,10 +2014,10 @@ static inline int32_t nss_core_send_buffer_fraglist(struct nss_ctx_instance *nss
 	skb_walk_frags(nbuf, iter) {
 		uint32_t nr_frags;
 
-		buffer = (uint32_t)dma_map_single(NULL, iter->head, (iter->tail - iter->head), DMA_TO_DEVICE);
-		if (unlikely(dma_mapping_error(NULL, buffer))) {
+		buffer = (uint32_t)dma_map_single(nss_ctx->dev, iter->head, (iter->tail - iter->head), DMA_TO_DEVICE);
+		if (unlikely(dma_mapping_error(nss_ctx->dev, buffer))) {
 			nss_warning("%p: DMA mapping failed for virtual address = %x", nss_ctx, (uint32_t)iter->head);
-			nss_core_send_unwind_dma(desc_if, hlos_index, i + 1, is_fraglist);
+			nss_core_send_unwind_dma(nss_ctx->dev, desc_if, hlos_index, i + 1, is_fraglist);
 			return -(i+1);
 		}
 
@@ -2028,7 +2028,7 @@ static inline int32_t nss_core_send_buffer_fraglist(struct nss_ctx_instance *nss
 		nr_frags = skb_shinfo(iter)->nr_frags;
 		if (unlikely(nr_frags > 0)) {
 			nss_warning("%p: fraglist with page data are not supported: %p\n", nss_ctx, iter);
-			nss_core_send_unwind_dma(desc_if, hlos_index, i + 1, is_fraglist);
+			nss_core_send_unwind_dma(nss_ctx->dev, desc_if, hlos_index, i + 1, is_fraglist);
 			return -(i+1);
 		}
 

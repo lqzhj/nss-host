@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -930,7 +930,7 @@ static nss_tx_status_t nss_n2h_buf_pool_cfg(struct nss_ctx_instance *nss_ctx,
 			}
 
 			buf_pool->nss_buf_pool_vaddr[page_count] = kern_addr;
-			buf_pool->nss_buf_pool_addr[page_count] = dma_map_single(NULL, kern_addr, PAGE_SIZE, DMA_TO_DEVICE);
+			buf_pool->nss_buf_pool_addr[page_count] = dma_map_single(nss_ctx->dev, kern_addr, PAGE_SIZE, DMA_TO_DEVICE);
 		}
 
 		buf_pool->nss_buf_num_pages = page_count;

@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -870,6 +870,7 @@ struct nss_shaper_bounce_registrant {
 struct nss_ctx_instance {
 	struct nss_top_instance *nss_top;
 					/* Back pointer to NSS Top */
+	struct device *dev;		/* Pointer to the original device from probe */
 	uint32_t id;			/* Core ID for this instance */
 	uint32_t nmap;			/* Pointer to NSS CSM registers */
 	uint32_t vmap;			/* Virt mem pointer to virtual register map */
