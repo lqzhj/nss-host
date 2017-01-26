@@ -51,7 +51,9 @@ ifeq ($(findstring 3.4, $(KERNELVERSION)),)
 obj-y+=map/map-t/
 endif
 
+ifeq ($(SoC), ipq807x)
 # Bridge manager
 obj-y += bridge/
+endif
 
 obj ?= .
