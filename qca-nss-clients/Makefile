@@ -180,12 +180,19 @@ EXTRA_CFLAGS+= \
 	-I$(STAGING_DIR)/usr/include/qca-ssdk/fal \
 	-I$(STAGING_DIR)/usr/include/nat46
 
+ifeq ($(CONFIG_TARGET_ipq806x_QSDK_Deluxe),y)
+subtarget:=ipq807x
+else
+subtarget:=ipq806x
+endif
+
 define Build/Compile
 	$(MAKE) -C "$(LINUX_DIR)" \
 		CROSS_COMPILE="$(TARGET_CROSS)" \
 		ARCH="$(LINUX_KARCH)" \
 		SUBDIRS="$(PKG_BUILD_DIR)" \
 		EXTRA_CFLAGS="$(EXTRA_CFLAGS)" \
+		SoC="$(subtarget)" \
 		modules
 endef
 
