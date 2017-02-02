@@ -16,32 +16,44 @@ PKG_SOURCE_VERSION:=$(PKG_VERSION)
 
 include $(INCLUDE_DIR)/package.mk
 
-define KernelPackage/qca-nss-crypto
+# TODO this selection should be based on SOC version
+# v1.0 is for Akronite
+# v2.0 is for Hawkeye
+NSS_CRYPTO_DIR:=v1.0
+
+define KernelPackage/qca-nss-crypto/Default
   SECTION:=kernel
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
   DEPENDS:=@TARGET_ipq806x +kmod-qca-nss-drv @!LINUX_3_18
-  TITLE:=Kernel driver for NSS crypto
-  FILES:=$(PKG_BUILD_DIR)/src/qca-nss-crypto.ko \
-	$(PKG_BUILD_DIR)/tool/qca-nss-crypto-tool.ko
-  AUTOLOAD:=$(call AutoLoad,52,qca-nss-crypto qca-nss-crypto-tool)
+endef
+
+define KernelPackage/qca-nss-crypto
+  $(call KernelPackage/qca-nss-crypto/Default)
+  TITLE:=Kernel driver for NSS crypto driver
+  FILES:=$(PKG_BUILD_DIR)/$(NSS_CRYPTO_DIR)/src/qca-nss-crypto.ko \
+	$(PKG_BUILD_DIR)/$(NSS_CRYPTO_DIR)/tool/qca-nss-crypto-tool.ko
 endef
 
 define KernelPackage/qca-nss-crypto/Description
 This package contains a NSS crypto driver for QCA chipset
 endef
 
+define Build/InstallDev/qca-nss-crypto
+	$(INSTALL_DIR) $(1)/usr/include/qca-nss-crypto
+	$(CP) $(PKG_BUILD_DIR)/$(NSS_CRYPTO_DIR)/include/* $(1)/usr/include/qca-nss-crypto
+endef
+
 define Build/InstallDev
-	mkdir -p $(1)/usr/include/qca-nss-crypto
-	$(CP) $(PKG_BUILD_DIR)/include/nss_crypto_if.h $(1)/usr/include/qca-nss-crypto/
+	$(call Build/InstallDev/qca-nss-crypto,$(1))
 endef
 
 EXTRA_CFLAGS+= \
 	-DCONFIG_NSS_DEBUG_LEVEL=4 \
 	-I$(STAGING_DIR)/usr/include/qca-nss-crypto \
 	-I$(STAGING_DIR)/usr/include/qca-nss-drv \
-	-I$(PKG_BUILD_DIR)/include \
-	-I$(PKG_BUILD_DIR)/src
+	-I$(PKG_BUILD_DIR)/$(NSS_CRYPTO_DIR)/include \
+	-I$(PKG_BUILD_DIR)/$(NSS_CRYPTO_DIR)/src
 
 define Build/Compile
 	$(MAKE) -C "$(LINUX_DIR)" \
@@ -50,6 +62,7 @@ define Build/Compile
 		ARCH="$(LINUX_KARCH)" \
 		SUBDIRS="$(PKG_BUILD_DIR)" \
 		EXTRA_CFLAGS="$(EXTRA_CFLAGS)" \
+		NSS_CRYPTO_DIR=$(NSS_CRYPTO_DIR) \
 		modules
 endef
 
