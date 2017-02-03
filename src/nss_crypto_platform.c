@@ -1,4 +1,5 @@
-/* Copyright (c) 2013,2015-2016, The Linux Foundation. All rights reserved.
+/*
+ * Copyright (c) 2013,2015-2017, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -201,6 +202,10 @@ static void __exit nss_crypto_module_exit(void)
 	platform_driver_unregister(&nss_crypto_drv);
 }
 
+/*
+ * nss_crypto_delayed_init()
+ *	Delayed worker function for crypto probe
+ */
 void nss_crypto_delayed_init(struct work_struct *work)
 {
 	struct nss_crypto_ctrl *ctrl;
@@ -210,7 +215,8 @@ void nss_crypto_delayed_init(struct work_struct *work)
 	ctrl = container_of(to_delayed_work(work), struct nss_crypto_ctrl, crypto_work);
 
 	/*
-	 * check if NSS FW is initialized
+	 * if NSS FW is not initialized at this point, schedule a delayed work
+	 * thread and wait for NSS FW to be up before doing a crypto probe
 	 */
 	if (nss_get_state(nss_drv_hdl) != NSS_STATE_INITIALIZED) {
 		schedule_delayed_work(&ctrl->crypto_work, msecs_to_jiffies(CRYPTO_DELAYED_INIT_TIME));
