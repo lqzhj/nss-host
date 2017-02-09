@@ -37,6 +37,7 @@ qca-nss-drv-objs := \
 			nss_n2h.o \
 			nss_oam.o \
 			nss_phys_if.o \
+			nss_pm.o \
 			nss_profiler.o \
 			nss_portid.o \
 			nss_ppe.o \
@@ -65,8 +66,7 @@ qca-nss-drv-objs += nss_hal/nss_hal.o
 
 ifeq ($(SoC), ipq806x)
 qca-nss-drv-objs += nss_data_plane/nss_data_plane_gmac.o \
-		    nss_hal/ipq806x/nss_hal_pvt.o \
-		    nss_pm.o
+		    nss_hal/ipq806x/nss_hal_pvt.o
 ccflags-y += -I$(obj)/nss_hal/ipq806x -DNSS_HAL_IPQ806X_SUPPORT
 endif
 

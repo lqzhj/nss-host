@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014 - 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -23,8 +23,11 @@
 #include <linux/module.h>
 #include <linux/netdevice.h>
 #include <nss_api_if.h>
-#include <nss_clocks.h>
 #include <nss_core.h>
+
+#if (NSS_DT_SUPPORT != 1)
+#include <nss_clocks.h>
+#endif
 
 #if (NSS_PM_SUPPORT == 1)
 #include "nss_pm.h"
@@ -335,7 +338,9 @@ nss_pm_interface_status_t nss_pm_set_perf_level(void *handle, nss_pm_perf_level_
 		index = NSS_PM_PERF_LEVEL_IDLE;
 	}
 
+#if !defined(NSS_HAL_IPQ807x_SUPPORT)
 	nss_freq_sched_change(index, false);
+#endif
 
 #elif (NSS_PM_SUPPORT == 1)
 
