@@ -44,7 +44,7 @@ struct nss_gmac_ethtool_stats {
 
 #define DRVINFO_LEN		32
 #define NSS_GMAC_STAT(m)	offsetof(struct nss_gmac_stats, m)
-#define HW_ERR_SIZE		sizeof(uint32_t)
+#define HW_ERR_SIZE		sizeof(uint64_t)
 
 /**
  * @brief Array of strings describing statistics
@@ -205,7 +205,7 @@ static void nss_gmac_get_ethtool_stats(struct net_device *netdev,
 	for (i = 0; i < NSS_GMAC_STATS_LEN; i++) {
 		p = (uint8_t *)&(gmacdev->nss_stats) +
 					gmac_gstrings_stats[i].stat_offset;
-		data[i] = *(uint32_t *)p;
+		data[i] = *(uint64_t *)p;
 	}
 	spin_unlock_bh(&gmacdev->stats_lock);
 }
