@@ -1117,6 +1117,15 @@ void nss_gmac_ipc_offload_init(struct nss_gmac_dev *gmacdev)
 	}
 }
 
+/*
+ * Make MMC stats Clear-on-Read
+ * @param[in] pointer to nss_gmac_dev.
+ * @return void
+ */
+void nss_gmac_mmc_stats_cor_enable(struct nss_gmac_dev *gmacdev)
+{
+	nss_gmac_set_reg_bits(gmacdev->mac_base, gmac_mmc_cntrl, gmac_mmc_cor);
+}
 
 /*
  * Mac initialization sequence.
@@ -1169,6 +1178,7 @@ void nss_gmac_mac_init(struct nss_gmac_dev *gmacdev)
 	nss_gmac_unicast_hash_filter_disable(gmacdev);
 
 	nss_gmac_ipc_offload_init(gmacdev);
+	nss_gmac_mmc_stats_cor_enable(gmacdev);
 
 	/* Flow Control Configuration */
 	nss_gmac_unicast_pause_frame_detect_disable(gmacdev);

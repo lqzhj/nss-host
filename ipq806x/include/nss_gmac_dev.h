@@ -1300,6 +1300,10 @@ enum mmc_enable {
 					   generated from tx counters   */
 };
 
+enum mmc_config_reg {
+	gmac_mmc_cor = 0x00000004,		/* Set mmc counters Clear-on-Read */
+};
+
 enum mmc_ip_related {
 	gmac_mmc_rx_ipc_intr_mask = 0x0200,
 /*Maintains the mask for interrupt generated from rx IPC statistic counters   */
