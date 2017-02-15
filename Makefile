@@ -7,7 +7,10 @@ ccflags-y += -DNSS_CLIENT_BUILD_ID="$(BUILD_ID)"
 
 obj-y+= profiler/
 obj-y+= nss_qdisc/
+
+ifeq ($(SoC), ipq807x)
 obj-y+= nss_ppe_qdisc/
+endif
 
 # DTLS manager
 #obj-y+=dtls/
