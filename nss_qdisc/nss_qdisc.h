@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014-2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -94,6 +94,12 @@
 #define nss_qdisc_get_dev(ptr) netdev_notifier_info_to_dev(ptr)
 #endif
 
+/*
+ * Mode of Qdisc/class
+ * These are defined as Magic numbers to avoid false positives
+ */
+#define NSS_QDISC_MODE_NSS 0x6243
+#define NSS_QDISC_MODE_PPE 0x6245
 
 struct nss_qdisc {
 	struct Qdisc *qdisc;			/* Handy pointer back to containing qdisc */
@@ -151,6 +157,7 @@ struct nss_qdisc {
 						/* Latest stats obtained */
 	wait_queue_head_t wait_queue;		/* Wait queue used to wait on responses from the NSS */
 	spinlock_t lock;			/* Lock to protect the nss qdisc structure */
+	uint16_t mode;				/* Mode of Qdisc/class */
 };
 
 /*
@@ -177,6 +184,14 @@ enum nss_qdisc_interface_msgs {
 	NSS_QDISC_IF_SHAPER_ASSIGN,
 	NSS_QDISC_IF_SHAPER_UNASSIGN,
 	NSS_QDISC_IF_SHAPER_CONFIG,
+};
+
+/*
+ * Types of mode for hybrid configuration.
+ */
+enum nss_qdisc_hybrid_mode {
+	NSS_QDISC_HYBRID_MODE_DISABLE,
+	NSS_QDISC_HYBRID_MODE_ENABLE,
 };
 
 /*
@@ -208,6 +223,12 @@ extern int nss_qdisc_enqueue(struct sk_buff *skb, struct Qdisc *sch);
  *	Generic dequeue call for dequeuing bounced packets.
  */
 extern struct sk_buff *nss_qdisc_dequeue(struct Qdisc *sch);
+
+/*
+ * nss_qdisc_set_hybrid_mode()
+ *	Configuration function that enables/disables hybrid mode
+ */
+extern int nss_qdisc_set_hybrid_mode(struct nss_qdisc *nq, enum nss_qdisc_hybrid_mode mode, uint32_t offset);
 
 /*
  * nss_qdisc_node_set_default()
@@ -248,7 +269,7 @@ extern void nss_qdisc_destroy(struct nss_qdisc *nq);
  *	Initializes a shaper in NSS, based on the position of this qdisc (child or root)
  *	and if its a normal interface or a bridge interface.
  */
-extern int nss_qdisc_init(struct Qdisc *sch, struct nss_qdisc *nq, nss_shaper_node_type_t type, uint32_t classid);
+extern int nss_qdisc_init(struct Qdisc *sch, struct nss_qdisc *nq, uint16_t mode, nss_shaper_node_type_t type, uint32_t classid);
 
 /*
  * nss_qdisc_start_basic_stats_polling()
@@ -282,3 +303,9 @@ extern int nss_qdisc_gnet_stats_copy_queue(struct gnet_dump *d,
  */
 extern struct Qdisc *nss_qdisc_replace(struct Qdisc *sch, struct Qdisc *new,
 					struct Qdisc **pold);
+
+/*
+ * nss_qdisc_ppe_mod_owner_set()()
+ *	Sets the nss_qdisc_ppe module owner.
+ */
+extern void nss_qdisc_ppe_mod_owner_set(struct module *owner);

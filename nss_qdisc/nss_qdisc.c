@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014-2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -15,7 +15,6 @@
  */
 
 #include "nss_qdisc.h"
-
 #include "nss_fifo.h"
 #include "nss_codel.h"
 #include "nss_tbl.h"
@@ -27,6 +26,7 @@
 #include "nss_blackhole.h"
 #include "nss_wred.h"
 
+static struct module *nss_ppe_owner;	/* NSS PPE Qdisc module owner*/
 void *nss_qdisc_ctx;			/* Shaping context for nss_qdisc */
 
 #define NSS_QDISC_COMMAND_TIMEOUT (600*HZ) /* We set 1min to be the command */
@@ -948,6 +948,7 @@ struct Qdisc *nss_qdisc_replace(struct Qdisc *sch, struct Qdisc *new,
 	return old;
 #endif
 }
+EXPORT_SYMBOL(nss_qdisc_replace);
 
 /*
  * nss_qdisc_peek()
@@ -968,6 +969,7 @@ struct sk_buff *nss_qdisc_peek(struct Qdisc *sch)
 
 	return skb;
 }
+EXPORT_SYMBOL(nss_qdisc_peek);
 
 /*
  * nss_qdisc_drop()
@@ -991,6 +993,7 @@ unsigned int nss_qdisc_drop(struct Qdisc *sch)
 
 	return ret;
 }
+EXPORT_SYMBOL(nss_qdisc_drop);
 
 /*
  * nss_qdisc_reset()
@@ -1020,6 +1023,7 @@ void nss_qdisc_reset(struct Qdisc *sch)
 	nss_qdisc_info("%s: Qdisc %p (type %d) reset complete\n",
 			__func__, sch, nq->type);
 }
+EXPORT_SYMBOL(nss_qdisc_reset);
 
 /*
  * nss_qdisc_enqueue()
@@ -1129,6 +1133,7 @@ enqueue_drop:
 
 	return NET_XMIT_DROP;
 }
+EXPORT_SYMBOL(nss_qdisc_enqueue);
 
 /*
  * nss_qdisc_dequeue()
@@ -1149,6 +1154,103 @@ inline struct sk_buff *nss_qdisc_dequeue(struct Qdisc *sch)
 		return nss_qdisc_remove_from_tail(sch);
 	}
 }
+EXPORT_SYMBOL(nss_qdisc_dequeue);
+
+/*
+ * nss_qdisc_set_hybrid_mode_callback()
+ *	The callback function for a shaper node set hybrid mode
+ */
+static void nss_qdisc_set_hybrid_mode_callback(void *app_data,
+					struct nss_if_msg *nim)
+{
+	struct nss_qdisc *nq = (struct nss_qdisc *)app_data;
+
+	if (nim->cm.response != NSS_CMN_RESPONSE_ACK) {
+		nss_qdisc_error("%s: Qdisc %p (type %d): shaper node set default FAILED, response type: %d\n",
+			__func__, nq->qdisc, nq->type, nim->msg.shaper_configure.config.response_type);
+		atomic_set(&nq->state, NSS_QDISC_STATE_FAILED_RESPONSE);
+		wake_up(&nq->wait_queue);
+		return;
+	}
+
+	nss_qdisc_info("%s: Qdisc %p (type %d): attach complete\n", __func__, nq->qdisc, nq->type);
+	atomic_set(&nq->state, NSS_QDISC_STATE_READY);
+	wake_up(&nq->wait_queue);
+}
+
+/*
+ * nss_qdisc_set_hybrid_mode()
+ *	Configuration function that enables/disables hybrid mode
+ */
+int nss_qdisc_set_hybrid_mode(struct nss_qdisc *nq, enum nss_qdisc_hybrid_mode mode, uint32_t offset)
+{
+	int32_t state, rc;
+	int msg_type;
+	struct nss_if_msg nim;
+
+	nss_qdisc_info("%s: Setting qdisc %p (type %d) as hybrid mode\n", __func__,
+			nq->qdisc, nq->type);
+
+	state = atomic_read(&nq->state);
+	if (state != NSS_QDISC_STATE_READY) {
+		nss_qdisc_warning("%s: Qdisc %p (type %d): qdisc state not ready: %d\n", __func__,
+				nq->qdisc, nq->type, state);
+		return -1;
+	}
+
+	/*
+	 * Set shaper node state to IDLE
+	 */
+	atomic_set(&nq->state, NSS_QDISC_STATE_IDLE);
+
+	/*
+	 * Create the shaper configure message and send it down to the NSS interface
+	 */
+	msg_type = nss_qdisc_get_interface_msg(nq->is_bridge, NSS_QDISC_IF_SHAPER_CONFIG);
+	nss_qdisc_msg_init(&nim, nq->nss_interface_number, msg_type, sizeof(struct nss_if_shaper_configure),
+				nss_qdisc_set_hybrid_mode_callback,
+				nq);
+
+	if (mode == NSS_QDISC_HYBRID_MODE_ENABLE) {
+		nim.msg.shaper_configure.config.request_type = NSS_SHAPER_CONFIG_TYPE_HYBRID_MODE_ENABLE;
+		nim.msg.shaper_configure.config.msg.set_hybrid_mode.offset = offset;
+	} else {
+		nim.msg.shaper_configure.config.request_type = NSS_SHAPER_CONFIG_TYPE_HYBRID_MODE_DISABLE;
+	}
+
+	rc = nss_if_tx_msg(nq->nss_shaping_ctx, &nim);
+
+	if (rc != NSS_TX_SUCCESS) {
+		nss_qdisc_warning("%s: Failed to send set hybrid mode message for "
+					"qdisc type %d\n", __func__, nq->type);
+		atomic_set(&nq->state, NSS_QDISC_STATE_READY);
+		return -1;
+	}
+
+	/*
+	 * Wait until cleanup operation is complete at which point the state
+	 * shall become non-idle.
+	 */
+	if (!wait_event_timeout(nq->wait_queue, atomic_read(&nq->state) != NSS_QDISC_STATE_IDLE,
+				NSS_QDISC_COMMAND_TIMEOUT)) {
+		nss_qdisc_error("set_hybrid_mode for qdisc %x timedout!\n", nq->qos_tag);
+		atomic_set(&nq->state, NSS_QDISC_STATE_READY);
+		return -1;
+	}
+
+	state = atomic_read(&nq->state);
+	if (state != NSS_QDISC_STATE_READY) {
+		nss_qdisc_error("%s: Qdisc %p (type %d): failed to set hybrid mode "
+			"State: %d\n", __func__, nq->qdisc, nq->type, state);
+		atomic_set(&nq->state, NSS_QDISC_STATE_READY);
+		return -1;
+	}
+
+	nss_qdisc_info("%s: Qdisc %p (type %d): shaper node set hybrid mode complete\n",
+			__func__, nq->qdisc, nq->type);
+	return 0;
+}
+EXPORT_SYMBOL(nss_qdisc_set_hybrid_mode);
 
 /*
  * nss_qdisc_set_default_callback()
@@ -1238,6 +1340,7 @@ int nss_qdisc_set_default(struct nss_qdisc *nq)
 			__func__, nq->qdisc, nq->type);
 	return 0;
 }
+EXPORT_SYMBOL(nss_qdisc_set_default);
 
 /*
  * nss_qdisc_node_attach_callback()
@@ -1276,6 +1379,14 @@ int nss_qdisc_node_attach(struct nss_qdisc *nq, struct nss_qdisc *nq_child,
 
 	nss_qdisc_info("%s: Qdisc %p (type %d) attaching\n",
 			__func__, nq->qdisc, nq->type);
+
+	/*
+	 * PPE Qdisc cannot be attached to NSS Qdisc.
+	 */
+	if ((nq->mode == NSS_QDISC_MODE_NSS) && (nq_child->mode != NSS_QDISC_MODE_NSS)) {
+		nss_qdisc_warning("%s: Qdisc %p is not nss qdisc\n", __func__, nq_child->qdisc);
+		return -EINVAL;
+	}
 
 	state = atomic_read(&nq->state);
 	if (state != NSS_QDISC_STATE_READY) {
@@ -1336,6 +1447,7 @@ int nss_qdisc_node_attach(struct nss_qdisc *nq, struct nss_qdisc *nq_child,
 			__func__, nq->qdisc, nq->type);
 	return 0;
 }
+EXPORT_SYMBOL(nss_qdisc_node_attach);
 
 /*
  * nss_qdisc_node_detach_callback()
@@ -1430,6 +1542,7 @@ int nss_qdisc_node_detach(struct nss_qdisc *nq, struct nss_qdisc *nq_child,
 			__func__, nq->qdisc, nq->type);
 	return 0;
 }
+EXPORT_SYMBOL(nss_qdisc_node_detach);
 
 /*
  * nss_qdisc_configure_callback()
@@ -1519,6 +1632,7 @@ int nss_qdisc_configure(struct nss_qdisc *nq,
 			__func__, nq->qdisc, nq->type);
 	return 0;
 }
+EXPORT_SYMBOL(nss_qdisc_configure);
 
 /*
  * nss_qdisc_destroy()
@@ -1597,13 +1711,14 @@ void nss_qdisc_destroy(struct nss_qdisc *nq)
 	nss_qdisc_info("%s: Qdisc %p (type %d): destroy complete\n",
 			__func__, nq->qdisc, nq->type);
 }
+EXPORT_SYMBOL(nss_qdisc_destroy);
 
 /*
  * nss_qdisc_init()
  *	Initializes a shaper in NSS, based on the position of this qdisc (child or root)
  *	and if its a normal interface or a bridge interface.
  */
-int nss_qdisc_init(struct Qdisc *sch, struct nss_qdisc *nq, nss_shaper_node_type_t type, uint32_t classid)
+int nss_qdisc_init(struct Qdisc *sch, struct nss_qdisc *nq, uint16_t mode, nss_shaper_node_type_t type, uint32_t classid)
 {
 	struct Qdisc *root;
 	u32 parent;
@@ -1626,11 +1741,11 @@ int nss_qdisc_init(struct Qdisc *sch, struct nss_qdisc *nq, nss_shaper_node_type
 	init_waitqueue_head(&nq->wait_queue);
 
 	/*
-	 * Record our qdisc and type in the private region for handy use
+	 * Record our qdisc, mode and type in the private region for handy use
 	 */
 	nq->qdisc = sch;
+	nq->mode = mode;
 	nq->type = type;
-
 	/*
 	 * We dont have to destroy a virtual interface unless
 	 * we are the ones who created it. So set it to false
@@ -1698,11 +1813,11 @@ int nss_qdisc_init(struct Qdisc *sch, struct nss_qdisc *nq, nss_shaper_node_type
 		nq->qos_tag, parent, root->ops->id, root->ops->owner);
 
 	/*
-	 * The root must be of an nss type (unless we are of course going to be root).
-	 * This is to prevent mixing NSS qdisc with other types of qdisc.
+	 * The root must be of PPE or nss type.
+	 * This is to prevent mixing NSS and PPE qdisc with linux qdisc.
 	 */
-	if ((parent != TC_H_ROOT) && (root->ops->owner != THIS_MODULE)) {
-		nss_qdisc_warning("%s: NSS qdisc %p (type %d) used along with non-NSS qdiscs,"
+	if ((parent != TC_H_ROOT) && ((root->ops->owner != THIS_MODULE) && (root->ops->owner != nss_ppe_owner))) {
+		nss_qdisc_warning("%s: NSS qdisc %p (type %d) used along with non-NSS/PPE qdiscs,"
 			" or the interface is currently down", __func__, nq->qdisc, nq->type);
 	}
 
@@ -1984,6 +2099,7 @@ init_fail:
 
 	return -1;
 }
+EXPORT_SYMBOL(nss_qdisc_init);
 
 /*
  * nss_qdisc_basic_stats_callback()
@@ -1999,7 +2115,7 @@ static void nss_qdisc_basic_stats_callback(void *app_data,
 	atomic_t *refcnt;
 
 	if (nim->cm.response != NSS_CMN_RESPONSE_ACK) {
-		nss_qdisc_warning("%s: Qdisc %p (type %d): Receive stats FAILED - "
+		nss_qdisc_info("%s: Qdisc %p (type %d): Receive stats FAILED - "
 			"response: type: %d\n", __func__, qdisc, nq->type,
 			nim->msg.shaper_configure.config.response_type);
 		atomic_sub(1, &nq->pending_stat_requests);
@@ -2098,8 +2214,8 @@ static void nss_qdisc_get_stats_timer_callback(unsigned long int data)
 	 * Check if we failed to send the stats request to NSS.
 	 */
 	if (rc != NSS_TX_SUCCESS) {
-		nss_qdisc_info("%s: %p: stats fetch request dropped, causing "
-				"delay in stats fetch\n", __func__, nq->qdisc);
+		nss_qdisc_error("%s: %p: basic stats get failed to send\n",
+				__func__, nq->qdisc);
 
 		/*
 		 * Schedule the timer once again for re-trying. Since this is a
@@ -2123,6 +2239,7 @@ void nss_qdisc_start_basic_stats_polling(struct nss_qdisc *nq)
 	atomic_set(&nq->pending_stat_requests, 1);
 	add_timer(&nq->stats_get_timer);
 }
+EXPORT_SYMBOL(nss_qdisc_start_basic_stats_polling);
 
 /*
  * nss_qdisc_stop_basic_stats_polling()
@@ -2151,6 +2268,7 @@ void nss_qdisc_stop_basic_stats_polling(struct nss_qdisc *nq)
 		nss_qdisc_error("Stats request command for %x timedout!\n", nq->qos_tag);
 	}
 }
+EXPORT_SYMBOL(nss_qdisc_stop_basic_stats_polling);
 
 /*
  * nss_qdisc_gnet_stats_copy_basic()
@@ -2165,7 +2283,7 @@ int nss_qdisc_gnet_stats_copy_basic(struct gnet_dump *d,
 	return gnet_stats_copy_basic(d, NULL, b);
 #endif
 }
-
+EXPORT_SYMBOL(nss_qdisc_gnet_stats_copy_basic);
 
 /*
  * nss_qdisc_gnet_stats_copy_queue()
@@ -2180,6 +2298,17 @@ int nss_qdisc_gnet_stats_copy_queue(struct gnet_dump *d,
 	return gnet_stats_copy_queue(d, NULL, q, q->qlen);
 #endif
 }
+EXPORT_SYMBOL(nss_qdisc_gnet_stats_copy_queue);
+
+/*
+ * nss_qdisc_ppe_mod_owner_set()()
+ *	Sets the nss_qdisc_ppe module owner.
+ */
+void nss_qdisc_ppe_mod_owner_set(struct module *owner)
+{
+	nss_ppe_owner = owner;
+}
+EXPORT_SYMBOL(nss_qdisc_ppe_mod_owner_set);
 
 /*
  * nss_qdisc_if_event_cb()
@@ -2353,6 +2482,7 @@ static void __exit nss_qdisc_module_exit(void)
 		return;
 	}
 #endif
+
 	unregister_qdisc(&nss_pfifo_qdisc_ops);
 	nss_qdisc_info("nsspfifo unregistered");
 
