@@ -46,6 +46,9 @@ obj-y+= pptp/
 #IPsecmgr
 obj-y+= ipsecmgr/
 
+#LAG Manager
+obj-y+= lag/
+
 # MAP-T manager
 ifeq ($(findstring 3.4, $(KERNELVERSION)),)
 obj-y+=map/map-t/
