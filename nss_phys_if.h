@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -118,6 +118,8 @@ enum nss_phys_if_msg_types {
 	NSS_PHYS_IF_ISHAPER_CONFIG = NSS_IF_ISHAPER_CONFIG,
 	NSS_PHYS_IF_BSHAPER_CONFIG = NSS_IF_BSHAPER_CONFIG,
 	NSS_PHYS_IF_PAUSE_ON_OFF = NSS_IF_PAUSE_ON_OFF,
+	NSS_PHYS_IF_VSI_ASSIGN = NSS_IF_VSI_ASSIGN,
+	NSS_PHYS_IF_VSI_UNASSIGN = NSS_IF_VSI_UNASSIGN,
 	NSS_PHYS_IF_EXTENDED_STATS_SYNC = NSS_IF_MAX_MSG_TYPES + 1,
 	NSS_PHYS_IF_MAX_MSG_TYPES
 };
@@ -272,6 +274,28 @@ nss_tx_status_t nss_phys_if_mac_addr(struct nss_ctx_instance *nss_ctx, uint8_t *
  * @return nss_tx_status_t Tx status
  */
 nss_tx_status_t nss_phys_if_change_mtu(struct nss_ctx_instance *nss_ctx, uint32_t mtu, uint32_t if_num);
+
+/**
+ * @brief Send vsi assign to NSS
+ *
+ * @param nss_ctx NSS context
+ * @param vsi VSI number
+ * @param if_num GMAC i/f number
+ *
+ * @return nss_tx_status_t Tx status
+ */
+nss_tx_status_t nss_phys_if_vsi_assign(struct nss_ctx_instance *nss_ctx, uint32_t vsi, uint32_t if_num);
+
+/**
+ * @brief Send vsi unassign to NSS
+ *
+ * @param nss_ctx NSS context
+ * @param vsi VSI number
+ * @param if_num GMAC i/f number
+ *
+ * @return nss_tx_status_t Tx status
+ */
+nss_tx_status_t nss_phys_if_vsi_unassign(struct nss_ctx_instance *nss_ctx, uint32_t vsi, uint32_t if_num);
 
 /**
  * @brief Send pause frame enabled notification to NSS

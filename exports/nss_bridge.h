@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -188,6 +188,26 @@ nss_tx_status_t nss_bridge_tx_join_msg(uint32_t bridge_if_num, struct net_device
  * @return nss_tx_status_t Tx status
  */
 nss_tx_status_t nss_bridge_tx_leave_msg(uint32_t bridge_if_num, struct net_device *netdev);
+
+/**
+ * @brief Send bridge vsi assign message
+ *
+ * @param if_num Bridge interface number
+ * @param vsi vsi to assign
+ *
+ * @return nss_tx_status_t Tx status
+ */
+nss_tx_status_t nss_bridge_tx_vsi_assign_msg(uint32_t if_num, uint32_t vsi);
+
+/**
+ * @brief Send bridge vsi unassign message
+ *
+ * @param if_num Bridge interface number
+ * @param vsi vsi to unassign
+ *
+ * @return nss_tx_status_t Tx status
+ */
+nss_tx_status_t nss_bridge_tx_vsi_unassign_msg(uint32_t if_num, uint32_t vsi);
 
 /**
  * @brief Initialize bridge

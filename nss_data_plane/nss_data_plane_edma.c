@@ -123,6 +123,28 @@ static int __nss_data_plane_pause_on_off(struct nss_dp_data_plane_ctx *dpc, uint
 }
 
 /*
+ * __nss_data_plane_vsi_assign()
+ *	Called by nss-dp to assign vsi of a data plane
+ */
+static int __nss_data_plane_vsi_assign(struct nss_dp_data_plane_ctx *dpc, uint32_t vsi)
+{
+	struct nss_data_plane_edma_param *dp = (struct nss_data_plane_edma_param *)dpc;
+
+	return nss_phys_if_vsi_assign(dp->nss_ctx, vsi, dp->if_num);
+}
+
+/*
+ * __nss_data_plane_vsi_unassign()
+ *	Called by nss-dp to unassign vsi of a data plane
+ */
+static int __nss_data_plane_vsi_unassign(struct nss_dp_data_plane_ctx *dpc, uint32_t vsi)
+{
+	struct nss_data_plane_edma_param *dp = (struct nss_data_plane_edma_param *)dpc;
+
+	return nss_phys_if_vsi_unassign(dp->nss_ctx, vsi, dp->if_num);
+}
+
+/*
  * __nss_data_plane_buf()
  *	Called by nss-dp to pass a sk_buff for xmit
  */
@@ -169,6 +191,8 @@ static struct nss_dp_data_plane_ops dp_ops = {
 	.xmit		= __nss_data_plane_buf,
 	.set_features	= __nss_data_plane_set_features,
 	.pause_on_off	= __nss_data_plane_pause_on_off,
+	.vsi_assign	= __nss_data_plane_vsi_assign,
+	.vsi_unassign	= __nss_data_plane_vsi_unassign,
 };
 
 /*

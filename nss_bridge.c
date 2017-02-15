@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -238,6 +238,62 @@ void nss_bridge_msg_init(struct nss_bridge_msg *ncm, uint16_t if_num, uint32_t t
 	nss_cmn_msg_init(&ncm->cm, if_num, type, len, cb, app_data);
 }
 EXPORT_SYMBOL(nss_bridge_msg_init);
+
+/*
+ * nss_bridge_tx_vsi_assign_msg
+ *	API to send vsi assign message to NSS FW
+ */
+nss_tx_status_t nss_bridge_tx_vsi_assign_msg(uint32_t if_num, uint32_t vsi)
+{
+	struct nss_ctx_instance *nss_ctx = nss_bridge_get_context();
+	struct nss_bridge_msg nbm;
+
+	if (!nss_ctx) {
+		nss_warning("Can't get nss context\n");
+		return NSS_TX_FAILURE;
+	}
+
+	if (nss_bridge_verify_if_num(if_num) == false) {
+		nss_warning("%p: invalid interface %d", nss_ctx, if_num);
+		return NSS_TX_FAILURE;
+	}
+
+	nss_bridge_msg_init(&nbm, if_num, NSS_IF_VSI_ASSIGN,
+			sizeof(struct nss_if_vsi_assign), NULL, NULL);
+
+	nbm.msg.if_msg.vsi_assign.vsi = vsi;
+
+	return nss_bridge_tx_msg_sync(nss_ctx, &nbm);
+}
+EXPORT_SYMBOL(nss_bridge_tx_vsi_assign_msg);
+
+/*
+ * nss_bridge_tx_vsi_unassign_msg
+ *	API to send vsi unassign message to NSS FW
+ */
+nss_tx_status_t nss_bridge_tx_vsi_unassign_msg(uint32_t if_num, uint32_t vsi)
+{
+	struct nss_ctx_instance *nss_ctx = nss_bridge_get_context();
+	struct nss_bridge_msg nbm;
+
+	if (!nss_ctx) {
+		nss_warning("Can't get nss context\n");
+		return NSS_TX_FAILURE;
+	}
+
+	if (nss_bridge_verify_if_num(if_num) == false) {
+		nss_warning("%p: invalid interface %d", nss_ctx, if_num);
+		return NSS_TX_FAILURE;
+	}
+
+	nss_bridge_msg_init(&nbm, if_num, NSS_IF_VSI_UNASSIGN,
+			sizeof(struct nss_if_vsi_unassign), NULL, NULL);
+
+	nbm.msg.if_msg.vsi_unassign.vsi = vsi;
+
+	return nss_bridge_tx_msg_sync(nss_ctx, &nbm);
+}
+EXPORT_SYMBOL(nss_bridge_tx_vsi_unassign_msg);
 
 /*
  * nss_bridge_tx_change_mtu_msg

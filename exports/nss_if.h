@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014 - 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -38,6 +38,8 @@ enum nss_if_message_types {
 	NSS_IF_ISHAPER_CONFIG,
 	NSS_IF_BSHAPER_CONFIG,
 	NSS_IF_PAUSE_ON_OFF,
+	NSS_IF_VSI_ASSIGN,
+	NSS_IF_VSI_UNASSIGN,
 	NSS_IF_MAX_MSG_TYPES = 9999,
 };
 
@@ -57,6 +59,9 @@ enum nss_if_error_types {
 	NSS_IF_ERROR_TYPE_EOPEN,
 	NSS_IF_ERROR_TYPE_INVALID_MTU,
 	NSS_IF_ERROR_TYPE_INVALID_MAC_ADDR,
+	NSS_IF_ERROR_TYPE_VSI_NOT_MATCH,
+	NSS_IF_ERROR_TYPE_VSI_REASSIGN,
+	NSS_IF_ERROR_TYPE_VSI_INVALID,
 	NSS_IF_ERROR_TYPE_MAX = 9999,
 };
 
@@ -154,6 +159,20 @@ struct nss_if_shaper_configure {
 };
 
 /**
+ * nss_if vsi assign message structure.
+ */
+struct nss_if_vsi_assign {
+	uint32_t vsi;
+};
+
+/**
+ * nss_if vsi unassign message structure.
+ */
+struct nss_if_vsi_unassign {
+	uint32_t vsi;
+};
+
+/**
  * Message structure to send/receive phys i/f commands
  */
 union nss_if_msgs {
@@ -167,6 +186,8 @@ union nss_if_msgs {
 	struct nss_if_shaper_unassign shaper_unassign;		/**< Message: shaper unassign */
 	struct nss_if_shaper_configure shaper_configure; 	/**< Message: shaper configure */
 	struct nss_if_pause_on_off pause_on_off;		/**< Message: pause frame on/off notification */
+	struct nss_if_vsi_assign vsi_assign;			/**< Message: vsi assign */
+	struct nss_if_vsi_unassign vsi_unassign;		/**< Message: vsi unassign */
 };
 
 /**
