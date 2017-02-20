@@ -23,6 +23,53 @@
 
 #include "nss_tx_rx_common.h"
 
+#define NSS_LAG_RESP_TIMEOUT 60000	/* 60 Sec */
+
+/*
+ * Private data structure of dynamic interface
+ */
+struct nss_lag_pvt {
+	struct completion complete;		/* completion structure */
+	enum nss_cmn_response response;		/* Message response */
+};
+
+/*
+ * nss_lag_state_callback()
+ *	Call back function for nss LAG State
+ */
+void nss_lag_state_callback(void *arg, struct nss_lag_msg *nm)
+{
+	struct nss_lag_pvt *lag_msg_state = arg;
+
+	/*
+	 * Unblock the sleeping function.
+	 */
+	lag_msg_state->response = nm->cm.response;
+	complete(&lag_msg_state->complete);
+}
+
+/*
+ * nss_lag_verify_ifnum()
+ *
+ */
+static void nss_lag_verify_ifnum(uint32_t if_num)
+{
+	nss_assert((if_num == NSS_LAG0_INTERFACE_NUM) ||
+		   (if_num == NSS_LAG1_INTERFACE_NUM) ||
+		   (if_num == NSS_LAG2_INTERFACE_NUM) ||
+		   (if_num == NSS_LAG3_INTERFACE_NUM));
+}
+
+/*
+ * nss_lag_get_context()
+ */
+static struct nss_ctx_instance *nss_lag_get_context(void)
+{
+	uint8_t ipv4_handler_id = nss_top_main.ipv4_handler_id;
+
+	return (struct nss_ctx_instance *)&nss_top_main.nss[ipv4_handler_id];
+}
+
 /*
  * nss_lag_tx()
  *	Transmit a LAG msg to the firmware.
@@ -72,12 +119,11 @@ void *nss_register_lag_if(uint32_t if_num,
 			 nss_lag_event_callback_t lag_ev_cb,
 			 struct net_device *netdev)
 {
-	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *)&nss_top_main.nss[nss_top_main.ipv4_handler_id];
+	struct nss_ctx_instance *nss_ctx = nss_lag_get_context();
 	uint32_t features = 0;
 
 	nss_assert(nss_ctx);
-	nss_assert((if_num == NSS_LAG0_INTERFACE_NUM) || (if_num == NSS_LAG1_INTERFACE_NUM) ||
-		   (if_num == NSS_LAG2_INTERFACE_NUM) || (if_num == NSS_LAG3_INTERFACE_NUM));
+	nss_lag_verify_ifnum(if_num);
 
 	nss_ctx->subsys_dp_register[if_num].ndev = netdev;
 	nss_ctx->subsys_dp_register[if_num].cb = lag_cb;
@@ -99,11 +145,10 @@ EXPORT_SYMBOL(nss_register_lag_if);
  */
 void nss_unregister_lag_if(uint32_t if_num)
 {
-	struct nss_ctx_instance *nss_ctx = (struct nss_ctx_instance *)&nss_top_main.nss[nss_top_main.ipv4_handler_id];
+	struct nss_ctx_instance *nss_ctx = nss_lag_get_context();
 
 	nss_assert(nss_ctx);
-	nss_assert((if_num == NSS_LAG0_INTERFACE_NUM) || (if_num == NSS_LAG1_INTERFACE_NUM) ||
-		   (if_num == NSS_LAG2_INTERFACE_NUM) || (if_num == NSS_LAG3_INTERFACE_NUM));
+	nss_lag_verify_ifnum(if_num);
 
 	nss_ctx->subsys_dp_register[if_num].cb = NULL;
 	nss_ctx->subsys_dp_register[if_num].ndev = NULL;
@@ -165,7 +210,7 @@ void nss_lag_handler(struct nss_ctx_instance *nss_ctx,
 	 * callback
 	 */
 	cb = (nss_lag_event_callback_t)ncm->cb;
-	ctx = nss_ctx->subsys_dp_register[ncm->interface].ndev;
+	ctx = (void *)ncm->app_data;
 
 	cb(ctx, lm);
 }
@@ -187,8 +232,58 @@ void nss_lag_register_handler(void)
  *	Initialize lag message
  */
 void nss_lag_msg_init(struct nss_lag_msg *nlm, uint16_t lag_num, uint32_t type, uint32_t len,
-			nss_lag_callback_t cb, void *app_data)
+		nss_lag_msg_callback_t cb, void *app_data)
 {
 	nss_cmn_msg_init(&nlm->cm, lag_num, type, len, (void *)cb, app_data);
 }
 EXPORT_SYMBOL(nss_lag_msg_init);
+
+/**
+ * nss_lag_tx_slave_state()
+ */
+nss_tx_status_t nss_lag_tx_slave_state(uint16_t lagid, int32_t slave_ifnum,
+		enum nss_lag_state_change_ev slave_state)
+{
+	struct nss_lag_msg nm;
+	struct nss_lag_state_change *nlsc = NULL;
+	nss_tx_status_t status;
+	int ret;
+	struct nss_ctx_instance *nss_ctx = nss_lag_get_context();
+	struct nss_lag_pvt lag_msg_state;
+
+	init_completion(&lag_msg_state.complete);
+	lag_msg_state.response = false;
+
+	/*
+	 * Construct a message to the NSS to update it
+	 */
+	nss_lag_msg_init(&nm, lagid,
+			 NSS_TX_METADATA_LAG_STATE_CHANGE,
+			 sizeof(struct nss_lag_state_change),
+			 nss_lag_state_callback, &lag_msg_state);
+
+	nlsc = &nm.msg.state;
+	nlsc->event = slave_state;
+	nlsc->interface = slave_ifnum;
+
+	status = nss_lag_tx(nss_ctx, &nm);
+	if (status != NSS_TX_SUCCESS) {
+		nss_warning("%p: Send LAG update failed, status: %d\n", nss_ctx,
+				status);
+		return NSS_TX_FAILURE;
+	}
+
+	/*
+	 * Blocking call, wait till we get ACK for this msg.
+	 */
+	ret = wait_for_completion_timeout(&lag_msg_state.complete,
+			msecs_to_jiffies(NSS_LAG_RESP_TIMEOUT));
+	if (!ret) {
+		nss_warning("%p: Waiting for ack timed out\n", nss_ctx);
+		return NSS_TX_FAILURE;
+	}
+
+	return lag_msg_state.response;
+}
+EXPORT_SYMBOL(nss_lag_tx_slave_state);
+
