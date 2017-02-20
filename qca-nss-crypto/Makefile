@@ -33,6 +33,7 @@ define KernelPackage/qca-nss-crypto
   TITLE:=Kernel driver for NSS crypto driver
   FILES:=$(PKG_BUILD_DIR)/$(NSS_CRYPTO_DIR)/src/qca-nss-crypto.ko \
 	$(PKG_BUILD_DIR)/$(NSS_CRYPTO_DIR)/tool/qca-nss-crypto-tool.ko
+  AUTOLOAD:=$(call AutoLoad,52,qca-nss-crypto qca-nss-crypto-tool)
 endef
 
 define KernelPackage/qca-nss-crypto/Description
