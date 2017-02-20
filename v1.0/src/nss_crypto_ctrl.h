@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013, 2015-2017, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -91,18 +91,19 @@ struct nss_crypto_ctrl_eng {
  * @brief Per index information required for getting information
  */
 struct nss_crypto_idx_info {
-	struct nss_crypto_key ckey;		/**< cipher key */
-	struct nss_crypto_key akey;		/**< auth key */
+	struct nss_crypto_key ckey;			/**< cipher key */
+	struct nss_crypto_key akey;			/**< auth key */
 
-	struct nss_crypto_stats stats;		/**< session stats */
+	struct nss_crypto_stats stats;			/**< session stats */
 
-	enum nss_crypto_session_state state;	/**< Indicates whether session is active or not */
+	enum nss_crypto_session_state state;		/**< Indicates whether session is active or not */
 
-	struct dentry *stats_dentry;		/**< debufs entry corresponding to stats */
-	struct dentry *cfg_dentry;		/**< debufs entry corresponding to config */
+	struct dentry *stats_dentry;			/**< debufs entry corresponding to stats */
+	struct dentry *cfg_dentry;			/**< debufs entry corresponding to config */
 
-	uint16_t req_type;			/**< transform is for encryption or decryption */
-	uint16_t res;				/**< reserved for padding */
+	uint16_t req_type;				/**< transform is for encryption or decryption */
+	enum nss_crypto_max_blocklen cipher_blk_len;	/**< cipher block len */
+	enum nss_crypto_max_ivlen iv_len;		/**< iv len */
 };
 
 /**

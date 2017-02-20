@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -315,6 +315,24 @@ nss_crypto_status_t nss_crypto_transform_payload(nss_crypto_handle_t crypto, str
  * @return cipher algorithm; for unallocated session the algorithm will be NONE
  */
 enum nss_crypto_cipher nss_crypto_get_cipher(uint32_t session_idx);
+
+/**
+ * @brief retrieve the cipher block len associated with the session index
+ *
+ * @param session_idx[IN] session index
+ *
+ * @return cipher block len; for unallocated session cipher blk len will be zero
+ */
+enum nss_crypto_max_blocklen nss_crypto_get_cipher_block_len(uint32_t session_idx);
+
+/**
+ * @brief retrieve the iv len associated with the session index
+ *
+ * @param session_idx[IN] session index
+ *
+ * @return iv len; for unallocated session iv len will be zero
+ */
+enum nss_crypto_max_ivlen nss_crypto_get_iv_len(uint32_t session_idx);
 
 /**
  * @brief retrieve the cipher key length associated with the session index

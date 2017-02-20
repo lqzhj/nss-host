@@ -753,6 +753,28 @@ void nss_crypto_update_cipher_info(struct nss_crypto_idx_info *idx, struct nss_c
 	idx->ckey.algo = cipher ? cipher->algo : NSS_CRYPTO_CIPHER_NONE;
 	idx->ckey.key_len = cipher ? cipher->key_len : 0;
 	idx->ckey.key = NULL;
+
+	switch (idx->ckey.algo) {
+	case NSS_CRYPTO_CIPHER_AES_CBC:
+		idx->iv_len = NSS_CRYPTO_MAX_IVLEN_AES;
+		idx->cipher_blk_len = NSS_CRYPTO_MAX_BLKLEN_AES;
+		break;
+
+	case NSS_CRYPTO_CIPHER_AES_CTR:
+		idx->iv_len = NSS_CRYPTO_MAX_IVLEN_AES;
+		idx->cipher_blk_len = NSS_CRYPTO_MAX_BLKLEN_AES;
+		break;
+
+	case NSS_CRYPTO_CIPHER_DES:
+		idx->iv_len = NSS_CRYPTO_MAX_IVLEN_DES;
+		idx->cipher_blk_len = NSS_CRYPTO_MAX_BLKLEN_DES;
+		break;
+
+	default:
+		idx->iv_len = NSS_CRYPTO_MAX_IVLEN_NULL;
+		idx->cipher_blk_len = NSS_CRYPTO_MAX_BLKLEN_NULL;
+		break;
+	}
 }
 
 /*
@@ -1144,6 +1166,41 @@ uint32_t nss_crypto_get_cipher_keylen(uint32_t session_idx)
 	return idx->ckey.key_len;
 }
 EXPORT_SYMBOL(nss_crypto_get_cipher_keylen);
+
+/*
+ * nss_crypto_get_cipher_block_len()
+ * 	return cipher block len with the associated session
+ */
+enum nss_crypto_max_blocklen nss_crypto_get_cipher_block_len(uint32_t session_idx)
+{
+	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
+	struct nss_crypto_idx_info *idx;
+
+	idx = &ctrl->idx_info[session_idx];
+	if (nss_crypto_chk_idx_isfree(idx))
+		return NSS_CRYPTO_MAX_BLKLEN_NULL;
+
+	return idx->cipher_blk_len;
+
+}
+EXPORT_SYMBOL(nss_crypto_get_cipher_block_len);
+
+/*
+ * nss_crypto_get_iv_len()
+ * 	return iv len with the associated session
+ */
+enum nss_crypto_max_ivlen nss_crypto_get_iv_len(uint32_t session_idx)
+{
+	struct nss_crypto_ctrl *ctrl = &gbl_crypto_ctrl;
+	struct nss_crypto_idx_info *idx;
+
+	idx = &ctrl->idx_info[session_idx];
+	if (nss_crypto_chk_idx_isfree(idx))
+		return NSS_CRYPTO_MAX_BLKLEN_NULL;
+
+	return idx->iv_len;
+}
+EXPORT_SYMBOL(nss_crypto_get_iv_len);
 
 /*
  * nss_crypto_get_reqtype()
