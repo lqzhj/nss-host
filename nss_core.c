@@ -617,7 +617,7 @@ static inline void nss_core_handle_ext_buffer_pkt(struct nss_ctx_instance *nss_c
  */
 static inline void nss_core_rx_pbuf(struct nss_ctx_instance *nss_ctx, struct n2h_descriptor *desc, struct napi_struct *napi, uint8_t buffer_type, struct sk_buff *nbuf)
 {
-	unsigned int interface_num = desc->interface_num;
+	unsigned int interface_num = NSS_INTERFACE_NUM_GET(desc->interface_num);
 	struct nss_top_instance *nss_top = nss_ctx->nss_top;
 	struct nss_shaper_bounce_registrant *reg = NULL;
 

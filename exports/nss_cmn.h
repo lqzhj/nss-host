@@ -30,6 +30,7 @@ struct nss_ctx_instance;
  */
 #define NSS_CORE_ID_SHIFT 24
 #define NSS_INTERFACE_NUM_APPEND_COREID(nss_ctx, interface) ((interface) | ((nss_ctx->id + 1) << NSS_CORE_ID_SHIFT))
+#define NSS_INTERFACE_NUM_GET(interface) ((interface) & 0xffffff)
 
 /**
  * Common enumerations
