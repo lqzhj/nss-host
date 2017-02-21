@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -24,8 +24,9 @@
 #define NSS_WIFI_HTT_TRANSFER_HDRSIZE_WORD 6
 #define NSS_WIFI_VDEV_PER_PACKET_METADATA_OFFSET 4
 #define NSS_WIFI_VDEV_DSCP_MAP_LEN 64
-#define NSS_WIFI_IPV6_ADDR_LENGTH 16
+#define NSS_WIFI_VDEV_IPV6_ADDR_LENGTH 16
 #define NSS_WIFI_MAX_SRCS 4
+#define NSS_WIFI_VDEV_MAX_ME_ENTRIES 32
 
 /**
  * WIFI VDEV messages
@@ -50,6 +51,9 @@ enum nss_wifi_vdev_msg_types {
 	NSS_WIFI_VDEV_VOW_DBG_STATS_REQ_MSG,
 	NSS_WIFI_VDEV_DSCP_TID_MAP_MSG,
 	NSS_WIFI_VDEV_SNOOPLIST_TOGGLE_MSG,
+	NSS_WIFI_VDEV_UPDATECHDR_MSG,
+	NSS_WIFI_VDEV_ME_SYNC_MSG,
+	NSS_WIFI_VDEV_STATS_MSG,
 	NSS_WIFI_VDEV_MAX_MSG
 };
 
@@ -79,7 +83,14 @@ enum {
 	NSS_WIFI_VDEV_EINV_NAWDS_CFG,			/**< error in nawds config */
 	NSS_WIFI_VDEV_EINV_EXTAP_CFG,			/**< error in extap config */
 	NSS_WIFI_VDEV_EINV_VOW_DBG_CFG,			/**< error in VOW Debug stats config */
+	NSS_WIFI_VDEV_EINV_DSCP_TID_MAP,		/**< inavlid dscp to tid map message */
+	NSS_WIFI_VDEV_INVALID_ETHER_TYPE,		/**< Ether type is invalid */
 	NSS_WIFI_VDEV_SNOOPTABLE_GRP_MEMBER_EXIST,	/**< grp member already exists in snooplist */
+	NSS_WIFI_VDEV_ME_INVALID_NSRCS,			/**< invalid number of sources received from host */
+	NSS_WIFI_VDEV_EINV_RADIO_ID,			/**< Invalid wifi radio id */
+	NSS_WIFI_VDEV_RADIO_NOT_PRESENT,		/**< Radio pnode is not present */
+	NSS_WIFI_VDEV_CHDRUPD_FAIL,			/**< Unable to update cached hdr */
+	NSS_WIFI_VDEV_ME_DENY_GRP_MAX_RCHD,		/**< Unable to add new entry to deny group */
 	NSS_WIFI_VDEV_EINV_MAX_CFG
 };
 
@@ -115,7 +126,6 @@ enum nss_wifi_vdev_cmd {
 	NSS_WIFI_VDEV_CFG_BSTEER_CMD,		/**< command to configure BSTEER related reporting on vap */
 	NSS_WIFI_VDEV_VOW_DBG_MODE_CMD,		/**< command to enable VOW DEBUG on vap */
 	NSS_WIFI_VDEV_VOW_DBG_RST_STATS_CMD,	/**< command to reset VOW DEBUG stats on vap */
-	NSS_WIFI_VDEV_FILTER_NEIGH_PEERS_CMD,	/**< command to set filter_neigh_peer */
 	NSS_WIFI_VDEV_CFG_DSCP_OVERRIDE_CMD,	/**< command to set dscp override */
 	NSS_WIFI_VDEV_CFG_WNM_CAP_CMD,		/**< command to set wnm capability */
 	NSS_WIFI_VDEV_CFG_WNM_TFS_CMD,		/**< command to set wnm tfs */
@@ -128,7 +138,7 @@ enum nss_wifi_vdev_cmd {
  */
 struct nss_wifi_vdev_config_msg {
 	uint8_t mac_addr[ETH_ALEN];	/**< MAC address */
-	uint8_t reserved[2];		/**< reserved bytes */
+	uint16_t radio_ifnum;		/**< Corresponding radio interface number */
 	uint32_t vdev_id;		/**< vap id */
 	uint32_t epid;			/**< CE endpoint id */
 	uint32_t downloadlen;		/**< Header download length */
@@ -168,52 +178,52 @@ struct nss_wifi_vdev_cmd_msg {
 /**
  * wifi snooplist create grp_list
  */
-struct nss_wifi_vdev_snooplist_grp_list_create_msg {
+struct nss_wifi_vdev_me_snptbl_grp_create_msg {
 	uint32_t ether_type;					/**< multicast group ether_type */
 	union {
 		uint32_t grpaddr_ip4;				/**< ipv4 address */
-		uint8_t grpaddr_ip6[NSS_WIFI_IPV6_ADDR_LENGTH];	/**< ipv6 address */
-	}u;							/**< multicast group ip address */
+		uint8_t grpaddr_ip6[NSS_WIFI_VDEV_IPV6_ADDR_LENGTH];	/**< ipv6 address */
+	} u;							/**< multicast group ip address */
 	uint8_t grp_addr[ETH_ALEN];				/**< multicast group mac address */
 };
 
 /**
  * wifi snooplist delete grp_list
  */
-struct nss_wifi_vdev_snooplist_grp_list_delete_msg {
+struct nss_wifi_vdev_me_snptbl_grp_delete_msg {
 	uint32_t ether_type;					/**< multicast group ether_type */
 	union {
 		uint32_t grpaddr_ip4;				/**< ipv4 address */
-		uint8_t grpaddr_ip6[NSS_WIFI_IPV6_ADDR_LENGTH];	/**< ipv6 address */
-	}u;							/**< multicast group ip address */
+		uint8_t grpaddr_ip6[NSS_WIFI_VDEV_IPV6_ADDR_LENGTH];	/**< ipv6 address */
+	} u;							/**< multicast group ip address */
 	uint8_t grp_addr[ETH_ALEN];				/**< multicast group mac address */
 };
 
 /**
  * wifi snooplist add grp_member
  */
-struct nss_wifi_vdev_snooplist_grp_member_add_msg {
+struct nss_wifi_vdev_me_snptbl_grp_mbr_add_msg {
 	uint32_t ether_type;					/**< multicast group ether_type */
 	union {
 		uint32_t grpaddr_ip4;				/**< ipv4 address */
-		uint8_t grpaddr_ip6[NSS_WIFI_IPV6_ADDR_LENGTH];	/**< ipv6 address */
-	}u;							/**< multicast group ip address */
+		uint8_t grpaddr_ip6[NSS_WIFI_VDEV_IPV6_ADDR_LENGTH];	/**< ipv6 address */
+	} u;							/**< multicast group ip address */
 	uint32_t peer_id;					/**< peer_id */
 	uint8_t grp_addr[ETH_ALEN];				/**< multicast group mac address */
 	uint8_t grp_member_addr[ETH_ALEN];			/**< multicast group member mac address */
 	uint8_t mode;						/**< mode */
 	uint8_t nsrcs;						/**< no of src ip addresses in case of SSM */
-	uint8_t src_ip_addr[NSS_WIFI_IPV6_ADDR_LENGTH * NSS_WIFI_MAX_SRCS];	/**< source ip address */
+	uint8_t src_ip_addr[NSS_WIFI_VDEV_IPV6_ADDR_LENGTH * NSS_WIFI_MAX_SRCS];	/**< source ip address */
 };
 
 /**
  * wifi snooplist remove grp_member
  */
-struct nss_wifi_vdev_snooplist_grp_member_remove_msg {
+struct nss_wifi_vdev_me_snptbl_grp_mbr_delete_msg {
 	uint32_t ether_type;					/**< multicast group ether_type */
 	union {
 		uint32_t grpaddr_ip4;				/**< ipv4 address */
-		uint8_t grpaddr_ip6[NSS_WIFI_IPV6_ADDR_LENGTH];	/**< ipv6 address */
+		uint8_t grpaddr_ip6[NSS_WIFI_VDEV_IPV6_ADDR_LENGTH];	/**< ipv6 address */
 	}u;							/**< multicast group ip address */
 	uint8_t grp_addr[ETH_ALEN];				/**< multicast group mac address */
 	uint8_t grp_member_addr[ETH_ALEN];			/**< multicast group member mac address */
@@ -222,23 +232,23 @@ struct nss_wifi_vdev_snooplist_grp_member_remove_msg {
 /**
  * Wifi snooplist update grp_member.
  */
-struct nss_wifi_vdev_snooplist_grp_member_update_msg {
+struct nss_wifi_vdev_me_snptbl_grp_mbr_update_msg {
 	uint32_t ether_type;					/**< multicast group ether_type */
 	union {
 		uint32_t grpaddr_ip4;				/**< ipv4 address */
-		uint8_t grpaddr_ip6[NSS_WIFI_IPV6_ADDR_LENGTH];	/**< ipv6 address */
+		uint8_t grpaddr_ip6[NSS_WIFI_VDEV_IPV6_ADDR_LENGTH];	/**< ipv6 address */
 	}u;							/**< multicast group ip address */
 	uint8_t grp_addr[ETH_ALEN];				/**< multicast group mac address */
 	uint8_t grp_member_addr[ETH_ALEN];			/**< multicast group member mac address */
 	uint8_t mode;						/**< mode */
 	uint8_t nsrcs;						/**< no of src ip addresses in case of SSM */
-	uint8_t src_ip_addr[NSS_WIFI_IPV6_ADDR_LENGTH * NSS_WIFI_MAX_SRCS];	/**< source ip address */
+	uint8_t src_ip_addr[NSS_WIFI_VDEV_IPV6_ADDR_LENGTH * NSS_WIFI_MAX_SRCS];	/**< source ip address */
 };
 
 /**
  * Wifi snooplist add member to deny list.
  */
-struct nss_wifi_vdev_snooplist_deny_member_add_msg {
+struct nss_wifi_vdev_me_snptbl_deny_grp_add_msg {
 	uint32_t grpaddr;			/**< multicast group ip address */
 };
 
@@ -246,8 +256,8 @@ struct nss_wifi_vdev_snooplist_deny_member_add_msg {
  * WiFi Tx special data message
  */
 struct nss_wifi_vdev_txmsg {
-	uint16_t peer_id;       /**< peer id */
-	uint16_t tid;	        /**< tid */
+	uint16_t peer_id;	/**< peer id */
+	uint16_t tid;		/**< tid */
 };
 
 /**
@@ -310,8 +320,8 @@ struct nss_wifi_vdev_txinfo_per_packet_metadata {
 	uint8_t ppdu_retries;			/**< number of times ppdu is retried */
 	uint8_t ppdu_is_aggregate;		/**< flag to chack if ppdu is aggregate or not */
 	uint16_t start_seq_num;			/**< starting msdu id for this ppdu */
-	uint16_t version;			/**< ppdu stats version */
-	uint32_t ppdu_ack_timestamp;		/**< Timestamp(us) when ack was received */
+	uint16_t version;				/**< ppdu stats version */
+	uint32_t ppdu_ack_timestamp;	/**< Timestamp(us) when ack was received */
 	uint32_t ppdu_bmap_enqueued_lo;	/**< Bitmap of packets enqueued to HW (LSB) */
 	uint32_t ppdu_bmap_enqueued_hi;	/**< Bitmap of packets enqueued to HW (MSB) */
 	uint32_t ppdu_bmap_tried_lo;	/**< Bitmap of packets sent OTA (LSB) */
@@ -417,6 +427,69 @@ struct nss_wifi_vdev_rawmode_rx_metadata {
 };
 
 /**
+ * wifi update cache hdr msg
+ */
+struct nss_wifi_vdev_updchdr_msg {
+	uint32_t hdrcache[NSS_WIFI_HTT_TRANSFER_HDRSIZE_WORD];
+					/**< Updated hdr cache */
+	uint32_t vdev_id;		/**< vdev_id */
+};
+
+/**
+ * wifi_vdev_me_host_sync_grp_entry
+ *
+ * ME Group table host sync
+ */
+struct nss_wifi_vdev_me_host_sync_grp_entry {
+	uint8_t group_addr[ETH_ALEN];		/**< group address for this list*/
+	uint8_t grp_member_addr[ETH_ALEN];	/**< multicast group member mac address */
+	union {
+		uint32_t grpaddr_ip4;
+		uint8_t  grpaddr_ip6[NSS_WIFI_VDEV_IPV6_ADDR_LENGTH];
+	} u;
+	uint32_t src_ip_addr;	/**< source ip address */
+};
+
+/**
+ * wifi_vdev_me_host_sync_msg
+ *
+ * ME Group table host sync message
+ */
+struct nss_wifi_vdev_me_host_sync_msg {
+	uint16_t vdev_id;	/**< vap id */
+	uint8_t nentries;	/**< number of group entries carried by this msg */
+	uint8_t radio_ifnum;	/**< wifi radio if_num */
+	struct nss_wifi_vdev_me_host_sync_grp_entry grp_entry[NSS_WIFI_VDEV_MAX_ME_ENTRIES];
+};
+
+/**
+ * nss_wifi_vdev_mcast_enhance_stats
+ *
+ * Multicast enhancement related statistics
+ */
+struct nss_wifi_vdev_mcast_enhance_stats {
+	uint32_t mcast_rcvd;			/**< number of mcast pkts recieved for conversion for mc enhancement*/
+	uint32_t mcast_ucast_converted;		/**< number of unicast pkts sent as part of mc enhancement conversion */
+	uint32_t mcast_alloc_fail;		/**< number of mcast enhancement frames dropped due to pbuf allocation failure */
+	uint32_t mcast_pbuf_enq_fail;		/**< number of mcast enhancement frames dropped due to pbuf enqueue failure */
+	uint32_t mcast_pbuf_copy_fail;		/**< number of mcast enhancement frames dropped due to pbuf copy failure */
+	uint32_t mcast_peer_flow_ctrl_send_fail;/**< number of mcast enhancement frames dropped due to peer flow ctrl send failure */
+	uint32_t mcast_loopback_err;		/**< number of mcast enhancement buf frames dropped when dst_mac is the same as src_mac */
+	uint32_t mcast_dst_address_err;		/**< number of mcast enhancement buf frames dropped due to empty dst_mac */
+	uint32_t mcast_no_enhance_drop_cnt;	/**< number of mcast enhancement buf frames dropped due to no memebers listening on group */
+};
+
+/**
+ * wifi_vdev_stats_sync_msg
+ *
+ * vdev statistics sync message
+ */
+struct nss_wifi_vdev_stats_sync_msg {
+	uint32_t dropped;				/**< dropped packet count */
+	struct nss_wifi_vdev_mcast_enhance_stats wvmes;	/**< multicast enhancement stats */
+};
+
+/**
  * wifi vdev specific messages
  */
 struct nss_wifi_vdev_msg {
@@ -424,18 +497,20 @@ struct nss_wifi_vdev_msg {
 	union {
 		struct nss_wifi_vdev_config_msg vdev_config;
 		struct nss_wifi_vdev_enable_msg vdev_enable;
-		struct nss_wifi_vdev_disable_msg vdev_disable;
 		struct nss_wifi_vdev_cmd_msg vdev_cmd;
-		struct nss_wifi_vdev_snooplist_grp_list_create_msg vdev_grp_list_create;
-		struct nss_wifi_vdev_snooplist_grp_list_delete_msg vdev_grp_list_delete;
-		struct nss_wifi_vdev_snooplist_grp_member_add_msg vdev_grp_member_add;
-		struct nss_wifi_vdev_snooplist_grp_member_remove_msg vdev_grp_member_remove;
-		struct nss_wifi_vdev_snooplist_grp_member_update_msg vdev_grp_member_update;
-		struct nss_wifi_vdev_snooplist_deny_member_add_msg vdev_deny_member_add;
+		struct nss_wifi_vdev_me_snptbl_grp_create_msg vdev_grp_list_create;
+		struct nss_wifi_vdev_me_snptbl_grp_delete_msg vdev_grp_list_delete;
+		struct nss_wifi_vdev_me_snptbl_grp_mbr_add_msg vdev_grp_member_add;
+		struct nss_wifi_vdev_me_snptbl_grp_mbr_delete_msg vdev_grp_member_remove;
+		struct nss_wifi_vdev_me_snptbl_grp_mbr_update_msg vdev_grp_member_update;
+		struct nss_wifi_vdev_me_snptbl_deny_grp_add_msg vdev_deny_member_add;
 		struct nss_wifi_vdev_txmsg vdev_txmsgext;
 		struct nss_wifi_vdev_vow_dbg_cfg_msg vdev_vow_dbg_cfg;
 		struct nss_wifi_vdev_vow_dbg_stats vdev_vow_dbg_stats;
 		struct nss_wifi_vdev_dscp_tid_map vdev_dscp_tid_map;
+		struct nss_wifi_vdev_updchdr_msg vdev_updchdr;
+		struct nss_wifi_vdev_me_host_sync_msg vdev_me_sync;
+		struct nss_wifi_vdev_stats_sync_msg vdev_stats;
 	} msg;
 };
 
