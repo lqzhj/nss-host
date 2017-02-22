@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -68,6 +68,7 @@
 #include "nss_bridge.h"
 #include "nss_ppe.h"
 #include "nss_trustsec_tx.h"
+#include "nss_vlan.h"
 
 /*
  * Interface numbers are reserved in the
@@ -95,7 +96,7 @@
 #define NSS_MAX_PHYSICAL_INTERFACES 8
 #define NSS_MAX_VIRTUAL_INTERFACES 16
 #define NSS_MAX_TUNNEL_INTERFACES 4
-#define NSS_MAX_SPECIAL_INTERFACES 44
+#define NSS_MAX_SPECIAL_INTERFACES 45
 #define NSS_MAX_WIFI_RADIO_INTERFACES 3
 
 /**
@@ -154,6 +155,7 @@
 #define NSS_EDMA_INTERFACE (NSS_SPECIAL_IF_START + 41)	/* Special EDMA interface */
 #define NSS_GRE_TUNNEL_INTERFACE (NSS_SPECIAL_IF_START + 42)  /* Special NSS GRE TUNNEL interface */
 #define NSS_TRUSTSEC_TX_INTERFACE (NSS_SPECIAL_IF_START + 43)  /* Special TrustSec TX interface */
+#define NSS_VLAN_INTERFACE (NSS_SPECIAL_IF_START + 44)  /* Special VLAN interface */
 
 /**
  * This macro converts format for IPv6 address (from Linux to NSS)

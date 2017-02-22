@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014-2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -45,6 +45,7 @@ enum nss_dynamic_interface_type {
 	NSS_DYNAMIC_INTERFACE_TYPE_MAP_T,		/* MAP-T Interface Type */
 	NSS_DYNAMIC_INTERFACE_TYPE_GRE_TUNNEL,		/* GRE Tunnel Interface Type */
 	NSS_DYNAMIC_INTERFACE_TYPE_BRIDGE,		/* Bridge Interface Type */
+	NSS_DYNAMIC_INTERFACE_TYPE_VLAN,		/* VLAN Interface Type */
 	NSS_DYNAMIC_INTERFACE_TYPE_MAX
 };
 
