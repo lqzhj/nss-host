@@ -34,9 +34,9 @@ enum nss_dynamic_interface_type {
 	NSS_DYNAMIC_INTERFACE_TYPE_TUN6RD,		/* TUN6RD Interface type */
 	NSS_DYNAMIC_INTERFACE_TYPE_802_3_REDIR,	/* 802.3 redirect Interface type */
 	NSS_DYNAMIC_INTERFACE_TYPE_WIFI,		/* Wifi redirect Interface type */
-	NSS_DYNAMIC_INTERFACE_TYPE_RADIO_0,		/* WIFI radio type0 */
-	NSS_DYNAMIC_INTERFACE_TYPE_RADIO_1,		/* WIFI radio type1 */
-	NSS_DYNAMIC_INTERFACE_TYPE_RADIO_2,		/* WIFI radio type2 */
+	NSS_DYNAMIC_INTERFACE_TYPE_VAP,			/* virtual AP dynamic interface type */
+	NSS_DYNAMIC_INTERFACE_TYPE_RESERVED_1,		/* Reserved indexe for backward compatability of other types */
+	NSS_DYNAMIC_INTERFACE_TYPE_RESERVED_2,		/* Reserved indexes for backward compatability of other types */
 	NSS_DYNAMIC_INTERFACE_TYPE_VIRTIF_DEPRECATED,
 	NSS_DYNAMIC_INTERFACE_TYPE_L2TPV2,		/* L2TPV2 Interface Type */
 	NSS_DYNAMIC_INTERFACE_TYPE_PPTP,		/* PPTP VPN Interface Type */

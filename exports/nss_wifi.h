@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -25,9 +25,6 @@
 #define NSS_WIFI_MGMT_DATA_LEN  128
 #define NSS_WIFI_FW_STATS_DATA_LEN  480
 #define NSS_WIFI_RAWDATA_MAX_LEN  64
-#define NSS_WIFI_RX_EXT_INV_PEER_TYPE 0
-#define NSS_WIFI_RX_EXT_PKTLOG_TYPE 1
-#define NSS_WIFI_RX_EXT_CBF_REMOTE 2
 #define NSS_WIFI_TX_NUM_TOS_TIDS 8
 #define NSS_WIFI_PEER_STATS_DATA_LEN 232
 #define NSS_WIFI_IPV6_ADDR_LEN 16
@@ -78,10 +75,11 @@ enum nss_wifi_metadata_types {
 	NSS_WIFI_STA_KICKOUT_MSG,
 	NSS_WIFI_WNM_PEER_RX_ACTIVITY_MSG,
 	NSS_WIFI_PEER_STATS_MSG,
-	NSS_WIFI_ME_SYNC_MSG,
 	NSS_WIFI_WDS_VENDOR_MSG,
 	NSS_WIFI_TX_CAPTURE_SET_MSG,
 	NSS_WIFI_ALWAYS_PRIMARY_SET_MSG,
+	NSS_WIFI_FLUSH_HTT_CMD_MSG,
+	NSS_WIFI_CMD_MSG,
 	NSS_WIFI_MAX_MSG
 };
 
@@ -97,7 +95,7 @@ enum wifi_error_types {
 	NSS_WIFI_EMSG_PDEV_INIT_FAIL,			/**< error in pdev init */
 	NSS_WIFI_EMSG_HTT_INIT_FAIL,			/**< error in htt dev init */
 	NSS_WIFI_EMSG_PEER_ADD,					/**< error in wds peer add */
-	NSS_WIFI_EMSG_TARGET_NOT_SUPPORTED,		/**< invalid traget type passed */
+	NSS_WIFI_EMSG_WIFI_START_FAIL,			/**< error in starting wifi instance */
 	NSS_WIFI_EMSG_STATE_NOT_RESET,			/**< reset failed */
 	NSS_WIFI_EMSG_STATE_NOT_INIT_DONE,		/**< init failed */
 	NSS_WIFI_EMSG_STATE_NULL_CE_HANDLE,		/**< invalid ce handle */
@@ -109,10 +107,33 @@ enum wifi_error_types {
 	NSS_WIFI_EMSG_IGMP_MLD_TOS_OVERRIDE_CFG,/**< Invalid IGMP/MLD tos override config */
 	NSS_WIFI_EMSG_PDEV_INVALID,			/**< Invalid pdev */
 	NSS_WIFI_EMSG_OTHER_PDEV_STAVAP_INVALID,	/**< Invalid ifnum for other pdev stavap */
-
+	NSS_WIFI_EMSG_HTT_SEND_FAIL,			/**< Failed to send htt msg */
+	NSS_WIFI_EMSG_CE_RING_INIT,			/**< CE reap Ring init Failed */
+	NSS_WIFI_EMSG_NOTIFY_CB,			/**< NOTIFY callback registration failed */
+	NSS_WIFI_EMSG_PEERID_INVALID,			/**< Invalid Peer ID */
+	NSS_WIFI_EMSG_PEER_INVALID,			/**< Invalid Peer */
+	NSS_WIFI_EMSG_UNKNOWN_CMD,			/**< Invalid cmd message */
 };
 
-/*
+/**
+ * wifi extended data exception types
+ */
+enum  {
+	NSS_WIFI_RX_EXT_INV_PEER_TYPE,	/**< invalid peer extended data exception type */
+	NSS_WIFI_RX_EXT_PKTLOG_TYPE,	/**< packet log extended data exception type */
+	NSS_WIFI_RX_EXT_CBF_REMOTE,	/**< contetnt beam forming inforamtion type */
+	NSS_WIFI_RX_EXT_MAX_TYPE,
+};
+
+/**
+ * wifi commands
+ */
+enum nss_wifi_cmd {
+	NSS_WIFI_FILTER_NEIGH_PEERS_CMD,	/**< command to set filter_neigh_peer */
+	NSS_WIFI_MAX_CMD			/**< command msg max index */
+};
+
+/**
  * Copy engine ring internal state
  */
 struct nss_wifi_ce_ring_state_msg {
@@ -179,15 +200,15 @@ struct nss_wifi_tx_init_msg {
 	uint32_t pmap_addr;			/**< Firmware shared peer/TID map */
 };
 
-/*
+/**
  * wifi tx queue configuration data
  */
 struct nss_wifi_tx_queue_cfg_msg {
-	uint32_t size;          /**< Tx queue size */
-	uint32_t range;          /**< Peer Range */
+	uint32_t size;			/**< Tx queue size */
+	uint32_t range;			/**< Peer Range */
 };
 
-/*
+/**
  * wifi tx queuing min threshold configuration
  */
 struct nss_wifi_tx_min_threshold_cfg_msg {
@@ -367,16 +388,16 @@ struct nss_wifi_mc_enhance_stats {
  */
 struct nss_wifi_stats_sync_msg {
 	struct nss_cmn_node_stats node_stats;	/**< node statistics */
-	uint32_t tx_transmit_dropped;           /**< number of packets dropped during transmission */
-	uint32_t tx_transmit_completions;       /**< number of packets for which transmission completion received */
-	uint32_t tx_mgmt_rcv_cnt;               /**< number of management packets received from host for transmission */
-	uint32_t tx_mgmt_pkts;                  /**< number of management packets transmitted over wifi */
-	uint32_t tx_mgmt_dropped;               /**< number of management packets dropped because of transmission failure */
-	uint32_t tx_mgmt_completions;           /**< number of management packets for which tx completions are received */
-	uint32_t tx_inv_peer_enq_cnt;           /**< number of packets for which tx enqueue failed because of invalid peer */
-	uint32_t rx_inv_peer_rcv_cnt;           /**< number of packets received from wifi with invalid peer id */
-	uint32_t rx_pn_check_failed;            /**< number of rx packets which failed packet number check */
-	uint32_t rx_pkts_deliverd;              /**< number of rx packets that NSS wifi driver could successfully process */
+	uint32_t tx_transmit_dropped;		/**< number of packets dropped during transmission */
+	uint32_t tx_transmit_completions;	/**< number of packets for which transmission completion received */
+	uint32_t tx_mgmt_rcv_cnt;		/**< number of management packets received from host for transmission */
+	uint32_t tx_mgmt_pkts;			/**< number of management packets transmitted over wifi */
+	uint32_t tx_mgmt_dropped;		/**< number of management packets dropped because of transmission failure */
+	uint32_t tx_mgmt_completions;		/**< number of management packets for which tx completions are received */
+	uint32_t tx_inv_peer_enq_cnt;		/**< number of packets for which tx enqueue failed because of invalid peer */
+	uint32_t rx_inv_peer_rcv_cnt;		/**< number of packets received from wifi with invalid peer id */
+	uint32_t rx_pn_check_failed;		/**< number of rx packets which failed packet number check */
+	uint32_t rx_pkts_deliverd;		/**< number of rx packets that NSS wifi driver could successfully process */
 	uint32_t rx_bytes_deliverd;		/**< number of rx bytes that NSS wifi driver could successfully process */
 	uint32_t tx_bytes_transmit_completions;	/**< number of bytes for which transmission completion received */
 	uint32_t rx_deliver_unaligned_drop_cnt;	/**< number of unaligned data packets that were dropped at wifi receive */
@@ -433,7 +454,7 @@ struct nss_wifi_msdu_ttl_set_msg {
  * wifi VoW extended stats set message structure
  */
 struct nss_wifi_rx_vow_extstats_set_msg {
-	uint32_t vow_extstats_en;                       /**< vow ext stats */
+	uint32_t vow_extstats_en;		/**< vow ext stats */
 };
 
 /**
@@ -471,9 +492,9 @@ struct nss_wifi_peer_ol_stats {
  * wifi_ol_stats
  */
 struct nss_wifi_ol_stats_msg {
-	uint32_t bawadv_cnt;    /**< block-ack window advancement count */
-	uint32_t bcn_cnt;       /**< beacon count */
-	uint32_t npeers;        /**< number of entries of peer stats */
+	uint32_t bawadv_cnt;	/**< block-ack window advancement count */
+	uint32_t bcn_cnt;	/**< beacon count */
+	uint32_t npeers;	/**< number of entries of peer stats */
 	struct nss_wifi_peer_ol_stats peer_ol_stats[1]; /**< array to hold the peer ol stats */
 };
 
@@ -521,28 +542,11 @@ struct nss_wifi_wds_extn_peer_cfg_msg {
 };
 
 /**
- * ME Group Entry information for host sync
+ * wifi pdev command message
  */
-struct nss_wifi_tx_me_host_sync_grp_entry {
-	uint8_t group_addr[ETH_ALEN];		/**< group address for this list */
-	uint8_t grp_member_addr[ETH_ALEN];	/**< multicast group member mac address */
-	union {
-		uint32_t grpaddr_ip4;		/**< Group ip address ipv4 */
-		uint8_t  grpaddr_ip6[NSS_WIFI_IPV6_ADDR_LEN]; /**< Group ip address ipv6 */
-	} u;
-	uint32_t src_ip_addr;			/**< source ip address */
-};
-
-/**
- * wifi_tx_me_host_sync_msg
- *
- * ME Group table host Sync message
- */
-struct nss_wifi_tx_me_host_sync_msg {
-	uint16_t vdev_id;		/**< vdev_id to which the group entries belong to  */
-	uint8_t  nentries;		/**< number of valid group entries */
-	uint8_t  reserved;
-	struct nss_wifi_tx_me_host_sync_grp_entry grp_entry[32]; /**< multicast group entry */
+struct nss_wifi_cmd_msg {
+	uint32_t cmd;		/**< command */
+	uint32_t value;		/**< command value */
 };
 
 /**
@@ -581,10 +585,10 @@ struct nss_wifi_msg {
 		struct nss_wifi_sta_kickout_msg sta_kickout_msg;
 		struct nss_wifi_wnm_peer_rx_activity_msg wprm;
 		struct nss_wifi_peer_stats_msg peer_stats_msg;
-		struct nss_wifi_tx_me_host_sync_msg wmehsync;
 		struct nss_wifi_wds_extn_peer_cfg_msg wpeercfg;
 		struct nss_wifi_tx_capture_msg tx_capture_msg;
 		struct nss_wifi_always_primary_set_msg waps_msg;
+		struct nss_wifi_cmd_msg wcmdm;
 	} msg;
 };
 
@@ -629,7 +633,7 @@ typedef void (*nss_wifi_callback_t)(struct net_device *netdev, struct sk_buff *s
  * @return nss_ctx_instance* NSS context
  */
 struct nss_ctx_instance *nss_register_wifi_if(uint32_t if_num, nss_wifi_callback_t wifi_callback,
-					      nss_wifi_callback_t wifi_ext_callback, nss_wifi_msg_callback_t event_callback, struct net_device *netdev, uint32_t features);
+						nss_wifi_callback_t wifi_ext_callback, nss_wifi_msg_callback_t event_callback, struct net_device *netdev, uint32_t features);
 
 /**
  * @brief Unregister wifi interface with NSS

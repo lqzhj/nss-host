@@ -36,6 +36,10 @@ static void nss_wifi_vdev_handler(struct nss_ctx_instance *nss_ctx, struct nss_c
 		return;
 	}
 
+	if (nss_cmn_get_msg_len(ncm) > sizeof(struct nss_wifi_vdev_msg)) {
+		nss_warning("%p: Length of message %d is greater than required: %d", nss_ctx, nss_cmn_get_msg_len(ncm), sizeof(struct nss_wifi_vdev_msg));
+		return;
+	}
 
 	/*
 	 * Log failures
