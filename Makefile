@@ -13,7 +13,7 @@ obj-y+= nss_ppe_qdisc/
 endif
 
 # DTLS manager
-#obj-y+=dtls/
+obj-y+=dtls/
 
 # CAPWAP Manager
 obj-y+= capwapmgr/
