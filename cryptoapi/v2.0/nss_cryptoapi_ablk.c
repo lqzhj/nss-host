@@ -77,7 +77,7 @@ int nss_cryptoapi_ablkcipher_init(struct crypto_tfm *tfm)
 
 	nss_cryptoapi_set_magic(ctx);
 
-	if (!(crypto_tfm_get_flags(tfm) & CRYPTO_ALG_NEED_FALLBACK))
+	if (!(crypto_tfm_alg_flags(tfm) & CRYPTO_ALG_NEED_FALLBACK))
 		return 0;
 
 	/* Alloc fallback transform for future use */

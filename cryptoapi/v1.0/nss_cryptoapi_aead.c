@@ -77,9 +77,13 @@ int nss_cryptoapi_aead_init(struct crypto_tfm *tfm)
 	ctx->completed = 0;
 	ctx->queue_failed = 0;
 	ctx->fallback_req = 0;
+	ctx->sw_tfm = NULL;
 	atomic_set(&ctx->refcnt, 0);
 
 	nss_cryptoapi_set_magic(ctx);
+
+	if (!(crypto_tfm_alg_flags(tfm) & CRYPTO_ALG_NEED_FALLBACK))
+		return 0;
 
 	/* Alloc fallback transform for future use */
 	sw_tfm = crypto_alloc_aead(crypto_tfm_alg_name(tfm), 0, CRYPTO_ALG_ASYNC | CRYPTO_ALG_NEED_FALLBACK);
