@@ -36,7 +36,7 @@ define KernelPackage/qca-nss-cfi
   SECTION:=kernel
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
-  DEPENDS:=@TARGET_ipq806x||TARGET_ipq +kmod-qca-nss-crypto +kmod-crypto-ocf @!LINUX_3_18
+  DEPENDS:=@TARGET_ipq806x||TARGET_ipq807x||TARGET_ipq +kmod-qca-nss-crypto +kmod-crypto-ocf @!LINUX_3_18
   TITLE:=Kernel driver for NSS cfi
   FILES:=$(PKG_BUILD_DIR)/ocf/qca-nss-cfi-ocf.ko \
 	 $(PKG_BUILD_DIR)/ipsec/qca-nss-ipsec.ko \
