@@ -133,11 +133,8 @@ bool nss_crypto_pm_event_cb(void *app_data, bool turbo, bool auto_scale)
 	 * the system has moved to turbo then we cannot
 	 * roll back
 	 */
-	if (!session) {
+	if (!session || !turbo)
 		return false;
-	} else if (session && !turbo) {
-		return false;
-	}
 
 	/*
 	 * notify NSS to switch NSS subsystem to turbo

@@ -430,6 +430,7 @@ void nss_crypto_pipe_init(struct nss_crypto_ctrl_eng *eng, uint32_t idx, uint32_
 
 }
 
+#if !defined(CONFIG_NSS_CRYPTO_FORCE_UNCACHE)
 /*
  * nss_crypto_program_ckeys()
  * 	this will program cipher key registers with new keys
@@ -475,6 +476,7 @@ static void nss_crypto_write_akey_regs(uint8_t *base, uint16_t pp_num, struct ns
 		iowrite32(key_val, CRYPTO_AUTH_PIPEm_KEYn(pp_num, i) + base);
 	}
 }
+#endif
 
 /*
  * nss_crypto_validate_cipher()
@@ -663,17 +665,19 @@ static void nss_crypto_key_update(struct nss_crypto_ctrl_eng *eng, uint32_t idx,
 	pp_num = ctrl_idx->idx.pp_num;
 	cblk = ctrl_idx->cblk;
 
+#if !defined(CONFIG_NSS_CRYPTO_FORCE_UNCACHE)
 	/*
 	 * if the indexes are within cached range and force uncached is not set,
 	 * then program the registers
 	 */
-	if ((idx < NSS_CRYPTO_MAX_CACHED_IDXS) && !CONFIG_NSS_CRYPTO_FORCE_UNCACHE) {
+	if (idx < NSS_CRYPTO_MAX_CACHED_IDXS) {
 		encr_cfg->cfg |= CRYPTO_ENCR_SEG_CFG_PIPE_KEYS;
 		auth_cfg->cfg |= CRYPTO_AUTH_SEG_CFG_PIPE_KEYS;
 
 		nss_crypto_write_ckey_regs(eng->crypto_base, pp_num, encr_cfg);
 		nss_crypto_write_akey_regs(eng->crypto_base, pp_num, auth_cfg);
 	}
+#endif
 
 	paddr = ctrl_idx->idx.cblk_paddr;
 
