@@ -434,8 +434,19 @@ void nss_bridge_init(void)
 /*
  * nss_bridge_unregister()
  */
-void nss_bridge_unregister(uint16_t if_num)
+void nss_bridge_unregister(uint32_t if_num)
 {
+	struct nss_ctx_instance *nss_ctx = nss_bridge_get_context();
+
+	nss_assert(nss_bridge_verify_if_num(if_num));
+
+	nss_ctx->subsys_dp_register[if_num].ndev = NULL;
+	nss_ctx->subsys_dp_register[if_num].cb = NULL;
+	nss_ctx->subsys_dp_register[if_num].app_data = NULL;
+	nss_ctx->subsys_dp_register[if_num].features = 0;
+
+	nss_top_main.bridge_callback = NULL;
+
 	nss_core_unregister_handler(if_num);
 }
 EXPORT_SYMBOL(nss_bridge_unregister);
@@ -443,10 +454,25 @@ EXPORT_SYMBOL(nss_bridge_unregister);
 /*
  * nss_bridge_register()
  */
-struct nss_ctx_instance *nss_bridge_register(uint16_t if_num)
+struct nss_ctx_instance *nss_bridge_register(uint32_t if_num, struct net_device *netdev,
+						nss_bridge_callback_t bridge_data_cb,
+						nss_bridge_msg_callback_t bridge_msg_cb,
+						uint32_t features,
+						void *app_data)
 {
-	nss_core_register_handler(if_num, nss_bridge_handler, NULL);
-	return nss_bridge_get_context();
+	struct nss_ctx_instance *nss_ctx = nss_bridge_get_context();
+
+	nss_assert(nss_bridge_verify_if_num(if_num));
+
+	nss_ctx->subsys_dp_register[if_num].ndev = netdev;
+	nss_ctx->subsys_dp_register[if_num].cb = bridge_data_cb;
+	nss_ctx->subsys_dp_register[if_num].app_data = app_data;
+	nss_ctx->subsys_dp_register[if_num].features = features;
+
+	nss_top_main.bridge_callback = bridge_msg_cb;
+
+	nss_core_register_handler(if_num, nss_bridge_handler, app_data);
+	return nss_ctx;
 }
 EXPORT_SYMBOL(nss_bridge_register);
 
