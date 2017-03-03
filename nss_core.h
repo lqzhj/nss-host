@@ -1391,7 +1391,7 @@ extern int nss_coredump_init_delay_work(void);
 /*
  * APIs provided by nss_freq.c
  */
-extern void nss_freq_sched_change(nss_freq_scales_t index, bool auto_scale);
+extern bool nss_freq_sched_change(nss_freq_scales_t index, bool auto_scale);
 
 /*
  * APIs for PPE

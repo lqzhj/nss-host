@@ -178,11 +178,7 @@ nss_tx_status_t nss_ipsec_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_ip
 		return NSS_TX_FAILURE_NOT_READY;
 	}
 
-	if (NSS_NBUF_PAYLOAD_SIZE < sizeof(struct nss_ipsec_msg)) {
-		nss_ipsec_warning("%p: tx message request is too large: %d (desired), %d (requested)", nss_ctx,
-				NSS_NBUF_PAYLOAD_SIZE, (int)sizeof(struct nss_ipsec_msg));
-		return NSS_TX_FAILURE_TOO_LARGE;
-	}
+	BUILD_BUG_ON(NSS_NBUF_PAYLOAD_SIZE < sizeof(struct nss_ipsec_msg));
 
 	if ((ncm->interface != NSS_IPSEC_ENCAP_IF_NUMBER) && (ncm->interface != NSS_IPSEC_DECAP_IF_NUMBER)) {
 		nss_ipsec_warning("%p: tx message request for another interface: %d", nss_ctx, ncm->interface);
