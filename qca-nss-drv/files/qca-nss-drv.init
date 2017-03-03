@@ -1,6 +1,6 @@
 #!/bin/sh /etc/rc.common
 #
-# Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+# Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -18,7 +18,7 @@
 START=70
 
 enable_rps() {
-	irq_nss_rps=`grep -m3 nss /proc/interrupts | cut -d ':' -f 1 | tail -n1 | tr -d ' '`
+	irq_nss_rps=`grep nss_queue1 /proc/interrupts | cut -d ':' -f 1 | tail -n1 | tr -d ' '`
 	[ -n "$irq_nss_rps" ] && echo 2 > /proc/irq/$irq_nss_rps/smp_affinity
 
 	# Enable NSS RPS
