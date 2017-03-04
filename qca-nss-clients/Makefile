@@ -52,7 +52,7 @@ define KernelPackage/qca-nss-drv-l2tpv2
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
   TITLE:=Kernel driver for NSS (connection manager) - l2tp
-  DEPENDS:=@TARGET_ipq806x||TARGET_ipq807x||TARGET_ipq +kmod-qca-nss-drv kmod-l2tp @!LINUX_3_18
+  DEPENDS:=@TARGET_ipq806x||TARGET_ipq807x||TARGET_ipq +kmod-qca-nss-drv +kmod-l2tp @!LINUX_3_18
   FILES:=$(PKG_BUILD_DIR)/l2tp/l2tpv2/qca-nss-l2tpv2.ko
   AUTOLOAD:=$(call AutoLoad,51,qca-nss-l2tpv2)
 endef
@@ -66,7 +66,7 @@ define KernelPackage/qca-nss-drv-pptp
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
   TITLE:=Kernel driver for NSS (connection manager) - PPTP
-  DEPENDS:=@TARGET_ipq806x||TARGET_ipq807x||TARGET_ipq +kmod-qca-nss-drv kmod-pptp @!LINUX_3_18
+  DEPENDS:=@TARGET_ipq806x||TARGET_ipq807x||TARGET_ipq +kmod-qca-nss-drv +kmod-pptp @!LINUX_3_18
   FILES:=$(PKG_BUILD_DIR)/pptp/qca-nss-pptp.ko
   AUTOLOAD:=$(call AutoLoad,51,qca-nss-pptp)
 endef
@@ -80,7 +80,7 @@ define KernelPackage/qca-nss-drv-map-t
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
   TITLE:=Kernel driver for NSS (connection manager) - MAP-T
-  DEPENDS:=@TARGET_ipq806x||TARGET_ipq807x||TARGET_ipq +kmod-qca-nss-drv kmod-nat46 @!LINUX_3_18
+  DEPENDS:=@TARGET_ipq806x||TARGET_ipq807x||TARGET_ipq +kmod-qca-nss-drv +kmod-nat46 @!LINUX_3_18
   FILES:=$(PKG_BUILD_DIR)/map/map-t/qca-nss-map-t.ko
   AUTOLOAD:=$(call AutoLoad,51,qca-nss-map-t)
 endef
