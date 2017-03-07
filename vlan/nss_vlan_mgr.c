@@ -22,6 +22,7 @@
 #include <linux/if_vlan.h>
 #include <linux/proc_fs.h>
 #include <linux/sysctl.h>
+#include <linux/module.h>
 #include <nss_api_if.h>
 #ifdef NSS_VLAN_MGR_PPE_SUPPORT
 #include <ref/ref_vsi.h>
@@ -605,7 +606,10 @@ static int nss_vlan_mgr_register_event(struct netdev_notifier_info *info)
 {
 	struct net_device *dev = netdev_notifier_info_to_dev(info);
 	struct nss_vlan_pvt *v;
-	int if_num, ret;
+	int if_num;
+#ifdef NSS_VLAN_MGR_PPE_SUPPORT
+	int ret;
+#endif
 	uint32_t vlan_tag;
 
 	v = nss_vlan_mgr_create_instance(dev);
@@ -924,7 +928,9 @@ static struct ctl_table nss_vlan_root_dir[] = {
  */
 int __init nss_vlan_mgr_init_module(void)
 {
+#ifdef NSS_VLAN_MGR_PPE_SUPPORT
 	int idx;
+#endif
 
 	INIT_LIST_HEAD(&vlan_mgr_ctx.list);
 	spin_lock_init(&vlan_mgr_ctx.lock);
