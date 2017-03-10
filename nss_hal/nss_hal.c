@@ -142,12 +142,17 @@ static void nss_hal_clean_up_netdevice(struct int_ctx_instance *int_ctx)
 {
 	int i;
 
-	for (i = 0; i < NSS_MAX_IRQ_PER_QUEUE; i++) {
+	for (i = 0; i < NSS_MAX_IRQ_PER_INSTANCE; i++) {
 		if (int_ctx->irq[i]) {
 			free_irq(int_ctx->irq[i], int_ctx);
 			int_ctx->irq[i] = 0;
 		}
 	}
+
+	if (!int_ctx->ndev) {
+		return;
+	}
+
 	unregister_netdev(int_ctx->ndev);
 	free_netdev(int_ctx->ndev);
 	int_ctx->ndev = NULL;
@@ -196,7 +201,6 @@ static int nss_hal_register_netdevice(struct nss_ctx_instance *nss_ctx, struct n
 	err = nss_top->hal_ops->request_irq_for_queue(nss_ctx, npd, qnum);
 	if (err) {
 		nss_warning("%p: IRQ request for queue %d failed", nss_ctx, qnum);
-		nss_hal_clean_up_netdevice(int_ctx);
 		return err;
 	}
 
@@ -312,26 +316,10 @@ int nss_hal_probe(struct platform_device *nss_dev)
 	nss_info("%d:ctx=%p, vphys=%x, vmap=%p, nphys=%x, nmap=%p", nss_ctx->id,
 			nss_ctx, nss_ctx->vphys, nss_ctx->vmap, nss_ctx->nphys, nss_ctx->nmap);
 
-	/*
-	 * Register netdevice for queue 0
-	 */
-	err = nss_hal_register_netdevice(nss_ctx, npd, 0);
-	if (err) {
-		goto err_init;
-	}
-
-	/*
-	 * Check if second interrupt is supported on this nss core
-	 */
-	if (npd->num_queue > 1) {
-		nss_info("%d: This NSS core supports two interrupts", nss_dev->id);
-
-		/*
-		 * Register netdevice for queue 1
-		 */
-		err = nss_hal_register_netdevice(nss_ctx, npd, 1);
+	for (i = 0; i < npd->num_queue; i++) {
+		err = nss_hal_register_netdevice(nss_ctx, npd, i);
 		if (err) {
-			goto err_register_netdev_0;
+			goto err_register_netdevice;
 		}
 	}
 
@@ -523,7 +511,7 @@ int nss_hal_probe(struct platform_device *nss_dev)
 	 */
 	err = nss_top->hal_ops->core_reset(nss_dev, nss_ctx->nmap, nss_ctx->load, nss_top->clk_src);
 	if (err) {
-		goto err_register_netdev_1;
+		goto err_register_netdevice;
 	}
 
 	/*
@@ -562,11 +550,10 @@ int nss_hal_probe(struct platform_device *nss_dev)
 	nss_info("%p: All resources initialized and nss core%d has been brought out of reset", nss_ctx, nss_dev->id);
 	goto out;
 
-err_register_netdev_1:
-	nss_hal_clean_up_netdevice(&nss_ctx->int_ctx[1]);
-
-err_register_netdev_0:
-	nss_hal_clean_up_netdevice(&nss_ctx->int_ctx[0]);
+err_register_netdevice:
+	for (i = 0; i < npd->num_queue; i++) {
+		nss_hal_clean_up_netdevice(&nss_ctx->int_ctx[i]);
+	}
 
 err_init:
 	if (nss_dev->dev.of_node) {

@@ -321,12 +321,20 @@ static int32_t nss_send_c2c_map(struct nss_ctx_instance *nss_own, struct nss_ctx
  */
 static inline uint16_t nss_core_cause_to_queue(uint16_t cause)
 {
-	if (likely(cause == NSS_N2H_INTR_DATA_COMMAND_QUEUE)) {
+	if (likely(cause == NSS_N2H_INTR_DATA_QUEUE_0)) {
 		return NSS_IF_DATA_QUEUE_0;
 	}
 
 	if (likely(cause == NSS_N2H_INTR_DATA_QUEUE_1)) {
 		return NSS_IF_DATA_QUEUE_1;
+	}
+
+	if (likely(cause == NSS_N2H_INTR_DATA_QUEUE_2)) {
+		return NSS_IF_DATA_QUEUE_2;
+	}
+
+	if (likely(cause == NSS_N2H_INTR_DATA_QUEUE_3)) {
+		return NSS_IF_DATA_QUEUE_3;
 	}
 
 	if (likely(cause == NSS_N2H_INTR_EMPTY_BUFFER_QUEUE)) {
@@ -1473,16 +1481,28 @@ static uint32_t nss_core_get_prioritized_cause(uint32_t cause, uint32_t *type, i
 		return NSS_N2H_INTR_TX_UNBLOCKED;
 	}
 
-	if (cause & NSS_N2H_INTR_DATA_COMMAND_QUEUE) {
+	if (cause & NSS_N2H_INTR_DATA_QUEUE_0) {
 		*type = NSS_INTR_CAUSE_QUEUE;
 		*weight = NSS_DATA_COMMAND_BUFFER_PROCESSING_WEIGHT;
-		return NSS_N2H_INTR_DATA_COMMAND_QUEUE;
+		return NSS_N2H_INTR_DATA_QUEUE_0;
 	}
 
 	if (cause & NSS_N2H_INTR_DATA_QUEUE_1) {
 		*type = NSS_INTR_CAUSE_QUEUE;
 		*weight = NSS_DATA_COMMAND_BUFFER_PROCESSING_WEIGHT;
 		return NSS_N2H_INTR_DATA_QUEUE_1;
+	}
+
+	if (cause & NSS_N2H_INTR_DATA_QUEUE_2) {
+		*type = NSS_INTR_CAUSE_QUEUE;
+		*weight = NSS_DATA_COMMAND_BUFFER_PROCESSING_WEIGHT;
+		return NSS_N2H_INTR_DATA_QUEUE_2;
+	}
+
+	if (cause & NSS_N2H_INTR_DATA_QUEUE_3) {
+		*type = NSS_INTR_CAUSE_QUEUE;
+		*weight = NSS_DATA_COMMAND_BUFFER_PROCESSING_WEIGHT;
+		return NSS_N2H_INTR_DATA_QUEUE_3;
 	}
 
 	if (cause & NSS_N2H_INTR_COREDUMP_COMPLETE_0) {
