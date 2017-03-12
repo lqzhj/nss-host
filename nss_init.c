@@ -642,9 +642,22 @@ static struct ctl_table_header *nss_dev_header;
  */
 static int __init nss_init(void)
 {
+#if (NSS_DT_SUPPORT == 1)
+	struct device_node *cmn = NULL;
+#endif
 	nss_info("Init NSS driver");
 
 #if (NSS_DT_SUPPORT == 1)
+	/*
+	 * Get reference to NSS common device node
+	 */
+	cmn = of_find_node_by_name(NULL, "nss-common");
+	if (!cmn) {
+		nss_info_always("qca-nss-drv.ko is loaded for symbol link\n");
+		return 0;
+	}
+	of_node_put(cmn);
+
 	/*
 	 * Pick up HAL by target information
 	 */
