@@ -1293,11 +1293,8 @@ int nss_cryptoapi_aead_aes_geniv_encrypt(struct aead_givcrypt_request *req)
 	uint32_t *iv_addr = ctx->ctx_iv;
 	struct nss_crypto_buf *buf;
 
-	areq->iv = req->giv;
-
-	if (ctx->fallback_req) {
+	if (ctx->fallback_req)
 		return nss_cryptoapi_aead_fallback(ctx, &req->areq, NSS_CRYPTOAPI_GIVENCRYPT);
-	}
 
 	/*
 	 * Check if previous call to setkey couldn't allocate session with core crypto.
@@ -1319,6 +1316,7 @@ int nss_cryptoapi_aead_aes_geniv_encrypt(struct aead_givcrypt_request *req)
 
 	info.cip_len = req->areq.cryptlen;
 	info.auth_len = req->areq.assoclen + crypto_aead_ivsize(aead) + req->areq.cryptlen;
+	areq->iv = req->giv;
 
 	/*
 	 * CTR algorithm has the random bits stored from word[2:1]
