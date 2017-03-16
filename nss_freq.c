@@ -24,7 +24,6 @@
 #define NSS_ACK_STARTED 0
 #define NSS_ACK_FINISHED 1
 
-extern struct nss_cmd_buffer nss_cmd_buf;
 extern struct nss_frequency_statistics nss_freq_stat;
 extern struct nss_runtime_sampling nss_runtime_samples;
 extern struct workqueue_struct *nss_wq;

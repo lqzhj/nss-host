@@ -1166,6 +1166,7 @@ struct nss_cmd_buffer {
 	uint32_t average_inst;	/* average of inst for nss core */
 	uint32_t coredump;	/* cmd coredump buffer */
 };
+extern struct nss_cmd_buffer nss_cmd_buf;
 
 /*
  * The scales for NSS
