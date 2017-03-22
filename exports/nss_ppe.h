@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -64,7 +64,7 @@ struct nss_ppe_sync_stats_msg {
 	uint32_t nss_ppe_fail_flow_command;	/**< Create req fail due to PPE flow command failure */
 	uint32_t nss_ppe_fail_unknown_proto;	/**< Create req fail due to unknown protocol */
 	uint32_t nss_ppe_fail_ppe_unresponsive;	/**< Create req fail due to PPE not responding */
-
+	uint32_t nss_ppe_fail_fqg_full;		/**< Create req fail due to flow qos group full */
 };
 
 /**

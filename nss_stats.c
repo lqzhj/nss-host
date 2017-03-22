@@ -652,6 +652,7 @@ static int8_t *nss_stats_str_ppe_conn[NSS_STATS_PPE_CONN_MAX] = {
 	"conn fail - rw fifo full",
 	"conn fail - unknown proto",
 	"conn fail - ppe not responding",
+	"conn fail - fqg full"
 };
 
 /*

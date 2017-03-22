@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -55,6 +55,7 @@ static void nss_ppe_stats_sync(struct nss_ctx_instance *nss_ctx, struct nss_ppe_
 	nss_ppe_debug_stats.conn_stats[NSS_STATS_PPE_FAIL_FLOW_COMMAND] += stats_msg->nss_ppe_fail_flow_command;
 	nss_ppe_debug_stats.conn_stats[NSS_STATS_PPE_FAIL_UNKNOWN_PROTO] += stats_msg->nss_ppe_fail_unknown_proto;
 	nss_ppe_debug_stats.conn_stats[NSS_STATS_PPE_FAIL_PPE_UNRESPONSIVE] += stats_msg->nss_ppe_fail_ppe_unresponsive;
+	nss_ppe_debug_stats.conn_stats[NSS_STATS_PPE_FAIL_FQG_FULL] += stats_msg->nss_ppe_fail_fqg_full;
 	spin_unlock_bh(&nss_ppe_stats_lock);
 }
 
