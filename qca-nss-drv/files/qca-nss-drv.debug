@@ -21,3 +21,6 @@ log cat /sys/kernel/debug/qca-nss-drv/stats/ipv6
 log cat /sys/kernel/debug/qca-nss-drv/stats/ipv4
 log cat /sys/kernel/debug/qca-nss-drv/stats/gmac
 log cat /sys/kernel/debug/qca-nss-drv/stats/drv
+log cat /sys/kernel/debug/qca-nss-drv/stats/wifi
+log cat /sys/kernel/debug/qca-nss-drv/stats/wifi_if
+log cat /sys/kernel/debug/qca-nss-drv/stats/eth_rx
