@@ -21,6 +21,7 @@
 
 #include "nss_core.h"
 #include <linux/module.h>
+#include <linux/of.h>
 #include <nss_hal.h>
 #include <net/dst.h>
 #include <linux/etherdevice.h>
@@ -307,6 +308,80 @@ static int32_t nss_send_c2c_map(struct nss_ctx_instance *nss_own, struct nss_ctx
 	if (unlikely(status != NSS_CORE_STATUS_SUCCESS)) {
 		dev_kfree_skb_any(nbuf);
 		nss_warning("%p: Unable to enqueue 'c2c tx map'\n", nss_own);
+		return NSS_CORE_STATUS_FAILURE;
+	}
+
+	nss_hal_send_interrupt(nss_own, NSS_H2N_INTR_DATA_COMMAND_QUEUE);
+
+	return NSS_CORE_STATUS_SUCCESS;
+}
+
+/*
+ * nss_get_ddr_info()
+ *	get DDR start address and size from device tree.
+ */
+static void nss_get_ddr_info(struct nss_mmu_ddr_info *mmu, char *name)
+{
+	struct device_node *node = of_find_node_by_name(NULL, name);
+	if (node) {
+		int len;
+		const __be32 *ppp = (int32_t*)of_get_property(node, "reg", &len);
+		if (ppp && len == sizeof(ppp[0]) * 2) {
+			mmu->start_address = be32_to_cpup(ppp);
+			mmu->ddr_size = be32_to_cpup(&ppp[1]);
+			of_node_put(node);
+			nss_info_always("%s: %x %x prop len %d\n", name,
+				mmu->start_address, mmu->ddr_size, len);
+			return;
+		}
+		of_node_put(node);
+		nss_info_always("incorrect memory info %p len %d\n",
+			ppp, len);
+	}
+
+	/*
+	 * boilerplate for setting customer values;
+	 * start_address = 0 will not change default start address
+	 * set in NSS FW (likely 0x4000_0000)
+	 */
+	mmu->start_address = 0;
+	mmu->ddr_size = 1 << 30;
+	nss_warning("of_find_node_by_name for %s failed: use default 1GB\n", name);
+}
+
+/*
+ * nss_send_ddr_info()
+ *	Send DDR info to NSS
+ */
+static int32_t nss_send_ddr_info(struct nss_ctx_instance *nss_own)
+{
+	struct sk_buff *nbuf;
+	int32_t status;
+	struct nss_n2h_msg *nnm;
+	atomic64_t *stats;
+
+	nss_info("%p: send DDR info\n", nss_own);
+
+	nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
+	if (unlikely(!nbuf)) {
+		struct nss_top_instance *nss_top = nss_own->nss_top;
+		stats = &nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS];
+
+		NSS_PKT_STATS_INCREMENT(nss_own, stats);
+		nss_warning("%p: Unable to allocate memory for 'tx DDR info'", nss_own);
+		return NSS_CORE_STATUS_FAILURE;
+	}
+
+	nnm = (struct nss_n2h_msg *)skb_put(nbuf, sizeof(struct nss_n2h_msg));
+	nss_cmn_msg_init(&nnm->cm, NSS_N2H_INTERFACE, NSS_TX_DDR_INFO_VIA_N2H_CFG,
+			sizeof(struct nss_mmu_ddr_info), NULL, NULL);
+
+	nss_get_ddr_info(&nnm->msg.mmu, "memory");
+
+	status = nss_core_send_buffer(nss_own, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
+	if (unlikely(status != NSS_CORE_STATUS_SUCCESS)) {
+		dev_kfree_skb_any(nbuf);
+		nss_warning("%p: Unable to enqueue 'tx DDR info'\n", nss_own);
 		return NSS_CORE_STATUS_FAILURE;
 	}
 
@@ -1250,6 +1325,7 @@ static void nss_core_handle_cause_nonqueue(struct int_ctx_instance *int_ctx, uin
 		 */
 		if (unlikely(nss_ctx->state == NSS_CORE_STATE_UNINITIALIZED)) {
 			nss_core_init_nss(nss_ctx, if_map);
+			nss_send_ddr_info(nss_ctx);
 
 #if (NSS_MAX_CORES > 1)
 			/*

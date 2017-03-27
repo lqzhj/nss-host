@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014 - 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014 - 2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -55,7 +55,24 @@ enum nss_n2h_metadata_types {
 	NSS_TX_METADATA_TYPE_SET_WATER_MARK,
 	NSS_TX_METADATA_TYPE_GET_PAYLOAD_INFO,
 	NSS_TX_METADATA_TYPE_N2H_WIFI_POOL_BUF_CFG,
+	NSS_TX_DDR_INFO_VIA_N2H_CFG,
 	NSS_METADATA_TYPE_N2H_MAX,
+};
+
+/*
+ * n2h errors -- reference only.
+ */
+enum nss_n2h_error_types {
+	N2H_EUNKNOWN = 1,
+	N2H_ALREADY_CFG,		/* Already configured */
+	N2H_LOW_WATER_MIN_INVALID,	/* Low water's is lower than min */
+	N2H_HIGH_WATER_LESS_THAN_LOW,	/* High water is less than low water */
+	N2H_HIGH_WATER_LIMIT_INVALID,	/* High water limit is more than allowed */
+	N2H_LOW_WATER_LIMIT_INVALID,	/* Low water limit is more than allowed */
+	N2H_WATER_MARK_INVALID,		/* High-Low water is not at least in ring size difference */
+	N2H_EMPTY_BUFFER_TOO_HIGH,	/* Empty buffer size is more than allowed */
+	N2H_EMPTY_BUFFER_TOO_LOW,	/* Empty buffer size is too low */
+	N2H_MMU_ENTRY_IS_INVALID,	/* mmu DDR range entry is not ok to change */
 };
 
 struct nss_n2h_rps {
@@ -162,6 +179,14 @@ struct nss_n2h_stats_sync {
 };
 
 /*
+ * system DDR memory info needed by FW MMU to set range guardian
+ */
+struct nss_mmu_ddr_info {
+	uint32_t ddr_size;	/* total DDR size */
+	uint32_t start_address;	/* system DDR start address */
+};
+
+/*
  * Message structure to send/receive phys i/f commands
  */
 struct nss_n2h_msg {
@@ -182,6 +207,7 @@ struct nss_n2h_msg {
 				/* Message: Gets payload info */
 		struct nss_n2h_wifi_payloads wp;
 				/* Message: Sets number of wifi payloads */
+		struct nss_mmu_ddr_info mmu;	/* use N2H for carrier, will change later */
 	} msg;
 };
 
