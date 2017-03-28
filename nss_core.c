@@ -623,6 +623,11 @@ static inline void nss_core_rx_pbuf(struct nss_ctx_instance *nss_ctx, struct n2h
 
 	NSS_PKT_STATS_DECREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NSS_SKB_COUNT]);
 
+	if (interface_num >= NSS_MAX_NET_INTERFACES) {
+		nss_warning("%p: Invalid interface_num: %d", nss_ctx, interface_num);
+		return;
+	}
+
 	switch (buffer_type) {
 	case N2H_BUFFER_SHAPER_BOUNCED_INTERFACE:
 		reg = &nss_top->bounce_interface_registrants[interface_num];
