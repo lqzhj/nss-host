@@ -112,9 +112,10 @@ void nss_cryptoapi_ablkcipher_exit(struct crypto_tfm *tfm)
 		nss_cfi_assert(false);
 	}
 
-	nss_cfi_assert(ctx->sw_tfm);
-	crypto_free_ablkcipher(__crypto_ablkcipher_cast(ctx->sw_tfm));
-	ctx->sw_tfm = NULL;
+	if (ctx->sw_tfm) {
+		crypto_free_ablkcipher(__crypto_ablkcipher_cast(ctx->sw_tfm));
+		ctx->sw_tfm = NULL;
+	}
 
 	/*
 	 * When NSS_CRYPTO_MAX_IDXS is set, it means that fallback tfm was used
