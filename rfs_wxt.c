@@ -59,6 +59,7 @@ static struct rfs_wxt __rwn;
 static int rfs_wxt_get_parent(int ifindex)
 {
 	struct net_device *dev;
+	struct net_device *vlan_dev;
 	iw_handler  iwhandler;
 	const struct iw_priv_args *private_arg;
 	int num_private_args;
@@ -73,7 +74,10 @@ static int rfs_wxt_get_parent(int ifindex)
 
 	if (is_vlan_dev(dev)) {
 		RFS_DEBUG("Virtual device[%s] will be replaced", dev->name);
+		vlan_dev = dev;
 		dev = vlan_dev_real_dev(dev);
+		dev_hold(dev);
+		dev_put(vlan_dev);
 		RFS_DEBUG("real dev[%s] instead of \n",	dev->name);
 	}
 
