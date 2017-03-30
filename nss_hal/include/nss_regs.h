@@ -60,8 +60,10 @@
  * both NSS cores may generate interrupt simultaneously
  */
 #define NSS_N2H_INTR_EMPTY_BUFFER_QUEUE		(1 << 0)
-#define NSS_N2H_INTR_DATA_COMMAND_QUEUE		(1 << 1)
+#define NSS_N2H_INTR_DATA_QUEUE_0		(1 << 1)
 #define NSS_N2H_INTR_DATA_QUEUE_1		(1 << 2)
+#define NSS_N2H_INTR_DATA_QUEUE_2		(1 << 3)
+#define NSS_N2H_INTR_DATA_QUEUE_3		(1 << 4)
 #define NSS_N2H_INTR_EMPTY_BUFFERS_SOS		(1 << 10)
 #define NSS_N2H_INTR_TX_UNBLOCKED		(1 << 11)
 #define NSS_N2H_INTR_COREDUMP_COMPLETE_1	(1 << 13)

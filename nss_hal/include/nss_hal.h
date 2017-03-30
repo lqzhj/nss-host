@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2013, 2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2016-2017 The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -43,13 +43,12 @@ extern struct nss_hal_ops nss_hal_fsm9010_ops;
 #endif
 
 #define NSS_HAL_SUPPORTED_INTERRUPTS (NSS_N2H_INTR_EMPTY_BUFFER_QUEUE | \
-					NSS_N2H_INTR_DATA_COMMAND_QUEUE | \
+					NSS_N2H_INTR_DATA_QUEUE_0 | \
 					NSS_N2H_INTR_DATA_QUEUE_1 | \
 					NSS_N2H_INTR_EMPTY_BUFFERS_SOS | \
 					NSS_N2H_INTR_TX_UNBLOCKED | \
 					NSS_N2H_INTR_COREDUMP_COMPLETE_0 | \
 					NSS_N2H_INTR_COREDUMP_COMPLETE_1)
-#define NSS_MAX_IRQ_PER_QUEUE 5
 
 /*
  * nss_hal_read_interrupt_cause()
