@@ -7,6 +7,7 @@ obj-m += qca-nss-drv.o
 # List the files that belong to the driver in alphabetical order.
 #
 qca-nss-drv-objs := \
+			nss_bridge.o \
 			nss_capwap.o \
 			nss_cmn.o \
 			nss_core.o \
@@ -14,6 +15,7 @@ qca-nss-drv-objs := \
 			nss_crypto.o \
 			nss_dtls.o \
 			nss_dynamic_interface.o \
+			nss_edma.o \
 			nss_eth_rx.o \
 			nss_gre_redir.o \
 			nss_gre_tunnel.o \
@@ -34,9 +36,10 @@ qca-nss-drv-objs := \
 			nss_n2h.o \
 			nss_oam.o \
 			nss_phys_if.o \
-			nss_profiler.o \
 			nss_pm.o \
+			nss_profiler.o \
 			nss_portid.o \
+			nss_ppe.o \
 			nss_pppoe.o \
 			nss_pptp.o \
 			nss_shaper.o \
@@ -44,8 +47,10 @@ qca-nss-drv-objs := \
 			nss_stats.o \
 			nss_tstamp.o \
 			nss_tun6rd.o \
+			nss_trustsec_tx.o \
 			nss_tunipip6.o \
 			nss_virt_if.o \
+			nss_vlan.o \
 			nss_wifi.o \
 			nss_wifi_if.o \
 			nss_wifi_vdev.o
