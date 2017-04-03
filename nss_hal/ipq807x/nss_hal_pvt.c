@@ -33,7 +33,7 @@
 #define NSS_QGIC_IPC_REG_OFFSET 0x8
 
 #define NSS0_H2N_INTR_BASE 13
-#define NSS1_H2N_INTR_BASE (NSS0_H2N_INTR_BASE + NSS_H2N_INTR_TYPE_MAX)
+#define NSS1_H2N_INTR_BASE 19
 
 /*
  * Interrupt type to cause vector.
