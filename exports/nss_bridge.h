@@ -75,7 +75,7 @@ struct nss_bridge_msg {
  *
  * @return nss_tx_status_t Tx status
  */
-extern nss_tx_status_t nss_bridge_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_bridge_msg *msg);
+nss_tx_status_t nss_bridge_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_bridge_msg *msg);
 
 /**
  * @brief Send bridge messages synchronously
@@ -85,7 +85,7 @@ extern nss_tx_status_t nss_bridge_tx_msg(struct nss_ctx_instance *nss_ctx, struc
  *
  * @return nss_tx_status_t Tx status
  */
-extern nss_tx_status_t nss_bridge_tx_msg_sync(struct nss_ctx_instance *nss_ctx, struct nss_bridge_msg *msg);
+nss_tx_status_t nss_bridge_tx_msg_sync(struct nss_ctx_instance *nss_ctx, struct nss_bridge_msg *msg);
 
 /**
  * @brief Initialize bridge msg
@@ -99,14 +99,25 @@ extern nss_tx_status_t nss_bridge_tx_msg_sync(struct nss_ctx_instance *nss_ctx, 
  *
  * @return None
  */
-extern void nss_bridge_msg_init(struct nss_bridge_msg *ncm, uint16_t if_num, uint32_t type,  uint32_t len, void *cb, void *app_data);
+void nss_bridge_msg_init(struct nss_bridge_msg *ncm, uint16_t if_num, uint32_t type,  uint32_t len, void *cb, void *app_data);
 
 /**
  * @brief Get the bridge context used in the nss_bridge_tx
  *
  * @return struct nss_ctx_instance *NSS context
  */
-extern struct nss_ctx_instance *nss_bridge_get_context(void);
+struct nss_ctx_instance *nss_bridge_get_context(void);
+
+/**
+ * @brief Callback when bridge data is received
+ *
+ * @param netdevice of bridge interface
+ * @param skb pointer to data buffer
+ * @param napi pointer
+ *
+ * @return void
+ */
+typedef void (*nss_bridge_callback_t)(struct net_device *netdev, struct sk_buff *skb, struct napi_struct *napi);
 
 /**
  * @brief Callback to receive bridge messages
@@ -123,14 +134,14 @@ typedef void (*nss_bridge_msg_callback_t)(void *app_data, struct nss_bridge_msg 
  *
  * @return nss_ctx_instance* NSS context
  */
-extern struct nss_ctx_instance *nss_bridge_register(uint16_t if_num);
+struct nss_ctx_instance *nss_bridge_register(uint32_t if_num, struct net_device *netdev, nss_bridge_callback_t bridge_data_cb, nss_bridge_msg_callback_t bridge_msg_cb, uint32_t features, void *app_data);
 
 /**
  * @brief Unregister bridge interface with NSS
  *
  * @return void
  */
-extern void nss_bridge_unregister(uint16_t if_num);
+void nss_bridge_unregister(uint32_t if_num);
 
 /**
  * @brief Register a notifier callback for bridge messages from NSS
@@ -140,14 +151,14 @@ extern void nss_bridge_unregister(uint16_t if_num);
  *
  * @return struct nss_ctx_instance * The NSS context
  */
-extern struct nss_ctx_instance *nss_bridge_notify_register(nss_bridge_msg_callback_t cb, void *app_data);
+struct nss_ctx_instance *nss_bridge_notify_register(nss_bridge_msg_callback_t cb, void *app_data);
 
 /**
  * @brief Un-Register a notifier callback for bridge messages from NSS
  *
  * @return None
  */
-extern void nss_bridge_notify_unregister(void);
+void nss_bridge_notify_unregister(void);
 
 /*
  * @brief Send bridge set mtu message
