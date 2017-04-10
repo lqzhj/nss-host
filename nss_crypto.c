@@ -129,12 +129,7 @@ nss_tx_status_t nss_crypto_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_c
 		return NSS_TX_FAILURE_NOT_READY;
 	}
 
-
-	if (NSS_NBUF_PAYLOAD_SIZE < sizeof(struct nss_crypto_msg)) {
-		nss_warning("%p: tx message request is too large: %d (desired), %d (requested)", nss_ctx,
-				NSS_NBUF_PAYLOAD_SIZE, (int)sizeof(struct nss_crypto_msg));
-		return NSS_TX_FAILURE_TOO_LARGE;
-	}
+	BUILD_BUG_ON(NSS_NBUF_PAYLOAD_SIZE < sizeof(struct nss_crypto_msg));
 
 	if (ncm->interface != NSS_CRYPTO_INTERFACE) {
 		nss_warning("%p: tx message request for another interface: %d", nss_ctx, ncm->interface);

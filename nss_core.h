@@ -123,6 +123,8 @@
 #define NSS_IF_EMPTY_BUFFER_QUEUE 0
 #define NSS_IF_DATA_QUEUE_0 1
 #define NSS_IF_DATA_QUEUE_1 2
+#define NSS_IF_DATA_QUEUE_2 3
+#define NSS_IF_DATA_QUEUE_3 4
 #define NSS_IF_CMD_QUEUE 1
 
 /*
@@ -154,12 +156,13 @@
 /*
  * NSS maximum data queue per core
  */
-#define NSS_MAX_DATA_QUEUE 2
+#define NSS_MAX_DATA_QUEUE 4
 
 /*
- * NSS maximum IRQ per interrupt instance
+ * NSS maximum IRQ per interrupt instance/core
  */
-#define NSS_MAX_IRQ_PER_INSTANCE 5
+#define NSS_MAX_IRQ_PER_INSTANCE 4
+#define NSS_MAX_IRQ_PER_CORE 7
 
 /*
  * NSS maximum clients
@@ -822,6 +825,8 @@ struct int_ctx_instance {
 					/* HLOS IRQ numbers bind to this instance */
 	uint32_t shift_factor;		/* Shift factor for this IRQ queue */
 	uint32_t cause;			/* Interrupt cause carried forward to BH */
+	uint32_t queue_cause;		/* Queue cause bind to this interrupt ctx */
+	char irq_name[11];		/* IRQ name bind to this interrupt ctx */
 	struct net_device *ndev;	/* Netdev associated with this interrupt ctx */
 	struct napi_struct napi;	/* NAPI handler */
 };
@@ -1166,6 +1171,7 @@ struct nss_cmd_buffer {
 	uint32_t average_inst;	/* average of inst for nss core */
 	uint32_t coredump;	/* cmd coredump buffer */
 };
+extern struct nss_cmd_buffer nss_cmd_buf;
 
 /*
  * The scales for NSS
@@ -1233,17 +1239,17 @@ enum nss_feature_enabled {
  *      Platform data per core
  */
 struct nss_platform_data {
-	uint32_t id;					/* NSS core ID */
-	uint32_t num_queue;				/* No. of queues supported per core */
-	uint32_t num_irq;				/* No. of irq binded per queue */
-	uint32_t irq[5];				/* IRQ numbers per queue */
-	void __iomem *nmap;				/* Virtual addr of NSS CSM space */
-	void __iomem *vmap;				/* Virtual addr of NSS virtual register map */
+	uint32_t id;				/* NSS core ID */
+	uint32_t num_queue;			/* No. of queues supported per core */
+	uint32_t num_irq;			/* No. of irq binded per queue */
+	uint32_t irq[NSS_MAX_IRQ_PER_CORE];	/* IRQ numbers per queue */
+	void __iomem *nmap;			/* Virtual addr of NSS CSM space */
+	void __iomem *vmap;			/* Virtual addr of NSS virtual register map */
 	void __iomem *qgic_map;			/* Virtual addr of QGIC interrupt register */
-	uint32_t nphys;					/* Physical addr of NSS CSM space */
-	uint32_t vphys;					/* Physical addr of NSS virtual register map */
-	uint32_t qgic_phys;				/* Physical addr of QGIC virtual register map */
-	uint32_t load_addr;				/* Load address of NSS firmware */
+	uint32_t nphys;				/* Physical addr of NSS CSM space */
+	uint32_t vphys;				/* Physical addr of NSS virtual register map */
+	uint32_t qgic_phys;			/* Physical addr of QGIC virtual register map */
+	uint32_t load_addr;			/* Load address of NSS firmware */
 
 	enum nss_feature_enabled capwap_enabled;
 				/* Does this core handle capwap? */
@@ -1385,7 +1391,7 @@ extern int nss_coredump_init_delay_work(void);
 /*
  * APIs provided by nss_freq.c
  */
-extern void nss_freq_sched_change(nss_freq_scales_t index, bool auto_scale);
+extern bool nss_freq_sched_change(nss_freq_scales_t index, bool auto_scale);
 
 /*
  * APIs for PPE

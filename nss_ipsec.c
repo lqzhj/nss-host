@@ -22,70 +22,62 @@
 #include "nss_tx_rx_common.h"
 #include "nss_ipsec.h"
 
-/*
- **********************************
- General APIs
- **********************************
- */
+#if defined(NSS_HAL_IPQ806X_SUPPORT)
+#define NSS_IPSEC_ENCAP_INTERFACE_NUM NSS_IPSEC_ENCAP_IF_NUMBER
+#define NSS_IPSEC_DECAP_INTERFACE_NUM NSS_IPSEC_DECAP_IF_NUMBER
+#define NSS_IPSEC_DATA_INTERFACE_NUM NSS_C2C_TX_INTERFACE
 
-#define nss_ipsec_warning(fmt, arg...) nss_warning("IPsec:"fmt, ##arg)
-#define nss_ipsec_info(fmt, arg...) nss_info("IPsec:"fmt, ##arg)
-#define nss_ipsec_trace(fmt, arg...) nss_trace("IPsec:"fmt, ##arg)
+#elif defined(NSS_HAL_FSM9010_SUPPORT)
+#define NSS_IPSEC_ENCAP_INTERFACE_NUM NSS_IPSEC_ENCAP_IF_NUMBER
+#define NSS_IPSEC_DECAP_INTERFACE_NUM NSS_IPSEC_DECAP_IF_NUMBER
+#define NSS_IPSEC_DATA_INTERFACE_NUM NSS_IPSEC_RULE_INTERFACE
+
+#elif defined(NSS_HAL_IPQ807x_SUPPORT)
+#define NSS_IPSEC_ENCAP_INTERFACE_NUM NSS_IPSEC_RULE_INTERFACE
+#define NSS_IPSEC_DECAP_INTERFACE_NUM NSS_IPSEC_RULE_INTERFACE
+#define NSS_IPSEC_DATA_INTERFACE_NUM NSS_IPSEC_RULE_INTERFACE
+
+#else
+#define NSS_IPSEC_ENCAP_INTERFACE_NUM -1
+#define NSS_IPSEC_DECAP_INTERFACE_NUM -1
+#define NSS_IPSEC_DATA_INTERFACE_NUM -1
+
+#endif
 
 /*
- * nss_ipsec_set_msg_callback()
- * 	this sets the message callback handler and its associated context
+ * nss_ipsec_get_msg_ctx()
+ * 	return ipsec message context assoicated with the callback
+ *
+ * Note: certain SOC the decap interface specially programmed
  */
-static inline nss_tx_status_t nss_ipsec_set_msg_callback(struct nss_ctx_instance *nss_ctx, uint32_t if_num,
-							nss_ipsec_msg_callback_t cb, void *ipsec_ctx)
+static inline nss_ptr_t nss_ipsec_get_msg_ctx(struct nss_ctx_instance *nss_ctx, uint32_t interface_num)
 {
-	struct nss_top_instance *nss_top;
+	struct nss_top_instance *nss_top = nss_ctx->nss_top;
 
-	nss_top = nss_ctx->nss_top;
+	/*
+	 * the encap is primary interface
+	 */
+	if (interface_num == NSS_IPSEC_ENCAP_IF_NUMBER)
+		return (nss_ptr_t)nss_top->ipsec_encap_ctx;
 
-	switch (if_num) {
-	case NSS_IPSEC_ENCAP_IF_NUMBER:
-		nss_top->ipsec_encap_ctx = ipsec_ctx;
-		nss_top->ipsec_encap_callback = cb;
-		break;
-
-	case NSS_IPSEC_DECAP_IF_NUMBER:
-		nss_top->ipsec_decap_ctx = ipsec_ctx;
-		nss_top->ipsec_decap_callback = cb;
-		break;
-
-	default:
-		nss_ipsec_warning("%p: cannot 'set' message callback, incorrect I/F: %d", nss_ctx, if_num);
-		return NSS_TX_FAILURE;
-	}
-
-	return NSS_TX_SUCCESS;
+	return (nss_ptr_t)nss_top->ipsec_decap_ctx;
 }
 
 /*
  * nss_ipsec_get_msg_callback()
- * 	this gets the message callback handler and its associated context
+ * 	this gets the message callback handler
  */
-static inline nss_ipsec_msg_callback_t nss_ipsec_get_msg_callback(struct nss_ctx_instance *nss_ctx, uint32_t if_num, void **ipsec_ctx)
+static inline nss_ptr_t nss_ipsec_get_msg_callback(struct nss_ctx_instance *nss_ctx, uint32_t interface_num)
 {
-	struct nss_top_instance *nss_top;
+	struct nss_top_instance *nss_top = nss_ctx->nss_top;
 
-	nss_top = nss_ctx->nss_top;
+	/*
+	 * the encap is primary interface
+	 */
+	if (interface_num == NSS_IPSEC_ENCAP_IF_NUMBER)
+		return (nss_ptr_t)nss_top->ipsec_encap_callback;
 
-	switch (if_num) {
-	case NSS_IPSEC_ENCAP_IF_NUMBER:
-		*ipsec_ctx = nss_top->ipsec_encap_ctx;
-		return nss_top->ipsec_encap_callback;
-
-	case NSS_IPSEC_DECAP_IF_NUMBER:
-		*ipsec_ctx = nss_top->ipsec_decap_ctx;
-		return nss_top->ipsec_decap_callback;
-
-	default:
-		*ipsec_ctx = NULL;
-		nss_ipsec_warning("%p: cannot 'get' message callback, incorrect I/F: %d", nss_ctx, if_num);
-		return NULL;
-	}
+	return (nss_ptr_t)nss_top->ipsec_decap_callback;
 }
 
 /*
@@ -103,28 +95,24 @@ static void nss_ipsec_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss_c
 	struct nss_ipsec_msg *nim = (struct nss_ipsec_msg *)ncm;
 	nss_ipsec_msg_callback_t cb = NULL;
 	uint32_t if_num = ncm->interface;
-	void *ipsec_ctx;
 
 	/*
 	 * Sanity check the message type
 	 */
 	if (ncm->type > NSS_IPSEC_MSG_TYPE_MAX) {
-		nss_ipsec_warning("%p: rx message type out of range: %d", nss_ctx, ncm->type);
+		nss_warning("%p: rx message type out of range: %d", nss_ctx, ncm->type);
 		return;
 	}
 
 	if (nss_cmn_get_msg_len(ncm) > sizeof(struct nss_ipsec_msg)) {
-		nss_ipsec_warning("%p: rx message length is invalid: %d", nss_ctx, nss_cmn_get_msg_len(ncm));
+		nss_warning("%p: rx message length is invalid: %d", nss_ctx, nss_cmn_get_msg_len(ncm));
 		return;
 	}
 
-	if ((ncm->interface != NSS_IPSEC_ENCAP_IF_NUMBER) && (ncm->interface != NSS_IPSEC_DECAP_IF_NUMBER)) {
-		nss_ipsec_warning("%p: rx message request for another interface: %d", nss_ctx, ncm->interface);
-		return;
-	}
+	BUG_ON((if_num != NSS_IPSEC_ENCAP_INTERFACE_NUM) && (if_num != NSS_IPSEC_DECAP_INTERFACE_NUM));
 
 	if (ncm->response == NSS_CMN_RESPONSE_LAST) {
-		nss_ipsec_warning("%p: rx message response for if %d, type %d, is invalid: %d", nss_ctx, ncm->interface,
+		nss_warning("%p: rx message response for if %d, type %d, is invalid: %d", nss_ctx, ncm->interface,
 				ncm->type, ncm->response);
 		return;
 	}
@@ -134,10 +122,9 @@ static void nss_ipsec_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss_c
 	 * locally stored state
 	 */
 	if (ncm->response == NSS_CMM_RESPONSE_NOTIFY) {
-		ncm->cb = (nss_ptr_t)nss_ipsec_get_msg_callback(nss_ctx, if_num, &ipsec_ctx);
-		ncm->app_data = (nss_ptr_t)ipsec_ctx;
+		ncm->cb = nss_ipsec_get_msg_callback(nss_ctx, if_num);
+		ncm->app_data = nss_ipsec_get_msg_ctx(nss_ctx, if_num);
 	}
-
 
 	nss_core_log_msg_failures(nss_ctx, ncm);
 
@@ -146,9 +133,10 @@ static void nss_ipsec_msg_handler(struct nss_ctx_instance *nss_ctx, struct nss_c
 	 */
 	cb = (nss_ipsec_msg_callback_t)ncm->cb;
 	if (unlikely(!cb)) {
-		nss_ipsec_trace("%p: rx handler has been unregistered for i/f: %d", nss_ctx, ncm->interface);
+		nss_trace("%p: rx handler has been unregistered for i/f: %d", nss_ctx, ncm->interface);
 		return;
 	}
+
 	cb((void *)ncm->app_data, nim);
 }
 
@@ -169,44 +157,40 @@ nss_tx_status_t nss_ipsec_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_ip
 	struct sk_buff *nbuf;
 	int32_t status;
 
-	nss_ipsec_info("%p: message %d for if %d\n", nss_ctx, ncm->type, ncm->interface);
+	nss_info("%p: message %d for if %d\n", nss_ctx, ncm->type, ncm->interface);
 
 	NSS_VERIFY_CTX_MAGIC(nss_ctx);
 
 	if (unlikely(nss_ctx->state != NSS_CORE_STATE_INITIALIZED)) {
-		nss_ipsec_warning("%p: tx message dropped as core not ready", nss_ctx);
+		nss_warning("%p: tx message dropped as core not ready", nss_ctx);
 		return NSS_TX_FAILURE_NOT_READY;
 	}
 
-	if (NSS_NBUF_PAYLOAD_SIZE < sizeof(struct nss_ipsec_msg)) {
-		nss_ipsec_warning("%p: tx message request is too large: %d (desired), %d (requested)", nss_ctx,
-				NSS_NBUF_PAYLOAD_SIZE, (int)sizeof(struct nss_ipsec_msg));
-		return NSS_TX_FAILURE_TOO_LARGE;
-	}
+	BUILD_BUG_ON(NSS_NBUF_PAYLOAD_SIZE < sizeof(struct nss_ipsec_msg));
 
-	if ((ncm->interface != NSS_IPSEC_ENCAP_IF_NUMBER) && (ncm->interface != NSS_IPSEC_DECAP_IF_NUMBER)) {
-		nss_ipsec_warning("%p: tx message request for another interface: %d", nss_ctx, ncm->interface);
+	if ((ncm->interface != NSS_IPSEC_ENCAP_INTERFACE_NUM) && (ncm->interface != NSS_IPSEC_DECAP_INTERFACE_NUM)) {
+		nss_warning("%p: tx message request for another interface: %d", nss_ctx, ncm->interface);
 		return NSS_TX_FAILURE;
 	}
 
 	if (ncm->type > NSS_IPSEC_MSG_TYPE_MAX) {
-		nss_ipsec_warning("%p: tx message type out of range: %d", nss_ctx, ncm->type);
+		nss_warning("%p: tx message type out of range: %d", nss_ctx, ncm->type);
 		return NSS_TX_FAILURE;
 	}
 
 	if (nss_cmn_get_msg_len(ncm) > sizeof(struct nss_ipsec_msg)) {
-		nss_ipsec_warning("%p: tx message request len for if %d, is bad: %d", nss_ctx, ncm->interface, nss_cmn_get_msg_len(ncm));
+		nss_warning("%p: tx message request len for if %d, is bad: %d", nss_ctx, ncm->interface, nss_cmn_get_msg_len(ncm));
 		return NSS_TX_FAILURE_BAD_PARAM;
 	}
 
 	nbuf = dev_alloc_skb(NSS_NBUF_PAYLOAD_SIZE);
 	if (unlikely(!nbuf)) {
 		NSS_PKT_STATS_INCREMENT(nss_ctx, &nss_ctx->nss_top->stats_drv[NSS_STATS_DRV_NBUF_ALLOC_FAILS]);
-		nss_ipsec_warning("%p: tx rule dropped as command allocation failed", nss_ctx);
+		nss_warning("%p: tx rule dropped as command allocation failed", nss_ctx);
 		return NSS_TX_FAILURE;
 	}
 
-	nss_ipsec_info("msg params version:%d, interface:%d, type:%d, cb:%p, app_data:%p, len:%d\n",
+	nss_info("msg params version:%d, interface:%d, type:%d, cb:%p, app_data:%p, len:%d\n",
 			ncm->version, ncm->interface, ncm->type, (void *)ncm->cb, (void *)ncm->app_data, ncm->len);
 
 	nim = (struct nss_ipsec_msg *)skb_put(nbuf, sizeof(struct nss_ipsec_msg));
@@ -215,7 +199,7 @@ nss_tx_status_t nss_ipsec_tx_msg(struct nss_ctx_instance *nss_ctx, struct nss_ip
 	status = nss_core_send_buffer(nss_ctx, 0, nbuf, NSS_IF_CMD_QUEUE, H2N_BUFFER_CTRL, 0);
 	if (status != NSS_CORE_STATUS_SUCCESS) {
 		dev_kfree_skb_any(nbuf);
-		nss_ipsec_warning("%p: tx Unable to enqueue message \n", nss_ctx);
+		nss_warning("%p: tx Unable to enqueue message \n", nss_ctx);
 		return NSS_TX_FAILURE;
 	}
 
@@ -231,8 +215,8 @@ EXPORT_SYMBOL(nss_ipsec_tx_msg);
  */
 nss_tx_status_t nss_ipsec_tx_buf(struct sk_buff *skb, uint32_t if_num)
 {
-	int32_t status;
 	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[nss_top_main.ipsec_handler_id];
+	int32_t status;
 
 	nss_trace("%p: IPsec If Tx packet, id:%d, data=%p", nss_ctx, if_num, skb->data);
 
@@ -273,27 +257,26 @@ EXPORT_SYMBOL(nss_ipsec_tx_buf);
  */
 struct nss_ctx_instance *nss_ipsec_notify_register(uint32_t if_num, nss_ipsec_msg_callback_t cb, void *app_data)
 {
-	struct nss_ctx_instance *nss_ctx;
-
-	nss_ctx = &nss_top_main.nss[nss_top_main.ipsec_handler_id];
+	struct nss_top_instance *nss_top = &nss_top_main;
+	uint8_t core_id = nss_top->ipsec_handler_id;
+	struct nss_ctx_instance *nss_ctx = &nss_top->nss[core_id];
 
 	if (if_num >= NSS_MAX_NET_INTERFACES) {
-		nss_ipsec_warning("%p: notfiy register received for invalid interface %d", nss_ctx, if_num);
+		nss_warning("%p: notfiy register received for invalid interface %d", nss_ctx, if_num);
 		return NULL;
 	}
 
 	/*
-	 * avoid multiple registeration for multiple tunnels
+	 * the encap is primary interface
 	 */
-	if (nss_ctx->nss_top->ipsec_encap_callback && nss_ctx->nss_top->ipsec_decap_callback) {
+	if (if_num == NSS_IPSEC_ENCAP_INTERFACE_NUM) {
+		nss_top->ipsec_encap_callback = cb;
+		nss_top->ipsec_encap_ctx = app_data;
 		return nss_ctx;
 	}
 
-	if (nss_ipsec_set_msg_callback(nss_ctx, if_num, cb, app_data) != NSS_TX_SUCCESS) {
-		nss_ipsec_warning("%p: register failed\n", nss_ctx);
-		return NULL;
-	}
-
+	nss_top->ipsec_decap_callback = cb;
+	nss_top->ipsec_decap_ctx = app_data;
 	return nss_ctx;
 }
 EXPORT_SYMBOL(nss_ipsec_notify_register);
@@ -304,15 +287,24 @@ EXPORT_SYMBOL(nss_ipsec_notify_register);
  */
 void nss_ipsec_notify_unregister(struct nss_ctx_instance *nss_ctx, uint32_t if_num)
 {
+	struct nss_top_instance *nss_top = nss_ctx->nss_top;
+
 	if (if_num >= NSS_MAX_NET_INTERFACES) {
-		nss_ipsec_warning("%p: notify unregister received for invalid interface %d", nss_ctx, if_num);
+		nss_warning("%p: notify unregister received for invalid interface %d", nss_ctx, if_num);
 		return;
 	}
 
-	if (nss_ipsec_set_msg_callback(nss_ctx, if_num, NULL, NULL) != NSS_TX_SUCCESS) {
-		nss_ipsec_warning("%p: unregister failed\n", nss_ctx);
+	/*
+	 * the encap is primary interface
+	 */
+	if (if_num == NSS_IPSEC_ENCAP_INTERFACE_NUM) {
+		nss_top->ipsec_encap_callback = NULL;
+		nss_top->ipsec_encap_ctx = NULL;
 		return;
 	}
+
+	nss_top->ipsec_decap_callback = NULL;
+	nss_top->ipsec_decap_ctx = NULL;
 }
 EXPORT_SYMBOL(nss_ipsec_notify_unregister);
 
@@ -327,7 +319,7 @@ struct nss_ctx_instance *nss_ipsec_data_register(uint32_t if_num, nss_ipsec_buf_
 	nss_ctx = &nss_top_main.nss[nss_top_main.ipsec_handler_id];
 
 	if ((if_num >= NSS_MAX_NET_INTERFACES) && (if_num < NSS_MAX_PHYSICAL_INTERFACES)){
-		nss_ipsec_warning("%p: data register received for invalid interface %d", nss_ctx, if_num);
+		nss_warning("%p: data register received for invalid interface %d", nss_ctx, if_num);
 		return NULL;
 	}
 
@@ -365,7 +357,7 @@ void nss_ipsec_data_unregister(struct nss_ctx_instance *nss_ctx, uint32_t if_num
 	struct nss_ctx_instance *nss_ctx0;
 
 	if ((if_num >= NSS_MAX_NET_INTERFACES) && (if_num < NSS_MAX_PHYSICAL_INTERFACES)){
-		nss_ipsec_warning("%p: data unregister received for invalid interface %d", nss_ctx, if_num);
+		nss_warning("%p: data unregister received for invalid interface %d", nss_ctx, if_num);
 		return;
 	}
 
@@ -386,25 +378,34 @@ void nss_ipsec_data_unregister(struct nss_ctx_instance *nss_ctx, uint32_t if_num
 EXPORT_SYMBOL(nss_ipsec_data_unregister);
 
 /*
- * nss_ipsec_get_interface_num()
- * 	Get the NSS interface number on which ipsec user shall register
+ * nss_ipsec_get_encap_interface()
+ * 	Get the NSS interface number for encap message
  */
-int32_t nss_ipsec_get_interface(struct nss_ctx_instance *nss_ctx)
+int32_t nss_ipsec_get_encap_interface(void)
 {
-	/*
-	 * Check on which core is ipsec enabled
-	 */
-	switch(nss_ctx->id) {
-	case 0:
-		return NSS_IPSEC_RULE_INTERFACE;
-
-	case 1:
-		return NSS_C2C_TX_INTERFACE;
-	}
-
-	return -1;
+	return NSS_IPSEC_ENCAP_INTERFACE_NUM;
 }
-EXPORT_SYMBOL(nss_ipsec_get_interface);
+EXPORT_SYMBOL(nss_ipsec_get_encap_interface);
+
+/*
+ * nss_ipsec_get_decap_interface()
+ * 	Get the NSS interface number for decap message
+ */
+int32_t nss_ipsec_get_decap_interface(void)
+{
+	return NSS_IPSEC_DECAP_INTERFACE_NUM;
+}
+EXPORT_SYMBOL(nss_ipsec_get_decap_interface);
+
+/*
+ * nss_ipsec_get_data_interface()
+ * 	Get the NSS interface number used for data path
+ */
+int32_t nss_ipsec_get_data_interface(void)
+{
+	return NSS_IPSEC_DATA_INTERFACE_NUM;
+}
+EXPORT_SYMBOL(nss_ipsec_get_data_interface);
 
 /*
  * nss_ipsec_get_ctx()
@@ -423,11 +424,17 @@ void nss_ipsec_register_handler()
 {
 	struct nss_ctx_instance *nss_ctx = &nss_top_main.nss[nss_top_main.ipsec_handler_id];
 
-	nss_ipsec_set_msg_callback(nss_ctx, NSS_IPSEC_ENCAP_IF_NUMBER, NULL, NULL);
-	nss_core_register_handler(NSS_IPSEC_ENCAP_IF_NUMBER, nss_ipsec_msg_handler, NULL);
+	BUILD_BUG_ON(NSS_IPSEC_ENCAP_INTERFACE_NUM < 0);
+	BUILD_BUG_ON(NSS_IPSEC_DECAP_INTERFACE_NUM < 0);
 
-	nss_ipsec_set_msg_callback(nss_ctx, NSS_IPSEC_DECAP_IF_NUMBER, NULL, NULL);
-	nss_core_register_handler(NSS_IPSEC_DECAP_IF_NUMBER, nss_ipsec_msg_handler, NULL);
+	nss_ctx->nss_top->ipsec_encap_callback = NULL;
+	nss_ctx->nss_top->ipsec_decap_callback = NULL;
+
+	nss_ctx->nss_top->ipsec_encap_ctx = NULL;
+	nss_ctx->nss_top->ipsec_decap_ctx = NULL;
+
+	nss_core_register_handler(NSS_IPSEC_ENCAP_INTERFACE_NUM, nss_ipsec_msg_handler, NULL);
+	nss_core_register_handler(NSS_IPSEC_DECAP_INTERFACE_NUM, nss_ipsec_msg_handler, NULL);
 }
 
 /*

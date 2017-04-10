@@ -151,11 +151,21 @@ void nss_fw_coredump_notify(struct nss_ctx_instance *nss_own,
 		if (nss_ctx != nss_own) {
 			if (nss_ctx->state & NSS_CORE_STATE_FW_DEAD ||
 					!nss_ctx->nmap) {
-				/*
-				 * cannot call atomic_notifier_chain_unregister?
-				 * (&panic_notifier_list, &nss_panic_nb);
-				 */
-				panic("NSS FW coredump: bringing system down\n");
+				if (nss_cmd_buf.coredump & 0xFFFFFFFE) {
+					/*
+					 * bit 1 is used for testing coredump. Any other
+					 * bit(s) (value other than 0/1) disable panic
+					 * in order to use mdump utility: see mdump/src/README
+					 * for more info.
+					 */
+					nss_info_always("NSS core dump completed and please use mdump to collect dump data\n");
+				} else {
+					/*
+					 * cannot call atomic_notifier_chain_unregister?
+					 * (&panic_notifier_list, &nss_panic_nb);
+					 */
+					panic("NSS FW coredump: bringing system down\n");
+				}
 			}
 			nss_warning("notify NSS FW %p for coredump\n",
 				nss_ctx->nmap);

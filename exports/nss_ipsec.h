@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -77,14 +77,6 @@ enum nss_ipsec_error_type {
 };
 
 /**
- * @brief IP version
- */
-enum nss_ipsec_ip_ver {
-	NSS_IPSEC_IPVER_4 = 2,		/**< IPv4 version for sel and oip */
-	NSS_IPSEC_IPVER_6 = 3		/**< IPv6 version for sel and oip */
-};
-
-/**
  * @brief IPsec operation Type
  */
 enum nss_ipsec_type {
@@ -108,7 +100,7 @@ enum nss_ipsec_type {
  * respective tables to the Host for storing the rule which can
  * be referenced by host in future
  */
-struct nss_ipsec_rule_sel {
+struct nss_ipsec_tuple {
 	uint32_t dst_addr[4];	/**< destination IP */
 	uint32_t src_addr[4];	/**< source IP */
 
@@ -144,8 +136,8 @@ struct nss_ipsec_rule_data {
 	uint16_t crypto_index;		/**< crypto index for the SA */
 	uint16_t window_size;		/**< ESP sequence number window */
 
-	uint8_t cipher_algo;		/**< Cipher algorithm */
-	uint8_t auth_algo;		/**< Authentication algorithm */
+	uint8_t cipher_blk_len;
+	uint8_t iv_len;
 	uint8_t nat_t_req;		/**< NAT-T required */
 	uint8_t esp_icv_len;		/**< ESP trailers ICV length to apply */
 
@@ -167,41 +159,29 @@ struct nss_ipsec_rule_data {
  * 	  performing a operation on NSS rule tables
  */
 struct nss_ipsec_rule {
-	struct nss_ipsec_rule_sel sel;		/**< rule selector */
 	struct nss_ipsec_rule_oip oip;		/**< per rule outer IP info */
 	struct nss_ipsec_rule_data data;	/**< per rule data */
 
-	uint32_t rule_idx;			/**< rule index provided by NSS */
+	uint32_t index;				/**< rule index provided by NSS */
 	uint32_t sa_idx;			/**< index into SA table */
-};
-
-/**
- * @brief Packet stats SA
- */
-struct nss_ipsec_pkt_sa_stats {
-	uint32_t count;			/**< packets processed */
-	uint32_t bytes;			/**< bytes processed */
-	uint32_t no_headroom;		/**< insufficient headroom */
-	uint32_t no_tailroom;		/**< insufficient tailroom */
-	uint32_t no_buf;		/**< no crypto buffer */
-	uint32_t fail_queue;		/**< failed to enqueue */
-	uint32_t fail_hash;		/**< hash mismatch */
-	uint32_t fail_replay;		/**< replay chaeck failed */
 };
 
 /**
  * @brief NSS IPsec per SA statistics
  */
 struct nss_ipsec_sa_stats {
-	struct nss_ipsec_rule_sel sel;		/**< selector for SA stats */
-	struct nss_ipsec_pkt_sa_stats pkts;	/**< packet statistics */
-
-	uint64_t seq_num;			/**< curr seq number */
-
-	uint64_t window_max;			/**< window top */
-	uint32_t window_size;			/**< window size */
-
-	uint8_t esn_enabled;			/**< is ESN enabled */
+	uint32_t count;			/**< packets processed */
+	uint32_t bytes;			/**< bytes processed */
+	uint32_t no_headroom;		/**< insufficient headroom */
+	uint32_t no_tailroom;		/**< insufficient tailroom */
+	uint32_t no_resource;		/**< no crypto buffer */
+	uint32_t fail_queue;		/**< failed to enqueue */
+	uint32_t fail_hash;		/**< hash mismatch */
+	uint32_t fail_replay;		/**< replay chaeck failed */
+	uint64_t seq_num;		/**< curr seq number */
+	uint64_t window_max;		/**< window top */
+	uint32_t window_size;		/**< window size */
+	uint8_t esn_enabled;		/**< is ESN enabled */
 	uint8_t res[3];
 } __attribute__((packed));
 
@@ -209,7 +189,6 @@ struct nss_ipsec_sa_stats {
  * @brief NSS IPsec per flow statsistics
  */
 struct nss_ipsec_flow_stats {
-	struct nss_ipsec_rule_sel sel;		/**< rule selector */
 	uint32_t processed;			/**< packets processed for this flow */
 
 	uint8_t use_pattern;			/**< use random pattern */
@@ -228,19 +207,27 @@ struct nss_ipsec_node_stats {
 };
 
 /**
+ * @brief common statistics structure
+ */
+union nss_ipsec_stats {
+	struct nss_ipsec_sa_stats sa;           /**< SA statistics */
+	struct nss_ipsec_flow_stats flow;       /**< flow statistics */
+	struct nss_ipsec_node_stats node;       /**< pnode statistics */
+};
+
+/**
  * @brief Message structure to send/receive ipsec messages
  */
 struct nss_ipsec_msg {
 	struct nss_cmn_msg cm;				/**< Message Header */
 
 	uint32_t tunnel_id;				/**< tunnel index associated with the message */
+	struct nss_ipsec_tuple tuple;			/**< tuple for lookup */
 	enum nss_ipsec_type type;			/**< Encap / Decap operation */
 
 	union {
-		struct nss_ipsec_rule push;		/**< Message: IPsec rule */
-		struct nss_ipsec_sa_stats sa_stats;	/**< Message: Retreive stats for tunnel */
-		struct nss_ipsec_flow_stats flow_stats;	/**< Message: Get stats per flow */
-		struct nss_ipsec_node_stats node_stats;	/**< Message: Get stats per node */
+		struct nss_ipsec_rule rule;		/**< Message: IPsec rule */
+		union nss_ipsec_stats stats;		/**< Message: Retreive stats for tunnel */
 	} msg;
 };
 
@@ -343,11 +330,23 @@ extern void nss_ipsec_msg_init(struct nss_ipsec_msg *nim, uint16_t if_num, uint3
 				nss_ipsec_msg_callback_t cb, void *app_data);
 
 /**
- * @brief get the NSS interface number to be used for IPsec requests
+ * @brief get the NSS interface number to be used for IPsec encap message
  *
- * @param ctx[IN] HLOS driver's context
- *
- * @return interface number
+ * @return encap interface number
  */
-extern int32_t nss_ipsec_get_interface(struct nss_ctx_instance *ctx);
+extern int32_t nss_ipsec_get_encap_interface(void);
+
+/**
+ * @brief get the NSS interface number to be used for IPsec decap message
+ *
+ * @return decap interface number
+ */
+extern int32_t nss_ipsec_get_decap_interface(void);
+
+/**
+ * @brief get the NSS interface number to be used for IPsec data trasnfer
+ *
+ * @return data interface number
+ */
+extern int32_t nss_ipsec_get_data_interface(void);
 #endif /* __NSS_IPSEC_H */

@@ -33,7 +33,7 @@
 #define NSS_QGIC_IPC_REG_OFFSET 0x8
 
 #define NSS0_H2N_INTR_BASE 13
-#define NSS1_H2N_INTR_BASE (NSS0_H2N_INTR_BASE + NSS_H2N_INTR_TYPE_MAX)
+#define NSS1_H2N_INTR_BASE 19
 
 /*
  * Interrupt type to cause vector.
@@ -54,11 +54,11 @@ static uint32_t intr_cause[NSS_MAX_CORES][NSS_H2N_INTR_TYPE_MAX] = {
 /*
  * nss_hal_handle_data_cmd_irq()
  */
-static irqreturn_t nss_hal_handle_data_cmd_irq(int irq, void *ctx)
+static irqreturn_t nss_hal_handle_data_cmd_queue_irq(int irq, void *ctx)
 {
 	struct int_ctx_instance *int_ctx = (struct int_ctx_instance *) ctx;
 
-	int_ctx->cause |= NSS_N2H_INTR_DATA_COMMAND_QUEUE;
+	int_ctx->cause |= int_ctx->queue_cause;
 
 	if (napi_schedule_prep(&int_ctx->napi))
 		__napi_schedule(&int_ctx->napi);
@@ -89,21 +89,6 @@ static irqreturn_t nss_hal_handle_empty_buff_queue_irq(int irq, void *ctx)
 	struct int_ctx_instance *int_ctx = (struct int_ctx_instance *) ctx;
 
 	int_ctx->cause |= NSS_N2H_INTR_EMPTY_BUFFER_QUEUE;
-
-	if (napi_schedule_prep(&int_ctx->napi))
-		__napi_schedule(&int_ctx->napi);
-
-	return IRQ_HANDLED;
-}
-
-/*
- * nss_hal_handle_data_queue_one_irq()
- */
-static irqreturn_t nss_hal_handle_data_queue_one_irq(int irq, void *ctx)
-{
-	struct int_ctx_instance *int_ctx = (struct int_ctx_instance *) ctx;
-
-	int_ctx->cause |= NSS_N2H_INTR_DATA_QUEUE_1;
 
 	if (napi_schedule_prep(&int_ctx->napi))
 		__napi_schedule(&int_ctx->napi);
@@ -429,15 +414,19 @@ static int __nss_hal_request_irq_for_queue(struct nss_ctx_instance *nss_ctx, str
 	int err;
 
 	/*
-	 * Queue1 use the last (#5) IRQ and queue0 use #1 to #4
+	 * Queue0-3 use the IRQ #4 to #7, and are mapped to cause bit 1 to 4
 	 */
-	if (qnum == 1) {
-		err = request_irq(npd->irq[4], nss_hal_handle_data_queue_one_irq, 0, "nss_queue1", int_ctx);
-		if (err) {
-			nss_info_always("%p: IRQ%d request failed", int_ctx, npd->irq[4]);
-			return err;
-		}
-		int_ctx->irq[0] = npd->irq[4];
+	snprintf(int_ctx->irq_name, 11, "nss_queue%d", qnum);
+	int_ctx->queue_cause = (1 << (qnum+1));
+	err = request_irq(npd->irq[qnum+3], nss_hal_handle_data_cmd_queue_irq, 0, int_ctx->irq_name, int_ctx);
+	if (err) {
+		nss_info_always("%p: IRQ%d request failed", int_ctx, npd->irq[qnum+3]);
+		return err;
+	}
+
+	int_ctx->irq[0] = npd->irq[qnum+3];
+
+	if (qnum) {
 		return 0;
 	}
 
@@ -446,28 +435,24 @@ static int __nss_hal_request_irq_for_queue(struct nss_ctx_instance *nss_ctx, str
 		nss_info_always("%p: IRQ%d request failed", int_ctx, npd->irq[0]);
 		return err;
 	}
-	int_ctx->irq[0] = npd->irq[0];
 
-	err = request_irq(npd->irq[1], nss_hal_handle_data_cmd_irq, 0, "nss_queue0", int_ctx);
+	int_ctx->irq[1] = npd->irq[0];
+
+	err = request_irq(npd->irq[1], nss_hal_handle_empty_buff_queue_irq, 0, "nss_empty_buf_queue", int_ctx);
 	if (err) {
 		nss_info_always("%p: IRQ%d request failed", int_ctx, npd->irq[1]);
 		return err;
 	}
-	int_ctx->irq[1] = npd->irq[1];
 
-	err = request_irq(npd->irq[2], nss_hal_handle_empty_buff_queue_irq, 0, "nss_empty_buf_queue", int_ctx);
+	int_ctx->irq[2] = npd->irq[1];
+
+	err = request_irq(npd->irq[2], nss_hal_handle_tx_unblock_irq, 0, "nss-tx-unblock", int_ctx);
 	if (err) {
 		nss_info_always("%p: IRQ%d request failed", int_ctx, npd->irq[2]);
 		return err;
 	}
-	int_ctx->irq[2] = npd->irq[2];
 
-	err = request_irq(npd->irq[3], nss_hal_handle_tx_unblock_irq, 0, "nss-tx-unblock", int_ctx);
-	if (err) {
-		nss_info_always("%p: IRQ%d request failed", int_ctx, npd->irq[3]);
-		return err;
-	}
-	int_ctx->irq[3] = npd->irq[3];
+	int_ctx->irq[3] = npd->irq[2];
 
 	return 0;
 }

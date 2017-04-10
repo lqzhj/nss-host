@@ -160,7 +160,7 @@ static void nss_virt_if_callback(void *app_data, struct nss_cmn_msg *ncm)
  *	Send a message from HLOS to NSS synchronously.
  */
 static nss_tx_status_t nss_virt_if_tx_msg_sync(struct nss_virt_if_handle *handle,
-							struct nss_virt_if_msg *nvim)
+						struct nss_virt_if_msg *nvim)
 {
 	nss_tx_status_t status;
 	int ret = 0;
@@ -870,7 +870,7 @@ void nss_virt_if_register(struct nss_virt_if_handle *handle,
 				nss_virt_if_data_callback_t data_callback,
 				struct net_device *netdev)
 {
-	struct nss_ctx_instance *nss_ctx = handle->nss_ctx;
+	struct nss_ctx_instance *nss_ctx;
 	int32_t if_num;
 
 	if (!handle) {
@@ -878,6 +878,7 @@ void nss_virt_if_register(struct nss_virt_if_handle *handle,
 		return;
 	}
 
+	nss_ctx = handle->nss_ctx;
 	if_num = handle->if_num;
 
 	nss_ctx->subsys_dp_register[if_num].ndev = netdev;
@@ -894,7 +895,7 @@ EXPORT_SYMBOL(nss_virt_if_register);
  */
 void nss_virt_if_unregister(struct nss_virt_if_handle *handle)
 {
-	struct nss_ctx_instance *nss_ctx = handle->nss_ctx;
+	struct nss_ctx_instance *nss_ctx;
 	int32_t if_num;
 
 	if (!handle) {
@@ -902,6 +903,7 @@ void nss_virt_if_unregister(struct nss_virt_if_handle *handle)
 		return;
 	}
 
+	nss_ctx = handle->nss_ctx;
 	if_num = handle->if_num;
 
 	nss_ctx->subsys_dp_register[if_num].ndev = NULL;
