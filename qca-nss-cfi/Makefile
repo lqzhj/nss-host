@@ -28,8 +28,10 @@ PKG_BUILD_DEPENDS:=ocf-crypto-headers
 #
 ifeq ($(findstring 4.4, $(LINUX_VERSION)),)
  CFI_CRYPTOAPI_DIR:=cryptoapi/v1.0
+ CFI_OCF_DIR:=ocf/v1.0
 else
  CFI_CRYPTOAPI_DIR:=cryptoapi/v2.0
+ CFI_OCF_DIR:=ocf/v1.0
 endif
 
 define KernelPackage/qca-nss-cfi
@@ -38,7 +40,7 @@ define KernelPackage/qca-nss-cfi
   SUBMENU:=Network Devices
   DEPENDS:=@TARGET_ipq806x||TARGET_ipq807x||TARGET_ipq +kmod-qca-nss-crypto +kmod-crypto-ocf @!LINUX_3_18
   TITLE:=Kernel driver for NSS cfi
-  FILES:=$(PKG_BUILD_DIR)/ocf/qca-nss-cfi-ocf.ko \
+  FILES:=$(PKG_BUILD_DIR)/$(CFI_OCF_DIR)/qca-nss-cfi-ocf.ko \
 	 $(PKG_BUILD_DIR)/ipsec/qca-nss-ipsec.ko \
 	 $(PKG_BUILD_DIR)/$(CFI_CRYPTOAPI_DIR)/qca-nss-cfi-cryptoapi.ko
   AUTOLOAD:=$(call AutoLoad,59,qca-nss-cfi-ocf qca-nss-cfi-cryptoapi qca-nss-ipsec)
@@ -62,6 +64,7 @@ define Build/Compile
 		EXTRA_CFLAGS="$(EXTRA_CFLAGS)" \
 		CC="$(TARGET_CC)" \
 		CFI_CRYPTOAPI_DIR=$(CFI_CRYPTOAPI_DIR) \
+		CFI_OCF_DIR=$(CFI_OCF_DIR) \
 		modules
 endef
 

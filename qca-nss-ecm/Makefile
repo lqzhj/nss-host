@@ -37,15 +37,18 @@ This package contains the QCA NSS Enhanced Connection Manager
 endef
 
 define KernelPackage/qca-nss-ecm/Default/install
-	$(INSTALL_DIR) $(1)/etc/firewall.d $(1)/etc/init.d $(1)/usr/bin
+	$(INSTALL_DIR) $(1)/etc/firewall.d $(1)/etc/init.d $(1)/usr/bin $(1)/lib/netifd/offload $(1)/etc/config $(1)/etc/uci-defaults $(1)/etc/sysctl.d
 	$(INSTALL_DATA) ./files/qca-nss-ecm.firewall $(1)/etc/firewall.d/qca-nss-ecm
 	$(INSTALL_BIN) ./files/qca-nss-ecm.init $(1)/etc/init.d/qca-nss-ecm
 	$(INSTALL_BIN) ./files/ecm_dump.sh $(1)/usr/bin/
+	$(INSTALL_BIN) ./files/on-demand-down $(1)/lib/netifd/offload/on-demand-down
+	$(INSTALL_DATA) ./files/qca-nss-ecm.uci $(1)/etc/config/ecm
+	$(INSTALL_DATA) ./files/qca-nss-ecm.defaults $(1)/etc/uci-defaults/99-qca-nss-ecm
+	$(INSTALL_BIN) ./files/qca-nss-ecm.sysctl $(1)/etc/sysctl.d/qca-nss-ecm.conf
 endef
 
 define KernelPackage/qca-nss-ecm
   $(call KernelPackage/qca-nss-ecm/Default)
-  AUTOLOAD:=$(call AutoLoad,52,ecm)
 endef
 
 define KernelPackage/qca-nss-ecm/Description
@@ -54,13 +57,6 @@ endef
 
 define KernelPackage/qca-nss-ecm/install
 $(call KernelPackage/qca-nss-ecm/Default/install, $(1))
-	$(INSTALL_DIR) $(1)/etc/uci-defaults $(1)/etc/sysctl.d
-	$(INSTALL_DATA) ./files/qca-nss-ecm.defaults $(1)/etc/uci-defaults/99-qca-nss-ecm
-	$(INSTALL_BIN) ./files/qca-nss-ecm.sysctl $(1)/etc/sysctl.d/qca-nss-ecm.conf
-
-	# install service by default
-	$(INSTALL_DIR) $(1)/etc/rc.d
-	$(LN) ../init.d/qca-nss-ecm $(1)/etc/rc.d/S70qca-nss-ecm
 endef
 
 # Variant with additional features enabled for premium profile
@@ -82,7 +78,6 @@ endef
 
 define KernelPackage/qca-nss-ecm-premium
 $(call KernelPackage/qca-nss-ecm-premium/Default)
-AUTOLOAD:=$(call AutoLoad,52,ecm)
 endef
 
 define KernelPackage/qca-nss-ecm-premium/Description
@@ -105,6 +100,11 @@ endef
 
 define KernelPackage/qca-nss-ecm-noload/install
 $(call KernelPackage/qca-nss-ecm/Default/install, $(1))
+	#
+	# Remove the START line from the init script, so that the symlink
+	# in the /etc/rc.d directory is not created.
+	#
+	sed -i '/START=/d' $(1)/etc/init.d/qca-nss-ecm
 endef
 
 define KernelPackage/qca-nss-ecm-premium-noload
