@@ -82,18 +82,24 @@ LIST_HEAD(nss_crypto_user_head);
 static uint32_t nss_crypto_pool_seed = 1024;
 
 /*
- * nss_crypto_buf_init
- *	Initialize the allocated crypto buffer
+ * nss_crypto_skb_to_buf
+ *	Initialize the skb with crypto buffer
  */
-static inline void nss_crypto_buf_init(struct nss_crypto_buf_node *entry, struct nss_crypto_buf *buf)
+static inline struct nss_crypto_buf *nss_crypto_skb_to_buf(struct nss_crypto_buf_node *entry, struct sk_buff *skb)
 {
+	struct nss_crypto_buf *buf = (struct nss_crypto_buf *)skb_put(skb, sizeof(struct nss_crypto_buf));
+
 	BUG_ON(((uint32_t)entry->results % L1_CACHE_BYTES));
+
+	memset(entry->results, 0, NSS_CRYPTO_MAX_HASHLEN);
 
 	buf->ctx_0 = (uint32_t)entry;
 	buf->origin = NSS_CRYPTO_BUF_ORIGIN_HOST;
 
 	buf->hash_addr = (uint32_t)entry->results;
 	buf->iv_addr = (uint32_t)entry->results;
+
+	return buf;
 }
 
 /*
@@ -139,7 +145,6 @@ void nss_crypto_register_user(nss_crypto_attach_t attach, nss_crypto_detach_t de
 	nss_crypto_user_ctx_t *ctx = NULL;
 	struct nss_crypto_buf_node *entry;
 	struct nss_crypto_user *user;
-	struct nss_crypto_buf *buf;
 	int i;
 
 	if (nss_crypto_check_state(ctrl, NSS_CRYPTO_STATE_NOT_READY)) {
@@ -200,13 +205,10 @@ void nss_crypto_register_user(nss_crypto_attach_t attach, nss_crypto_detach_t de
 			break;
 		}
 
-		buf = (struct nss_crypto_buf *)skb_put(entry->skb, sizeof(struct nss_crypto_buf));
-
 		/*
 		 * Add to user local list.
 		 */
 		llist_add(&entry->node, &user->pool_head);
-		nss_crypto_buf_init(entry, buf);
 	}
 
 	mutex_lock(&ctrl->mutex);
@@ -300,15 +302,14 @@ struct nss_crypto_buf *nss_crypto_buf_alloc(nss_crypto_handle_t hdl)
 {
 	struct nss_crypto_buf_node *entry;
 	struct nss_crypto_user *user;
-	struct nss_crypto_buf *buf;
 	struct llist_node *node;
 
 	user = (struct nss_crypto_user *)hdl;
 
 	node = llist_del_first(&user->pool_head);
-	if (node) {
+	if (likely(node)) {
 		entry = container_of(node, struct nss_crypto_buf_node, node);
-		goto done;
+		return nss_crypto_skb_to_buf(entry, entry->skb);
 	}
 
 	/*
@@ -331,14 +332,7 @@ struct nss_crypto_buf *nss_crypto_buf_alloc(nss_crypto_handle_t hdl)
 		return NULL;
 	}
 
-done:
-	/*
-	 * we need to reset the buffer in all cases; as it will contain data
-	 * from previous transactions.
-	 */
-	buf = (struct nss_crypto_buf *)entry->skb->data;
-	nss_crypto_buf_init(entry, buf);
-	return buf;
+	return nss_crypto_skb_to_buf(entry, entry->skb);
 }
 EXPORT_SYMBOL(nss_crypto_buf_alloc);
 
@@ -354,9 +348,10 @@ void nss_crypto_buf_free(nss_crypto_handle_t hdl, struct nss_crypto_buf *buf)
 	user = (struct nss_crypto_user *)hdl;
 	entry = (struct nss_crypto_buf_node *)buf->ctx_0;
 
-	memset(buf, 0, sizeof(struct nss_crypto_buf));
-	memset(entry->results, 0, NSS_CRYPTO_MAX_HASHLEN);
-
+	/*
+	 * trim the skb of the crypto_buf
+	 */
+	skb_trim(entry->skb, 0);
 	llist_add(&entry->node, &user->pool_head);
 
 }
