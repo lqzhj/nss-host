@@ -199,6 +199,26 @@ static int edma_if_pause_on_off(struct nss_dp_data_plane_ctx *dpc,
 }
 
 /*
+ * edma_if_vsi_assign()
+ *	assign vsi of the data plane
+ *
+ */
+static int edma_if_vsi_assign(struct nss_dp_data_plane_ctx *dpc, uint32_t vsi)
+{
+	return NSS_DP_SUCCESS;
+}
+
+/*
+ * edma_if_vsi_unassign()
+ *	unassign vsi of the data plane
+ *
+ */
+static int edma_if_vsi_unassign(struct nss_dp_data_plane_ctx *dpc, uint32_t vsi)
+{
+	return NSS_DP_SUCCESS;
+}
+
+/*
  * edma_irq_init()
  *	Initialize interrupt handlers for the driver
  */
@@ -475,6 +495,8 @@ struct nss_dp_data_plane_ops nss_dp_edma_ops = {
 	.xmit		= edma_if_xmit,
 	.set_features	= edma_if_set_features,
 	.pause_on_off	= edma_if_pause_on_off,
+	.vsi_assign	= edma_if_vsi_assign,
+	.vsi_unassign	= edma_if_vsi_unassign,
 };
 
 /*
