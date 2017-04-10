@@ -116,9 +116,10 @@ void nss_cryptoapi_aead_exit(struct crypto_tfm *tfm)
 		nss_cfi_assert(false);
 	}
 
-	nss_cfi_assert(ctx->sw_tfm);
-	crypto_free_aead(__crypto_aead_cast(ctx->sw_tfm));
-	ctx->sw_tfm = NULL;
+	if (ctx->sw_tfm) {
+		crypto_free_aead(__crypto_aead_cast(ctx->sw_tfm));
+		ctx->sw_tfm = NULL;
+	}
 
 	/*
 	 * When sid is NSS_CRYPTO_MAX_IDXS, it means that it didn't allocate
@@ -515,9 +516,11 @@ int nss_cryptoapi_aead_setauthsize(struct crypto_aead *authenc, unsigned int aut
 	struct nss_cryptoapi_ctx *ctx = crypto_aead_ctx(authenc);
 
 	ctx->authsize = authsize;
-	nss_cfi_assert(ctx->sw_tfm);
 
-	crypto_aead_setauthsize(__crypto_aead_cast(ctx->sw_tfm), authsize);
+	if (ctx->sw_tfm) {
+		crypto_aead_setauthsize(__crypto_aead_cast(ctx->sw_tfm), authsize);
+	}
+
 	return 0;
 }
 

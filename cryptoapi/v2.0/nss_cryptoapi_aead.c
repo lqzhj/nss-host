@@ -82,7 +82,7 @@ int nss_cryptoapi_aead_init(struct crypto_aead *aead)
 
 	nss_cryptoapi_set_magic(ctx);
 
-	if (!(crypto_aead_get_flags(aead) & CRYPTO_ALG_NEED_FALLBACK))
+	if (!(crypto_tfm_alg_flags(tfm) & CRYPTO_ALG_NEED_FALLBACK))
 		return 0;
 
 	/* Alloc fallback transform for future use */

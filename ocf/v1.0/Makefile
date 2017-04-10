@@ -9,7 +9,7 @@ obj ?= .
 
 ccflags-y += -I$(obj)/../../ocf
 ccflags-y += -I$(obj)/../../nss-crypto/include
-ccflags-y += -I$(obj)/../include
+ccflags-y += -I$(obj)/../../include
 ccflags-y += -I$(obj)/
 ccflags-y += -DNSS_CFI_DEBUG_LEVEL=3
 ccflags-y += -Werror
