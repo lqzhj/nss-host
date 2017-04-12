@@ -1359,12 +1359,15 @@ int nss_cryptoapi_aead_aes_geniv_encrypt(struct aead_givcrypt_request *req)
  */
 int nss_cryptoapi_sha1_3des_geniv_encrypt(struct aead_givcrypt_request *req)
 {
-	struct nss_cryptoapi *sc = &gbl_ctx;
-	struct nss_cryptoapi_ctx *ctx = crypto_tfm_ctx(req->areq.base.tfm);
 	struct nss_crypto_params params = { .req_type = NSS_CRYPTO_REQ_TYPE_AUTH |
 							NSS_CRYPTO_REQ_TYPE_ENCRYPT };
+	struct nss_cryptoapi_aead_info info = {.cb_fn = nss_cryptoapi_aead_encrypt_done,
+						.params = &params};
+	struct aead_request *areq = &req->areq;
+	struct crypto_aead *aead = crypto_aead_reqtfm(areq);
+	struct nss_cryptoapi_ctx *ctx = crypto_aead_ctx(aead);
+	struct nss_cryptoapi *sc = &gbl_ctx;
 	struct nss_crypto_buf *buf;
-	struct nss_cryptoapi_aead_info info;
 
 	/*
 	 * check cryptoapi context magic number.
@@ -1389,17 +1392,15 @@ int nss_cryptoapi_sha1_3des_geniv_encrypt(struct aead_givcrypt_request *req)
 		return -EINVAL;
 	}
 
+	info.cip_len = req->areq.cryptlen;
+	info.auth_len = req->areq.assoclen + DES3_EDE_BLOCK_SIZE + req->areq.cryptlen;
+	areq->iv = req->giv;
+
 	/*
 	 * fill in iv.
 	 */
-	memcpy(req->giv, (uint8_t *)ctx->ctx_iv, DES3_EDE_BLOCK_SIZE);
-	*(__be64 *)req->giv ^= cpu_to_be64(req->seq);
-
-	info.iv = req->giv;
-	info.params = &params;
-	info.cb_fn = nss_cryptoapi_aead_encrypt_done;
-	info.cip_len = req->areq.cryptlen;
-	info.auth_len = req->areq.assoclen + DES3_EDE_BLOCK_SIZE + req->areq.cryptlen;
+	memcpy(areq->iv, (uint8_t *)ctx->ctx_iv, DES3_EDE_BLOCK_SIZE);
+	*(__be64 *)areq->iv ^= cpu_to_be64(req->seq);
 
 	buf = nss_cryptoapi_aead_transform(&req->areq, &info);
 	if (!buf) {
@@ -1429,12 +1430,15 @@ int nss_cryptoapi_sha1_3des_geniv_encrypt(struct aead_givcrypt_request *req)
  */
 int nss_cryptoapi_sha256_3des_geniv_encrypt(struct aead_givcrypt_request *req)
 {
-	struct nss_cryptoapi *sc = &gbl_ctx;
-	struct nss_cryptoapi_ctx *ctx = crypto_tfm_ctx(req->areq.base.tfm);
 	struct nss_crypto_params params = { .req_type = NSS_CRYPTO_REQ_TYPE_AUTH |
 							NSS_CRYPTO_REQ_TYPE_ENCRYPT };
+	struct nss_cryptoapi_aead_info info = {.cb_fn = nss_cryptoapi_aead_encrypt_done,
+						.params = &params};
+	struct aead_request *areq = &req->areq;
+	struct crypto_aead *aead = crypto_aead_reqtfm(areq);
+	struct nss_cryptoapi_ctx *ctx = crypto_aead_ctx(aead);
+	struct nss_cryptoapi *sc = &gbl_ctx;
 	struct nss_crypto_buf *buf;
-	struct nss_cryptoapi_aead_info info;
 
 	/*
 	 * check cryptoapi context magic number.
@@ -1459,17 +1463,15 @@ int nss_cryptoapi_sha256_3des_geniv_encrypt(struct aead_givcrypt_request *req)
 		return -EINVAL;
 	}
 
+	info.cip_len = req->areq.cryptlen;
+	info.auth_len = req->areq.assoclen + DES3_EDE_BLOCK_SIZE + req->areq.cryptlen;
+	areq->iv = req->giv;
+
 	/*
 	 * fill in iv.
 	 */
-	memcpy(req->giv, (uint8_t *)ctx->ctx_iv, DES3_EDE_BLOCK_SIZE);
-	*(__be64 *)req->giv ^= cpu_to_be64(req->seq);
-
-	info.iv = req->giv;
-	info.params = &params;
-	info.cb_fn = nss_cryptoapi_aead_encrypt_done;
-	info.cip_len = req->areq.cryptlen;
-	info.auth_len = req->areq.assoclen + DES3_EDE_BLOCK_SIZE + req->areq.cryptlen;
+	memcpy(areq->iv, (uint8_t *)ctx->ctx_iv, DES3_EDE_BLOCK_SIZE);
+	*(__be64 *)areq->iv ^= cpu_to_be64(req->seq);
 
 	buf = nss_cryptoapi_aead_transform(&req->areq, &info);
 	if (!buf) {
