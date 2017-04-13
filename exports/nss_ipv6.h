@@ -1,6 +1,6 @@
 /*
  **************************************************************************
- * Copyright (c) 2014 - 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014 - 2017, The Linux Foundation. All rights reserved.
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
  * above copyright notice and this permission notice appear in all copies.
@@ -75,6 +75,7 @@ enum nss_ipv6_message_types {
 #define NSS_IPV6_RULE_CREATE_DSCP_MARKING_VALID 0x20	/**< DSCP marking fields are valid */
 #define NSS_IPV6_RULE_CREATE_VLAN_MARKING_VALID 0x40	/**< VLAN marking fields are valid */
 #define NSS_IPV6_RULE_CREATE_SRC_MAC_VALID 0x80		/**< Src MAC address fields are valid */
+#define NSS_IPV6_RULE_CREATE_NEXTHOP_VALID 0x100	/**< Nexthop interface number fields are valid */
 
 /**
  * IPv6 multicast command rule flags
@@ -221,6 +222,18 @@ struct nss_ipv6_vlan_rule {
 };
 
 /**
+ * Nexthop interface numbers
+ *
+ * The next_hop is the very next interface that will recevied the
+ * packet (as opposed to the final interface that the packet
+ * will go out on).
+ */
+struct nss_ipv6_nexthop {
+	int32_t flow_nexthop;		/**< Flow Nexthop interface number */
+	int32_t return_nexthop;		/**< Return Nexthop interface number */
+};
+
+/**
  * TCP connection rule structure
  */
 struct nss_ipv6_protocol_tcp_rule {
@@ -291,6 +304,7 @@ struct nss_ipv6_rule_create_msg {
 	struct nss_ipv6_vlan_rule vlan_primary_rule;	/**< VLAN related accleration parameters */
 	struct nss_ipv6_vlan_rule vlan_secondary_rule;	/**< VLAN related accleration parameters */
 	struct nss_ipv6_src_mac_rule src_mac_rule;	/**< Source MAC address related acceleration parameters */
+	struct nss_ipv6_nexthop nexthop_rule;		/**< Nexthop related parameters */
 
 	/*
 	 * Response
