@@ -35,21 +35,15 @@ define Build/InstallDev
 	$(CP) $(PKG_BUILD_DIR)/exports/* $(1)/usr/include/qca-nss-dp/
 endef
 
-ifeq ($(CONFIG_TARGET_ipq806x_QSDK_Deluxe),y)
 EXTRA_CFLAGS+= \
 	-I$(STAGING_DIR)/usr/include/qca-ssdk
-
-subtarget:=ipq807x
-else
-subtarget:=ipq806x
-endif
 
 define Build/Compile
 	$(MAKE) -C "$(LINUX_DIR)" \
 		CROSS_COMPILE="$(TARGET_CROSS)" \
 		ARCH="$(LINUX_KARCH)" \
 		SUBDIRS="$(PKG_BUILD_DIR)" \
-		EXTRA_CFLAGS="$(EXTRA_CFLAGS)" SoC="$(subtarget)" \
+		EXTRA_CFLAGS="$(EXTRA_CFLAGS)" SoC="$(SUBTARGET)" \
 		modules
 endef
 
