@@ -650,6 +650,7 @@ enum nss_stats_ppe_conn {
 	NSS_STATS_PPE_FAIL_FLOW_COMMAND,	/* Create req fail due to PPE flow command failure */
 	NSS_STATS_PPE_FAIL_UNKNOWN_PROTO,	/* Create req fail due to unknown protocol */
 	NSS_STATS_PPE_FAIL_PPE_UNRESPONSIVE,	/* Create req fail due to PPE not responding */
+	NSS_STATS_PPE_FAIL_FQG_FULL,		/* Create req fail due to flow qos group full */
 	NSS_STATS_PPE_CONN_MAX
 };
 
