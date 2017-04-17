@@ -20,15 +20,9 @@ define KernelPackage/qca-nss-drv
   SECTION:=kernel
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
-  DEPENDS:=+TARGET_ipq806x_QSDK_Deluxe:kmod-qca-nss-dp \
-	+TARGET_ipq807x:kmod-qca-nss-dp \
-	+TARGET_ipq_ipq807x:kmod-qca-nss-dp \
-	+TARGET_ipq_ipq807x_64:kmod-qca-nss-dp \
-	+TARGET_ipq806x_QSDK_Premium:kmod-qca-nss-gmac \
-	+TARGET_ipq806x_QSDK_Deluxe_Temp:kmod-qca-nss-gmac \
-	+TARGET_ipq_ipq806x:kmod-qca-nss-gmac \
-	+TARGET_ipq_ipq40xx:kmod-qca-nss-gmac \
-	+kmod-ppp +kmod-pppoe @!LINUX_3_18
+  DEPENDS:=@(PACKAGE_kmod-qca-nss-gmac||PACKAGE_kmod-qca-nss-dp) @!LINUX_3_18
+  PKG_BUILD_DEPENDS:=PACKAGE_kmod-qca-nss-gmac:kmod-qca-nss-gmac \
+	PACKAGE_kmod-qca-nss-dp:kmod-qca-nss-dp
   TITLE:=Kernel driver for NSS (core driver)
   FILES:=$(PKG_BUILD_DIR)/qca-nss-drv.ko
   AUTOLOAD:=$(call AutoLoad,32,qca-nss-drv)
@@ -60,19 +54,11 @@ endef
 
 EXTRA_CFLAGS+= -I$(STAGING_DIR)/usr/include/qca-nss-gmac -I$(STAGING_DIR)/usr/include/qca-nss-dp
 
-# Only Deluxe profile compiles ipq807x, else we compile ipq806x, this will be replaced by subtarget framework from QSDK team
-ifeq ($(CONFIG_TARGET_ipq806x_QSDK_Deluxe),y)
-subtarget:=ipq807x
-else
-subtarget:=ipq806x
-endif
-
-ifeq ($(CONFIG_TARGET_ipq807x),y)
-subtarget:=ipq807x
-endif
-
+# Keeping default as ipq806x for branches that does not have subtarget framework
 ifeq ($(CONFIG_TARGET_ipq),y)
 subtarget:=$(SUBTARGET)
+else
+subtarget:=ipq806x
 endif
 
 define Build/Compile

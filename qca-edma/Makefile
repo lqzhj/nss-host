@@ -21,6 +21,7 @@ define KernelPackage/qca-edma
      SUBMENU:=Network Devices
      TITLE:=QCA IPQ40xx ethernet driver
      FILES:=$(PKG_BUILD_DIR)/essedma.ko
+     DEPENDS:=@TARGET_ipq806x||TARGET_ipq_ipq40xx
      AUTOLOAD:=$(call AutoLoad,45,essedma)
 endef
 
