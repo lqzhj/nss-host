@@ -89,6 +89,20 @@ define KernelPackage/qca-nss-drv-map-t/Description
 Kernel modules for NSS connection manager - Support for MAP-T
 endef
 
+define KernelPackage/qca-nss-drv-gre
+  SECTION:=kernel
+  CATEGORY:=Kernel modules
+  SUBMENU:=Network Devices
+  TITLE:=Kernel driver for NSS (connection manager) - GRE
+  DEPENDS:=kmod-qca-nss-drv kmod-nat46 @LINUX_3_14
+  FILES:=$(PKG_BUILD_DIR)/gre/qca-nss-gre.ko
+  AUTOLOAD:=$(call AutoLoad,51,qca-nss-gre)
+endef
+
+define KernelPackage/qca-nss-drv-gre/Description
+Kernel modules for NSS connection manager - Support for GRE
+endef
+
 define KernelPackage/qca-nss-drv-tunipip6
   SECTION:=kernel
   CATEGORY:=Kernel modules
@@ -255,3 +269,4 @@ $(eval $(call KernelPackage,qca-nss-drv-ppe-qdisc))
 $(eval $(call KernelPackage,qca-nss-drv-bridge-mgr))
 $(eval $(call KernelPackage,qca-nss-drv-vlan-mgr))
 $(eval $(call KernelPackage,qca-nss-drv-lag-mgr))
+$(eval $(call KernelPackage,qca-nss-drv-gre))
