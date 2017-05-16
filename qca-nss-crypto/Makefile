@@ -16,24 +16,37 @@ PKG_SOURCE_VERSION:=$(PKG_VERSION)
 
 include $(INCLUDE_DIR)/package.mk
 
-# TODO this selection should be based on SOC version
+ifeq ($(CONFIG_TARGET_ipq),y)
+subtarget:=$(SUBTARGET)
+else
+subtarget:=ipq806x
+endif
+
 # v1.0 is for Akronite
 # v2.0 is for Hawkeye
+ifneq (, $(findstring ipq807x, $(SUBTARGET)))
+NSS_CRYPTO_DIR:=v2.0
+else
 NSS_CRYPTO_DIR:=v1.0
+endif
 
 define KernelPackage/qca-nss-crypto/Default
   SECTION:=kernel
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
-  DEPENDS:=@TARGET_ipq806x||TARGET_ipq_ipq806x +kmod-qca-nss-drv @!LINUX_3_18
+  DEPENDS:=@TARGET_ipq806x||TARGET_ipq807x||TARGET_ipq_ipq807x||TARGET_ipq_ipq807x_64 +kmod-qca-nss-drv @!LINUX_3_18
 endef
 
 define KernelPackage/qca-nss-crypto
   $(call KernelPackage/qca-nss-crypto/Default)
   TITLE:=Kernel driver for NSS crypto driver
+ifneq (, $(findstring ipq807x, $(SUBTARGET)))
+  FILES:=$(PKG_BUILD_DIR)/$(NSS_CRYPTO_DIR)/src/qca-nss-crypto.ko
+else
   FILES:=$(PKG_BUILD_DIR)/$(NSS_CRYPTO_DIR)/src/qca-nss-crypto.ko \
 	$(PKG_BUILD_DIR)/$(NSS_CRYPTO_DIR)/tool/qca-nss-crypto-tool.ko
   AUTOLOAD:=$(call AutoLoad,52,qca-nss-crypto qca-nss-crypto-tool)
+endif
 endef
 
 define KernelPackage/qca-nss-crypto/Description
@@ -64,6 +77,7 @@ define Build/Compile
 		SUBDIRS="$(PKG_BUILD_DIR)" \
 		EXTRA_CFLAGS="$(EXTRA_CFLAGS)" \
 		NSS_CRYPTO_DIR=$(NSS_CRYPTO_DIR) \
+		SoC="$(subtarget)" \
 		modules
 endef
 
