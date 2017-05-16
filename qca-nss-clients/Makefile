@@ -14,8 +14,8 @@ PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE_VERSION:=$(PKG_VERSION)
 
-PKG_BUILD_DEPENDS := \
-        PACKAGE_kmod-qca-nss-crypto:kmod-qca-nss-crypto
+PKG_BUILD_DEPENDS := PACKAGE_kmod-qca-nss-crypto:kmod-qca-nss-crypto
+MAKE_OPTS:=
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -38,7 +38,7 @@ define KernelPackage/qca-nss-drv-dtlsmgr
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
   TITLE:=Kernel driver for NSS (connection manager) - dtlsmgr
-  DEPENDS:=+kmod-qca-nss-drv +kmod-qca-nss-crypto @!LINUX_3_18
+  DEPENDS:=@PACKAGE_kmod-qca-nss-crypto +kmod-qca-nss-drv @!LINUX_3_18
   FILES:=$(PKG_BUILD_DIR)/dtls/qca-nss-dtlsmgr.ko
   AUTOLOAD:=$(call AutoLoad,60,qca-nss-dtlsmgr)
 endef
@@ -149,7 +149,7 @@ define KernelPackage/qca-nss-drv-capwapmgr
   SECTION:=kernel
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
-  DEPENDS:=+kmod-qca-nss-drv @!LINUX_3_18
+  DEPENDS:=+kmod-qca-nss-drv +kmod-qca-nss-drv-dtlsmgr @!LINUX_3_18
   TITLE:=NSS CAPWAP Manager for QCA NSS driver (IPQ806x)
   FILES:=$(PKG_BUILD_DIR)/capwapmgr/qca-nss-capwapmgr.ko
 endef
@@ -245,8 +245,69 @@ else
 subtarget:=ipq806x
 endif
 
+# Build individual packages if selected
+ifeq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-profile),y)
+MAKE_OPTS+=profile=y
+endif
+
+ifeq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-capwapmgr),y)
+MAKE_OPTS+=capwapmgr=y
+endif
+
+ifeq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-tun6rd),y)
+MAKE_OPTS+=tun6rd=m
+endif
+
+ifeq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-dtlsmgr),y)
+MAKE_OPTS+=dtlsmgr=y
+endif
+
+ifeq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-l2tpv2),y)
+MAKE_OPTS+=l2tpv2=y
+endif
+
+ifeq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-pptp),y)
+MAKE_OPTS+=pptp=y
+endif
+
+ifeq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-map-t),y)
+MAKE_OPTS+=map-t=y
+endif
+
+ifeq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-tunipip6),y)
+MAKE_OPTS+=tunipip6=m
+endif
+
+ifeq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-qdisc),y)
+MAKE_OPTS+=qdisc=y
+endif
+
+ifeq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-ipsecmgr),y)
+MAKE_OPTS+=ipsecmgr=y
+endif
+
+ifeq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-ppe-qdisc),y)
+MAKE_OPTS+=ppe_qdisc=y
+endif
+
+ifeq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-bridge-mgr),y)
+MAKE_OPTS+=bridge-mgr=y
+endif
+
+ifeq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-vlan-mgr),y)
+MAKE_OPTS+=vlan-mgr=y
+endif
+
+ifeq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-lag-mgr),y)
+MAKE_OPTS+=lag-mgr=y
+endif
+
+ifeq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-gre),y)
+MAKE_OPTS+=gre=y
+endif
+
 define Build/Compile
-	$(MAKE) -C "$(LINUX_DIR)" \
+	$(MAKE) -C "$(LINUX_DIR)" $(strip $(MAKE_OPTS)) \
 		CROSS_COMPILE="$(TARGET_CROSS)" \
 		ARCH="$(LINUX_KARCH)" \
 		SUBDIRS="$(PKG_BUILD_DIR)" \
