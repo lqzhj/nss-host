@@ -34,6 +34,10 @@ else
  CFI_OCF_DIR:=ocf/v1.0
 endif
 
+ifeq ($(subtarget), ipq807x)
+ CFI_OCF_DIR:=ocf/v2.0
+endif
+
 define KernelPackage/qca-nss-cfi
   SECTION:=kernel
   CATEGORY:=Kernel modules
