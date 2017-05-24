@@ -18,36 +18,44 @@ include $(INCLUDE_DIR)/package.mk
 
 PKG_BUILD_DEPENDS:=ocf-crypto-headers
 
-#
-# There was a drastic change in the Crypto API of Linux kenrel in May 2015.
-# In order to support the CFI drivers for kernel versions before May, 2015
-# i.e. 4.0 we have created a 'v1.0' directory with the driver files that will
-# work for kernels before 4.0.
-# For kernels 4.0 and newer, we have created a 'v2.0' directory that contains
-# the driver files which support the new changes in Crypto API.
-#
-ifeq ($(findstring 4.4, $(LINUX_VERSION)),)
- CFI_CRYPTOAPI_DIR:=cryptoapi/v1.0
- CFI_OCF_DIR:=ocf/v1.0
+ifeq ($(CONFIG_TARGET_ipq),y)
+subtarget:=$(SUBTARGET)
 else
- CFI_CRYPTOAPI_DIR:=cryptoapi/v2.0
- CFI_OCF_DIR:=ocf/v1.0
+subtarget:=ipq806x
 endif
 
-ifeq ($(subtarget), ipq807x)
- CFI_OCF_DIR:=ocf/v2.0
+ifeq ($(findstring 4.4, $(LINUX_VERSION)),)
+#3.14 Kernel + ipq806x
+  CFI_CRYPTOAPI_DIR:=cryptoapi/v1.0
+  CFI_OCF_DIR:=ocf/v1.0
+else
+#4.4 Kernel
+ifneq (, $(findstring ipq807x, $(subtarget)))
+#4.4 Kernel + ipq807x
+  CFI_OCF_DIR:=ocf/v2.0
+else
+#4.4 Kernel + ipq806x
+  CFI_CRYPTOAPI_DIR:=cryptoapi/v2.0
+  CFI_OCF_DIR:=ocf/v1.0
+endif
 endif
 
 define KernelPackage/qca-nss-cfi
   SECTION:=kernel
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
-  DEPENDS:=@!(TARGET_ipq_ipq807x||TARGET_ipq_ipq807x_64) +kmod-qca-nss-crypto +kmod-crypto-ocf @!LINUX_3_18
+  DEPENDS:=@TARGET_ipq806x||TARGET_ipq807x||TARGET_ipq_ipq807x||TARGET_ipq_ipq807x_64 +kmod-qca-nss-crypto +kmod-crypto-ocf @!LINUX_3_18
   TITLE:=Kernel driver for NSS cfi
+
+ifneq (, $(findstring ipq807x, $(subtarget)))
+  FILES:=$(PKG_BUILD_DIR)/$(CFI_OCF_DIR)/qca-nss-cfi-ocf.ko \
+	 $(PKG_BUILD_DIR)/ipsec/qca-nss-ipsec.ko
+else
   FILES:=$(PKG_BUILD_DIR)/$(CFI_OCF_DIR)/qca-nss-cfi-ocf.ko \
 	 $(PKG_BUILD_DIR)/ipsec/qca-nss-ipsec.ko \
 	 $(PKG_BUILD_DIR)/$(CFI_CRYPTOAPI_DIR)/qca-nss-cfi-cryptoapi.ko
   AUTOLOAD:=$(call AutoLoad,59,qca-nss-cfi-ocf qca-nss-cfi-cryptoapi qca-nss-ipsec)
+endif
 endef
 
 define KernelPackage/qca-nss-cfi/Description
@@ -69,6 +77,7 @@ define Build/Compile
 		CC="$(TARGET_CC)" \
 		CFI_CRYPTOAPI_DIR=$(CFI_CRYPTOAPI_DIR) \
 		CFI_OCF_DIR=$(CFI_OCF_DIR) \
+		SoC=$(subtarget) \
 		modules
 endef
 
