@@ -33,10 +33,10 @@ else
 ifneq (, $(findstring ipq807x, $(subtarget)))
 #4.4 Kernel + ipq807x
   CFI_OCF_DIR:=ocf/v2.0
-  CFI_CRYPTOAPI_DIR:=cryptoapi/v2.1
+  CFI_CRYPTOAPI_DIR:=cryptoapi/v2.0
 else
 #4.4 Kernel + ipq806x
-  CFI_CRYPTOAPI_DIR:=cryptoapi/v2.0
+  CFI_CRYPTOAPI_DIR:=cryptoapi/v1.1
   CFI_OCF_DIR:=ocf/v1.0
 endif
 endif
