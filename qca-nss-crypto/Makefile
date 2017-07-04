@@ -41,7 +41,8 @@ define KernelPackage/qca-nss-crypto
   $(call KernelPackage/qca-nss-crypto/Default)
   TITLE:=Kernel driver for NSS crypto driver
 ifneq (, $(findstring ipq807x, $(SUBTARGET)))
-  FILES:=$(PKG_BUILD_DIR)/$(NSS_CRYPTO_DIR)/src/qca-nss-crypto.ko
+  FILES:=$(PKG_BUILD_DIR)/$(NSS_CRYPTO_DIR)/src/qca-nss-crypto.ko \
+	$(PKG_BUILD_DIR)/$(NSS_CRYPTO_DIR)/tool/qca-nss-crypto-tool.ko
 else
   FILES:=$(PKG_BUILD_DIR)/$(NSS_CRYPTO_DIR)/src/qca-nss-crypto.ko \
 	$(PKG_BUILD_DIR)/$(NSS_CRYPTO_DIR)/tool/qca-nss-crypto-tool.ko
