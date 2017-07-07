@@ -47,17 +47,10 @@ define KernelPackage/qca-nss-cfi
   SUBMENU:=Network Devices
   DEPENDS:=@TARGET_ipq806x||TARGET_ipq807x||TARGET_ipq_ipq807x||TARGET_ipq_ipq807x_64 +kmod-qca-nss-crypto +kmod-crypto-ocf +kmod-crypto-authenc @!LINUX_3_18
   TITLE:=Kernel driver for NSS cfi
-
-ifneq (, $(findstring ipq807x, $(subtarget)))
-  FILES:=$(PKG_BUILD_DIR)/$(CFI_OCF_DIR)/qca-nss-cfi-ocf.ko \
-	 $(PKG_BUILD_DIR)/ipsec/qca-nss-ipsec.ko \
-	 $(PKG_BUILD_DIR)/$(CFI_CRYPTOAPI_DIR)/qca-nss-cfi-cryptoapi.ko
-else
   FILES:=$(PKG_BUILD_DIR)/$(CFI_OCF_DIR)/qca-nss-cfi-ocf.ko \
 	 $(PKG_BUILD_DIR)/ipsec/qca-nss-ipsec.ko \
 	 $(PKG_BUILD_DIR)/$(CFI_CRYPTOAPI_DIR)/qca-nss-cfi-cryptoapi.ko
   AUTOLOAD:=$(call AutoLoad,59,qca-nss-cfi-ocf qca-nss-cfi-cryptoapi qca-nss-ipsec)
-endif
 endef
 
 define KernelPackage/qca-nss-cfi/Description
