@@ -202,20 +202,6 @@ define KernelPackage/qca-nss-drv-qdisc/Description
 Linux qdisc that aids in configuring shapers in the NSS
 endef
 
-define KernelPackage/qca-nss-drv-ppe-qdisc
-  SECTION:=kernel
-  CATEGORY:=Kernel modules
-  SUBMENU:=Network Support
-  TITLE:=Qdisc for configuring shapers in PPE
-  DEPENDS:=@TARGET_ipq_ipq807x||TARGET_ipq_ipq807x_64 +kmod-qca-nss-drv-qdisc @!LINUX_3_18
-  FILES:=$(PKG_BUILD_DIR)/nss_ppe_qdisc/qca-nss-ppe-qdisc.ko
-  AUTOLOAD:=$(call AutoLoad,59,qca-nss-ppe-qdisc)
-endef
-
-define KernelPackage/qca-nss-drv-ppe-qdisc/Description
-Linux qdisc that aids in configuring shapers in the PPE
-endef
-
 define KernelPackage/qca-nss-drv-lag-mgr
   SECTION:=kernel
   CATEGORY:=Kernel modules
@@ -286,10 +272,6 @@ ifeq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-ipsecmgr),y)
 MAKE_OPTS+=ipsecmgr=y
 endif
 
-ifeq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-ppe-qdisc),y)
-MAKE_OPTS+=ppe_qdisc=y
-endif
-
 ifeq ($(CONFIG_PACKAGE_kmod-qca-nss-drv-bridge-mgr),y)
 MAKE_OPTS+=bridge-mgr=y
 endif
@@ -326,7 +308,6 @@ $(eval $(call KernelPackage,qca-nss-drv-map-t))
 $(eval $(call KernelPackage,qca-nss-drv-tunipip6))
 $(eval $(call KernelPackage,qca-nss-drv-qdisc))
 $(eval $(call KernelPackage,qca-nss-drv-ipsecmgr))
-$(eval $(call KernelPackage,qca-nss-drv-ppe-qdisc))
 $(eval $(call KernelPackage,qca-nss-drv-bridge-mgr))
 $(eval $(call KernelPackage,qca-nss-drv-vlan-mgr))
 $(eval $(call KernelPackage,qca-nss-drv-lag-mgr))
