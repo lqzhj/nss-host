@@ -16,7 +16,7 @@ define KernelPackage/qca-nss-ecm/Default
   SUBMENU:=Network Support
   DEPENDS:=+!TARGET_ipq_ipq40xx:kmod-qca-nss-drv \
 	+kmod-shortcut-fe-drv +iptables-mod-extra +kmod-ipt-conntrack \
-	+kmod-ipv6 +kmod-l2tp +kmod-pppol2tp +kmod-bonding +kmod-pptp \
+	+kmod-l2tp +kmod-pppol2tp +kmod-bonding +kmod-pptp \
 	+kmod-pppoe
   TITLE:=QCA NSS Enhanced Connection Manager (ECM)
   FILES:=$(PKG_BUILD_DIR)/*.ko $(FILES_EXAMPLES)
