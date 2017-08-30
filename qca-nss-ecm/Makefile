@@ -2,19 +2,8 @@ include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
 PKG_NAME:=qca-nss-ecm
-PKG_SOURCE_PROTO:=git
-PKG_BRANCH:=master
 PKG_RELEASE:=1
 
-include $(INCLUDE_DIR)/local-development.mk
-ifeq ($(DUMP)$(PKG_VERSION),)
-  PKG_VERSION:=$(shell git ls-remote $(PKG_SOURCE_URL) $(PKG_BRANCH) | cut -b -7)
-endif
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
-PKG_SOURCE_VERSION:=$(PKG_VERSION)
-
-LOCAL_VARIANT=$(patsubst qca-nss-ecm-%,%,$(patsubst qca-nss-ecm-%,%,$(BUILD_VARIANT)))
 include $(INCLUDE_DIR)/package.mk
 
 ifeq ($(CONFIG_QCA_NSS_ECM_EXAMPLES_PCC),y)
@@ -28,7 +17,7 @@ define KernelPackage/qca-nss-ecm/Default
   DEPENDS:=+!TARGET_ipq_ipq40xx:kmod-qca-nss-drv \
 	+kmod-shortcut-fe-drv +iptables-mod-extra +kmod-ipt-conntrack \
 	+kmod-ipv6 +kmod-l2tp +kmod-pppol2tp +kmod-bonding +kmod-pptp \
-	+kmod-pppoe @!LINUX_3_18
+	+kmod-pppoe
   TITLE:=QCA NSS Enhanced Connection Manager (ECM)
   FILES:=$(PKG_BUILD_DIR)/*.ko $(FILES_EXAMPLES)
   KCONFIG:=CONFIG_BRIDGE_NETFILTER=y
@@ -132,10 +121,6 @@ EXTRA_CFLAGS+= \
 	-I$(STAGING_DIR)/usr/include/nat46
 
 ECM_MAKE_OPTS:=
-ifeq ($(LOCAL_VARIANT),premium)
-ECM_MAKE_OPTS+=ECM_CLASSIFIER_HYFI_ENABLE=y \
-		ECM_MULTICAST_ENABLE=y
-endif
 
 ifneq ($(CONFIG_PACKAGE_kmod-nat46),)
 ECM_MAKE_OPTS+=ECM_INTERFACE_MAP_T_ENABLE=y

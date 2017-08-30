@@ -2,17 +2,7 @@ include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
 PKG_NAME:=qca-nss-macsec
-PKG_SOURCE_PROTO:=git
-PKG_BRANCH:=master
 PKG_RELEASE:=1
-
-include $(INCLUDE_DIR)/local-development.mk
-ifeq ($(DUMP)$(PKG_VERSION),)
-  PKG_VERSION:=$(shell git ls-remote $(PKG_SOURCE_URL) $(PKG_BRANCH) | cut -b -7)
-endif
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
-PKG_SOURCE_VERSION:=$(PKG_VERSION)
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -20,7 +10,7 @@ define KernelPackage/qca-nss-macsec
   SECTION:=kernel
   CATEGORY:=Kernel modules
   SUBMENU:=Network Devices
-  DEPENDS:=@TARGET_ipq806x||TARGET_ipq_ipq806x +libpthread +libc @!LINUX_3_18
+  DEPENDS:=@TARGET_ipq806x||TARGET_ipq_ipq806x +libpthread +libc
   TITLE:=Kernel driver for NSS macsec
   FILES:=$(PKG_BUILD_DIR)/qca-nss-macsec.ko
   AUTOLOAD:=$(call AutoLoad,52,qca-nss-macsec)
