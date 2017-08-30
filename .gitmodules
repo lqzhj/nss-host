@@ -1,0 +1,8 @@
+[submodule "qca-edma/src"]
+	path = qca-edma/src
+	url = https://source.codeaurora.org/quic/qsdk/oss/lklm/qca-edma
+	branch = nss
+[submodule "qca-nss-cfi/src"]
+	path = qca-nss-cfi/src
+	url = https://source.codeaurora.org/quic/qsdk/oss/lklm/nss-cfi
+	branch = nss
