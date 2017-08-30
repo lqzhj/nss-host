@@ -6,3 +6,35 @@
 	path = qca-nss-cfi/src
 	url = https://source.codeaurora.org/quic/qsdk/oss/lklm/nss-cfi
 	branch = nss
+[submodule "qca-nss-clients/src"]
+	path = qca-nss-clients/src
+	url = https://source.codeaurora.org/quic/qsdk/oss/lklm/nss-clients
+	branch = nss
+[submodule "qca-nss-crypto/src"]
+	path = qca-nss-crypto/src
+	url = https://source.codeaurora.org/quic/qsdk/oss/lklm/nss-crypto
+	branch = nss
+[submodule "qca-nss-dp/src"]
+	path = qca-nss-dp/src
+	url = https://source.codeaurora.org/quic/qsdk/oss/lklm/nss-dp
+	branch = nss
+[submodule "qca-nss-drv/src"]
+	path = qca-nss-drv/src
+	url = https://source.codeaurora.org/quic/qsdk/oss/lklm/nss-drv
+	branch = nss
+[submodule "qca-nss-ecm/src"]
+	path = qca-nss-ecm/src
+	url = https://source.codeaurora.org/quic/qsdk/oss/lklm/qca-nss-ecm
+	branch = nss
+[submodule "qca-nss-gmac/src"]
+	path = qca-nss-gmac/src
+	url = https://source.codeaurora.org/quic/qsdk/oss/lklm/nss-gmac
+	branch = nss
+[submodule "qca-nss-macsec/src"]
+	path = qca-nss-macsec/src
+	url = https://source.codeaurora.org/quic/qsdk/oss/lklm/nss-macsec
+	branch = nss
+[submodule "qca-nss-rfs/src"]
+	path = qca-nss-rfs/src
+	url = https://source.codeaurora.org/quic/qsdk/oss/lklm/qca-rfs
+	branch = nss
