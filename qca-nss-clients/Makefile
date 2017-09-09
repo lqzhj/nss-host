@@ -3,7 +3,6 @@ include $(INCLUDE_DIR)/kernel.mk
 
 PKG_NAME:=qca-nss-clients
 PKG_RELEASE:=2
-PKG_SOURCE_VERSION:=$(PKG_VERSION)
 
 PKG_BUILD_DEPENDS := \
         PACKAGE_kmod-qca-nss-crypto:kmod-qca-nss-crypto
